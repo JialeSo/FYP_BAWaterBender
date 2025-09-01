@@ -134,7 +134,7 @@
 
 /* 🌑 dark theme overrides */
 .dark {
-  --background: var(--dark-900);
+  --background: var(--dark-700);
   --foreground: var(--white-50);
   --card: var(--dark-800);
   --card-foreground: var(--white-50);
