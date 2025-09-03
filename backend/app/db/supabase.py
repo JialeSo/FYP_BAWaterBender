@@ -1,8 +1,26 @@
+# app/db/supabase.py
 from supabase import create_client, Client
-from app.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+import os
+from dotenv import load_dotenv
 
-def get_public_client() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+load_dotenv()
 
-def get_service_client() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+class SupabaseClient:
+    def __init__(self):
+        self.url = os.getenv("SUPABASE_URL")
+        self.key = os.getenv("SUPABASE_ANON_KEY")
+        
+        if not self.url or not self.key:
+            raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment variables")
+        
+        self.client: Client = create_client(self.url, self.key)
+    
+    def get_client(self) -> Client:
+        return self.client
+
+# Global instance
+supabase_client = SupabaseClient()
+
+def get_supabase() -> Client:
+    """Dependency to get Supabase client"""
+    return supabase_client.get_client()
