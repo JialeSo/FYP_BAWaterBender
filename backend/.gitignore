@@ -5,7 +5,7 @@
 .vscode
 
 # Telegram 
-session.session
+./session.session
 etl/pub/messages/*
 
 # Python 
