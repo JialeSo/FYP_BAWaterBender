@@ -7,3 +7,4 @@ pyjwt
 supabase
 telethon
 pandas 
+spacy

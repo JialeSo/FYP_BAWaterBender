@@ -1,5 +1,6 @@
 import os
 from typing import Dict, List, Optional, Union
+from .utils import parse_alert
 from telethon import TelegramClient, events
 import asyncio
 import logging
@@ -101,14 +102,36 @@ class WeatherAlertsETL:
     ) -> None:
         """Placeholder function to save message to a database"""
         logger.info(f"Saving message to database: {message}")
-        # Implement actual database saving logic here
+
+        # Convert date string back to datetime object before parsing
+        alert_datetime = message["date"]
+        if isinstance(alert_datetime, str):
+            # Parse ISO format string back to datetime
+            from datetime import datetime
+
+            alert_datetime = datetime.fromisoformat(
+                alert_datetime.replace("Z", "+00:00")
+            )
+
+        print(message)
+
+        # parse message
+        parsed_msg = parse_alert(message["text"], alert_datetime)
+
+        # Flatten parsed_msg into the initial message dict
+        message.update(parsed_msg)
+
+        # Rename date field to date_time for consistency
+        if "date" in message:
+            message["event_date_time"] = message.pop("date")
+
+        print(message.keys())
 
         if to_db:
             try:
                 self._save_message_to_db(message)
             except Exception as e:
                 logger.error(f"Error saving message to DB: {e}")
-
         # Create messages directory if it doesn't exist
         elif dir:
             dir = os.path.join(dir, "messages")
@@ -130,7 +153,7 @@ class WeatherAlertsETL:
 
             # Write all messages back to file
             with open(filename, "w", encoding="utf-8") as f:
-                json.dump(messages, f, indent=2, ensure_ascii=False)
+                json.dump(parsed_msg, f, indent=2, ensure_ascii=False)
             logger.info(f"Message appended to {filename}")
 
     def _save_message_to_db(self, messages: Union[Dict, List]) -> None:
@@ -144,6 +167,7 @@ class WeatherAlertsETL:
             # Convert id field to msg_id for database consistency
             if isinstance(messages, dict):
                 messages = dict(messages)  # Create a copy to avoid modifying original
+                msg_id = messages.get("id")  # Store the ID before popping it
                 if "id" in messages:
                     messages["msg_id"] = messages.pop("id")
             elif isinstance(messages, list):
@@ -154,9 +178,11 @@ class WeatherAlertsETL:
 
             db.insert(table=table, data=messages)
 
-            # Fix the variable reference issue
+            # Fix the variable reference issue - use msg_id instead of id
             if isinstance(messages, dict):
-                logger.info(f"Message {messages['id']} saved to database successfully")
+                logger.info(
+                    f"Message {messages.get('msg_id', 'unknown')} saved to database successfully"
+                )
             elif isinstance(messages, list):
                 logger.info(f"{len(messages)} messages saved to database successfully")
 
@@ -170,7 +196,7 @@ class WeatherAlertsETL:
 if __name__ == "__main__":
     # Run historical extraction
     scraper = WeatherAlertsETL()
-    asyncio.run(scraper.extract_existing_messages(save_to_db=True, limit=10))
+    asyncio.run(scraper.extract_existing_messages(save_to_db=True, limit=1))
 
     # Run live monitoring
     # asyncio.run(monitor_new_messages())
