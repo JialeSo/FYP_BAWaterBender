@@ -3,3 +3,13 @@
 .env
 **/.env
 .vscode
+
+# Telegram 
+session.session
+backend/messages
+
+# Python 
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
