@@ -1,11 +1,14 @@
 import os
-from typing import List, Dict
+from typing import Dict, Optional
 from telethon import TelegramClient, events
 import asyncio
 import logging
 from dotenv import load_dotenv
 
 from .constants import PUB_CHANNEL_USERNAME
+import json
+import sqlite3
+from common.db import DatabaseConnection
 
 load_dotenv()
 
@@ -39,7 +42,7 @@ class WeatherAlertsETL:
             )
         logger.info("WeatherAlertsETL initialized")
 
-    async def extract_existing_messages(self, limit: int = 100) -> List[Dict]:
+    async def extract_existing_messages(self, limit: int = 100) -> None:
         """Extract existing messages from a channel"""
         messages = []
         await self.client.start(phone=self.phone)
@@ -49,14 +52,14 @@ class WeatherAlertsETL:
                 self.channel_username, limit=limit
             ):
                 if message.text:
-                    messages.append(
-                        {
-                            "id": message.id,
-                            "text": message.text,
-                            "date": message.date.isoformat(),
-                            "sender_id": message.sender_id,
-                        }
-                    )
+                    message_data = {
+                        "id": message.id,
+                        "text": message.text,
+                        "date": message.date.isoformat(),
+                        "sender_id": message.sender_id,
+                    }
+                    self._save_message(message_data, "./etl/pub")
+                    messages.append(message_data)
             logger.info(
                 f"Extracted {len(messages)} messages from {self.channel_username}"
             )
@@ -66,8 +69,6 @@ class WeatherAlertsETL:
             )
         except Exception as e:
             logger.error(f"Error extracting messages: {e}")
-
-        return messages
 
     async def start_live_monitoring(self, callback_func=None):
         """Monitor channel for new messages"""
@@ -90,11 +91,117 @@ class WeatherAlertsETL:
         logger.info(f"Started monitoring {self.channel_username}")
         await self.client.run_until_disconnected()
 
+    def _save_message(
+        self, message: Dict, dir: Optional[str] = "./", to_db: bool = False
+    ) -> None:
+        """Placeholder function to save message to a database"""
+        logger.info(f"Saving message to database: {message}")
+        # Implement actual database saving logic here
+        if to_db:
+            pass
+        # Create messages directory if it doesn't exist
+        elif dir:
+            dir = os.path.join(dir, "messages")
+            os.makedirs(dir, exist_ok=True)
+
+            # Save message to a single JSON file
+            filename = f"{dir}/all_messages.json"
+
+            # Read existing messages if file exists
+            messages = []
+            if os.path.exists(filename):
+                try:
+                    with open(filename, "r", encoding="utf-8") as f:
+                        messages = json.load(f)
+                except json.JSONDecodeError:
+                    messages = []
+
+            messages.append(message)
+
+            # Write all messages back to file
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(messages, f, indent=2, ensure_ascii=False)
+            logger.info(f"Message appended to {filename}")
+
+    def _save_message_to_db(self, message: Dict) -> None:
+        """Placeholder function to save message to a database"""
+        logger.info(f"Saving message to database: {message}")
+        # Implement actual database saving logic here
+        try:
+
+            conn_str = os.getenv("POSTGRES_CONN_STR", None)
+            if not conn_str:
+                raise ValueError("Missing POSTGRES_CONN_STR environment variable")
+            # Use DatabaseConnection class instead of direct SQLite connection
+            db = DatabaseConnection(conn_str)
+
+            # Create table if it doesn't exist
+            db.cursor.execute(
+                """
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY,
+                text TEXT,
+                date TEXT,
+                sender_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            )
+
+            # Insert message into database
+            db.cursor.execute(
+                """
+            INSERT OR REPLACE INTO messages (id, text, date, sender_id)
+            VALUES (?, ?, ?, ?)
+            """,
+                (message["id"], message["text"], message["date"], message["sender_id"]),
+            )
+
+            db.commit()
+            db.close()
+
+            logger.info(f"Message {message['id']} saved to database successfully")
+            # Create/connect to SQLite database
+            conn = sqlite3.connect("weather_alerts.db")
+            cursor = conn.cursor()
+
+            # Create table if it doesn't exist
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS messages (
+                    id INTEGER PRIMARY KEY,
+                    text TEXT,
+                    date TEXT,
+                    sender_id INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
+            # Insert message into database
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO messages (id, text, date, sender_id)
+                VALUES (?, ?, ?, ?)
+            """,
+                (message["id"], message["text"], message["date"], message["sender_id"]),
+            )
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"Message {message['id']} saved to database successfully")
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error: {e}")
+        except Exception as e:
+            logger.error(f"Error saving message to database: {e}")
+
 
 if __name__ == "__main__":
     # Run historical extraction
     scraper = WeatherAlertsETL()
-    asyncio.run(scraper.extract_existing_messages())
+    asyncio.run(scraper.extract_existing_messages(1000))
 
     # Run live monitoring
     # asyncio.run(monitor_new_messages())

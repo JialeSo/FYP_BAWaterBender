@@ -6,7 +6,7 @@
 
 # Telegram 
 session.session
-backend/messages
+etl/pub/messages/*
 
 # Python 
 __pycache__/
