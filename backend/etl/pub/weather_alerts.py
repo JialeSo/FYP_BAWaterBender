@@ -141,6 +141,17 @@ class WeatherAlertsETL:
             db = DatabaseConnection()
 
             table = "PUB_weather_alerts"
+            # Convert id field to msg_id for database consistency
+            if isinstance(messages, dict):
+                messages = dict(messages)  # Create a copy to avoid modifying original
+                if "id" in messages:
+                    messages["msg_id"] = messages.pop("id")
+            elif isinstance(messages, list):
+                messages = [dict(msg) for msg in messages]  # Create copies
+                for msg in messages:
+                    if "id" in msg:
+                        msg["msg_id"] = msg.pop("id")
+
             db.insert(table=table, data=messages)
 
             # Fix the variable reference issue

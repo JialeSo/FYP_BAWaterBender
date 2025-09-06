@@ -7,4 +7,3 @@ pyjwt
 supabase
 telethon
 pandas 
-psycopg2
