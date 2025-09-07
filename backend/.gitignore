@@ -13,3 +13,6 @@ etl/pub/messages/*
 *.pyc
 *.pyo
 *.pyd
+
+# MacOS 
+*/.DS_Store

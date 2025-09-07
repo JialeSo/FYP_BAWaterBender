@@ -11,7 +11,6 @@ class DatabaseConnection:
         self._local = threading.local()
 
         print(f"Connecting to Supabase at {self.url}")
-        print(f"Using Supabase key: {self.key}")
 
         if not self.url:
             raise ValueError("SUPABASE_URL environment variable is not set")
@@ -30,6 +29,7 @@ class DatabaseConnection:
     def insert(self, table: str, data: Union[Dict, List]) -> None:
         try:
             client = self._get_connection()
+            print("inserting:", data)
             response = client.table(table).insert(data).execute()
             return response
         except Exception as e:
@@ -40,3 +40,7 @@ class DatabaseConnection:
         if hasattr(self._local, "client"):
             # Supabase clients don't need explicit closing
             del self._local.client
+
+
+# Singleton instance of DatabaseConnection
+db = DatabaseConnection()

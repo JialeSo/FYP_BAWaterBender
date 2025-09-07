@@ -1,14 +1,18 @@
 import os
+import requests
 from typing import Dict, List, Optional, Union
+
+from common.db import DatabaseConnection
 from .utils import parse_alert
 from telethon import TelegramClient, events
 import asyncio
 import logging
 from dotenv import load_dotenv
+import httpx
 
-from .constants import PUB_CHANNEL_USERNAME
+from .constants import PUB_CHANNEL_USERNAME, SERVER_URL
 import json
-from common.db import DatabaseConnection
+
 
 load_dotenv()
 
@@ -17,14 +21,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class WeatherAlertsETL:
+class WeatherAlerts:
     def __init__(self):
+        """Initialize Telegram client and load environment variables"""
         api_id = os.getenv("TELE_API_ID", None)
         api_hash = os.getenv("TELE_API_HASH", None)
 
-        self.client = TelegramClient("session", api_id, api_hash)
-        self.phone = os.getenv("TELE_PHONE_NO", None)
         self.channel_username = PUB_CHANNEL_USERNAME
+        self.phone = os.getenv("TELE_PHONE_NO", None)
+        self.client = TelegramClient("session", api_id, api_hash)
 
         missing_vars = []
         if not api_id:
@@ -35,6 +40,8 @@ class WeatherAlertsETL:
             missing_vars.append("TELE_PHONE_NO")
         if not self.channel_username:
             missing_vars.append("PUB_CHANNEL_USERNAME")
+
+        logger.info(f"Using channel: {self.channel_username}")
 
         if missing_vars:
             raise ValueError(
@@ -63,7 +70,6 @@ class WeatherAlertsETL:
                     self._save_message(
                         message=message_data,
                         dir="./etl/pub",
-                        to_db=save_to_db,
                     )
                     messages.append(message_data)
             logger.info(
@@ -76,29 +82,36 @@ class WeatherAlertsETL:
         except Exception as e:
             logger.error(f"Error extracting messages: {e}")
 
-    async def start_live_monitoring(self, callback_func=None):
+    async def start_live_monitoring(self):
         """Monitor channel for new messages"""
+
+        url = SERVER_URL or "http://localhost:8000"
+        WEBHOOK_URL = f"{url}/weather-alerts/webhook"
         await self.client.start(phone=self.phone)
 
         @self.client.on(events.NewMessage(chats=self.channel_username))
         async def handler(event):
-            message_data = {
-                "id": event.message.id,
-                "text": event.message.text,
-                "date": event.message.date.isoformat(),
-                "sender_id": event.message.sender_id,
+            data = {
+                "id": event.chat_id,
+                "sender_id": event.sender_id,
+                "text": event.message.message,
+                "date": str(event.message.date),
             }
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    await client.post(WEBHOOK_URL, json=data)
+                logger.debug(f"✅ Forwarded message: {data['text']}")
+            except Exception as e:
+                logger.error("❌ Failed to send webhook:", e)
 
-            if callback_func:
-                await callback_func(message_data)
-            else:
-                logger.info(f"New message: {message_data}")
-
-        logger.info(f"Started monitoring {self.channel_username}")
+        # Keep the client running
         await self.client.run_until_disconnected()
 
     def _save_message(
-        self, message: Dict, dir: Optional[str] = "./", to_db: bool = False
+        self,
+        message: Dict,
+        dir: Optional[str] = "./",
+        db: Optional[DatabaseConnection] = None,
     ) -> None:
         """Placeholder function to save message to a database"""
         logger.info(f"Saving message to database: {message}")
@@ -113,8 +126,6 @@ class WeatherAlertsETL:
                 alert_datetime.replace("Z", "+00:00")
             )
 
-        print(message)
-
         # parse message
         parsed_msg = parse_alert(message["text"], alert_datetime)
 
@@ -125,11 +136,9 @@ class WeatherAlertsETL:
         if "date" in message:
             message["event_date_time"] = message.pop("date")
 
-        print(message.keys())
-
-        if to_db:
+        if db:
             try:
-                self._save_message_to_db(message)
+                self._save_message_to_db(db=db, messages=message)
             except Exception as e:
                 logger.error(f"Error saving message to DB: {e}")
         # Create messages directory if it doesn't exist
@@ -156,18 +165,17 @@ class WeatherAlertsETL:
                 json.dump(parsed_msg, f, indent=2, ensure_ascii=False)
             logger.info(f"Message appended to {filename}")
 
-    def _save_message_to_db(self, messages: Union[Dict, List]) -> None:
+    def _save_message_to_db(
+        self, messages: Union[Dict, List], db: DatabaseConnection
+    ) -> None:
         """Save message to PostgreSQL database"""
         logger.info(f"Saving message to database: {messages}")
-        db = None
         try:
-            db = DatabaseConnection()
 
             table = "PUB_weather_alerts"
             # Convert id field to msg_id for database consistency
             if isinstance(messages, dict):
                 messages = dict(messages)  # Create a copy to avoid modifying original
-                msg_id = messages.get("id")  # Store the ID before popping it
                 if "id" in messages:
                     messages["msg_id"] = messages.pop("id")
             elif isinstance(messages, list):
@@ -176,6 +184,8 @@ class WeatherAlertsETL:
                     if "id" in msg:
                         msg["msg_id"] = msg.pop("id")
 
+            logger.debug(f"Saving to table {table}: {messages}")
+            logger.debug("dog;", messages)
             db.insert(table=table, data=messages)
 
             # Fix the variable reference issue - use msg_id instead of id
@@ -186,6 +196,7 @@ class WeatherAlertsETL:
             elif isinstance(messages, list):
                 logger.info(f"{len(messages)} messages saved to database successfully")
 
+            logger.info("✅ Message saved to database")
         except Exception as e:
             logger.error(f"Error saving message to database: {e}")
         finally:
@@ -193,9 +204,11 @@ class WeatherAlertsETL:
                 db.close()
 
 
+weather_alerts = WeatherAlerts()
+
 if __name__ == "__main__":
     # Run historical extraction
-    scraper = WeatherAlertsETL()
+    scraper = WeatherAlerts()
     asyncio.run(scraper.extract_existing_messages(save_to_db=True, limit=1))
 
     # Run live monitoring
