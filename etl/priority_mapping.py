@@ -76,3 +76,8 @@ print(df.head())
 ## calculate importance score and add label
 df = amenity_importance(df)
 print(df.head())
+
+# Option 1: Export to NEW file (recommended, preserves original CSV)
+output_path = "arcgis/amenities_with_importance_score.csv"
+df.to_csv(output_path, index=False)
+print(f"✅ Exported dataset with importance scores to {output_path}")
