@@ -5,64 +5,97 @@ from pathlib import Path
 
 # --- File paths ---
 BASE = Path(__file__).resolve().parent
-FLOOD_PRECIP_CSV     = BASE / "postal_codes_flood_precipitation_rows.csv"
-PLANNING_GEOJSON     = BASE / "planning_area.geojson"   # use cleaned files
-SUBZONE_GEOJSON      = BASE / "subzone_area.geojson"
-ROAD_NETWORK_GEOJSON = BASE / "road_network.geojson"
-OUTPUT_CSV           = BASE / "postal_codes_flood_precipitation_rows_v2.csv"
+FLOOD_PRECIP_CSV     = BASE / "geojson/PUB_and_huiying_flood.csv"
+PLANNING_GEOJSON     = BASE / "geojson/planning_area.geojson"
+SUBZONE_GEOJSON      = BASE / "geojson/subzone_area.geojson"
+ROAD_NETWORK_GEOJSON = BASE / "geojson/road_network.geojson"
+OUTPUT_CSV           = BASE / "geojson/floods.csv"
 
 
 class SGReverseGeolocator:
     def __init__(self, flood_csv, planning_geojson, subzone_geojson, road_network_geojson):
-        # Load flood dataset
-        df = pd.read_csv(flood_csv)
-        df["Postal_Code"] = df["Postal_Code"].astype(str).str.zfill(6)
+        # Read CSV with postal codes as strings to preserve leading zeros
+        df = pd.read_csv(flood_csv, dtype={
+            "Postal_Code": str,
+            "start_postal_code": str,
+            "end_postal_code": str
+        })
 
-        # Build GeoDataFrame from lat/lon
-        self.flood_gdf = gpd.GeoDataFrame(
-            df,
-            geometry=gpd.points_from_xy(df["longitude"], df["latitude"]),
-            crs="EPSG:4326"
-        )
+        # Clean postal codes
+        for col in ["Postal_Code", "start_postal_code", "end_postal_code"]:
+            if col in df.columns:
+                df[col] = df[col].apply(self.clean_postal)
+
+        # Create GeoDataFrame from main lat/lon if present
+        if "latitude" in df.columns and "longitude" in df.columns:
+            self.flood_gdf = gpd.GeoDataFrame(
+                df,
+                geometry=gpd.points_from_xy(df["longitude"], df["latitude"]),
+                crs="EPSG:4326"
+            )
+        else:
+            self.flood_gdf = gpd.GeoDataFrame(df)
+
         # Load spatial boundaries
         self.planning_gdf = gpd.read_file(planning_geojson).to_crs("EPSG:4326")
         self.subzone_gdf  = gpd.read_file(subzone_geojson).to_crs("EPSG:4326")
         self.roads_gdf    = gpd.read_file(road_network_geojson).to_crs("EPSG:4326")
 
-    def reverse_lookup(self, postal_code=None, lat=None, lon=None):
-        pt = None
-        row = None
+    @staticmethod
+    def clean_postal(x):
+        """
+        Clean postal code:
+        - Always treat as string
+        - Remove whitespace
+        - Keep only digits
+        - Pad to 6 digits
+        - Return empty string for NaN/invalid
+        """
+        if pd.notna(x):
+            x_str = str(x).strip()
+            # Remove any decimal if came from float
+            if "." in x_str:
+                x_str = x_str.split(".")[0]
+            digits = "".join(c for c in x_str if c.isdigit())
+            return digits.zfill(6) if digits else ""
+        return ""
 
-        if lat is not None and lon is not None:
+    def reverse_lookup(self, postal_code=None, lat=None, lon=None):
+        """Perform reverse lookup and return planning area, subzone, street name."""
+        pt = None
+
+        # Prefer lat/lon
+        if lat is not None and lon is not None and pd.notna(lat) and pd.notna(lon):
             pt = Point(float(lon), float(lat))
-        elif postal_code:
-            row = self.flood_gdf[self.flood_gdf["Postal_Code"] == str(postal_code).zfill(6)]
-            if row.empty:
-                return {"planning_area": None, "subzone": None, "street_name": None}
-            pt = row.iloc[0].geometry
-        else:
-            return {"planning_area": None, "subzone": None, "street_name": None}
+        # Fallback to postal code
+        elif postal_code and postal_code.strip() != "" and "Postal_Code" in self.flood_gdf.columns:
+            row = self.flood_gdf[self.flood_gdf["Postal_Code"] == postal_code]
+            if not row.empty:
+                pt = row.iloc[0].geometry
+
+        # Skip if no valid location
+        if pt is None or not pt.is_valid:
+            return {"planning_area": "", "subzone": "", "street_name": ""}
 
         # Planning area
-        planning_area = None
-        pa_match = self.planning_gdf[self.planning_gdf.contains(pt)]
-        if not pa_match.empty:
-            planning_area = pa_match.iloc[0].get("PLN_AREA_N")
+        planning_area = ""
+        match = self.planning_gdf[self.planning_gdf.contains(pt)]
+        if not match.empty:
+            planning_area = match.iloc[0].get("PLN_AREA_N", "")
 
         # Subzone
-        subzone = None
-        sz_match = self.subzone_gdf[self.subzone_gdf.contains(pt)]
-        if not sz_match.empty:
-            subzone = sz_match.iloc[0].get("SUBZONE_N")
+        subzone = ""
+        match = self.subzone_gdf[self.subzone_gdf.contains(pt)]
+        if not match.empty:
+            subzone = match.iloc[0].get("SUBZONE_N", "")
 
-        # Nearest road (EPSG:3414 for distance)
-        street_name = None
+        # Nearest road (EPSG:3414)
+        street_name = ""
         try:
             roads_proj = self.roads_gdf.to_crs("EPSG:3414")
             pt_proj = gpd.GeoSeries([pt], crs="EPSG:4326").to_crs("EPSG:3414").iloc[0]
-
             nearest_idx = roads_proj.distance(pt_proj).idxmin()
-            street_name = roads_proj.loc[nearest_idx].get("RD_NAME")
+            street_name = roads_proj.loc[nearest_idx].get("RD_NAME", "")
         except Exception as e:
             print(f"Road lookup failed: {e}")
 
@@ -73,7 +106,20 @@ class SGReverseGeolocator:
         }
 
 
-# --------- Run for all rows ---------
+def process_location(row, prefix, postal_col, lat_col, lng_col, geo: SGReverseGeolocator):
+    """Process a location (start or end) and return prefixed columns."""
+    if all(col not in row or pd.isna(row[col]) or row[col] == "" for col in [postal_col, lat_col, lng_col]):
+        return {f"{prefix}planning_area": "", f"{prefix}subzone": "", f"{prefix}street_name": ""}
+    
+    res = geo.reverse_lookup(
+        postal_code=row.get(postal_col),
+        lat=row.get(lat_col),
+        lon=row.get(lng_col)
+    )
+    return {f"{prefix}{k}": v for k, v in res.items()}
+
+
+# --------- Main ---------
 if __name__ == "__main__":
     geo = SGReverseGeolocator(
         FLOOD_PRECIP_CSV,
@@ -82,21 +128,20 @@ if __name__ == "__main__":
         ROAD_NETWORK_GEOJSON
     )
 
-    flood_df = pd.read_csv(FLOOD_PRECIP_CSV)
-    flood_df["Postal_Code"] = flood_df["Postal_Code"].astype(str).str.zfill(6)
-
-    print(f"Running reverse lookup for {len(flood_df)} rows...")
+    # Read CSV with postal codes as strings
+    flood_df = pd.read_csv(FLOOD_PRECIP_CSV, dtype={
+        "Postal_Code": str,
+        "start_postal_code": str,
+        "end_postal_code": str
+    })
 
     results = []
     for _, row in flood_df.iterrows():
-        p = row["Postal_Code"]
-        lat, lon = row["latitude"], row["longitude"]
-        res = geo.reverse_lookup(postal_code=p, lat=lat, lon=lon)
-        results.append(res)
+        row_result = {}
+        row_result.update(process_location(row, "start_", "start_postal_code", "start_lat", "start_lng", geo))
+        row_result.update(process_location(row, "end_", "end_postal_code", "end_lat", "end_lng", geo))
+        results.append(row_result)
 
-    results_df = pd.DataFrame(results)
-    enriched_df = pd.concat([flood_df, results_df], axis=1)
-
+    enriched_df = pd.concat([flood_df, pd.DataFrame(results)], axis=1)
     enriched_df.to_csv(OUTPUT_CSV, index=False)
-    print(f"✓ Enriched dataset saved → {OUTPUT_CSV}")
-    print("Columns added: planning_area, subzone, street_name")
+    print(f"Enriched dataset saved -> {OUTPUT_CSV}")
