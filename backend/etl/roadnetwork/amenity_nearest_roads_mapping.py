@@ -20,12 +20,13 @@ from pathlib import Path
 from shapely.geometry import shape, Point
 
 # --- File paths ---
-BASE = Path(__file__).resolve().parent
-AMENITIES_CSV        = BASE / "geojson/amenities_with_importance_score.csv"
-ROAD_NETWORK_GEOJSON = BASE / "geojson/road_network.geojson"
-ROAD_NETWORK_DATA    = BASE / "geojson/road_network_data.csv"
-OUTPUT_CSV           = BASE / "geojson/amenities_with_nearest_roads.csv"
+BASE = Path(__file__).resolve().parent  # Points to current script directory
+DATA_DIR = BASE / "../data"          # Adjusted to point to the correct data directory
 
+AMENITIES_CSV        = DATA_DIR / "amenities_with_importance_score.csv"
+ROAD_NETWORK_GEOJSON = DATA_DIR / "road_network.geojson"
+ROAD_NETWORK_DATA    = DATA_DIR / "road_network_data.csv"
+OUTPUT_CSV           = DATA_DIR / "amenities_with_nearest_roads.csv"
 # --- Normalization helper ---
 def normalize_road_name(name: str) -> str:
     if pd.isna(name):
@@ -50,42 +51,26 @@ def normalize_road_name(name: str) -> str:
 
 
 # --- Load road centroids ---
-def load_roads_with_centroids(geojson_path, road_data_csv):
+def load_roads_with_centroids(geojson_path):
     with open(geojson_path, "r") as f:
         geo_data = json.load(f)
 
-    # Compute centroids for each road feature
-    road_geoms = {}
+    road_info = []
     for feature in geo_data["features"]:
-        rd_name = normalize_road_name(feature["properties"]["RD_NAME"])
+        # Use the feature id or fallback to properties
+        road_id = feature.get("id") or feature["properties"].get("OBJECTID")
+        road_name = normalize_road_name(feature["properties"]["RD_NAME"])
         geom = shape(feature["geometry"])
         centroid = geom.centroid
-        if rd_name not in road_geoms:
-            road_geoms[rd_name] = []
-        road_geoms[rd_name].append(centroid)
 
-    # Use average centroid if multiple segments exist
-    road_centroids = {}
-    for rd_name, geoms in road_geoms.items():
-        xs = [g.x for g in geoms]
-        ys = [g.y for g in geoms]
-        road_centroids[rd_name] = Point(sum(xs) / len(xs), sum(ys) / len(ys))
-
-    # Attach RoadID from road_network_data.csv
-    road_data = pd.read_csv(road_data_csv)
-    road_data["RoadNameNorm"] = road_data["RoadName"].apply(normalize_road_name)
-
-    road_info = []
-    for _, row in road_data.iterrows():
-        name = row["RoadNameNorm"]
-        if name in road_centroids:
-            road_info.append({
-                "RoadID": row["RoadID"],
-                "RoadName": name,
-                "centroid": road_centroids[name]
-            })
+        road_info.append({
+            "RoadID": road_id,
+            "RoadName": road_name,
+            "centroid": centroid
+        })
 
     return pd.DataFrame(road_info)
+
 
 
 # --- Main function ---
