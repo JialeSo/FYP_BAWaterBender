@@ -20,13 +20,11 @@ from pathlib import Path
 from shapely.geometry import shape, Point
 
 # --- File paths ---
-BASE = Path(__file__).resolve().parent  # Points to current script directory
-DATA_DIR = BASE / "../data"          # Adjusted to point to the correct data directory
+BASE = Path(__file__).resolve().parent
+AMENITIES_GEOJSON    = BASE / "../data/amenities_with_importance_score.geojson"
+ROAD_NETWORK_GEOJSON = BASE / "../data/road_network.geojson"
+OUTPUT_CSV           = BASE / "../data/amenities_with_nearest_roads.csv"
 
-AMENITIES_CSV        = DATA_DIR / "amenities_with_importance_score.csv"
-ROAD_NETWORK_GEOJSON = DATA_DIR / "road_network.geojson"
-ROAD_NETWORK_DATA    = DATA_DIR / "road_network_data.csv"
-OUTPUT_CSV           = DATA_DIR / "amenities_with_nearest_roads.csv"
 # --- Normalization helper ---
 def normalize_road_name(name: str) -> str:
     if pd.isna(name):
@@ -49,38 +47,62 @@ def normalize_road_name(name: str) -> str:
         name = re.sub(pattern, repl, name)
     return name
 
-
-# --- Load road centroids ---
+# --- Load roads with centroids ---
 def load_roads_with_centroids(geojson_path):
     with open(geojson_path, "r") as f:
         geo_data = json.load(f)
 
-    road_info = []
+    road_geoms = {}
+    road_ids = {}
     for feature in geo_data["features"]:
-        # Use the feature id or fallback to properties
-        road_id = feature.get("id") or feature["properties"].get("OBJECTID")
-        road_name = normalize_road_name(feature["properties"]["RD_NAME"])
+        rd_name = normalize_road_name(feature["properties"]["RD_NAME"])
         geom = shape(feature["geometry"])
         centroid = geom.centroid
+        road_id = feature["properties"].get("id")  # e.g. RN_00001
 
+        if rd_name not in road_geoms:
+            road_geoms[rd_name] = []
+            road_ids[rd_name] = road_id
+        road_geoms[rd_name].append(centroid)
+
+    # Average centroid if multiple segments exist
+    road_info = []
+    for rd_name, geoms in road_geoms.items():
+        xs = [g.x for g in geoms]
+        ys = [g.y for g in geoms]
+        centroid = Point(sum(xs) / len(xs), sum(ys) / len(ys))
         road_info.append({
-            "RoadID": road_id,
-            "RoadName": road_name,
+            "RoadID": road_ids[rd_name],
+            "RoadName": rd_name,
             "centroid": centroid
         })
 
     return pd.DataFrame(road_info)
 
+# --- Load amenities from GeoJSON ---
+def load_amenities(geojson_path):
+    with open(geojson_path, "r") as f:
+        data = json.load(f)
 
+    amenities_list = []
+    for feature in data["features"]:
+        props = feature["properties"]
+        lon, lat = props.get("lon"), props.get("lat")
+        amenities_list.append({
+            "amenity_id": props.get("amenity_id"),
+            "road_name": props.get("road_name"),
+            "lon": float(lon),
+            "lat": float(lat)
+        })
 
-# --- Main function ---
-def map_amenities_to_roads(amenities_csv, roads_geojson, road_data_csv):
-    amenities = pd.read_csv(amenities_csv, dtype=str)
-    amenities["lon"] = amenities["lon"].astype(float)
-    amenities["lat"] = amenities["lat"].astype(float)
-    amenities["road_name_norm"] = amenities["road_name"].apply(normalize_road_name)
+    df = pd.DataFrame(amenities_list)
+    df["road_name_norm"] = df["road_name"].apply(normalize_road_name)
+    return df
 
-    roads = load_roads_with_centroids(roads_geojson, road_data_csv)
+# --- Map amenities to nearest roads ---
+def map_amenities_to_roads(amenities_geojson, roads_geojson):
+    amenities = load_amenities(amenities_geojson)
+    roads = load_roads_with_centroids(roads_geojson)
 
     results = []
 
@@ -88,22 +110,21 @@ def map_amenities_to_roads(amenities_csv, roads_geojson, road_data_csv):
         point = Point(amenity["lon"], amenity["lat"])
         road_name_norm = amenity["road_name_norm"]
 
-        # --- Nearest first road by road_name match
+        # First road by exact name match
         first_road_id, first_road_name = None, None
         match = roads[roads["RoadName"] == road_name_norm]
         if not match.empty:
-            first_road_id = int(match.iloc[0]["RoadID"])
+            first_road_id = match.iloc[0]["RoadID"]
             first_road_name = match.iloc[0]["RoadName"]
 
-        # --- Compute distances to all roads
+        # Compute distances to all roads
         roads["dist"] = roads["centroid"].apply(lambda c: point.distance(c))
         nearest_roads = roads.sort_values("dist").head(4)
 
-        # Assign nearest IDs and Names
-        nearest_ids = list(nearest_roads["RoadID"].astype(int))
+        nearest_ids = list(nearest_roads["RoadID"])
         nearest_names = list(nearest_roads["RoadName"])
-        
-        # Ensure the matched road_name is first
+
+        # Ensure matched road is first
         if first_road_id and first_road_id in nearest_ids:
             idx = nearest_ids.index(first_road_id)
             nearest_ids.pop(idx)
@@ -129,10 +150,9 @@ def map_amenities_to_roads(amenities_csv, roads_geojson, road_data_csv):
 
     return pd.DataFrame(results)
 
-
-# --- Example usage ---
+# --- Main ---
 if __name__ == "__main__":
-    df = map_amenities_to_roads(AMENITIES_CSV, ROAD_NETWORK_GEOJSON, ROAD_NETWORK_DATA)
+    df = map_amenities_to_roads(AMENITIES_GEOJSON, ROAD_NETWORK_GEOJSON)
     print(df.head())
     df.to_csv(OUTPUT_CSV, index=False)
     print(f"Amenities with nearest roads saved to {OUTPUT_CSV}")

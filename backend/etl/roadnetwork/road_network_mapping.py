@@ -18,10 +18,10 @@ from pathlib import Path
 
 # --- File paths ---
 BASE = Path(__file__).resolve().parent
-AMENITIES_CSV        = BASE / "geojson/amenities_with_importance_score.csv"
-FLOODS_CSV           = BASE / "geojson/floods.csv"
-ROAD_NETWORK_GEOJSON = BASE / "geojson/road_network.geojson"
-OUTPUT_CSV           = BASE / "geojson/road_network_data.csv"
+AMENITIES_GEOJSON    = BASE / "../data/amenities_with_importance_score.geojson"
+FLOODS_CSV           = BASE / "../data/floods.csv"
+ROAD_NETWORK_GEOJSON = BASE / "../data/road_network.geojson"
+OUTPUT_CSV           = BASE / "../data/road_network_data.csv"
 
 # --- Normalization helper ---
 def normalize_road_name(name: str) -> str:
@@ -30,7 +30,6 @@ def normalize_road_name(name: str) -> str:
     name = name.upper().strip()
     replacements = {
         r"\bRD\b": "ROAD",
-        r"\bRD.\b": "ROAD",
         r"\bAVE\b": "AVENUE",
         r"\bST\b": "STREET",
         r"\bDR\b": "DRIVE",
@@ -46,7 +45,6 @@ def normalize_road_name(name: str) -> str:
         name = re.sub(pattern, repl, name)
     return name
 
-
 # --- Amenity types ---
 AMENITY_TYPES = [
     "bus_depots", "bus_interchanges_terminals", "bus_stops", "childcare_clean",
@@ -59,61 +57,70 @@ AMENITY_TYPES = [
     "synagogues", "tourist_attractions"
 ]
 
+# --- Load GeoJSON into DataFrame ---
+def load_geojson_as_df(path):
+    with open(path, "r") as f:
+        data = json.load(f)
+    records = [feat["properties"] for feat in data["features"]]
+    return pd.DataFrame(records)
 
 # --- Main function ---
-def summarize_roads(geojson_path, amenities_csv, flood_csv):
-    # Load geojson
+def summarize_roads(geojson_path, amenities_geojson, flood_csv):
+    # Load road network geojson
     with open(geojson_path, "r") as f:
         geo_data = json.load(f)
-    
-    # Extract unique road names
-    road_names = {normalize_road_name(feature["properties"]["RD_NAME"]) 
-                  for feature in geo_data["features"]}
-    
-    # Load datasets
-    amenities = pd.read_csv(amenities_csv, dtype=str)  # force string to avoid dtype warnings
-    floods = pd.read_csv(flood_csv, low_memory=False)  # scan full file for consistent dtypes
-    
+
+    # Build mapping: normalized road name -> road ID
+    road_name_to_id = {}
+    for feature in geo_data["features"]:
+        rd_name = normalize_road_name(feature["properties"]["RD_NAME"])
+        rd_id = feature["properties"].get("id")
+        if rd_name not in road_name_to_id:
+            road_name_to_id[rd_name] = rd_id
+
+    # Load amenities from GeoJSON
+    amenities = load_geojson_as_df(amenities_geojson)
+
+    # Load floods from CSV
+    floods = pd.read_csv(flood_csv, low_memory=False)
+
     # Normalize names
     amenities["road_name_norm"] = amenities["road_name"].apply(normalize_road_name)
     floods["start_norm"] = floods["start_street_name"].apply(normalize_road_name)
     floods["end_norm"] = floods["end_street_name"].apply(normalize_road_name)
-    
+
     results = []
-    
-    for i, road in enumerate(sorted(road_names), start=1):
+    for road_name, road_id in road_name_to_id.items():
         road_data = {
-            "RoadID": i,
-            "RoadName": road,
+            "RoadID": road_id,
+            "RoadName": road_name,
         }
-        
-        # Total amenities (all types)
-        total_amenities = amenities[amenities["road_name_norm"] == road].shape[0]
+
+        # Total amenities
+        total_amenities = amenities[amenities["road_name_norm"] == road_name].shape[0]
         road_data["NumberOfAmenities"] = total_amenities
-        
-        # Flood cases (start or end match)
+
+        # Flood cases
         flood_cases = floods[
-            (floods["start_norm"] == road) | (floods["end_norm"] == road)
+            (floods["start_norm"] == road_name) | (floods["end_norm"] == road_name)
         ].shape[0]
         road_data["TotalFloodCases"] = flood_cases
-        
+
         # Amenity type breakdown
         for a_type in AMENITY_TYPES:
             count = amenities[
-                (amenities["road_name_norm"] == road) & 
+                (amenities["road_name_norm"] == road_name) &
                 (amenities["amenity_type"].str.lower() == a_type.lower())
             ].shape[0]
             road_data[a_type] = count
-        
-        results.append(road_data)
-    
-    return pd.DataFrame(results)
 
+        results.append(road_data)
+
+    return pd.DataFrame(results)
 
 # --- Main ---
 if __name__ == "__main__":
-    df = summarize_roads(ROAD_NETWORK_GEOJSON, AMENITIES_CSV, FLOODS_CSV)
-    
-    print(df.head())              # preview first rows
-    df.to_csv(OUTPUT_CSV, index=False)  # save results
+    df = summarize_roads(ROAD_NETWORK_GEOJSON, AMENITIES_GEOJSON, FLOODS_CSV)
+    print(df.head())
+    df.to_csv(OUTPUT_CSV, index=False)
     print(f"Road network summary saved to {OUTPUT_CSV}")
