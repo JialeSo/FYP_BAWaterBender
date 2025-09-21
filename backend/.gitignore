@@ -1,3 +1,18 @@
 .vercel
 .venv
 .env
+**/.env
+.vscode
+
+# Telegram 
+./session.session
+etl/pub/messages/*
+
+# Python 
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# MacOS 
+*/.DS_Store
