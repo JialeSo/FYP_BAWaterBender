@@ -171,7 +171,13 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+body {
+  @apply bg-background text-foreground;
+}
+}
+
+.map-container {
+  width: 100%;
+  height: 80vh; /* or 100% if parent has fixed height */
+  border: 1px solid #ccc; /* optional, just to see it clearly */
 }

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom"
 
 import Home from "./pages/home"
 import Dashboard from "./pages/dashboard"
+import SingaporeHistoricalFloodMap from "./pages/historical_flood_map"
 
 export default function AppRouter() {
   return (
@@ -13,6 +14,7 @@ export default function AppRouter() {
       {/* pages */}
       <Route path="/home" element={<Home />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/historical-flood-map" element={<SingaporeHistoricalFloodMap />} />
 
       {/* 404 fallback */}
       <Route path="*" element={<div className="p-6">404 not found</div>} />

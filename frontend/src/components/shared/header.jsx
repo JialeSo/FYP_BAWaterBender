@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { Link } from "react-router-dom"
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -20,7 +21,9 @@ export default function Header() {
 
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Button variant="ghost" size="sm">Use Case 1</Button>
+                <Link to="/historical-flood-map">
+                  <Button variant="ghost" size="sm">Singapore HistoricalFloodMap</Button>
+                </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
             <NavigationMenuItem>

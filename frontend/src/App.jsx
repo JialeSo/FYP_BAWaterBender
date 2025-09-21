@@ -13,10 +13,7 @@ export default function App() {
         <AppRouter />
       </main>
 
-      {/* footer */}
-      <footer className="border-t p-4 text-xs text-muted-foreground">
-        react + vite + shadcn/ui
-      </footer>
+      
     </div>
   )
 }
