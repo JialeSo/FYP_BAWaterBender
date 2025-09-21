@@ -1,0 +1,58 @@
+{
+  "type": "FeatureCollection",
+  "name": "rainfall_records",
+  "metadata": {
+    "source": "https://api-open.data.gov.sg/v2/real-time/api/rainfall",
+    "description": "5-minute rainfall readings from NEA via data.gov.sg real-time API",
+    "readingType": "TB1 Rainfall 5 Minute Total F",
+    "readingUnit": "mm",
+    "retrievedAt": "2024-07-17T14:00:00+08:00"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.8365, 1.31055]
+      },
+      "properties": {
+        "stationId": "S111",
+        "deviceId": "S111",
+        "stationName": "Scotts Road",
+        "timestamp": "2024-07-17T14:00:00+08:00",
+        "rainfall": 2.0,
+        "paginationToken": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.8189, 1.3521]
+      },
+      "properties": {
+        "stationId": "S123",
+        "deviceId": "S123",
+        "stationName": "Bukit Timah",
+        "timestamp": "2024-07-17T14:00:00+08:00",
+        "rainfall": 4.6,
+        "paginationToken": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.9527, 1.3925]
+      },
+      "properties": {
+        "stationId": "S145",
+        "deviceId": "S145",
+        "stationName": "Pasir Ris",
+        "timestamp": "2024-07-17T14:00:00+08:00",
+        "rainfall": 0.0,
+        "paginationToken": null
+      }
+    }
+  ]
+}
