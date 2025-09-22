@@ -42,18 +42,9 @@ class SGReverseGeolocator:
 
     @staticmethod
     def clean_postal(x):
-        """
-        Clean postal code:
-        - Always treat as string
-        - Remove whitespace
-        - Keep only digits
-        - Pad to 6 digits
-        - Return empty string for NaN/invalid
-        """
         if pd.notna(x):
             x_str = str(x).strip()
-            # Remove any decimal if came from float
-            if "." in x_str:
+            if "." in x_str:  # if float-looking
                 x_str = x_str.split(".")[0]
             digits = "".join(c for c in x_str if c.isdigit())
             return digits.zfill(6) if digits else ""
@@ -83,14 +74,14 @@ class SGReverseGeolocator:
         match = self.planning_gdf[self.planning_gdf.contains(pt)]
         if not match.empty:
             planning_area = match.iloc[0].get("PLN_AREA_N", "")
-            planning_area_id = match.iloc[0].get("id", "")
+            planning_area_id = match.iloc[0].get("PA_ID", "")    
 
         # Subzone
         subzone, subzone_id = "", ""
         match = self.subzone_gdf[self.subzone_gdf.contains(pt)]
         if not match.empty:
             subzone = match.iloc[0].get("SUBZONE_N", "")
-            subzone_id = match.iloc[0].get("id", "")
+            subzone_id = match.iloc[0].get("SZ_ID", "")       
 
         # Nearest road
         street_name, street_id = "", ""
@@ -99,7 +90,7 @@ class SGReverseGeolocator:
             pt_proj = gpd.GeoSeries([pt], crs="EPSG:4326").to_crs("EPSG:3414").iloc[0]
             nearest_idx = roads_proj.distance(pt_proj).idxmin()
             street_name = roads_proj.loc[nearest_idx].get("RD_NAME", "")
-            street_id   = roads_proj.loc[nearest_idx].get("id", "")
+            street_id   = roads_proj.loc[nearest_idx].get("RN_ID", "") 
         except Exception as e:
             print(f"Road lookup failed: {e}")
 
@@ -125,6 +116,7 @@ def process_location(row, prefix, postal_col, lat_col, lng_col, geo: SGReverseGe
         lon=row.get(lng_col)
     )
     return {f"{prefix}{k}": v for k, v in res.items()}
+
 
 # --------- Main ---------
 if __name__ == "__main__":
