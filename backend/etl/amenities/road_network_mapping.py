@@ -70,12 +70,13 @@ def summarize_roads(geojson_path, amenities_geojson, flood_csv):
     with open(geojson_path, "r") as f:
         geo_data = json.load(f)
 
-    # Build mapping: normalized road name -> road ID
+    # Build mapping: normalized road name -> RN_ID
     road_name_to_id = {}
     for feature in geo_data["features"]:
-        rd_name = normalize_road_name(feature["properties"]["RD_NAME"])
-        rd_id = feature["properties"].get("id")
-        if rd_name not in road_name_to_id:
+        props = feature["properties"]
+        rd_name = normalize_road_name(props.get("RD_NAME", ""))
+        rd_id = props.get("RN_ID", "")   # <-- FIXED
+        if rd_name and rd_name not in road_name_to_id:
             road_name_to_id[rd_name] = rd_id
 
     # Load amenities from GeoJSON

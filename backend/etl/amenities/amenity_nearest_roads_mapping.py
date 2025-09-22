@@ -55,10 +55,11 @@ def load_roads_with_centroids(geojson_path):
     road_geoms = {}
     road_ids = {}
     for feature in geo_data["features"]:
-        rd_name = normalize_road_name(feature["properties"]["RD_NAME"])
+        props = feature["properties"]
+        rd_name = normalize_road_name(props.get("RD_NAME", ""))
         geom = shape(feature["geometry"])
         centroid = geom.centroid
-        road_id = feature["properties"].get("id")  # e.g. RN_00001
+        road_id = props.get("RN_ID", "")   # <-- FIXED (was "id")
 
         if rd_name not in road_geoms:
             road_geoms[rd_name] = []
