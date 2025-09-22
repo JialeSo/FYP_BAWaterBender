@@ -2,9 +2,9 @@
 
 const HIDDEN_KEYS = new Set(["PLN_AREA_N", "SUBZONE_N"])
 
-const formatEntries = (data) => {
-  if (!data) return []
-  return Object.entries(data)
+const formatEntries = (properties) => {
+  if (!properties) return []
+  return Object.entries(properties)
     .filter(([key]) => !HIDDEN_KEYS.has(key))
     .map(([key, value]) => ({
       key,
@@ -16,10 +16,11 @@ const formatEntries = (data) => {
     }))
 }
 
-export default function RightPanel({ data, onClearSelection }) {
-  const entries = formatEntries(data)
-  const subzoneName = data?.SUBZONE_N ?? "No subzone selected"
-  const areaName = data?.PLN_AREA_N ?? "-"
+export default function RightPanel({ feature, onClearSelection }) {
+  const properties = feature?.properties ?? null
+  const entries = formatEntries(properties)
+  const subzoneName = properties?.SUBZONE_N ?? "No subzone selected"
+  const areaName = properties?.PLN_AREA_N ?? "-"
 
   return (
     <div className="flex h-full flex-col gap-4 p-6">
@@ -34,7 +35,7 @@ export default function RightPanel({ data, onClearSelection }) {
         <p className="text-xs text-muted-foreground">Planning area: {areaName}</p>
       </div>
 
-      {!data ? (
+      {!properties ? (
         <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
           Select a subzone on the map to view its properties.
         </div>

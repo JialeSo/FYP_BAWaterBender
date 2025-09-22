@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react"
+﻿import { useEffect, useRef, useState } from "react"
 import mapboxgl from "mapbox-gl"
 import "mapbox-gl/dist/mapbox-gl.css"
 
@@ -12,63 +12,21 @@ const DEFAULT_ZOOM = 11
 const PLANNING_SOURCE_ID = "planning-area"
 const PLANNING_FILL_LAYER_ID = "planning-area-fill"
 const PLANNING_OUTLINE_LAYER_ID = "planning-area-outline"
+const PLANNING_HIGHLIGHT_LAYER_ID = "planning-area-highlight"
 const SUBZONE_SOURCE_ID = "subzone-area"
 const SUBZONE_FILL_LAYER_ID = "subzone-fill"
 const SUBZONE_OUTLINE_LAYER_ID = "subzone-outline"
 const SUBZONE_HIGHLIGHT_LAYER_ID = "subzone-highlight"
-const EMPTY_HIGHLIGHT_FILTER = ["==", ["get", "SZ_ID"], ""]
+const ROAD_SOURCE_ID = "road-network"
+const ROAD_LAYER_ID = "road-network-line"
+
+const EMPTY_PLANNING_FILTER = ["==", ["get", "PLN_AREA_N"], "__none__"]
+const EMPTY_PA_FILTER = ["==", ["get", "PA_ID"], "__none__"]
+const EMPTY_SUBZONE_HIGHLIGHT = ["==", ["get", "SZ_ID"], "__none__"]
 
 mapboxgl.accessToken = MAPBOX_TOKEN
 if (typeof mapboxgl.setTelemetryEnabled === "function") {
   mapboxgl.setTelemetryEnabled(false)
-}
-
-const normalizeFilters = (filters) => ({
-  planningArea: (filters?.planningArea ?? "all") || "all",
-  searchTerm: (filters?.searchTerm ?? "").toString().trim(),
-})
-
-const buildSubzoneFilter = (filters) => {
-  const expression = ["all"]
-  if (filters.planningArea && filters.planningArea !== "all") {
-    expression.push(["==", ["get", "PLN_AREA_N"], filters.planningArea])
-  }
-  if (filters.searchTerm && filters.searchTerm.length >= 2) {
-    expression.push([
-      "!=",
-      [
-        "index-of",
-        filters.searchTerm.toLowerCase(),
-        ["downcase", ["coalesce", ["get", "SUBZONE_N"], ""]],
-      ],
-      -1,
-    ])
-  }
-  return expression
-}
-
-const featureMatchesFilter = (properties, filters) => {
-  if (!properties) return false
-  if (filters.planningArea && filters.planningArea !== "all" && properties.PLN_AREA_N !== filters.planningArea) {
-    return false
-  }
-  if (filters.searchTerm && filters.searchTerm.length >= 2) {
-    const name = String(properties.SUBZONE_N ?? "").toLowerCase()
-    if (!name.includes(filters.searchTerm.toLowerCase())) return false
-  }
-  return true
-}
-
-const extractPlanningAreas = (geojson) => {
-  if (!geojson?.features) return []
-  const unique = new Set()
-  for (const feature of geojson.features) {
-    const name = feature?.properties?.PLN_AREA_N
-    if (typeof name === "string" && name.trim().length > 0) {
-      unique.add(name.trim())
-    }
-  }
-  return [...unique]
 }
 
 const escapeHtml = (value) =>
@@ -104,20 +62,77 @@ const buildSelectionPayload = (feature, lngLat) => {
   }
 }
 
+const buildMatchFilter = (field, values) => {
+  if (!values?.length) {
+    return ["==", ["get", field], "__none__"]
+  }
+  return ["match", ["get", field], values, true, false]
+}
+
+const computeFeatureBounds = (geometry) => {
+  if (!geometry) return null
+  const points = []
+  const collect = (coords) => {
+    if (!coords) return
+    if (typeof coords[0] === "number" && typeof coords[1] === "number") {
+      points.push([coords[0], coords[1]])
+      return
+    }
+    for (const entry of coords) {
+      collect(entry)
+    }
+  }
+  collect(geometry.coordinates)
+  if (!points.length) return null
+  let minLng = points[0][0]
+  let maxLng = points[0][0]
+  let minLat = points[0][1]
+  let maxLat = points[0][1]
+  for (const [lng, lat] of points) {
+    if (lng < minLng) minLng = lng
+    if (lng > maxLng) maxLng = lng
+    if (lat < minLat) minLat = lat
+    if (lat > maxLat) maxLat = lat
+  }
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ]
+}
+
+const mergeBounds = (base, next) => {
+  if (!next) return base ?? null
+  if (!base) {
+    return [
+      [next[0][0], next[0][1]],
+      [next[1][0], next[1][1]],
+    ]
+  }
+  const minLng = Math.min(base[0][0], next[0][0])
+  const minLat = Math.min(base[0][1], next[0][1])
+  const maxLng = Math.max(base[1][0], next[1][0])
+  const maxLat = Math.max(base[1][1], next[1][1])
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ]
+}
+
 function SingaporeHistoricalFloodMap({
   resizeSignal,
-  filters,
-  selectedFeature,
-  onFeatureSelect,
+  selectedPlanningAreas,
+  selectedSubzone,
+  onPlanningAreaToggle,
   onPlanningAreasLoaded,
+  onSubzoneSelect,
 }) {
   const mapContainerRef = useRef(null)
   const mapRef = useRef(null)
   const popupRef = useRef(null)
   const hasLoadedRef = useRef(false)
+  const planningAreaFeatureRef = useRef({})
+  const planningAreaIdRef = useRef({})
   const [error, setError] = useState(null)
-
-  const normalizedFilters = useMemo(() => normalizeFilters(filters), [filters])
 
   useEffect(() => {
     if (mapRef.current) return
@@ -139,23 +154,46 @@ function SingaporeHistoricalFloodMap({
 
     const handleLoad = async () => {
       try {
-        const [planningRes, subzoneRes] = await Promise.all([
+        const [planningRes, subzoneRes, roadRes] = await Promise.all([
           fetch("/map/planning_area.geojson"),
           fetch("/map/subzone_area.geojson"),
+          fetch("/map/road_network.geojson"),
         ])
 
         if (!planningRes.ok) {
           throw new Error(`Failed to fetch planning_area.geojson (status ${planningRes.status})`)
         }
-
         if (!subzoneRes.ok) {
           throw new Error(`Failed to fetch subzone_area.geojson (status ${subzoneRes.status})`)
         }
+        if (!roadRes.ok) {
+          throw new Error(`Failed to fetch road_network.geojson (status ${roadRes.status})`)
+        }
 
-        const [planningData, subzoneData] = await Promise.all([planningRes.json(), subzoneRes.json()])
+        const [planningData, subzoneData, roadData] = await Promise.all([planningRes.json(), subzoneRes.json(), roadRes.json()])
+
+        const planningAreas = []
+        const featureMap = {}
+        const idMap = {}
+        for (const feature of planningData.features ?? []) {
+          const name = feature?.properties?.PLN_AREA_N?.trim()
+          if (!name) continue
+          planningAreas.push(name)
+          featureMap[name] = feature
+          const paId = feature?.properties?.PA_ID
+          if (paId) {
+            idMap[name] = String(paId)
+          }
+        }
+        planningAreaFeatureRef.current = featureMap
+        planningAreaIdRef.current = idMap
+        if (planningAreas.length) {
+          onPlanningAreasLoaded?.(planningAreas)
+        }
 
         map.addSource(PLANNING_SOURCE_ID, { type: "geojson", data: planningData })
         map.addSource(SUBZONE_SOURCE_ID, { type: "geojson", data: subzoneData })
+        map.addSource(ROAD_SOURCE_ID, { type: "geojson", data: roadData })
 
         map.addLayer({
           id: PLANNING_FILL_LAYER_ID,
@@ -179,9 +217,22 @@ function SingaporeHistoricalFloodMap({
         })
 
         map.addLayer({
+          id: PLANNING_HIGHLIGHT_LAYER_ID,
+          type: "line",
+          source: PLANNING_SOURCE_ID,
+          paint: {
+            "line-color": "#f97316",
+            "line-width": 3,
+            "line-opacity": 0.9,
+          },
+          filter: EMPTY_PLANNING_FILTER,
+        })
+
+        map.addLayer({
           id: SUBZONE_FILL_LAYER_ID,
           type: "fill",
           source: SUBZONE_SOURCE_ID,
+          layout: { visibility: "none" },
           paint: {
             "fill-color": "#1d4ed8",
             "fill-opacity": 0.25,
@@ -192,6 +243,7 @@ function SingaporeHistoricalFloodMap({
           id: SUBZONE_OUTLINE_LAYER_ID,
           type: "line",
           source: SUBZONE_SOURCE_ID,
+          layout: { visibility: "none" },
           paint: {
             "line-color": "#1d4ed8",
             "line-width": 0.8,
@@ -203,22 +255,46 @@ function SingaporeHistoricalFloodMap({
           id: SUBZONE_HIGHLIGHT_LAYER_ID,
           type: "line",
           source: SUBZONE_SOURCE_ID,
+          layout: { visibility: "none" },
           paint: {
             "line-color": "#fbbf24",
             "line-width": 3,
             "line-opacity": 0.9,
           },
-          filter: EMPTY_HIGHLIGHT_FILTER,
+          filter: EMPTY_SUBZONE_HIGHLIGHT,
         })
 
-        const planningAreas = extractPlanningAreas(subzoneData)
-        if (planningAreas.length) {
-          onPlanningAreasLoaded?.(planningAreas)
-        }
+        map.addLayer({
+          id: ROAD_LAYER_ID,
+          type: "line",
+          source: ROAD_SOURCE_ID,
+          layout: { visibility: "none" },
+          paint: {
+            "line-color": "#f97316",
+            "line-width": 1.8,
+            "line-opacity": 0.85,
+          },
+          filter: EMPTY_PA_FILTER,
+        })
 
-        const filterExpression = buildSubzoneFilter(normalizedFilters)
-        map.setFilter(SUBZONE_FILL_LAYER_ID, filterExpression)
-        map.setFilter(SUBZONE_OUTLINE_LAYER_ID, filterExpression)
+        map.on("mouseenter", PLANNING_FILL_LAYER_ID, () => {
+          map.getCanvas().style.cursor = "pointer"
+        })
+
+        map.on("mouseleave", PLANNING_FILL_LAYER_ID, () => {
+          map.getCanvas().style.cursor = ""
+        })
+
+        map.on("click", PLANNING_FILL_LAYER_ID, (event) => {
+          const feature = event.features?.[0]
+          const name = feature?.properties?.PLN_AREA_N?.trim()
+          if (!name) return
+          const bounds = computeFeatureBounds(feature.geometry)
+          if (bounds) {
+            map.fitBounds(bounds, { padding: 48, duration: 800, maxZoom: 13 })
+          }
+          onPlanningAreaToggle?.(name)
+        })
 
         map.on("mouseenter", SUBZONE_FILL_LAYER_ID, () => {
           map.getCanvas().style.cursor = "pointer"
@@ -231,10 +307,8 @@ function SingaporeHistoricalFloodMap({
         map.on("click", SUBZONE_FILL_LAYER_ID, (event) => {
           const feature = event.features?.[0]
           if (!feature) return
-
           const payload = buildSelectionPayload(feature, event.lngLat)
           if (!payload) return
-
           map.flyTo({
             center: event.lngLat,
             zoom: Math.max(map.getZoom(), 12),
@@ -242,8 +316,7 @@ function SingaporeHistoricalFloodMap({
             speed: 0.9,
             curve: 1.2,
           })
-
-          onFeatureSelect?.(payload)
+          onSubzoneSelect?.(payload)
         })
 
         hasLoadedRef.current = true
@@ -271,35 +344,76 @@ function SingaporeHistoricalFloodMap({
       map.remove()
       mapRef.current = null
     }
-  }, [normalizedFilters, onFeatureSelect, onPlanningAreasLoaded])
+  }, [onPlanningAreaToggle, onPlanningAreasLoaded, onSubzoneSelect])
 
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     map.resize()
+    const frame = requestAnimationFrame(() => {
+      map.resize()
+      if (typeof map.triggerRepaint === "function") {
+        map.triggerRepaint()
+      }
+    })
+    return () => cancelAnimationFrame(frame)
   }, [resizeSignal])
 
   useEffect(() => {
     const map = mapRef.current
     if (!map || !hasLoadedRef.current) return
-    if (!map.getLayer(SUBZONE_FILL_LAYER_ID)) return
-
-    const filterExpression = buildSubzoneFilter(normalizedFilters)
-    map.setFilter(SUBZONE_FILL_LAYER_ID, filterExpression)
-    map.setFilter(SUBZONE_OUTLINE_LAYER_ID, filterExpression)
-
-    if (selectedFeature?.properties && !featureMatchesFilter(selectedFeature.properties, normalizedFilters)) {
-      onFeatureSelect?.(null)
+    if (!map.getLayer(SUBZONE_FILL_LAYER_ID) || !map.getLayer(ROAD_LAYER_ID) || !map.getLayer(PLANNING_HIGHLIGHT_LAYER_ID)) {
+      return
     }
-  }, [normalizedFilters, onFeatureSelect, selectedFeature])
+
+    const hasSelection = selectedPlanningAreas?.length > 0
+    const subzoneFilter = buildMatchFilter("PLN_AREA_N", selectedPlanningAreas)
+    map.setFilter(SUBZONE_FILL_LAYER_ID, subzoneFilter)
+    map.setFilter(SUBZONE_OUTLINE_LAYER_ID, subzoneFilter)
+    map.setFilter(PLANNING_HIGHLIGHT_LAYER_ID, hasSelection ? subzoneFilter : EMPTY_PLANNING_FILTER)
+
+    const paIds = (selectedPlanningAreas || [])
+      .map((name) => planningAreaIdRef.current[name])
+      .filter(Boolean)
+    map.setFilter(ROAD_LAYER_ID, buildMatchFilter("PA_ID", paIds))
+
+    const visibility = hasSelection ? "visible" : "none"
+    map.setLayoutProperty(SUBZONE_FILL_LAYER_ID, "visibility", visibility)
+    map.setLayoutProperty(SUBZONE_OUTLINE_LAYER_ID, "visibility", visibility)
+    map.setLayoutProperty(SUBZONE_HIGHLIGHT_LAYER_ID, "visibility", visibility)
+    map.setLayoutProperty(ROAD_LAYER_ID, "visibility", visibility)
+
+    if (!hasSelection) {
+      if (popupRef.current) {
+        popupRef.current.remove()
+        popupRef.current = null
+      }
+      if (selectedSubzone) {
+        onSubzoneSelect?.(null)
+      }
+      map.easeTo({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM, duration: 800 })
+      return
+    }
+
+    let combinedBounds = null
+    for (const areaName of selectedPlanningAreas) {
+      const feature = planningAreaFeatureRef.current[areaName]
+      if (!feature) continue
+      const bounds = computeFeatureBounds(feature.geometry)
+      combinedBounds = mergeBounds(combinedBounds, bounds)
+    }
+    if (combinedBounds) {
+      map.fitBounds(combinedBounds, { padding: 48, duration: 800, maxZoom: 13 })
+    }
+  }, [selectedPlanningAreas, selectedSubzone, onSubzoneSelect])
 
   useEffect(() => {
     const map = mapRef.current
     if (!map || !hasLoadedRef.current) return
     if (!map.getLayer(SUBZONE_HIGHLIGHT_LAYER_ID)) return
 
-    if (!selectedFeature?.properties) {
-      map.setFilter(SUBZONE_HIGHLIGHT_LAYER_ID, EMPTY_HIGHLIGHT_FILTER)
+    if (!selectedSubzone?.properties) {
+      map.setFilter(SUBZONE_HIGHLIGHT_LAYER_ID, EMPTY_SUBZONE_HIGHLIGHT)
       if (popupRef.current) {
         popupRef.current.remove()
         popupRef.current = null
@@ -307,22 +421,19 @@ function SingaporeHistoricalFloodMap({
       return
     }
 
-    const highlightId = selectedFeature.id ?? selectedFeature.properties.SZ_ID ?? null
-    if (highlightId) {
-      map.setFilter(SUBZONE_HIGHLIGHT_LAYER_ID, ["==", ["get", "SZ_ID"], highlightId])
+    const subzoneId = selectedSubzone.id ?? selectedSubzone.properties.SZ_ID ?? null
+    if (subzoneId) {
+      map.setFilter(SUBZONE_HIGHLIGHT_LAYER_ID, ["==", ["get", "SZ_ID"], subzoneId])
     }
 
-    const coords = Array.isArray(selectedFeature.lngLat) ? selectedFeature.lngLat : null
+    const coords = Array.isArray(selectedSubzone.lngLat) ? selectedSubzone.lngLat : null
     if (coords && Number.isFinite(coords[0]) && Number.isFinite(coords[1])) {
       if (!popupRef.current) {
         popupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnMove: true, offset: 16 })
       }
-      popupRef.current
-        .setLngLat(coords)
-        .setHTML(buildPopupMarkup(selectedFeature.properties))
-        .addTo(map)
+      popupRef.current.setLngLat(coords).setHTML(buildPopupMarkup(selectedSubzone.properties)).addTo(map)
     }
-  }, [selectedFeature])
+  }, [selectedSubzone])
 
   return (
     <div className="relative h-full min-h-[24rem] w-full">

@@ -342,3 +342,4 @@ function SingaporeHistoricalFloodMap({
 export default function HistoricalMapPage() {
   return <DashboardLayout mapcomponent={SingaporeHistoricalFloodMap} />
 }
+
