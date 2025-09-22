@@ -326,7 +326,7 @@ function SingaporeHistoricalFloodMap({
 
   return (
     <div className="relative h-full min-h-[24rem] w-full">
-      <div ref={mapContainerRef} className="absolute inset-0 map-container" />
+      <div ref={mapContainerRef} className="absolute inset-0" />
       {error && (
         <div className="absolute inset-0 grid place-items-center bg-slate-900/70 p-6 text-white">
           <div className="w-full max-w-sm rounded-xl bg-slate-900/90 p-5 text-center shadow-xl">
