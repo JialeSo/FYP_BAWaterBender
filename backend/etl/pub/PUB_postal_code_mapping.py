@@ -5,26 +5,99 @@ import math
 import requests
 import random
 import pandas as pd
+from pathlib import Path
 from typing import Optional, Tuple, List
+from datetime import datetime
 
 # -----------------------
 # CONFIG
 # -----------------------
+BASE = Path(__file__).resolve().parent
+infile = BASE / "PUB_weather_alerts_raw.csv"
+outfile = BASE / "PUB_weather_alerts_clean.csv"
+GEOCODE_CACHE_FILE = BASE / "geocode_cache.csv"
+REVERSE_CACHE_FILE = BASE / "reverse_cache.csv"
+
 LOCATIONIQ_KEY = os.getenv("LOCATIONIQ_KEY") or "pk.e4e9832f2313263c0d4de9baacda589a"
 LOCATIONIQ_URL = "https://us1.locationiq.com/v1/search.php"
 LOCATIONIQ_REVERSE = "https://us1.locationiq.com/v1/reverse.php"
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse"
 
 SLEEP_BETWEEN_REQUESTS = 1.0  # keep to 1s for free tiers
 MAX_REVERSE_JITTER_ATTEMPTS = 6
 JITTER_RADIUS_METERS = 500
 
 # -----------------------
-# CACHES
+# CACHE MANAGEMENT
 # -----------------------
-geocode_cache = {}   # key: query str -> (lat, lon)
-reverse_cache = {}   # key: (rounded_lat, rounded_lon) -> postcode or None
+def load_geocode_cache() -> dict:
+    """Load geocode cache from CSV file."""
+    cache = {}
+    if GEOCODE_CACHE_FILE.exists():
+        try:
+            df = pd.read_csv(GEOCODE_CACHE_FILE)
+            for _, row in df.iterrows():
+                if pd.notna(row['lat']) and pd.notna(row['lon']):
+                    cache[row['query']] = (float(row['lat']), float(row['lon']))
+                else:
+                    cache[row['query']] = (None, None)
+            print(f"Loaded {len(cache)} geocode cache entries")
+        except Exception as e:
+            print(f"Error loading geocode cache: {e}")
+    return cache
+
+def save_geocode_cache(cache: dict):
+    """Save geocode cache to CSV file."""
+    try:
+        data = []
+        for query, (lat, lon) in cache.items():
+            data.append({
+                'query': query,
+                'lat': lat,
+                'lon': lon,
+                'last_updated': datetime.now().isoformat()
+            })
+        df = pd.DataFrame(data)
+        df.to_csv(GEOCODE_CACHE_FILE, index=False)
+        print(f"Saved {len(cache)} geocode cache entries")
+    except Exception as e:
+        print(f"Error saving geocode cache: {e}")
+
+def load_reverse_cache() -> dict:
+    """Load reverse geocode cache from CSV file."""
+    cache = {}
+    if REVERSE_CACHE_FILE.exists():
+        try:
+            df = pd.read_csv(REVERSE_CACHE_FILE)
+            for _, row in df.iterrows():
+                key = (round(float(row['lat']), 5), round(float(row['lon']), 5))
+                cache[key] = row['postcode'] if pd.notna(row['postcode']) else None
+            print(f"Loaded {len(cache)} reverse cache entries")
+        except Exception as e:
+            print(f"Error loading reverse cache: {e}")
+    return cache
+
+def save_reverse_cache(cache: dict):
+    """Save reverse geocode cache to CSV file."""
+    try:
+        data = []
+        for (lat, lon), postcode in cache.items():
+            data.append({
+                'lat': lat,
+                'lon': lon,
+                'postcode': postcode,
+                'last_updated': datetime.now().isoformat()
+            })
+        df = pd.DataFrame(data)
+        df.to_csv(REVERSE_CACHE_FILE, index=False)
+        print(f"Saved {len(cache)} reverse cache entries")
+    except Exception as e:
+        print(f"Error saving reverse cache: {e}")
+
+# -----------------------
+# Initialize caches from files
+# -----------------------
+geocode_cache = load_geocode_cache()
+reverse_cache = load_reverse_cache()
 
 # -----------------------
 # Helpers
@@ -180,7 +253,7 @@ def extract_location_parts_and_cleaned(raw: str) -> Tuple[List[str], Optional[st
     return [cleaned_display], None, cleaned_display
 
 # -----------------------
-# Geocoding primitives
+# Geocoding primitives (LocationIQ only)
 # -----------------------
 def jitter_coords(lat: float, lon: float, radius_m: float = JITTER_RADIUS_METERS) -> Tuple[float, float]:
     """Return a random point within radius_m of (lat, lon)."""
@@ -193,11 +266,10 @@ def jitter_coords(lat: float, lon: float, radius_m: float = JITTER_RADIUS_METERS
 
 def geocode_location_with_variants(part: str, parent_context: Optional[str] = None) -> Tuple[Optional[float], Optional[float]]:
     """
-    Try multiple query variants to improve precision:
+    Try multiple query variants to improve precision using LocationIQ only:
       1) exact part
       2) 'part near parent_context'
       3) 'part parent_context' (concatenate)
-      4) fallback to Nominatim
     """
     if not part or len(part.strip()) < 3:
         return None, None
@@ -223,7 +295,7 @@ def geocode_location_with_variants(part: str, parent_context: Optional[str] = No
     return None, None
 
 def geocode_one_query(query: str) -> Optional[Tuple[float, float]]:
-    """Perform one forward geocode attempt (LocationIQ then Nominatim)"""
+    """Perform one forward geocode attempt using LocationIQ only"""
     if not query:
         return None
     if query in geocode_cache:
@@ -242,30 +314,16 @@ def geocode_one_query(query: str) -> Optional[Tuple[float, float]]:
             elif resp.status_code == 404:
                 geocode_cache[query] = (None, None)
                 return None
+            else:
+                safe_print(f"[LocationIQ geocode HTTP error] {query} -> {resp.status_code}")
         except Exception as e:
             safe_print(f"[LocationIQ geocode error] {query} -> {e}")
-
-    try:
-        params = {"q": query, "format": "json", "limit": 1, "countrycodes": "SG"}
-        headers = {"User-Agent": "PUB-Flood-Mapping/1.0 (+https://example.org)"}
-        resp = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=12)
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, list) and data:
-                lat, lon = float(data[0]["lat"]), float(data[0]["lon"])
-                geocode_cache[query] = (lat, lon)
-                return lat, lon
-        elif resp.status_code == 404:
-            geocode_cache[query] = (None, None)
-            return None
-    except Exception as e:
-        safe_print(f"[Nominatim geocode error] {query} -> {e}")
 
     geocode_cache[query] = (None, None)
     return None
 
 def reverse_geocode_postcode_with_buffer(lat: float, lon: float, attempts: int = MAX_REVERSE_JITTER_ATTEMPTS) -> Optional[str]:
-    """Reverse geocode a point; if no postcode found, jitter up to attempts times within 500m."""
+    """Reverse geocode a point using LocationIQ only; if no postcode found, jitter up to attempts times within 500m."""
     if lat is None or lon is None:
         return None
 
@@ -275,30 +333,21 @@ def reverse_geocode_postcode_with_buffer(lat: float, lon: float, attempts: int =
 
     for attempt in range(attempts):
         try_lat, try_lon = (lat, lon) if attempt == 0 else jitter_coords(lat, lon, radius_m=JITTER_RADIUS_METERS)
-        if LOCATIONIQ_KEY and LOCATIONIQ_KEY != "YOUR_LOCATIONIQ_KEY":
-            try:
-                params = {"key": LOCATIONIQ_KEY, "lat": try_lat, "lon": try_lon, "format": "json", "addressdetails": 1}
-                r = requests.get(LOCATIONIQ_REVERSE, params=params, timeout=12)
-                if r.status_code == 200:
-                    d = r.json()
-                    pc = d.get("address", {}).get("postcode")
-                    if pc:
-                        reverse_cache[cache_key] = pc
-                        return pc
-            except Exception:
-                pass
+        
         try:
-            params = {"lat": try_lat, "lon": try_lon, "format": "json", "zoom": 18, "addressdetails": 1}
-            headers = {"User-Agent": "PUB-Flood-Mapping/1.0 (+https://example.org)"}
-            r = requests.get(NOMINATIM_REVERSE, params=params, headers=headers, timeout=12)
+            params = {"key": LOCATIONIQ_KEY, "lat": try_lat, "lon": try_lon, "format": "json", "addressdetails": 1}
+            r = requests.get(LOCATIONIQ_REVERSE, params=params, timeout=12)
             if r.status_code == 200:
                 d = r.json()
                 pc = d.get("address", {}).get("postcode")
                 if pc:
                     reverse_cache[cache_key] = pc
                     return pc
-        except Exception:
-            pass
+            elif r.status_code != 404:
+                safe_print(f"[LocationIQ reverse HTTP error] ({try_lat}, {try_lon}) -> {r.status_code}")
+        except Exception as e:
+            safe_print(f"[LocationIQ reverse error] ({try_lat}, {try_lon}) -> {e}")
+        
         time.sleep(SLEEP_BETWEEN_REQUESTS)
 
     reverse_cache[cache_key] = None
@@ -362,13 +411,13 @@ def enrich_df_keep_original(df_in: pd.DataFrame) -> pd.DataFrame:
 # Run
 # -----------------------
 if __name__ == "__main__":
-    infile = "PUB_weather_alerts_rows.csv"
-    outfile = "PUB_weather_alerts_with_postal_v2.csv"
-    if not os.path.exists(infile):
+    if not infile.exists():
         safe_print(f"Input file not found: {infile}")
+        safe_print(f"Current directory: {BASE}")
+        safe_print(f"Files in directory: {[f.name for f in BASE.iterdir() if f.is_file()]}")
         raise SystemExit(1)
 
-    safe_print("Starting enrichment... (this may take some time due to API rate limits)")
+    safe_print("Starting enrichment using LocationIQ only...")
     df = pd.read_csv(infile, dtype={"start_postal_code": str, "end_postal_code": str})
 
     # Drop 'start', 'end', 'created_at', 'sender_id', 'msg_id' if they exist
@@ -383,7 +432,18 @@ if __name__ == "__main__":
         df.rename(columns={"event_date_time": "event_date"}, inplace=True)
     df["event_date"] = pd.to_datetime(df["event_date"], errors="coerce").dt.strftime("%Y-%m-%d")
 
-    enriched = enrich_df_keep_original(df)
-    enriched.to_csv(outfile, index=False)
-    safe_print(f"Done. Saved: {outfile}")
-
+    try:
+        enriched = enrich_df_keep_original(df)
+        enriched.to_csv(outfile, index=False)
+        safe_print(f"Done. Saved: {outfile}")
+        
+        # Save caches after successful processing
+        save_geocode_cache(geocode_cache)
+        save_reverse_cache(reverse_cache)
+        
+    except Exception as e:
+        safe_print(f"Error during processing: {e}")
+        # Save caches even if there's an error (partial progress)
+        save_geocode_cache(geocode_cache)
+        save_reverse_cache(reverse_cache)
+        raise
