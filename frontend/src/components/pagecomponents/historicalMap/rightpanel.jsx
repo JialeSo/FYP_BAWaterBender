@@ -1,19 +1,21 @@
 ﻿import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, BarChart3, LineChart as LineChartIcon, Loader2 } from "lucide-react"
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, } from "recharts"
 
 const formatNumber = (value) => value?.toLocaleString?.("en-SG", { maximumFractionDigits: 0 }) ?? "0"
+
+// 🌑 Uses theme-aware color tokens now
+const chartTooltipStyle = {
+  backgroundColor: "var(--card)",
+  border: "1px solid var(--border)",
+  borderRadius: 12,
+  color: "var(--card-foreground)",
+}
+
+const chartLabelStyle = {
+  color: "var(--muted-foreground)",
+}
 
 const MetricCard = ({ title, value, subtitle }) => (
   <Card>
@@ -101,7 +103,7 @@ export default function RightPanel({
     yearSeries: [],
     topRoads: [],
     topSubzones: [],
-    focusSubzoneName: null
+    focusSubzoneName: null,
   }
 
   const { totals, byPlanningArea, byType, yearSeries, topRoads, topSubzones } = safeStats
@@ -113,7 +115,6 @@ export default function RightPanel({
   const typeList = byType.slice(0, 5)
 
   const planningContext = determineContextLabel(selectedPlanningAreas)
-
   const subzoneName = feature?.properties?.SUBZONE_N ?? safeStats.focusSubzoneName ?? "No subzone selected"
   const planningAreaName = feature?.properties?.PLN_AREA_N ?? planningContext
 
@@ -171,10 +172,10 @@ export default function RightPanel({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={yearSeries}>
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} />
-                <XAxis dataKey="year" stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} width={40} />
-                <Tooltip formatter={(value) => formatNumber(value)} cursor={{ stroke: "hsl(var(--primary))", strokeOpacity: 0.5 }} />
-                <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+                <XAxis dataKey="year" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={40} />
+                <Tooltip formatter={(value) => formatNumber(value)} cursor={{ stroke: "var(--primary)", strokeOpacity: 0.5 }} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
+                <Line type="monotone" dataKey="count" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -200,10 +201,10 @@ export default function RightPanel({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topSubzones.map(({ name, count }) => ({ name, count }))} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
-                <XAxis type="number" stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} width={120} />
-                <Tooltip formatter={(value) => formatNumber(value)} />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 4, 4]} />
+                <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={120} />
+                <Tooltip formatter={(value) => formatNumber(value)} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
+                <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -248,4 +249,3 @@ export default function RightPanel({
     </div>
   )
 }
-

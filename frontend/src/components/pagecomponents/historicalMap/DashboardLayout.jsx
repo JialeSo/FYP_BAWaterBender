@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react"
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import LeftPanel from "./LeftPanel"
@@ -28,8 +28,8 @@ function parseCsv(text) {
 
     if (inQuotes) {
       if (char === "\"") {
-        const peek = text[i + 1]
-        if (peek === "\"") {
+        const next = text[i + 1]
+        if (next === "\"") {
           field += "\""
           i += 1
         } else {
@@ -74,6 +74,7 @@ const normaliseFloodRecord = (record) => {
   const planningArea = (record.start_planning_area || record.end_planning_area || "").trim()
   const subzone = (record.start_subzone || record.end_subzone || "").trim()
   const road = (record.start_street_name || record.end_street_name || record.parent_road || "").trim()
+  const roadId = (record.start_street_id || record.end_street_id || record.RN_ID || record.UNIQUE_ID || road || "").trim()
   const floodType = (record.event || "unknown").trim().toLowerCase() || "unknown"
   const eventDate = record.event_date ? new Date(record.event_date) : null
   const year = eventDate && Number.isFinite(eventDate.getFullYear()) ? eventDate.getFullYear() : null
@@ -83,23 +84,37 @@ const normaliseFloodRecord = (record) => {
     planningArea,
     subzone,
     road,
+    roadId,
     floodType,
     eventDate,
     year,
   }
 }
 
-const aggregateCounts = (events, key) => {
+const aggregateCounts = (events, selector) => {
   const tally = new Map()
   events.forEach((event) => {
-    let raw = event[key]
-    // convert to string only if it exists
-    const label = raw != null ? String(raw).trim() : "Unknown"
+    const key = selector(event)
+    const label = key ? String(key).trim() : "Unknown"
     tally.set(label, (tally.get(label) || 0) + 1)
   })
   return Array.from(tally.entries())
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count)
+}
+
+const countsToMap = (entries, selector = (entry) => entry.label) => {
+  const map = {}
+  let max = 0
+  entries.forEach((entry) => {
+    const key = selector(entry)
+    if (!key || key === "Unknown") return
+    map[key] = entry.count
+    if (entry.count > max) {
+      max = entry.count
+    }
+  })
+  return { map, max }
 }
 
 export default function DashboardLayout({ mapcomponent: MapComponent }) {
@@ -113,7 +128,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
   const [floodLoading, setFloodLoading] = useState(false)
   const [floodError, setFloodError] = useState(null)
 
-  const sortedOptions = useMemo(() => [...new Set(planningAreas)].sort((a, b) => a.localeCompare(b)), [planningAreas])
+  const planningOptions = useMemo(() => [...new Set(planningAreas)].sort((a, b) => a.localeCompare(b)), [planningAreas])
 
   useEffect(() => {
     let cancelled = false
@@ -132,12 +147,12 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
           if (!cancelled) setFloodRows([])
           return
         }
-        const [headers, ...dataRows] = rows
-        const normalisedHeaders = headers.map((header) => header.trim())
-        const records = dataRows.map((columns) => {
+        const [headerRow, ...dataRows] = rows
+        const headers = headerRow.map((value) => value.trim())
+        const records = dataRows.map((cols) => {
           const record = {}
-          normalisedHeaders.forEach((header, index) => {
-            record[header] = (columns[index] ?? "").trim()
+          headers.forEach((header, index) => {
+            record[header] = (cols[index] ?? "").trim()
           })
           return record
         })
@@ -170,8 +185,8 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     if (!selectedPlanningAreas.length) {
       return floodEvents
     }
-    const planningSet = new Set(selectedPlanningAreas)
-    return floodEvents.filter((event) => planningSet.has(event.planningArea))
+    const allowed = new Set(selectedPlanningAreas)
+    return floodEvents.filter((event) => allowed.has(event.planningArea))
   }, [floodEvents, selectedPlanningAreas])
 
   const floodInsights = useMemo(() => {
@@ -192,40 +207,71 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         yearSeries: [],
         topRoads: [],
         topSubzones: [],
+        focusSubzoneName: null,
+        planningCountMap: {},
+        subzoneCountMap: {},
+        roadCountMap: {},
+        overallPlanningCountMap: {},
+        maxPlanningCount: 0,
+        maxSubzoneCount: 0,
+        maxRoadCount: 0,
+        overallMaxPlanningCount: 0,
       }
     }
 
     const filtered = filteredFloodEvents
+    const overallPlanningCounts = aggregateCounts(floodEvents, (event) => event.planningArea)
     const focusSubzoneName = selectedSubzone?.properties?.SUBZONE_N?.trim() || null
     const subzoneScopedEvents = focusSubzoneName
       ? filtered.filter((event) => event.subzone === focusSubzoneName)
       : filtered
 
-    const byPlanningArea = aggregateCounts(filtered, "planningArea")
-    const bySubzone = aggregateCounts(filtered, "subzone")
-    const byRoad = aggregateCounts(filtered, "road")
-    const byType = aggregateCounts(filtered, "floodType")
-    const yearSeries = aggregateCounts(filtered.filter((event) => Number.isInteger(event.year)), "year")
+    const byPlanningArea = aggregateCounts(filtered, (event) => event.planningArea)
+    const bySubzone = aggregateCounts(filtered, (event) => event.subzone)
+    const byType = aggregateCounts(filtered, (event) => event.floodType)
+    const yearSeries = aggregateCounts(filtered.filter((event) => Number.isInteger(event.year)), (event) => String(event.year))
       .map(({ label, count }) => ({ year: Number(label), count }))
       .sort((a, b) => a.year - b.year)
 
-    const topRoads = byRoad
-      .filter((entry) => entry.label !== "Unknown")
+    const roadTally = new Map()
+    const roadSourceEvents = focusSubzoneName ? subzoneScopedEvents : filtered
+    roadSourceEvents.forEach((event) => {
+      const id = event.roadId?.trim()
+      const name = event.road || id || "Unknown"
+      const key = id || name
+      if (!key) return
+      const entry = roadTally.get(key) || { id: id || null, name, count: 0 }
+      entry.count += 1
+      if (!entry.name && name) {
+        entry.name = name
+      }
+      roadTally.set(key, entry)
+    })
+
+    const roadEntries = Array.from(roadTally.values()).sort((a, b) => b.count - a.count)
+    const byRoad = roadEntries.map(({ name, count }) => ({ label: name, count }))
+    const topRoads = roadEntries
+      .filter((entry) => entry.name && entry.name !== "Unknown")
+      .slice(0, 5)
+      .map(({ name, count }) => ({ name, count }))
+
+    const subzoneSource = focusSubzoneName ? subzoneScopedEvents : filtered
+    const topSubzones = aggregateCounts(subzoneSource, (event) => event.subzone)
+      .filter((entry) => entry.label && entry.label !== "Unknown")
       .slice(0, 5)
       .map(({ label, count }) => ({ name: label, count }))
 
-    const subzoneSource = focusSubzoneName ? subzoneScopedEvents : filtered
-    const topSubzones = aggregateCounts(subzoneSource, "subzone")
-      .filter((entry) => entry.label !== "Unknown")
-      .slice(0, 5)
-      .map(({ label, count }) => ({ name: label, count }))
+    const { map: planningCountMap, max: maxPlanningCount } = countsToMap(byPlanningArea)
+    const { map: overallPlanningCountMap, max: overallMaxPlanningCount } = countsToMap(overallPlanningCounts)
+    const { map: subzoneCountMap, max: maxSubzoneCount } = countsToMap(bySubzone)
+    const { map: roadCountMap, max: maxRoadCount } = countsToMap(roadEntries, (entry) => entry.id || entry.name)
 
     const totals = {
       events: filtered.length,
       subzoneEvents: subzoneScopedEvents.length,
       planningAreas: new Set(filtered.map((event) => event.planningArea).filter(Boolean)).size,
       subzones: new Set(filtered.map((event) => event.subzone).filter(Boolean)).size,
-      roads: new Set(filtered.map((event) => event.road).filter(Boolean)).size,
+      roads: new Set(filtered.map((event) => (event.roadId || event.road)).filter(Boolean)).size,
       topType: byType[0]?.label ?? null,
     }
 
@@ -239,6 +285,14 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       topRoads,
       topSubzones,
       focusSubzoneName,
+      planningCountMap,
+      subzoneCountMap,
+      roadCountMap,
+      overallPlanningCountMap,
+      maxPlanningCount,
+      maxSubzoneCount,
+      maxRoadCount,
+      overallMaxPlanningCount,
     }
   }, [filteredFloodEvents, floodEvents, selectedSubzone])
 
@@ -265,10 +319,13 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
   }, [])
 
   const handlePlanningAreaFromMap = useCallback((areaName) => {
-    if (!areaName) return
+    if (!areaName) {
+      setSelectedPlanningAreas([])
+      return
+    }
     setSelectedPlanningAreas((prev) => {
-      if (prev.length === 1 && prev[0] === areaName) {
-        return []
+      if (prev.includes(areaName)) {
+        return prev.filter((name) => name !== areaName)
       }
       return [areaName]
     })
@@ -306,7 +363,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         <aside
           className={cn(
             "transition-all duration-300 ease-in-out md:flex md:flex-col",
-            leftOpen ? "md:basis-1/4 md:max-w-[25%]" : "md:basis-0 md:max-w-0",
+            leftOpen ? "md:basis-1/4 md:max-w-[25%]" : "md:basis-0 md.max-w-0",
           )}
           aria-hidden={!leftOpen}
         >
@@ -317,7 +374,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
             )}
           >
             <LeftPanel
-              options={sortedOptions}
+              options={planningOptions}
               selected={selectedPlanningAreas}
               onSelectionChange={handlePlanningAreaSelection}
               onResetSelection={handleResetPlanningAreas}
@@ -355,6 +412,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
               onPlanningAreaToggle={handlePlanningAreaFromMap}
               onPlanningAreasLoaded={setPlanningAreas}
               onSubzoneSelect={handleSubzoneSelect}
+              floodStats={floodInsights}
             />
           )}
         </div>
@@ -362,7 +420,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         <aside
           className={cn(
             "transition-all duration-300 ease-in-out md:flex md:flex-col",
-            rightOpen ? "md:basis-1/4 md:max-w-[25%]" : "md:basis-0 md:max-w-0",
+            rightOpen ? "md:basis-1/4 md.max-w-[25%]" : "md:basis-0 md.max-w-0",
           )}
           aria-hidden={!rightOpen}
         >
@@ -386,4 +444,3 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     </div>
   )
 }
-
