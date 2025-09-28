@@ -13,7 +13,7 @@ from datetime import datetime
 # CONFIG
 # -----------------------
 BASE = Path(__file__).resolve().parent
-infile = BASE / "PUB_weather_alerts_raw.csv"
+infile = BASE / "PUB_weather_alerts.csv"
 outfile = BASE / "PUB_weather_alerts_clean.csv"
 GEOCODE_CACHE_FILE = BASE / "geocode_cache.csv"
 REVERSE_CACHE_FILE = BASE / "reverse_cache.csv"
