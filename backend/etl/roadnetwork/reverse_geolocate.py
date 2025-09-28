@@ -5,7 +5,7 @@ from pathlib import Path
 
 # --- File paths ---
 BASE = Path(__file__).resolve().parent
-FLOOD_PRECIP_CSV     = BASE / "../data/PUB_and_huiying_flood.csv"
+FLOOD_PRECIP_CSV     = BASE / "../data/PUB_weather_alerts_clean.csv"
 PLANNING_GEOJSON     = BASE / "../data/planning_area.geojson"
 SUBZONE_GEOJSON      = BASE / "../data/subzone_area.geojson"
 ROAD_NETWORK_GEOJSON = BASE / "../data/road_network.geojson"
