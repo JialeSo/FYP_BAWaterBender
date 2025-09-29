@@ -185,7 +185,6 @@ class WeatherAlerts:
                         msg["msg_id"] = msg.pop("id")
 
             logger.debug(f"Saving to table {table}: {messages}")
-            logger.debug("dog;", messages)
             db.insert(table=table, data=messages)
 
             # Fix the variable reference issue - use msg_id instead of id

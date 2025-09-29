@@ -2,6 +2,9 @@ import os
 from typing import Dict, List, Union
 from supabase import create_client, Client
 import threading
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class DatabaseConnection:
@@ -29,7 +32,6 @@ class DatabaseConnection:
     def insert(self, table: str, data: Union[Dict, List]) -> None:
         try:
             client = self._get_connection()
-            print("inserting:", data)
             response = client.table(table).insert(data).execute()
             return response
         except Exception as e:
