@@ -346,6 +346,12 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     setSelectedSubzone(null)
   }, [])
 
+  const mapColumnClass = useMemo(() => {
+    if (!leftOpen && !rightOpen) return "md:basis-full md:max-w-full"
+    if (leftOpen && rightOpen) return "md:basis-1/2 md:max-w-[50%]"
+    return "md:basis-3/4 md:max-w-[75%]"
+  }, [leftOpen, rightOpen])
+
   useEffect(() => {
     if (!selectedPlanningAreas.length) {
       setSelectedSubzone(null)
@@ -362,8 +368,8 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       <div className="flex flex-1 flex-col gap-6 md:flex-row">
         <aside
           className={cn(
-            "transition-all duration-300 ease-in-out md:flex md:flex-col",
-            leftOpen ? "md:basis-1/4 md:max-w-[25%]" : "md:basis-0 md.max-w-0",
+            "transition-all duration-300 ease-in-out",
+            leftOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden",
           )}
           aria-hidden={!leftOpen}
         >
@@ -382,7 +388,9 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
           </div>
         </aside>
 
-        <div className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div
+          className={cn("relative flex min-h-[24rem] grow flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 ease-in-out", mapColumnClass)}
+        >
           <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-2 sm:flex-row">
             <Button
               type="button"
@@ -404,23 +412,25 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
             </Button>
           </div>
 
-          {MapComponent && (
-            <MapComponent
-              resizeSignal={resizeSignal}
-              selectedPlanningAreas={selectedPlanningAreas}
-              selectedSubzone={selectedSubzone}
-              onPlanningAreaToggle={handlePlanningAreaFromMap}
-              onPlanningAreasLoaded={setPlanningAreas}
-              onSubzoneSelect={handleSubzoneSelect}
-              floodStats={floodInsights}
-            />
-          )}
+          <div className="flex-1 min-h-0">
+            {MapComponent && (
+              <MapComponent
+                resizeSignal={resizeSignal}
+                selectedPlanningAreas={selectedPlanningAreas}
+                selectedSubzone={selectedSubzone}
+                onPlanningAreaToggle={handlePlanningAreaFromMap}
+                onPlanningAreasLoaded={setPlanningAreas}
+                onSubzoneSelect={handleSubzoneSelect}
+                floodStats={floodInsights}
+              />
+            )}
+          </div>
         </div>
 
         <aside
           className={cn(
-            "transition-all duration-300 ease-in-out md:flex md:flex-col",
-            rightOpen ? "md:basis-1/4 md.max-w-[25%]" : "md:basis-0 md.max-w-0",
+            "transition-all duration-300 ease-in-out",
+            rightOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden",
           )}
           aria-hidden={!rightOpen}
         >
