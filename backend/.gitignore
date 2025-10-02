@@ -2,7 +2,7 @@
 .venv
 .env
 **/.env
-.vscode
+**/.vscode
 
 # Telegram 
 ./session.session
