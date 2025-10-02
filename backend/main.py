@@ -1,7 +1,7 @@
 import os
 import uvicorn
 from dotenv import load_dotenv
-from config import is_development
+from config.config import is_development
 
 load_dotenv()
 
