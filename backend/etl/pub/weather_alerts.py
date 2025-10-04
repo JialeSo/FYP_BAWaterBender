@@ -34,14 +34,10 @@ class WeatherAlerts:
             missing_vars.append("TELE_API_ID")
         if not api_hash:
             missing_vars.append("TELE_API_HASH")
-        if not self.phone:
-            missing_vars.append("TELE_PHONE_NO")
         if not self.channel_username:
             missing_vars.append("PUB_CHANNEL_USERNAME")
         if not self.phone:
             missing_vars.append("TELE_PHONE_NO")
-
-        logger.info(f"Using channel: {self.channel_username}")
 
         if missing_vars:
             raise ValueError(
@@ -60,9 +56,7 @@ class WeatherAlerts:
             f"WeatherAlertsETL initialized. " f"Listening on {self.channel_username}"
         )
 
-    async def extract_existing_messages(
-        self, save_to_db: bool = False, limit: int = 100
-    ) -> None:
+    async def extract_existing_messages(self, limit: int = 100) -> None:
         """Extract existing messages from a channel"""
         messages = []
         if not self.client.is_connected():
@@ -106,14 +100,16 @@ class WeatherAlerts:
         """Monitor channel for new messages"""
         url = SERVER_URL or "http://localhost:8000"
         WEBHOOK_URL = f"{url}/weather-alerts/webhook"
-        
+
         try:
             # Start the client with phone parameter - this handles authentication automatically
             await self.client.start(
                 phone=self.phone,
-                code_callback=lambda: input("Please enter the verification code you received: ")
+                code_callback=lambda: input(
+                    "Please enter the verification code you received: "
+                ),
             )
-            
+
             logger.info("✅ Authentication successful, starting monitoring...")
 
         except Exception as e:
@@ -143,7 +139,7 @@ class WeatherAlerts:
                 logger.error(f"❌ Failed webhook for message {msg_id}: {e}")
 
         logger.info(f"📡 Now monitoring {self.channel_username} for new messages...")
-        
+
         # Keep the client running
         await self.client.run_until_disconnected()
 
