@@ -61,17 +61,6 @@ class WeatherAlerts:
             f"WeatherAlertsETL initialized. " f"Listening on {self.channel_username}"
         )
 
-        # Log environment variables being used (without exposing sensitive values)
-        logger.info("Environment variables being used:")
-        logger.info(f"TELE_API_ID: {'✓ Set' if api_id else '✗ Missing'}")
-        logger.info(f"TELE_API_HASH: {'✓ Set' if api_hash else '✗ Missing'}")
-        logger.info(f"PUB_TELE_BOT_TOKEN: {'✓ Set' if self.bot_token else '✗ Missing'}")
-        logger.info(f"PUB_CHANNEL_USERNAME: {self.channel_username}")
-        logger.info(
-            f"LOCATIONIQ_KEY: {'✓ Set' if os.getenv('LOCATIONIQ_KEY') else '✗ Missing'}"
-        )
-        logger.info(f"SERVER_URL: {SERVER_URL}")
-
     async def extract_existing_messages(self, limit: int = 100) -> None:
         """Extract existing messages from a channel"""
         messages = []
