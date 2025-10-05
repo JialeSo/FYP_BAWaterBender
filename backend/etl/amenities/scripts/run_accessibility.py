@@ -23,10 +23,10 @@ if "MPLCONFIGDIR" not in os.environ:
     mpl_cache.mkdir(parents=True, exist_ok=True)
     os.environ["MPLCONFIGDIR"] = str(mpl_cache)
 
-from backend.etl.amenities.amenity_accessibility_all import (
+from backend.etl.amenities.amenity_accessibility import (
     AmenityAccessibilityAnalyzer,
     DEFAULT_SINGAPORE_CATEGORIES,
-    DEFAULT_WOODLANDS_CATEGORIES,
+    DEFAULT_SUBZONE_CATEGORIES,
     SubzoneAccessibilityAnalyzer,
 )
 
@@ -47,7 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--subzones",
         nargs="+",
-        default=["Woodlands"],
+        default=["Bukit Timah"],
         help="One or more planning area names (case-insensitive substring match) for subzone analysis.",
     )
     parser.add_argument(
@@ -85,14 +85,14 @@ def main() -> None:
     subzone_categories = (
         tuple(args.subzone_categories)
         if args.subzone_categories
-        else DEFAULT_WOODLANDS_CATEGORIES
+        else DEFAULT_SUBZONE_CATEGORIES
     )
 
     subzone_analyzer = SubzoneAccessibilityAnalyzer(analyzer)
     for subzone in args.subzones:
         _, sub_summary = subzone_analyzer.analyze_categories(
             subzone_categories,
-            subzone_name_filter=subzone,
+            subzone_selector=subzone,
             resolution=args.resolution,
             plot=args.plot,
         )

@@ -1,12 +1,13 @@
-"""Amenity accessibility analysis utilities with an object-oriented API."""
+"""Amenity accessibility analysis utilities using Hansen Accessibility"""
 from __future__ import annotations
+
+import math
+import re
+import warnings
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
-
-import math
-import warnings
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -15,27 +16,42 @@ import pandas as pd
 from scipy.spatial import cKDTree
 from shapely.geometry import Point, Polygon
 
+import re
+
 warnings.filterwarnings("ignore")
 
-try:  # pragma: no cover - optional dependency
+try: 
     import h3
 
     H3_AVAILABLE = True
-except ImportError:  # pragma: no cover - optional dependency
+except ImportError:  
     h3 = None
     H3_AVAILABLE = False
 
 MODULE_DIR = Path(__file__).resolve().parent
 DATA_DIR = MODULE_DIR.parent / "data"
 
+AMENITY_LON_FIELD = "lon"
+AMENITY_LAT_FIELD = "lat"
 
-def _resolve_dataset(filename: str) -> Path:
+
+def _resolve_dataset(filename: str, *, fallback: Sequence[str] | None = None) -> Path:
     """Return the first existing dataset path in known search locations."""
 
-    candidates = [
-        MODULE_DIR / "geojson" / filename,
-        DATA_DIR / filename,
-    ]
+    lookup_names: Tuple[str, ...]
+    if fallback:
+        lookup_names = (filename, *fallback)
+    else:
+        lookup_names = (filename,)
+
+    candidates: List[Path] = []
+    for name in lookup_names:
+        candidates.extend(
+            [
+                MODULE_DIR / "geojson" / name,
+                DATA_DIR / name,
+            ]
+        )
 
     for path in candidates:
         if path.exists():
@@ -53,7 +69,7 @@ DEFAULT_SINGAPORE_CATEGORIES: Tuple[str, ...] = (
     "education_institutions",
     "retail_services",
 )
-DEFAULT_WOODLANDS_CATEGORIES: Tuple[str, ...] = (
+DEFAULT_SUBZONE_CATEGORIES: Tuple[str, ...] = (
     "transport_services",
     "essential_services",
     "community_spaces",
@@ -62,11 +78,15 @@ DEFAULT_WOODLANDS_CATEGORIES: Tuple[str, ...] = (
 )
 
 
+def _normalise_token(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.casefold())
+
+
 @dataclass(frozen=True)
 class DatasetPaths:
     """Location of the spatial datasets used by the analysis."""
 
-    amenities: Path = field(default_factory=lambda: _resolve_dataset("amenities_with_importance_score.geojson"))
+    amenities: Path = field(default_factory=lambda: _resolve_dataset("amenities_3layers_V2.csv", fallback=("amenities_3layers.csv", "amenities_with_importance_score.csv")))
     planning_area: Path = field(default_factory=lambda: _resolve_dataset("planning_area.geojson"))
     subzones: Path = field(default_factory=lambda: _resolve_dataset("subzone_area.geojson"))
 
@@ -83,7 +103,25 @@ class AmenityDataRepository:
 
     def amenities(self) -> gpd.GeoDataFrame:
         if self._amenities is None:
-            amenities = gpd.read_file(self.paths.amenities)
+            path = self.paths.amenities
+            if path.suffix.lower() == ".csv":
+                df = pd.read_csv(path)
+                if AMENITY_LON_FIELD not in df.columns or AMENITY_LAT_FIELD not in df.columns:
+                    raise KeyError(
+                        f"CSV dataset {path} is missing required '{AMENITY_LON_FIELD}'/'{AMENITY_LAT_FIELD}' columns"
+                    )
+                geometry = gpd.points_from_xy(df[AMENITY_LON_FIELD], df[AMENITY_LAT_FIELD], crs=DEFAULT_LATLON_CRS)
+                amenities = gpd.GeoDataFrame(df, geometry=geometry)
+            else:
+                amenities = gpd.read_file(path)
+            numeric_cols = [
+                "importance_score",
+                "amenity_priority",
+                "amenity_weight",
+            ]
+            for column in numeric_cols:
+                if column in amenities.columns:
+                    amenities[column] = pd.to_numeric(amenities[column], errors="coerce")
             self._amenities = amenities.to_crs(self.target_crs)
         return self._amenities.copy()
 
@@ -402,17 +440,49 @@ class SubzoneAccessibilityAnalyzer:
     def __init__(self, analyzer: Optional[AmenityAccessibilityAnalyzer] = None) -> None:
         self.analyzer = analyzer or AmenityAccessibilityAnalyzer()
 
+    def _resolve_subzones(self, selector: str, subzones: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+        if not selector or not selector.strip():
+            raise ValueError("subzone selector must be provided")
+
+        cleaned_selector = selector.strip()
+        normalised_selector = _normalise_token(cleaned_selector)
+
+        def normalise_series(series: pd.Series) -> pd.Series:
+            return series.fillna("").astype(str).map(_normalise_token)
+
+        exact_mask = (
+            subzones["SUBZONE_N"].fillna("").str.casefold().eq(cleaned_selector.casefold())
+            | subzones["PLN_AREA_N"].fillna("").str.casefold().eq(cleaned_selector.casefold())
+        )
+
+        matches = subzones[exact_mask]
+
+        if matches.empty and normalised_selector:
+            norm_mask = (
+                normalise_series(subzones["SUBZONE_N"]) == normalised_selector
+                | normalise_series(subzones["PLN_AREA_N"]) == normalised_selector
+            )
+            matches = subzones[norm_mask]
+
+        if matches.empty:
+            contains_mask = (
+                subzones["SUBZONE_N"].fillna("").str.contains(cleaned_selector, case=False)
+                | subzones["PLN_AREA_N"].fillna("").str.contains(cleaned_selector, case=False)
+            )
+            matches = subzones[contains_mask]
+
+        if matches.empty:
+            raise ValueError(f"No subzones found matching '{selector}'.")
+
+        return matches.copy()
+
     def run(self, *, category: Optional[str] = None, resolution: Optional[int] = None,
-            subzone_name_filter: str = "Woodlands", metric: str = "hansen", plot: bool = True) -> Tuple[gpd.GeoDataFrame, pd.DataFrame]:
+            subzone_selector: Optional[str] = None, metric: str = "hansen", plot: bool = True) -> Tuple[gpd.GeoDataFrame, pd.DataFrame]:
         repository = self.analyzer.repository
         amenities = repository.amenities_by_category(category)
         subzones = repository.subzones()
 
-        mask = subzones["PLN_AREA_N"].str.contains(subzone_name_filter, case=False, na=False)
-        selected_subzones = subzones[mask]
-        if selected_subzones.empty:
-            raise ValueError(f"No subzones found matching '{subzone_name_filter}'.")
-
+        selected_subzones = self._resolve_subzones(subzone_selector or "", subzones)
         subzone_union = selected_subzones.unary_union
 
         if not amenities.empty:
@@ -459,13 +529,14 @@ class SubzoneAccessibilityAnalyzer:
         )
 
         if plot:
-            title = f"Accessibility in {subzone_name_filter} Subzones ({category.replace('_', ' ').title() if category else 'All Amenities'})"
+            label = subzone_selector or "Selected"
+            title = f"Accessibility in {label} Subzones ({category.replace('_', ' ').title() if category else 'All Amenities'})"
             self.analyzer.plotter.subzone_map(hexagons_with_subzones, amenities, selected_subzones, title)
 
         return hexagons_with_subzones, summary
 
     def analyze_categories(self, categories: Iterable[str], *, resolution: Optional[int] = None,
-                           subzone_name_filter: str = "Woodlands", metric: str = "hansen",
+                           subzone_selector: Optional[str] = None, metric: str = "hansen",
                            plot: bool = False) -> Tuple[List[gpd.GeoDataFrame], pd.DataFrame]:
         hexagon_results: List[gpd.GeoDataFrame] = []
         summaries: List[pd.DataFrame] = []
@@ -474,7 +545,7 @@ class SubzoneAccessibilityAnalyzer:
             hexagons, summary = self.run(
                 category=category,
                 resolution=resolution,
-                subzone_name_filter=subzone_name_filter,
+                subzone_selector=subzone_selector,
                 metric=metric,
                 plot=plot,
             )
@@ -489,6 +560,77 @@ class SubzoneAccessibilityAnalyzer:
         summary_df = pd.concat(summaries, ignore_index=True) if summaries else pd.DataFrame()
         return hexagon_results, summary_df
 
+    def detect_subzones(self, selector: str) -> gpd.GeoDataFrame:
+        repository = self.analyzer.repository
+        return self._resolve_subzones(selector, repository.subzones())
+
+
+class AmenityAccessibilityService:
+    """High-level interface bundling data access and accessibility analytics."""
+
+    def __init__(
+        self,
+        *,
+        repository: Optional[AmenityDataRepository] = None,
+        paths: Optional[DatasetPaths] = None,
+        grid_builder: Optional[HexagonGridBuilder] = None,
+        calculator: Optional[AccessibilityCalculator] = None,
+        plotter: Optional[AccessibilityPlotter] = None,
+    ) -> None:
+        if repository is None:
+            repository = AmenityDataRepository(paths or DatasetPaths())
+        self.repository = repository
+
+        self._grid_builder = grid_builder or HexagonGridBuilder()
+        self._calculator = calculator or AccessibilityCalculator()
+        self._plotter = plotter or AccessibilityPlotter()
+
+        self._analyzer = AmenityAccessibilityAnalyzer(
+            repository=self.repository,
+            grid_builder=self._grid_builder,
+            calculator=self._calculator,
+            plotter=self._plotter,
+        )
+        self._subzone_analyzer = SubzoneAccessibilityAnalyzer(self._analyzer)
+
+    @property
+    def analyzer(self) -> AmenityAccessibilityAnalyzer:
+        return self._analyzer
+
+    @property
+    def subzone_analyzer(self) -> SubzoneAccessibilityAnalyzer:
+        return self._subzone_analyzer
+
+    def analyze_citywide(
+        self,
+        categories: Iterable[str] = DEFAULT_SINGAPORE_CATEGORIES,
+        *,
+        resolution: Optional[int] = None,
+        metric: str = "hansen",
+        plot: bool = True,
+    ) -> Tuple[List[Tuple[str, gpd.GeoDataFrame, gpd.GeoDataFrame]], pd.DataFrame]:
+        return self._analyzer.analyze_categories(categories, resolution=resolution, metric=metric, plot=plot)
+
+    def analyze_subzone(
+        self,
+        selector: str,
+        categories: Iterable[str] = DEFAULT_SUBZONE_CATEGORIES,
+        *,
+        resolution: Optional[int] = None,
+        metric: str = "hansen",
+        plot: bool = False,
+    ) -> Tuple[List[gpd.GeoDataFrame], pd.DataFrame]:
+        return self._subzone_analyzer.analyze_categories(
+            categories,
+            resolution=resolution,
+            subzone_selector=selector,
+            metric=metric,
+            plot=plot,
+        )
+
+    def detect_subzone(self, selector: str) -> gpd.GeoDataFrame:
+        return self._subzone_analyzer.detect_subzones(selector)
+
 
 __all__ = [
     "DatasetPaths",
@@ -498,6 +640,7 @@ __all__ = [
     "AccessibilityPlotter",
     "AmenityAccessibilityAnalyzer",
     "SubzoneAccessibilityAnalyzer",
+    "AmenityAccessibilityService",
     "DEFAULT_SINGAPORE_CATEGORIES",
-    "DEFAULT_WOODLANDS_CATEGORIES",
+    "DEFAULT_SUBZONE_CATEGORIES",
 ]

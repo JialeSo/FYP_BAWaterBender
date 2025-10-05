@@ -26,7 +26,7 @@ if "MPLCONFIGDIR" not in os.environ:
     mpl_cache.mkdir(parents=True, exist_ok=True)
     os.environ["MPLCONFIGDIR"] = str(mpl_cache)
 
-from backend.etl.amenities.amenity_accessibility_all import AccessibilityPlotter
+from backend.etl.amenities.amenity_accessibility import AccessibilityPlotter
 from backend.etl.historical_floods.flood_aware_accessibility import (
     FloodAwareAccessibilityCalculator,
     FloodAwareAmenityAnalyzer,
