@@ -11,19 +11,18 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-  import { Label } from "@/components/ui/label"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Check, ChevronsUpDown, X } from "lucide-react"
 
-/* ---------- shared comboboxes ---------- */
 function MultiSelectCombobox({
   label,
   options = [],
   selected = [],
   onChange,
-  placeholder = "select",
-  searchPlaceholder = "search…",
-  emptyText = "no results.",
+  placeholder = "Select",
+  searchPlaceholder = "Search…",
+  emptyText = "No results.",
   popoverWidthClass = "w-[320px]",
 }) {
   const [open, setOpen] = useState(false)
@@ -114,8 +113,8 @@ function SingleSelectCombobox({
   options = [],
   value = "",
   onChange,
-  placeholder = "search…",
-  emptyText = "no results.",
+  placeholder = "Search…",
+  emptyText = "No results.",
   popoverWidthClass = "w-[320px]",
 }) {
   const [open, setOpen] = useState(false)
@@ -166,20 +165,19 @@ function SingleSelectCombobox({
   )
 }
 
-/* ---------- upgraded left panel ---------- */
 export default function LeftPanel({
-  /* planning areas */
+  /** planning areas (back-compat) */
   options = [],
   selected = [],
   onSelectionChange,
   onResetSelection,
 
-  /* subzones */
-  subzoneOptions = [],           // [{ name, planningArea }]
+  /** subzone search (scoped by PA selection) */
+  subzoneOptions = [], // [{ name, planningArea }]
   selectedSubzone = "",
-  onSubzonePick,                 // (subzoneName) => void
+  onSubzonePick,       // (subzoneName) => void
 
-  /* amenities */
+  /** amenities */
   amenityCategoriesOptions = [],
   selectedAmenityCategories = [],
   onAmenityCategoriesChange,
@@ -187,23 +185,15 @@ export default function LeftPanel({
   selectedAmenityTypes = [],
   onAmenityTypesChange,
 
-  /* NEW: floods */
-  showFloods = true,
-  onShowFloodsChange,            // (bool) => void
-  floodTypesOptions = [],        // array<string> from csv event
-  selectedFloodTypes = [],       // array<string>
-  onFloodTypesChange,            // (array<string>) => void
-  visibleFloodCount = 0,         // live count from map
-
-  /* NEW: amenities master toggle (mirrors map) */
-  showAmenities = false,
-  onShowAmenitiesChange,         // (bool) => void
-
-  /* NEW: choropleth metric */
-  colorMetric = "floods",        // 'floods' | 'amenities'
-  onColorMetricChange,           // (value) => void
+  /** floods */
+  floodTypeOptions = [],
+  selectedFloodTypes = [],
+  onFloodTypesChange,
+  floodDateFrom = "",
+  floodDateTo = "",
+  onFloodDateFromChange,
+  onFloodDateToChange,
 }) {
-  /* ----- planning areas ----- */
   const [paOpen, setPaOpen] = useState(false)
   const [paSearch, setPaSearch] = useState("")
   const normalizedOptions = useMemo(() => options.map((o) => o?.trim?.() ?? "").filter(Boolean), [options])
@@ -225,203 +215,30 @@ export default function LeftPanel({
   const handleClearAll = () => onSelectionChange?.([])
   const handleReset = () => onResetSelection?.()
 
-  /* ----- subzones ----- */
-  const [limitSubzonesToSelection, setLimitSubzonesToSelection] = useState(true)
-  const subzoneNames = useMemo(() => {
-    if (!subzoneOptions?.length) return []
-    const base = limitSubzonesToSelection && hasSelection
-      ? subzoneOptions.filter(z => selectedAreas.includes(z.planningArea))
-      : subzoneOptions
-    return base.map((z) => z.name).sort()
-  }, [subzoneOptions, hasSelection, selectedAreas, limitSubzonesToSelection])
-
-  /* ----- floods ----- */
-  const [floodTypeSearch, setFloodTypeSearch] = useState("")
-  const filteredFloodTypes = useMemo(() => {
-    const q = floodTypeSearch.trim().toLowerCase()
-    if (!q) return floodTypesOptions
-    return floodTypesOptions.filter(t => t.toLowerCase().includes(q))
-  }, [floodTypesOptions, floodTypeSearch])
-  const floodTypesSet = useMemo(() => new Set(selectedFloodTypes), [selectedFloodTypes])
-  const toggleFloodType = (t) => {
-    const exists = floodTypesSet.has(t)
-    const next = exists ? selectedFloodTypes.filter(x => x !== t) : [...selectedFloodTypes, t]
-    onFloodTypesChange?.(next)
-  }
-  const selectAllFloods = () => onFloodTypesChange?.(floodTypesOptions.slice())
-  const clearAllFloods = () => onFloodTypesChange?.([])
-
-  /* ----- amenities lists are already multi-selects above ----- */
+  /* subzone names limited to current PA selection */
+  const subzoneNames = useMemo(
+    () => subzoneOptions.map((z) => z.name).sort(),
+    [subzoneOptions]
+  )
 
   return (
     <div className="flex h-full flex-col gap-6 p-6">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">filters</h2>
-        <p className="text-sm text-muted-foreground">refine what’s displayed on the historical flood map.</p>
+        <h2 className="text-lg font-semibold text-foreground">Filters</h2>
+        <p className="text-sm text-muted-foreground">Refine what’s displayed on the historical flood map.</p>
       </div>
 
-      {/* display (choropleth metric) */}
-      <div className="space-y-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">display</span>
-        <label className="block text-sm">
-          <span className="text-muted-foreground">color by</span>
-          <select
-            className="mt-1 w-full rounded border bg-background p-2"
-            value={colorMetric}
-            onChange={(e) => onColorMetricChange?.(e.target.value)}
-          >
-            <option value="floods">flood events</option>
-            <option value="amenities">amenities (count)</option>
-          </select>
-        </label>
-      </div>
-
-      <Separator />
-
-      {/* floods */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">floods</span>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={showFloods}
-              onChange={(e) => onShowFloodsChange?.(e.target.checked)}
-            />
-            <span className="text-muted-foreground">show markers</span>
-          </label>
-        </div>
-
-        {showFloods && (
-          <>
-            <div className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-              visible on map: <span className="font-semibold text-foreground">{visibleFloodCount}</span>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">types</span>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={selectAllFloods} disabled={!floodTypesOptions.length}>
-                    select all
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={clearAllFloods} disabled={!selectedFloodTypes.length}>
-                    clear
-                  </Button>
-                </div>
-              </div>
-
-              {/* searchable flood-type checklist */}
-              <div className="rounded-md border p-2">
-                <input
-                  className="mb-2 w-full rounded border bg-background p-2 text-sm"
-                  placeholder="search flood types…"
-                  value={floodTypeSearch}
-                  onChange={(e) => setFloodTypeSearch(e.target.value)}
-                />
-                <ScrollArea className="max-h-40 pr-1">
-                  <div className="space-y-1">
-                    {filteredFloodTypes.map((t) => {
-                      const checked = floodTypesSet.has(t)
-                      return (
-                        <label key={t} className="flex items-center gap-2 text-sm">
-                          <input type="checkbox" checked={checked} onChange={() => toggleFloodType(t)} />
-                          <span className="truncate">{t}</span>
-                        </label>
-                      )
-                    })}
-                    {!filteredFloodTypes.length && (
-                      <div className="py-3 text-center text-xs text-muted-foreground">no matching type</div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* amenities */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">amenities</span>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={showAmenities}
-              onChange={(e) => onShowAmenitiesChange?.(e.target.checked)}
-            />
-            <span className="text-muted-foreground">show icons</span>
-          </label>
-        </div>
-
-        {showAmenities && (
-          <>
-            <MultiSelectCombobox
-              label="categories"
-              options={amenityCategoriesOptions}
-              selected={selectedAmenityCategories}
-              onChange={onAmenityCategoriesChange}
-              placeholder="select categories"
-              searchPlaceholder="search categories"
-              emptyText="no category found."
-            />
-            <MultiSelectCombobox
-              label="types"
-              options={amenityTypesOptions}
-              selected={selectedAmenityTypes}
-              onChange={onAmenityTypesChange}
-              placeholder="select types"
-              searchPlaceholder="search types"
-              emptyText="no type found."
-            />
-          </>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* subzone search */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">subzone</Label>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={limitSubzonesToSelection}
-              onChange={(e) => setLimitSubzonesToSelection(e.target.checked)}
-            />
-            limit to selected planning areas
-          </label>
-        </div>
-        <SingleSelectCombobox
-          label={null}
-          options={subzoneNames}
-          value={selectedSubzone}
-          onChange={onSubzonePick}
-          placeholder="search subzones"
-          emptyText="no subzone found."
-        />
-        <div className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-          tip: picking a subzone will auto-focus the map and show amenities within it.
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* planning areas */}
+      {/* Planning areas */}
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">planning areas</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Planning Areas</span>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={handleSelectAll} disabled={!normalizedOptions.length}>
-                select all
+                Select all
               </Button>
               <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={handleClearAll} disabled={!hasSelection}>
-                clear
+                Clear
               </Button>
             </div>
           </div>
@@ -430,15 +247,15 @@ export default function LeftPanel({
             <PopoverTrigger asChild>
               <Button variant="outline" role="combobox" aria-expanded={paOpen} className="w-full justify-between">
                 <span className="truncate text-left">
-                  {hasSelection ? `${selectedAreas.length} planning area${selectedAreas.length > 1 ? "s" : ""} selected` : "select planning areas"}
+                  {hasSelection ? `${selectedAreas.length} planning area${selectedAreas.length > 1 ? "s" : ""} selected` : "Select planning areas"}
                 </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[320px] p-0" align="start">
               <Command>
-                <CommandInput placeholder="search planning areas" value={paSearch} onValueChange={setPaSearch} />
-                <CommandEmpty>no planning area found.</CommandEmpty>
+                <CommandInput placeholder="Search planning areas" value={paSearch} onValueChange={setPaSearch} />
+                <CommandEmpty>No planning area found.</CommandEmpty>
                 <CommandList>
                   <CommandGroup>
                     <ScrollArea className="max-h-64">
@@ -475,7 +292,7 @@ export default function LeftPanel({
                     type="button"
                     className="rounded-full p-0.5 hover:bg-secondary-foreground/10"
                     onClick={() => handleToggleArea(area)}
-                    aria-label={`remove ${area}`}
+                    aria-label={`Remove ${area}`}
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -486,7 +303,82 @@ export default function LeftPanel({
         </div>
 
         <div className="rounded-lg border border-dashed border-border/60 p-4 text-xs text-muted-foreground">
-          tip: click a planning area on the map to drill into subzones.
+          Tip: Pick a subzone below — its planning area auto-selects.
+        </div>
+      </div>
+
+      {/* Subzone search (single) */}
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Subzone</Label>
+        <SingleSelectCombobox
+          label={null}
+          options={subzoneNames}
+          value={selectedSubzone}
+          onChange={onSubzonePick}
+          placeholder="Search subzones"
+          emptyText="No subzone found."
+        />
+      </div>
+
+      <Separator />
+
+      {/* Amenities */}
+      <div className="space-y-4">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amenities</span>
+        <MultiSelectCombobox
+          label="Categories (always full list)"
+          options={amenityCategoriesOptions}
+          selected={selectedAmenityCategories}
+          onChange={onAmenityCategoriesChange}
+          placeholder="Select categories"
+          searchPlaceholder="Search categories"
+          emptyText="No category found."
+        />
+        <MultiSelectCombobox
+          label="Types (based on chosen categories)"
+          options={amenityTypesOptions}
+          selected={selectedAmenityTypes}
+          onChange={onAmenityTypesChange}
+          placeholder="Select types"
+          searchPlaceholder="Search types"
+          emptyText="No type found."
+        />
+      </div>
+
+      <Separator />
+
+      {/* Floods */}
+      <div className="space-y-4">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Floods</span>
+        <MultiSelectCombobox
+          label="Event types"
+          options={floodTypeOptions}
+          selected={selectedFloodTypes}
+          onChange={onFloodTypesChange}
+          placeholder="Select flood types"
+          searchPlaceholder="Search flood types"
+          emptyText="No type found."
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">From date</Label>
+            <input
+              type="date"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={floodDateFrom}
+              onChange={(e) => onFloodDateFromChange?.(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">To date</Label>
+            <input
+              type="date"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={floodDateTo}
+              onChange={(e) => onFloodDateToChange?.(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -498,15 +390,13 @@ export default function LeftPanel({
           disabled={
             !hasSelection &&
             !selectedSubzone &&
-            !selectedFloodTypes.length &&
             !selectedAmenityCategories.length &&
             !selectedAmenityTypes.length &&
-            showFloods === true &&
-            showAmenities === false &&
-            colorMetric === "floods"
+            !selectedFloodTypes.length &&
+            !floodDateFrom && !floodDateTo
           }
         >
-          reset filters
+          Reset filters
         </Button>
       </div>
     </div>
