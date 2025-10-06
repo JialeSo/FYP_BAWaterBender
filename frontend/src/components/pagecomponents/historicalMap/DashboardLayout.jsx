@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import LeftPanel from "./LeftPanel";
+import LeftPanel from "@/components/pagecomponents/historicalMap/LeftPanel";
 import RightPanel from "./RightPanel";
 import { PanelLeft, PanelRight } from "lucide-react";
 
@@ -65,6 +65,8 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [resizeSignal, setResizeSignal] = useState(0);
+  const [showFloods, setShowFloods] = useState(true);
+  const [showAmenities, setShowAmenities] = useState(true);
 
   /* selection state */
   const [planningAreas, setPlanningAreas] = useState([]);
@@ -498,6 +500,11 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
 
                 /* insights */
                 floodStats={floodInsights}
+                /* 👇 NEW props for visibility toggles */
+                showFloods={showFloods}
+                setShowFloods={setShowFloods}
+                showAmenities={showAmenities}
+                setShowAmenities={setShowAmenities}
               />
             )}
           </div>

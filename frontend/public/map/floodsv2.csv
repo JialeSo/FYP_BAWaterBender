@@ -1,4 +1,4 @@
-id,text,event_date,location,event,start_loc,end_loc,parent_road,cleaned_location,start_lat,start_lng,start_postal_code,end_lat,end_lng,end_postal_code,start_planning_area,start_planning_area_id,start_subzone,start_subzone_id,start_street_name,start_street_id,end_planning_area,end_planning_area_id,end_subzone,end_subzone_id,end_street_name,end_street_id
+id,text,event_date,location,event,start_loc,end_loc,parent_road,cleaned_location,start_lat,start_lng,start_postal_code,end_lat,end_lng,end_postal_code,start_planning_area,start_planning_area_id,start_subzone,start_subzone_id,start_street_name,nearest_road_1_id,end_planning_area,end_planning_area_id,end_subzone,end_subzone_id,end_street_name,end_street_id
 1,,2014-03-20,YISHUN MRT,flash_flood,,,,,1.429525,103.834995,769093,,,,YISHUN,000055,YISHUN WEST,000316,YISHUN AVENUE 2,008503,,,,,,
 2,,2014-04-04,2 KAKI BUKIT ROAD 3,flash_flood,,,,,1.337334,103.901943,416161,,,,BEDOK,000001,KAKI BUKIT,000211,KAKI BUKIT AVENUE 2,049801,,,,,,
 3,,2014-04-23,PSC BUILDING,flash_flood,,,,,1.328863,103.706189,629813,,,,JURONG WEST,000013,KIAN TECK,000105,INTERNATIONAL ROAD,007731,,,,,,
