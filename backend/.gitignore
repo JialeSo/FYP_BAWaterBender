@@ -14,5 +14,8 @@ etl/pub/messages/*
 *.pyo
 *.pyd
 
+# Dataset 
+etl/data/geojson_layers
+
 # MacOS 
 */.DS_Store

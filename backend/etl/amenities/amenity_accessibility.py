@@ -86,7 +86,7 @@ def _normalise_token(value: str) -> str:
 class DatasetPaths:
     """Location of the spatial datasets used by the analysis."""
 
-    amenities: Path = field(default_factory=lambda: _resolve_dataset("amenities_3layers_V2.csv", fallback=("amenities_3layers.csv", "amenities_with_importance_score.csv")))
+    amenities: Path = field(default_factory=lambda: _resolve_dataset("amenities_3layers.csv", fallback=("amenities_with_importance_score.csv")))
     planning_area: Path = field(default_factory=lambda: _resolve_dataset("planning_area.geojson"))
     subzones: Path = field(default_factory=lambda: _resolve_dataset("subzone_area.geojson"))
 
