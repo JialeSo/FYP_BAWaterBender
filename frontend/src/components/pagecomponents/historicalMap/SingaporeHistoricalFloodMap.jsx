@@ -352,7 +352,7 @@ function SingaporeHistoricalFloodMap({
   useEffect(() => {
     if (selectedPlanningAreas?.length && viewMode !== "subzone") {
       setViewMode("subzone");
-      setShowAmenities?.(true);
+      setShowAmenities?.(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlanningAreas?.length]);
@@ -376,14 +376,22 @@ function SingaporeHistoricalFloodMap({
       setViewMode("subzone");
       setShowAmenities?.(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubzone]);
 
 
   const [colorMetric, setColorMetric] = useState("floods"); // 'floods' | 'amenities'
   const [panelOpen, setPanelOpen] = useState(true);
   const [displayFloodTypes, setDisplayFloodTypes] = useState(floodTypes || []);
-  const [displayAmenityTypes, setDisplayAmenityTypes] = useState(amenityTypes || []);
+  
+  useEffect(() => {
+    if ((floodTypes || []).length) {
+      setDisplayFloodTypes(cur =>
+        cur.length ? cur : floodTypes.map(v => String(v ?? "").trim())
+      );
+    }
+  }, [floodTypes]);
+
+
   const [visibleFloodCount, setVisibleFloodCount] = useState(0);
 
   const { roadCountMap = {}, maxRoadCount = 0 } = floodStats ?? {};
@@ -408,10 +416,75 @@ function SingaporeHistoricalFloodMap({
     () => (displayFloodTypes || []).map((v) => normaliseString(v).toLowerCase()).filter(Boolean),
     [displayFloodTypes]
   );
-  const displayAmenityTypesNorm = useMemo(
-    () => (displayAmenityTypes || []).map((v) => normaliseString(v)).filter(Boolean),
-    [displayAmenityTypes]
+ 
+  
+   // global (catalog) list of amenity categories — independent of PA/subzone
+  const globalAmenityCategories = useMemo(() => {
+   if ((amenityTypes || []).length) {
+     // if you pass the catalog in via props, use it
+     return amenityTypes.map((v) => normaliseString(v)).filter(Boolean).sort();
+   }
+   const cats = new Set();
+   for (const f of amenityData?.features ?? []) {
+     const c = normaliseString(f?.properties?.amenity_category);
+     if (c) cats.add(c);
+   }
+   return Array.from(cats).sort();
+ }, [amenityTypes, amenityData]);
+
+
+  const availableAmenityCategories = useMemo(() => {
+    if (!amenityData) return [];
+
+    const paSet  = new Set((selectedPlanningAreas || []).map((v) => normaliseString(v)).filter(Boolean));
+    const typeSet = new Set((selectedAmenityTypes || []).map((v) => normaliseString(v)).filter(Boolean)); // LeftPanel type filter
+    const catFilterSet = new Set((selectedAmenityCategories || []).map((v) => normaliseString(v)).filter(Boolean)); // LeftPanel category filter
+
+    const effectiveSubzoneName =
+      (selectedSubzone?.properties?.SUBZONE_N ?? "").toString().trim() ||
+      (activeSubzoneName || "");
+
+    const cats = new Set();
+
+    for (const f of amenityData.features || []) {
+      const p   = f.properties || {};
+      const cat = normaliseString(p.amenity_category);
+      const typ = normaliseString(p.amenity_type);
+      if (!cat) continue;
+
+      // LeftPanel filters (still respected)
+      if (catFilterSet.size && !catFilterSet.has(cat)) continue;
+      if (typeSet.size && !typeSet.has(typ)) continue;
+
+      if (paSet.size) {
+        const pa = normaliseString(p.planning_area);
+        if (!paSet.has(pa)) continue;
+      }
+      if (effectiveSubzoneName) {
+        const sz = normaliseString(p.subzone);
+        if (sz !== normaliseString(effectiveSubzoneName)) continue;
+      }
+
+      cats.add(cat);
+    }
+
+    return Array.from(cats).sort();
+  }, [
+    amenityData,
+    selectedPlanningAreas,
+    selectedSubzone,
+    activeSubzoneName,
+    selectedAmenityCategories,
+    selectedAmenityTypes,
+  ]);
+
+  
+  const [displayAmenityCategories, setDisplayAmenityCategories] = useState([]); // start empty; will auto-fill from availability
+  const displayAmenityCategoriesNorm = useMemo(
+    () => (displayAmenityCategories || []).map((v) => normaliseString(v)).filter(Boolean),
+    [displayAmenityCategories]
   );
+
 
   const handleFloodTypesSelectAll = () => setDisplayFloodTypes(floodTypes || []);
   const handleFloodTypesClear = () => setDisplayFloodTypes([]);
@@ -438,6 +511,20 @@ function SingaporeHistoricalFloodMap({
       return Array.from(next);
     });
   };
+
+  useEffect(() => {
+   // If nothing chosen yet, pick ALL global categories.
+   if (!displayAmenityCategories.length) {
+     setDisplayAmenityCategories(globalAmenityCategories);
+     return;
+   }
+   // Optionally: merge in any *new* categories that appear in the catalog.
+   setDisplayAmenityCategories((prev) => {
+     const cur = new Set(prev.map(normaliseString));
+     for (const c of globalAmenityCategories) cur.add(c);
+     return Array.from(cur);
+   });
+ }, [globalAmenityCategories]);  // note: no PA/subzone dependency here
 
   const hasSelection = selectedPlanningAreas?.length > 0;
 
@@ -590,7 +677,13 @@ function SingaporeHistoricalFloodMap({
       }
     });
   };
+  const [displayAmenityTypes, setDisplayAmenityTypes] = useState(amenityTypes || []);
+  const displayAmenityTypesNorm = useMemo(
+    () => (displayAmenityTypes || []).map((v) => normaliseString(v)).filter(Boolean),
+    [displayAmenityTypes]
+  );
 
+  
   const buildAmenityIconExpression = (cats) => {
     const expr = ["match", ["to-string", ["get", "amenity_category"]]];
     for (const c of cats) expr.push(c, amenityIconId(c));
@@ -1144,6 +1237,19 @@ function SingaporeHistoricalFloodMap({
     onSubzoneSelect,
   ]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !hasLoadedRef.current) return;
+
+    // resize now…
+    map.resize();
+
+    // …and once again on the next paint (helps right after CSS transitions)
+    requestAnimationFrame(() => {
+      try { map.resize(); } catch {}
+    });
+  }, [resizeSignal]);
+
   /* amenity aggregates update when filters change */
   useEffect(() => {
     if (!amenityData) return;
@@ -1238,24 +1344,49 @@ function SingaporeHistoricalFloodMap({
         (selectedSubzone?.properties?.SUBZONE_N ?? "").toString().trim() || (activeSubzoneName ?? "");
 
       const amenityClauses = ["all"];
+
+      // PA constraint
       if (hasSelectionLocal) {
         amenityClauses.push(buildMatchFilter("planning_area", selectedPlanningAreas));
       }
+
+      // Subzone constraint
       if (subzoneName) {
         amenityClauses.push(["==", ["to-string", ["coalesce", ["get", "subzone"], ""]], subzoneName]);
       }
-      if (displayAmenityTypesNorm.length) {
+
+      // Category filter from parent (selectedAmenityCategories)
+      if (amenityCategoryFilter.length) {
         amenityClauses.push([
           "in",
           ["to-string", ["coalesce", ["get", "amenity_category"], ""]],
-          ["literal", displayAmenityTypesNorm],
+          ["literal", amenityCategoryFilter],
         ]);
       }
+
+      // Type filter from LeftPanel (still respected)
+      if (amenityTypeFilter.length) {
+        amenityClauses.push([
+          "in",
+          ["to-string", ["coalesce", ["get", "amenity_type"], ""]],
+          ["literal", amenityTypeFilter],
+        ]);
+      }
+
+      // ✅ Local DISPLAY filter by CATEGORY (replaces the old "display types" filter)
+      if (displayAmenityCategoriesNorm.length) {
+        amenityClauses.push([
+          "in",
+          ["to-string", ["coalesce", ["get", "amenity_category"], ""]],
+          ["literal", displayAmenityCategoriesNorm],
+        ]);
+      }
+
       map.setFilter(AMENITY_ICON_LAYER_ID, amenityClauses);
       map.setLayoutProperty(
         AMENITY_ICON_LAYER_ID,
         "visibility",
-        showAmenities && displayAmenityTypesNorm.length ? "visible" : "none"
+        showAmenities && displayAmenityCategoriesNorm.length ? "visible" : "none"
       );
     }
 
@@ -1323,7 +1454,7 @@ function SingaporeHistoricalFloodMap({
     viewMode,
     showAmenities,
     showFloods,
-    displayAmenityTypesNorm,
+    displayAmenityCategoriesNorm,
     displayFloodTypesLowerList,
     floodDateFrom,
     floodDateTo,
@@ -1468,7 +1599,7 @@ function SingaporeHistoricalFloodMap({
   })();
 
   return (
-    <div className="relative h-full min-h-[24rem] w-full">
+    <div className="relative w-full h-[95dvh]">
       <div ref={mapContainerRef} className="absolute inset-0 map-container" />
 
       {/* collapse/expand fab */}
@@ -1548,56 +1679,67 @@ function SingaporeHistoricalFloodMap({
             <label className="inline-flex items-center gap-2 mt-3">
               <input type="checkbox" checked={showAmenities} onChange={(e) => setShowAmenities(e.target.checked)} />
               <span>
-                show amenities{" "}
-                {selectedSubzone?.properties?.SUBZONE_N || activeSubzoneName
-                  ? " (subzone)"
-                  : hasSelection
-                  ? " (planning area)"
-                  : " (all)"}
+                Show amenities
               </span>
             </label>
 
             {showAmenities ? (
               <div className="mt-2">
-                <div className="mb-1 text-[11px] text-slate-300">amenity types</div>
+                <div className="mb-1 text-[11px] text-slate-300">amenity categories</div>
                 <div className="flex gap-2 mb-2">
                   <button
                     className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[11px]"
-                    onClick={handleAmenityTypesSelectAll}
+                    onClick={() => setDisplayAmenityCategories(availableAmenityCategories)}
                     type="button"
+                    disabled={!availableAmenityCategories.length}
                   >
                     select all
                   </button>
                   <button
                     className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[11px]"
-                    onClick={handleAmenityTypesClear}
+                    onClick={() => setDisplayAmenityCategories([])}
                     type="button"
+                    disabled={!displayAmenityCategories.length}
                   >
                     clear
                   </button>
                 </div>
+
                 <div className="max-h-40 overflow-auto pr-1 space-y-1">
-                  {amenityTypes.map((t) => {
-                    const normalized = normaliseString(t);
-                    const checked = displayAmenityTypes.includes(normalized);
+                  {availableAmenityCategories.map((cat) => {
+                    const normalized = normaliseString(cat);
+                    const checked = displayAmenityCategories.includes(normalized);
                     return (
-                      <label key={t} className="flex items-center gap-2 text-[11px]">
+                      <label key={cat} className="flex items-center gap-2 text-[11px]">
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={(e) => handleAmenityTypeDisplayToggle(t, e.target.checked)}
+                          onChange={(e) => {
+                            const shouldEnable = e.target.checked;
+                            setDisplayAmenityCategories((prev) => {
+                              const next = new Set(prev);
+                              if (shouldEnable) next.add(cat);
+                              else next.delete(cat);
+                              return Array.from(next);
+                            });
+                          }}
                         />
-                        <span className="truncate">{t}</span>
+                        <span className="truncate">{cat}</span>
                       </label>
                     );
                   })}
                 </div>
-                {displayAmenityTypes.length === 0 && (
+
+                {!availableAmenityCategories.length && (
+                  <div className="mt-1 text-[11px] text-amber-300/80">
+                    No amenity categories in the selected scope/filters.
+                  </div>
+                )}
+                {availableAmenityCategories.length > 0 && displayAmenityCategories.length === 0 && (
                   <div className="mt-1 text-[11px] text-amber-300/80">none selected — markers hidden</div>
                 )}
               </div>
             ) : null}
-
             {viewMode === "planning" && (
               <div className="mt-2 text:[11px] text-slate-400">click a planning area to drill into subzones.</div>
             )}
@@ -1626,12 +1768,6 @@ function SingaporeHistoricalFloodMap({
             <span className="inline-block h-3 w-3 rounded-full border border-white" style={{ backgroundColor: "#38bdf8" }} />
             <span className="text-slate-300">flood event</span>
           </div>
-
-          {selectedPlanningAreas?.length > 0 && (
-            <div className="mt-2 text-[11px] text-slate-400">
-              filtering to: <span className="ml-1 font-medium text-slate-200">{selectedPlanningAreas.join(", ")}</span>
-            </div>
-          )}
         </div>
       </div>
 

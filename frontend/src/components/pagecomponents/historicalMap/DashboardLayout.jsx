@@ -21,7 +21,6 @@ const normaliseFloodRecord = (record) => {
   const floodType = (record.event || "unknown").trim().toLowerCase() || "unknown";
   const eventDate = record.event_date ? new Date(record.event_date) : null;
   const year = eventDate && Number.isFinite(eventDate.getFullYear()) ? eventDate.getFullYear() : null;
-
   return { ...record, planningArea, subzone, road, roadId, floodType, eventDate, year };
 };
 
@@ -49,8 +48,6 @@ const countsToMap = (entries, selector = (entry) => entry.label) => {
   return { map, max };
 };
 
-/* ---------------- helpers for flexible filtering ---------------- */
-
 const withinDate = (value, fromISO, toISO) => {
   if (!fromISO && !toISO) return true;
   const d = value ? new Date(value) : null;
@@ -74,25 +71,25 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
   const [selectedSubzone, setSelectedSubzone] = useState(null);
 
   /* amenity filters */
-  const [amenityCategories, setAmenityCategories] = useState([]); // all categories from data
-  const [amenityTypesAll, setAmenityTypesAll] = useState([]);     // all types from data
+  const [amenityCategories, setAmenityCategories] = useState([]);
+  const [amenityTypesAll, setAmenityTypesAll] = useState([]);
   const [selectedAmenityCategories, setSelectedAmenityCategories] = useState([]);
   const [selectedAmenityTypes, setSelectedAmenityTypes] = useState([]);
 
   /* flood filters */
-  const [floodTypesAll, setFloodTypesAll] = useState([]);         // all types from csv rows
+  const [floodTypesAll, setFloodTypesAll] = useState([]);
   const [selectedFloodTypes, setSelectedFloodTypes] = useState([]);
-  const [floodDateFrom, setFloodDateFrom] = useState("");         // ISO date (yyyy-mm-dd)
+  const [floodDateFrom, setFloodDateFrom] = useState("");
   const [floodDateTo, setFloodDateTo] = useState("");
 
-  /* raw datasets (loaded here and shared with the Map) */
-  const [planningData, setPlanningData] = useState(null); // geojson
-  const [subzoneData, setSubzoneData] = useState(null);   // geojson
-  const [roadData, setRoadData] = useState(null);         // geojson
-  const [amenityData, setAmenityData] = useState(null);   // geojson (all amenities)
-  const [floodData, setFloodData] = useState(null);       // geojson (all floods)
+  /* raw datasets */
+  const [planningData, setPlanningData] = useState(null);
+  const [subzoneData, setSubzoneData] = useState(null);
+  const [roadData, setRoadData] = useState(null);
+  const [amenityData, setAmenityData] = useState(null);
+  const [floodData, setFloodData] = useState(null);
 
-  /* for insights panel derived from CSV rows */
+  /* insights panel */
   const [floodRows, setFloodRows] = useState([]);
   const [floodLoading, setFloodLoading] = useState(false);
   const [floodError, setFloodError] = useState(null);
@@ -103,22 +100,24 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     [planningAreas]
   );
 
+  // shared pane classes
+  const paneShell = (open) =>
+    cn("min-h-0 transition-all duration-300 ease-in-out",
+      open ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden");
+
+  const paneInner = (open) =>
+    cn("flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300",
+      open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0");
+
   /* ---------- load ALL files here ---------- */
   useEffect(() => {
     let cancelled = false;
-
     const loadAll = async () => {
       try {
         setFloodLoading(true);
         setFloodError(null);
 
-        const [
-          planningRes,
-          subzoneRes,
-          roadRes,
-          amenityCsvRes,
-          floodCsvRes,
-        ] = await Promise.all([
+        const [planningRes, subzoneRes, roadRes, amenityCsvRes, floodCsvRes] = await Promise.all([
           fetch("/map/planning_area.geojson"),
           fetch("/map/subzone_area.geojson"),
           fetch("/map/road_network.geojson"),
@@ -132,26 +131,24 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         if (!amenityCsvRes.ok) throw new Error(`Failed amenities_3layers.csv (${amenityCsvRes.status})`);
         if (!floodCsvRes.ok) throw new Error(`Failed floodsv2.csv (${floodCsvRes.status})`);
 
-        const [planningJson, subzoneJson, roadJson, amenityCsvText, floodCsvText] =
-          await Promise.all([
-            planningRes.json(),
-            subzoneRes.json(),
-            roadRes.json(),
-            amenityCsvRes.text(),
-            floodCsvRes.text(),
-          ]);
+        const [planningJson, subzoneJson, roadJson, amenityCsvText, floodCsvText] = await Promise.all([
+          planningRes.json(),
+          subzoneRes.json(),
+          roadRes.json(),
+          amenityCsvRes.text(),
+          floodCsvRes.text(),
+        ]);
 
         // amenities -> GeoJSON
         const amenRows = parseCsv(amenityCsvText);
         const amenGeo = amenitiesCsvToGeoJSON(amenRows);
 
-        // floods -> GeoJSON + rows for insights
+        // floods -> GeoJSON + rows
         const floodRowsObjects = parseCsv(floodCsvText);
         const floodGeo = floodsCsvToGeoJSON(floodRowsObjects);
 
         if (cancelled) return;
 
-        // datasets
         setPlanningData(planningJson);
         setSubzoneData(subzoneJson);
         setRoadData(roadJson);
@@ -159,7 +156,6 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         setFloodData(floodGeo);
         setFloodRows(floodRowsObjects);
 
-        // planning options
         const paNames = Array.from(
           new Set((planningJson?.features ?? [])
             .map((f) => f?.properties?.PLN_AREA_N?.trim())
@@ -167,7 +163,6 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         ).sort();
         setPlanningAreas(paNames);
 
-        // amenity options
         const uniqAmenCats = Array.from(
           new Set((amenGeo?.features ?? [])
             .map((f) => String(f?.properties?.amenity_category ?? "").trim())
@@ -182,7 +177,6 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         ).sort();
         setAmenityTypesAll(uniqAmenTypes);
 
-        // flood types
         const uniqFloodTypes = Array.from(
           new Set(floodRowsObjects
             .map((r) => String(r.event ?? "").trim().toLowerCase())
@@ -217,17 +211,14 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
   const floodEvents = useMemo(() => floodRows.map(normaliseFloodRecord), [floodRows]);
 
   const filteredFloodEvents = useMemo(() => {
-    // planning area filtering for insights
     const paAllowed = new Set(selectedPlanningAreas);
     const base = !paAllowed.size
       ? floodEvents
       : floodEvents.filter((e) => e.planningArea && paAllowed.has(e.planningArea));
 
-    // flood type
     const typeAllowed = new Set((selectedFloodTypes || []).map(String));
     const byType = typeAllowed.size ? base.filter((e) => typeAllowed.has(String(e.floodType))) : base;
 
-    // date range
     return byType.filter((e) => withinDate(e.eventDate, floodDateFrom, floodDateTo));
   }, [floodEvents, selectedPlanningAreas, selectedFloodTypes, floodDateFrom, floodDateTo]);
 
@@ -271,7 +262,6 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       .map(({ label, count }) => ({ year: Number(label), count }))
       .sort((a, b) => a.year - b.year);
 
-    // roads tally
     const roadTally = new Map();
     const roadSourceEvents = focusSubzoneName ? subzoneScopedEvents : filtered;
     roadSourceEvents.forEach((e) => {
@@ -308,6 +298,9 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       roads: new Set(filtered.map((e) => (e.roadId || e.road)).filter(Boolean)).size,
       topType: byType[0]?.label ?? null,
     };
+// ---------- AMENITY INSIGHTS ----------
+
+
 
     return {
       totals,
@@ -330,7 +323,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     };
   }, [filteredFloodEvents, floodEvents, selectedSubzone]);
 
-  /* ---------- derived subzone options (respect planning area selection) ---------- */
+  /* ---------- derived subzone options ---------- */
   const subzoneOptions = useMemo(() => {
     const feats = subzoneData?.features ?? [];
     const paAllowed = new Set(selectedPlanningAreas);
@@ -345,7 +338,6 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         planningArea: String(f.properties.PLN_AREA_N || "").trim(),
       }))
       .filter((r) => r.name);
-    // dedupe by name
     const seen = new Set();
     return rows.filter((r) => (seen.has(r.name) ? false : (seen.add(r.name), true)));
   }, [subzoneData, selectedPlanningAreas]);
@@ -357,7 +349,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     const feats = amenityData.features;
     const raw = feats
       .filter((f) => {
-        if (!cats.size) return true; // show all types if no cat selected
+        if (!cats.size) return true;
         const c = String(f?.properties?.amenity_category ?? "").trim();
         return c && cats.has(c);
       })
@@ -365,6 +357,77 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       .filter(Boolean);
     return Array.from(new Set(raw)).sort();
   }, [amenityData, selectedAmenityCategories]);
+
+        const amenityFilteredFeatures = useMemo(() => {
+        if (!amenityData?.features?.length) return [];
+        const paAllowed = new Set(selectedPlanningAreas);
+        const cats = new Set(selectedAmenityCategories.map(String));
+        const types = new Set(selectedAmenityTypes.map(String));
+
+        return (amenityData.features || []).filter((f) => {
+          const p = f.properties || {};
+          if (paAllowed.size && !paAllowed.has(String(p.planning_area || "").trim())) return false;
+          if (cats.size) {
+            const cat = String(p.amenity_category ?? "").trim();
+            if (!cat || !cats.has(cat)) return false;
+          }
+          if (types.size) {
+            const t = String(p.amenity_type ?? "").trim();
+            if (!t || !types.has(t)) return false;
+          }
+          return true;
+        });
+      }, [amenityData, selectedPlanningAreas, selectedAmenityCategories, selectedAmenityTypes]);
+
+      const amenityInsights = useMemo(() => {
+        const feats = amenityFilteredFeatures;
+        if (!feats.length) {
+          return {
+            totals: { amenities: 0, planningAreas: 0, subzones: 0, categories: 0, types: 0, topCategory: null, topType: null },
+            byPlanningArea: [],
+            bySubzone: [],
+            byCategory: [],
+            byType: [],
+            topSubzones: [],
+            topTypes: [],
+          };
+        }
+        const tally = (arr, sel) => {
+          const m = new Map();
+          arr.forEach((f) => {
+            const k = sel(f) || "Unknown";
+            m.set(k, (m.get(k) || 0) + 1);
+          });
+          return Array.from(m, ([label, count]) => ({ label, count })).sort((a,b)=>b.count-a.count);
+        };
+
+        const byPlanningArea = tally(feats, (f) => String(f.properties?.planning_area || "").trim());
+        const bySubzone     = tally(feats, (f) => String(f.properties?.subzone || "").trim());
+        const byCategory    = tally(feats, (f) => String(f.properties?.amenity_category || "").trim());
+        const byType        = tally(feats, (f) => String(f.properties?.amenity_type || "").trim());
+
+        const topSubzones = bySubzone.filter(x => x.label && x.label!=="Unknown").slice(0,5)
+          .map(({label, count}) => ({ name: label, count }));
+        const topTypes    = byType.slice(0,10).map(({label, count}) => ({ name: label, count }));
+
+        return {
+          totals: {
+            amenities: feats.length,
+            planningAreas: byPlanningArea.filter(x=>x.label && x.label!=="Unknown").length,
+            subzones: bySubzone.filter(x=>x.label && x.label!=="Unknown").length,
+            categories: byCategory.filter(x=>x.label && x.label!=="Unknown").length,
+            types: byType.filter(x=>x.label && x.label!=="Unknown").length,
+            topCategory: byCategory[0]?.label ?? null,
+            topType: byType[0]?.label ?? null,
+          },
+          byPlanningArea,
+          bySubzone,
+          byCategory,
+          byType,
+          topSubzones,
+          topTypes,
+        };
+      }, [amenityFilteredFeatures]);
 
   /* ---------- UI helpers ---------- */
   const triggerResize = useCallback(() => setResizeSignal((v) => v + 1), []);
@@ -383,7 +446,6 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     if (feature && !rightOpen) { setRightOpen(true); triggerResize(); }
   }, [rightOpen, triggerResize]);
 
-  // single-value subzone picker (from LeftPanel) -> find feature + auto-select planning area
   const handleSubzonePickByName = useCallback((subzoneName) => {
     if (!subzoneName) {
       setSelectedSubzone(null);
@@ -400,7 +462,6 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
 
   const clearSubzoneSelection = useCallback(() => setSelectedSubzone(null), []);
 
-  // keep subzone valid against selected planning areas
   useEffect(() => {
     if (!selectedPlanningAreas.length) return setSelectedSubzone(null);
     if (selectedSubzone?.properties?.PLN_AREA_N && !selectedPlanningAreas.includes(selectedSubzone.properties.PLN_AREA_N)) {
@@ -414,35 +475,30 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     return "md:basis-3/4 md:max-w-[75%]";
   }, [leftOpen, rightOpen]);
 
+  // prevent toolbar clicks from bubbling to the map canvas
+  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+
   /* ---------- render ---------- */
   return (
-    <div className="flex min-h-screen flex-col gap-6 px-4 py-6 md:px-6 lg:px-10">
-      <div className="flex flex-1 flex-col gap-6 md:flex-row">
+    <div className="flex h-full min-h-0 flex-col gap-6 px-4 py-6 md:px-6 lg:px-10">
+      <div className="flex flex-1 min-h-0 flex-col gap-6 md:flex-row">
         {/* left filters */}
-        <aside className={cn("transition-all duration-300 ease-in-out", leftOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden")} aria-hidden={!leftOpen}>
-          <div className={cn("flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300",
-            leftOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0")}>
+        <aside className={paneShell(leftOpen)} aria-hidden={!leftOpen}>
+          <div className={paneInner(leftOpen)}>
             <LeftPanel
-              /* planning area */
               options={planningOptions}
               selected={selectedPlanningAreas}
               onSelectionChange={handlePlanningAreaSelection}
               onResetSelection={handleResetPlanningAreas}
-
-              /* subzone (scoped by planning selection) */
               subzoneOptions={subzoneOptions}
               selectedSubzone={selectedSubzone ? String(selectedSubzone?.properties?.SUBZONE_N || "") : ""}
               onSubzonePick={handleSubzonePickByName}
-
-              /* amenities (categories always full list; types dynamic by selected categories) */
               amenityCategoriesOptions={amenityCategories}
               selectedAmenityCategories={selectedAmenityCategories}
               onAmenityCategoriesChange={setSelectedAmenityCategories}
               amenityTypesOptions={amenityTypeOptionsScoped}
               selectedAmenityTypes={selectedAmenityTypes}
               onAmenityTypesChange={setSelectedAmenityTypes}
-
-              /* floods */
               floodTypeOptions={floodTypesAll}
               selectedFloodTypes={selectedFloodTypes}
               onFloodTypesChange={setSelectedFloodTypes}
@@ -455,13 +511,31 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         </aside>
 
         {/* map */}
-        <div className={cn("relative flex min-h-[24rem] grow flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 ease-in-out", mapColumnClass)}>
-          <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-2 sm:flex-row">
-            <Button type="button" variant="secondary" className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium" onClick={handleToggleLeft}>
+        <div className={cn(
+          "relative min-w-0 flex min-h-[24rem] grow min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 ease-in-out",
+          mapColumnClass
+        )}>
+          {/* toolbar */}
+          <div className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="secondary"
+              className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
+              onMouseDown={stop}
+              onPointerDown={stop}
+              onClick={(e) => { stop(e); handleToggleLeft(); }}
+            >
               <PanelLeft className="h-4 w-4" />
               <span>{leftOpen ? "Hide filters" : "Show filters"}</span>
             </Button>
-            <Button type="button" variant="secondary" className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium" onClick={handleToggleRight}>
+            <Button
+              type="button"
+              variant="secondary"
+              className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
+              onMouseDown={stop}
+              onPointerDown={stop}
+              onClick={(e) => { stop(e); handleToggleRight(); }}
+            >
               <PanelRight className="h-4 w-4" />
               <span>{rightOpen ? "Hide info" : "Show info"}</span>
             </Button>
@@ -475,14 +549,11 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
                 selectedSubzone={selectedSubzone}
                 onPlanningAreaToggle={handlePlanningAreaFromMap}
                 onSubzoneSelect={handleSubzoneSelect}
-
-                /* pass raw datasets + filter state to the map */
                 planningData={planningData}
                 subzoneData={subzoneData}
                 roadData={roadData}
                 amenityData={amenityData}
                 floodData={floodData}
-
                 selectedAmenityCategories={selectedAmenityCategories}
                 selectedAmenityTypes={selectedAmenityTypes}
                 onAmenityTypesChange={setSelectedAmenityTypes}
@@ -490,17 +561,10 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
                 onFloodTypesChange={setSelectedFloodTypes}
                 floodDateFrom={floodDateFrom}
                 floodDateTo={floodDateTo}
-
-                /* discovered options (still handy for legends etc.) */
                 amenityTypes={amenityCategories}
                 floodTypes={floodTypesAll}
-
-                /* optional if the map still wants to report back */
                 onPlanningAreasLoaded={setPlanningAreas}
-
-                /* insights */
                 floodStats={floodInsights}
-                /* 👇 NEW props for visibility toggles */
                 showFloods={showFloods}
                 setShowFloods={setShowFloods}
                 showAmenities={showAmenities}
@@ -511,13 +575,13 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         </div>
 
         {/* right info */}
-        <aside className={cn("transition-all duration-300 ease-in-out", rightOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden")} aria-hidden={!rightOpen}>
-          <div className={cn("flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300",
-            rightOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0")}>
+        <aside className={paneShell(rightOpen)} aria-hidden={!rightOpen}>
+          <div className={paneInner(rightOpen)}>
             <RightPanel
               feature={selectedSubzone}
               onClearSelection={() => clearSubzoneSelection()}
               stats={floodInsights}
+              amenityStats={amenityInsights}   // ← add this
               loading={floodLoading}
               error={floodError}
               selectedPlanningAreas={selectedPlanningAreas}
@@ -528,10 +592,3 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     </div>
   );
 }
-
-
-
-
-
-
-
