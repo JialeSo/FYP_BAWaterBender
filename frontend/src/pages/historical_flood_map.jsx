@@ -2,5 +2,9 @@
 import SingaporeHistoricalFloodMap from "../components/pagecomponents/historicalMap/SingaporeHistoricalFloodMap";
 
 export default function HistoricalFloodMapPage() {
-  return <DashboardLayout mapcomponent={SingaporeHistoricalFloodMap} />;
+  return (
+    <div className="h-screen overflow-hidden">
+      <DashboardLayout mapcomponent={SingaporeHistoricalFloodMap} />
+    </div>
+  );
 }

@@ -13,30 +13,25 @@ export default function Header() {
       <nav className="flex justify-center px-6 py-4">
         <NavigationMenu>
           <NavigationMenuList className="flex items-center gap-6">
+            {/* home */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Button variant="outline" size="sm">About</Button>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/historical-flood-map">
-                  <Button variant="ghost" size="sm">Singapore HistoricalFloodMap</Button>
+                <Link to="/home">
+                  <Button variant="ghost" size="sm">Home</Button>
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
+
+            {/* singapore historical flood map */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Button variant="ghost" size="sm">Use Case 2</Button>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Button variant="ghost" size="sm">Use Case 3</Button>
+                <Link to="/historical-flood-map">
+                  <Button variant="ghost" size="sm">Singapore Historical Flood Map</Button>
+                </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
 
+            {/* learn more (kept as requested) */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
                 <Button variant="outline" size="sm">Learn More</Button>

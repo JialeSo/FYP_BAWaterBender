@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Check, ChevronsUpDown, X } from "lucide-react"
 
+/* ---------- Simple string multiselect (Planning Areas, Amenity Types, Flood Types) ---------- */
 function MultiSelectCombobox({
   label,
   options = [],
@@ -50,14 +51,15 @@ function MultiSelectCombobox({
       {label && <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
+          <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
             <span className="truncate text-left">
               {selectedValues.length ? `${selectedValues.length} selected` : placeholder}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className={`${popoverWidthClass} p-0`} align="start">
+        {/* keep over the map canvas */}
+        <PopoverContent className={`z-50 ${popoverWidthClass} p-0`} align="start">
           <Command>
             <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
             <CommandEmpty>{emptyText}</CommandEmpty>
@@ -72,7 +74,7 @@ function MultiSelectCombobox({
                         value={o}
                         onSelect={() => {
                           toggle(o)
-                          setOpen(true)
+                          setOpen(true) // keep open for multi-pick
                         }}
                         className="flex items-center justify-between gap-2"
                       >
@@ -87,6 +89,7 @@ function MultiSelectCombobox({
           </Command>
         </PopoverContent>
       </Popover>
+
       {!!selectedValues.length && (
         <div className="flex flex-wrap gap-2">
           {selectedValues.map((v) => (
@@ -108,89 +111,179 @@ function MultiSelectCombobox({
   )
 }
 
-function SingleSelectCombobox({
+/* ---------- Subzone multiselect with PA subtitle and optional bulk actions ---------- */
+function SubzoneMultiSelect({
   label,
-  options = [], // array of strings to show
-  value = "",
+  items = [],              // [{ name, planningArea }]
+  selected = [],           // string[] of subzone names
   onChange,
-  placeholder = "Search…",
-  emptyText = "No results.",
-  popoverWidthClass = "w-[320px]",
+  placeholder = "Select subzones",
+  searchPlaceholder = "Search subzones…",
+  emptyText = "No subzone found.",
+  popoverWidthClass = "w-[360px]",
+  showBulkActions = false, // show Select all / Clear only when PA is selected
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const normalized = useMemo(() => options.map((o) => `${o}`.trim()).filter(Boolean), [options])
+
+  const options = useMemo(
+    () =>
+      items
+        .map((z) => ({
+          name: `${z?.name ?? ""}`.trim(),
+          planningArea: `${z?.planningArea ?? ""}`.trim(),
+        }))
+        .filter((z) => z.name),
+    [items]
+  )
+
+  const selectedValues = useMemo(
+    () => selected.map((v) => `${v}`.trim()).filter(Boolean),
+    [selected]
+  )
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return normalized
-    return normalized.filter((o) => o.toLowerCase().includes(q))
-  }, [normalized, search])
+    if (!q) return options
+    return options.filter(
+      (z) =>
+        z.name.toLowerCase().includes(q) ||
+        z.planningArea.toLowerCase().includes(q)
+    )
+  }, [options, search])
+
+  const toggle = useCallback(
+    (name) => {
+      const v = name.trim()
+      const exists = selectedValues.includes(v)
+      const next = exists ? selectedValues.filter((x) => x !== v) : [...selectedValues, v]
+      onChange?.(next)
+    },
+    [onChange, selectedValues]
+  )
+
+  const handleSelectAll = () => onChange?.(options.map((o) => o.name))
+  const handleClearAll = () => onChange?.([])
 
   return (
     <div className="space-y-2">
       {label && <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
-            <span className="truncate text-left">{value || placeholder}</span>
+          <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
+            <span className="truncate text-left">
+              {selectedValues.length ? `${selectedValues.length} selected` : placeholder}
+            </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className={`${popoverWidthClass} p-0`} align="start">
+        {/* over the map */}
+        <PopoverContent className={`z-50 ${popoverWidthClass} p-0`} align="start">
+          {showBulkActions && (
+            <div className="flex items-center justify-between px-3 pt-3">
+              <div className="text-xs text-muted-foreground">Subzones</div>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={handleSelectAll} disabled={!options.length}>
+                  Select all
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={handleClearAll} disabled={!selectedValues.length}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+          )}
           <Command>
-            <CommandInput placeholder={placeholder} value={search} onValueChange={setSearch} />
+            <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandList>
               <CommandGroup>
                 <ScrollArea className="max-h-64">
-                  {filtered.map((o) => (
-                    <CommandItem
-                      key={o}
-                      value={o}
-                      onSelect={() => {
-                        onChange?.(o)
-                        setOpen(false)
-                      }}
-                    >
-                      {o}
-                    </CommandItem>
-                  ))}
+                  {filtered.map((o) => {
+                    const active = selectedValues.includes(o.name)
+                    return (
+                      <CommandItem
+                        key={`${o.planningArea}::${o.name}`}
+                        value={`${o.name} ${o.planningArea}`}
+                        onSelect={() => {
+                          toggle(o.name)
+                          setOpen(true) // keep open for multi-pick
+                        }}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate">{o.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {o.planningArea}
+                          </div>
+                        </div>
+                        <Check className={active ? "h-4 w-4" : "h-4 w-4 opacity-0"} />
+                      </CommandItem>
+                    )
+                  })}
                 </ScrollArea>
               </CommandGroup>
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
+
+      {!!selectedValues.length && (
+        <div className="flex flex-wrap gap-2">
+          {selectedValues.map((v) => (
+            <Badge key={v} variant="secondary" className="flex items-center gap-1">
+              <span className="truncate max-w-[160px]">{v}</span>
+              <button
+                type="button"
+                className="rounded-full p-0.5 hover:bg-secondary-foreground/10"
+                onClick={() => toggle(v)}
+                aria-label={`remove ${v}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 export default function LeftPanel({
-  /** planning areas (back-compat) */
+  /** planning areas */
   options = [],
   selected = [],
   onSelectionChange,
   onResetSelection,
 
-  /** NEW: subzone search */
-  subzoneOptions = [], // [{ name, planningArea }]
-  selectedSubzone = "",
-  onSubzonePick,       // (subzoneName) => void
+  /** subzone multi-select (scoped by PA selection if any) */
+  subzoneOptions = [],          // [{ name, planningArea }]
+  selectedSubzones = [],        // string[]
+  onSelectedSubzonesChange,     // (names: string[]) => void
 
-  /** NEW: amenity filters (from datasource) */
+  /** amenities */
   amenityCategoriesOptions = [],
   selectedAmenityCategories = [],
   onAmenityCategoriesChange,
   amenityTypesOptions = [],
   selectedAmenityTypes = [],
   onAmenityTypesChange,
+
+  /** floods */
+  floodTypeOptions = [],
+  selectedFloodTypes = [],
+  onFloodTypesChange,
+  floodDateFrom = "",
+  floodDateTo = "",
+  onFloodDateFromChange,
+  onFloodDateToChange,
 }) {
   const [paOpen, setPaOpen] = useState(false)
   const [paSearch, setPaSearch] = useState("")
   const normalizedOptions = useMemo(() => options.map((o) => o?.trim?.() ?? "").filter(Boolean), [options])
   const selectedAreas = useMemo(() => selected.map((v) => v?.trim?.() ?? "").filter(Boolean), [selected])
   const hasSelection = selectedAreas.length > 0
-  const filteredOptions = useMemo(() => {
+
+  const filteredPAOptions = useMemo(() => {
     if (!paSearch.trim()) return normalizedOptions
     const q = paSearch.trim().toLowerCase()
     return normalizedOptions.filter((o) => o.toLowerCase().includes(q))
@@ -202,14 +295,38 @@ export default function LeftPanel({
     const next = exists ? selectedAreas.filter((x) => x !== v) : [...selectedAreas, v]
     onSelectionChange?.(next)
   }
-  const handleSelectAll = () => onSelectionChange?.(normalizedOptions)
   const handleClearAll = () => onSelectionChange?.([])
   const handleReset = () => onResetSelection?.()
 
-  const subzoneNames = useMemo(() => subzoneOptions.map((z) => z.name).sort(), [subzoneOptions])
+  /* subzones scoped by selected PAs (union); if no PA selected, show all subzones */
+  const scopedSubzones = useMemo(() => {
+    if (!subzoneOptions?.length) return []
+    if (!selectedAreas.length) return subzoneOptions
+    const set = new Set(selectedAreas.map((s) => s.trim()))
+    return subzoneOptions.filter((z) => set.has(z.planningArea))
+  }, [subzoneOptions, selectedAreas])
+
+  /* Auto-select all subzones within scope whenever PA selection changes */
+  const paKeyRef = useRef("")
+  useEffect(() => {
+    const newKey = selectedAreas.join("|")
+    if (paKeyRef.current !== newKey) {
+      paKeyRef.current = newKey
+      const allNamesInScope = scopedSubzones.map((z) => z.name)
+      onSelectedSubzonesChange?.(allNamesInScope)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAreas.join("|"), scopedSubzones.map((z) => z.name).join("|")])
+
+  /* normalize amenity type options */
+  const amenityTypeOptionsNormalized = useMemo(
+    () => amenityTypesOptions.map((o) => `${o}`.trim()).filter(Boolean),
+    [amenityTypesOptions]
+  )
 
   return (
-    <div className="flex h-full flex-col gap-6 p-6">
+    /* z-30 so popovers sit above the map container */
+    <div className="relative z-30 flex h-full flex-col gap-6 p-6">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-foreground">Filters</h2>
         <p className="text-sm text-muted-foreground">Refine what’s displayed on the historical flood map.</p>
@@ -221,9 +338,7 @@ export default function LeftPanel({
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Planning Areas</span>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={handleSelectAll} disabled={!normalizedOptions.length}>
-                Select all
-              </Button>
+              {/* No "Select all" per your request */}
               <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={handleClearAll} disabled={!hasSelection}>
                 Clear
               </Button>
@@ -232,21 +347,21 @@ export default function LeftPanel({
 
           <Popover open={paOpen} onOpenChange={setPaOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" role="combobox" aria-expanded={paOpen} className="w-full justify-between">
+              <Button type="button" variant="outline" role="combobox" aria-expanded={paOpen} className="w-full justify-between">
                 <span className="truncate text-left">
                   {hasSelection ? `${selectedAreas.length} planning area${selectedAreas.length > 1 ? "s" : ""} selected` : "Select planning areas"}
                 </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-0" align="start">
+            <PopoverContent className="z-50 w-[320px] p-0" align="start">
               <Command>
                 <CommandInput placeholder="Search planning areas" value={paSearch} onValueChange={setPaSearch} />
                 <CommandEmpty>No planning area found.</CommandEmpty>
                 <CommandList>
                   <CommandGroup>
                     <ScrollArea className="max-h-64">
-                      {filteredOptions.map((o) => {
+                      {filteredPAOptions.map((o) => {
                         const active = selectedAreas.includes(o)
                         return (
                           <CommandItem
@@ -254,7 +369,7 @@ export default function LeftPanel({
                             value={o}
                             onSelect={() => {
                               handleToggleArea(o)
-                              setPaOpen(true)
+                              setPaOpen(true) // keep open for multi-pick
                             }}
                             className="flex items-center justify-between gap-2"
                           >
@@ -288,22 +403,18 @@ export default function LeftPanel({
             </div>
           )}
         </div>
-
-        <div className="rounded-lg border border-dashed border-border/60 p-4 text-xs text-muted-foreground">
-          Tip: Pick a subzone below — its planning area is auto-selected.
-        </div>
       </div>
 
-      {/* Subzone search (single) */}
+      {/* Subzones (MULTI) — independent, but scoped when PA is chosen */}
       <div className="space-y-2">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Subzone</Label>
-        <SingleSelectCombobox
-          label={null}
-          options={subzoneNames}
-          value={selectedSubzone}
-          onChange={onSubzonePick}
-          placeholder="Search subzones"
-          emptyText="No subzone found."
+        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Subzones</Label>
+        <SubzoneMultiSelect
+          items={scopedSubzones}
+          selected={selectedSubzones}
+          onChange={onSelectedSubzonesChange}
+          placeholder="Select subzones"
+          searchPlaceholder="Search by subzone or planning area"
+          showBulkActions={hasSelection}  // Select all / Clear only when PA is selected
         />
       </div>
 
@@ -313,7 +424,7 @@ export default function LeftPanel({
       <div className="space-y-4">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amenities</span>
         <MultiSelectCombobox
-          label="Categories"
+          label="Categories (always full list)"
           options={amenityCategoriesOptions}
           selected={selectedAmenityCategories}
           onChange={onAmenityCategoriesChange}
@@ -322,14 +433,51 @@ export default function LeftPanel({
           emptyText="No category found."
         />
         <MultiSelectCombobox
-          label="Types"
-          options={amenityTypesOptions}
+          label="Types (based on chosen categories)"
+          options={amenityTypeOptionsNormalized}
           selected={selectedAmenityTypes}
           onChange={onAmenityTypesChange}
           placeholder="Select types"
           searchPlaceholder="Search types"
           emptyText="No type found."
         />
+      </div>
+
+      <Separator />
+
+      {/* Floods */}
+      <div className="space-y-4">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Floods</span>
+        <MultiSelectCombobox
+          label="Event types"
+          options={floodTypeOptions}
+          selected={selectedFloodTypes}
+          onChange={onFloodTypesChange}
+          placeholder="Select flood types"
+          searchPlaceholder="Search flood types"
+          emptyText="No type found."
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">From date</Label>
+            <input
+              type="date"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={floodDateFrom}
+              onChange={(e) => onFloodDateFromChange?.(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">To date</Label>
+            <input
+              type="date"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={floodDateTo}
+              onChange={(e) => onFloodDateToChange?.(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="mt-auto">
@@ -339,9 +487,11 @@ export default function LeftPanel({
           onClick={handleReset}
           disabled={
             !hasSelection &&
-            !selectedSubzone &&
+            !(selectedSubzones?.length) &&
             !selectedAmenityCategories.length &&
-            !selectedAmenityTypes.length
+            !selectedAmenityTypes.length &&
+            !selectedFloodTypes.length &&
+            !floodDateFrom && !floodDateTo
           }
         >
           Reset filters

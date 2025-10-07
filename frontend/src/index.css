@@ -176,12 +176,7 @@ body {
 }
 }
 
-.map-container {
-  width: 100%;
-  height: 80vh; /* or 100% if parent has fixed height */
-  border: 1px solid #ccc; /* optional, just to see it clearly */
-}
-
+.map-container { width: 100%; height: 100%; } 
 
 .map-hover-popup .mapboxgl-popup-content {
   background: rgba(15, 23, 42, 0.92);
@@ -193,3 +188,31 @@ body {
 .map-hover-popup .mapboxgl-popup-tip {
   border-top-color: rgba(15, 23, 42, 0.92) !important;
 }
+
+/* section cards */
+.map-hover-popup .card{
+  border:1px solid; border-radius:10px; padding:10px 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 6px 20px rgba(0,0,0,.25);
+  backdrop-filter: blur(2px);
+}
+.map-hover-popup .card-head{
+  display:flex; align-items:center; gap:.5rem; margin-bottom:.25rem;
+}
+.map-hover-popup .card-ico{ font-size:12px; line-height:1; }
+.map-hover-popup .total-lg{
+  font-weight:800; font-size:16px; color:#fff; margin:.25rem 0 .35rem;
+}
+
+/* fancy pills with tiny bars */
+.map-hover-popup .pill{
+  display:inline-flex; align-items:center; gap:.35rem;
+  border-width:1px; padding:.15rem .4rem; border-radius:999px;
+  line-height:1.1; font-size:11px; position:relative;
+}
+.map-hover-popup .pill-label{ max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.map-hover-popup .pill-barwrap{
+  position:relative; display:inline-block; width:76px; height:6px; border-radius:999px;
+  background:rgba(255,255,255,.1); overflow:hidden;
+}
+.map-hover-popup .pill-bar{ display:block; height:100%; border-radius:999px; }
+.map-hover-popup .pill-count{ font-weight:700; }

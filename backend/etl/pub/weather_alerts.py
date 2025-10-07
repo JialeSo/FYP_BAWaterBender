@@ -1,7 +1,7 @@
 import os
-import requests
 from typing import Dict, List, Optional, Union
 
+from config.config import PUB_CHANNEL_USERNAME, SERVER_URL
 from common.db import DatabaseConnection
 from .utils import parse_alert
 from telethon import TelegramClient, events
@@ -10,7 +10,6 @@ import logging
 from dotenv import load_dotenv
 import httpx
 
-from .constants import PUB_CHANNEL_USERNAME, SERVER_URL
 import json
 
 
@@ -47,7 +46,9 @@ class WeatherAlerts:
             raise ValueError(
                 f"Missing required environment variables: {', '.join(missing_vars)}"
             )
-        logger.info("WeatherAlertsETL initialized")
+        logger.info(
+            f"WeatherAlertsETL initialized. Listening on {self.channel_username}"
+        )
 
     async def extract_existing_messages(
         self, save_to_db: bool = False, limit: int = 100

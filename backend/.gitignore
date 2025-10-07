@@ -2,10 +2,10 @@
 .venv
 .env
 **/.env
-.vscode
+**/.vscode
 
 # Telegram 
-./session.session
+**/session.*
 etl/pub/messages/*
 
 # Python 
