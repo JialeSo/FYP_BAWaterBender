@@ -272,7 +272,7 @@ function MiniGallery() {
   return (
     <section id="gallery" className="mx-auto max-w-7xl px-4 py-12">
       <h3 className="text-center font-[montserrat] text-2xl font-bold">Screens at a Glance</h3>
-      <p className="mt-2 text-center text-muted-foreground">Replace these with your real screenshots later.</p>
+      <p className="mt-2 text-center text-muted-foreground">Test.</p>
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         <Card className="overflow-hidden border-border bg-card"><GalleryMapMock variant="layers" /></Card>
         <Card className="overflow-hidden border-border bg-card"><GalleryMapMock /></Card>
