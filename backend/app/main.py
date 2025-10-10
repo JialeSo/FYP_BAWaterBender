@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers.router import api_router
 from dotenv import load_dotenv
 
+from config.config import ALLOWED_ORIGINS
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -18,7 +20,8 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
+    allow_origins=ALLOWED_ORIGINS
+    or [
         "http://localhost:3000",  # React dev server
         "http://localhost:5173",  # Vite dev server
         "http://127.0.0.1:3000",

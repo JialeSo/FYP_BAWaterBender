@@ -1,17 +1,18 @@
-import os
 from typing import Dict, List, Union
 from supabase import create_client, Client
 import threading
 import logging
 from dotenv import load_dotenv
 
+from config.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+
 load_dotenv()
 
 
 class DatabaseConnection:
     def __init__(self):
-        self.url = os.getenv("SUPABASE_URL")
-        self.key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        self.url = SUPABASE_URL
+        self.key = SUPABASE_SERVICE_ROLE_KEY
         self._local = threading.local()
 
         print(f"Connecting to Supabase at {self.url}")
@@ -19,7 +20,8 @@ class DatabaseConnection:
         if not self.url:
             raise ValueError("SUPABASE_URL environment variable is not set")
         if not self.key:
-            raise ValueError("SUPABASE_ANON_KEY environment variable is not set")
+            msg = "SUPABASE_SERVICE_ROLE_KEY environment variable not set"
+            raise ValueError(msg)
 
     def _get_connection(self) -> Client:
         """Get a Supabase client for the current thread."""
