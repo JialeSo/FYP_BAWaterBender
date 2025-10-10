@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE and OS files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Git
+.git/
+.gitignore
+
+# Data files and datasets
+etl/data/
+etl/data/**
+*.csv
+*.json
+*.geojson
+
+# Cache files
+geocode_cache.csv
+reverse_cache.csv
+session.session*
+
+# Development and testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Documentation
+docs/
+*.md
+README*
+
+# Docker
+.dockerignore
+Dockerfile*
+
+# Vercel
+vercel.json
+
+# Old datasets (keep current data but exclude legacy)
+etl/data/old_datasets/
+
+# Large geojson layers (can be regenerated or loaded separately)
+etl/data/geojson_layers/
