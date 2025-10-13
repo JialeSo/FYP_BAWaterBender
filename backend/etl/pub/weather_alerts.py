@@ -10,6 +10,7 @@ from .pub_utils import parse_alert
 from telethon import TelegramClient, events
 from dotenv import load_dotenv
 import httpx
+import json
 
 
 load_dotenv()
