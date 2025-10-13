@@ -6,20 +6,20 @@ from common.db import db
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/floods-3layers", tags=["floods-3layers"])  # Fixed: was "/weather-alerts"
+router = APIRouter(prefix="/amenity-3layers", tags=["amenity-3layers"])  # Fixed: was "/weather-alerts"
 
 
-# get all flood data
+# get all amenity data
 @router.get("/")
-async def get_all_flood_data():     
+async def get_all_amenity_data():  
     try:
-        result = db.table("floods_3layers").select("*").execute()
-        
+        result = db.table("amenity_3layers").select("*").execute()
+
         if result.data:
             return {"data": result.data, "count": len(result.data)}
         else:
             return {"data": [], "count": 0}
             
     except Exception as e:
-        logger.error(f"❌ Error fetching flood3layers data: {e}")
+        logger.error(f"❌ Error fetching amenity_3layers data: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
