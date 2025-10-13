@@ -5,11 +5,11 @@ from config.config import PUB_CHANNEL_USERNAME, SERVER_URL
 from common.db import DatabaseConnection
 from .utils import parse_alert
 from telethon import TelegramClient, events
+# from telethon.errors import SessionPasswordNeededError
 import asyncio
 import logging
 from dotenv import load_dotenv
 import httpx
-
 import json
 
 
@@ -85,11 +85,23 @@ class WeatherAlerts:
 
     async def start_live_monitoring(self):
         """Monitor channel for new messages"""
-
         url = SERVER_URL or "http://localhost:8000"
         WEBHOOK_URL = f"{url}/weather-alerts/webhook"
-        await self.client.start(phone=self.phone)
+        
+        try:
+            # Start the client with phone parameter - this handles authentication automatically
+            await self.client.start(
+                phone=self.phone,
+                code_callback=lambda: input("Please enter the verification code you received: ")
+            )
+            
+            logger.info("✅ Authentication successful, starting monitoring...")
 
+        except Exception as e:
+            logger.error(f"❌ Error starting client: {e}")
+            return
+
+        # Set up message handler
         @self.client.on(events.NewMessage(chats=self.channel_username))
         async def handler(event):
             data = {
@@ -105,6 +117,8 @@ class WeatherAlerts:
             except Exception as e:
                 logger.error("❌ Failed to send webhook:", e)
 
+        logger.info(f"📡 Now monitoring {self.channel_username} for new messages...")
+        
         # Keep the client running
         await self.client.run_until_disconnected()
 
