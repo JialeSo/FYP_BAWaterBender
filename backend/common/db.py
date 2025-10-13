@@ -43,6 +43,11 @@ class DatabaseConnection:
             # Supabase clients don't need explicit closing
             del self._local.client
 
+    def table(self, table_name: str):
+        """Access a table through the Supabase client."""
+        client = self._get_connection()
+        return client.table(table_name)
+
 
 # Singleton instance of DatabaseConnection
 db = DatabaseConnection()
