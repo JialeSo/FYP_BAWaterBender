@@ -32,3 +32,10 @@ api_router.include_router(subzone_router)
 api_router.include_router(health_router)
 api_router.include_router(flood3layers_router)
 api_router.include_router(amenity3layers_router)
+
+# Base map
+api_router.include_router(planning_area_router)
+api_router.include_router(road_network_router)
+api_router.include_router(subzone_router)
+
+
