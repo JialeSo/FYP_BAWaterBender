@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/floods-3layers", tags=["floods-3layers"])  # Fixed: was "/weather-alerts"
 
 
+# get all flood data
 @router.get("/")
-async def get_all_flood_data():  # Removed unused Request parameter
+async def get_all_flood_data():     
     try:
-        # Query the flood3layers table
         result = db.table("floods_3layers").select("*").execute()
         
         if result.data:
