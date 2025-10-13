@@ -1,5 +1,11 @@
 import os
-import json
+from typing import Dict, List, Optional, Union
+
+from config.config import PUB_CHANNEL_USERNAME, SERVER_URL
+from common.db import DatabaseConnection
+from .utils import parse_alert
+from telethon import TelegramClient, events
+# from telethon.errors import SessionPasswordNeededError
 import asyncio
 import logging
 from datetime import datetime
@@ -110,7 +116,7 @@ class WeatherAlerts:
         """Monitor channel for new messages"""
         url = SERVER_URL or "http://localhost:8000"
         WEBHOOK_URL = f"{url}/weather-alerts/webhook"
-
+        
         try:
             # Start the client with phone parameter - this handles authentication automatically
             await self.client.start(
@@ -149,7 +155,6 @@ class WeatherAlerts:
                 logger.error(f"❌ Failed webhook for message {msg_id}: {e}")
 
         logger.info(f"📡 Now monitoring {self.channel_username} for new messages...")
-
         # Keep the client running
         await self.client.run_until_disconnected()
 
