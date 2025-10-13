@@ -1,7 +1,7 @@
 # pip install spacy dateparser
 import re
 from datetime import datetime
-from typing import Optional, Literal, Dict
+from typing import Optional, Literal, Dict, Any
 import spacy
 
 EventType = Literal["flash_flood", "heavy_rain", "flash_flood_risk", "flood_subsided"]
@@ -10,36 +10,92 @@ EventType = Literal["flash_flood", "heavy_rain", "flash_flood_risk", "flood_subs
 nlp = spacy.blank("en")
 
 
-def parse_alert(text: str, alert_time: datetime) -> Dict:
+def _parse_location_direction(location_str: str) -> Dict[str, Optional[str]]:
     """
-    Rule-based parser (no DL). Uses spaCy tokenization for robust span picking,
+    Parse location string to extract start and end locations from directional phrases.
+
+    Examples:
+    - "Jurong Town Hall Road (towards PIE) before Jurong East Street 11"
+      -> start_loc: "jurong town hall road", end_loc: "pie"
+    - "TPE (Punggol West Flyover)"
+      -> start_loc: "tpe", end_loc: "punggol west flyover"
+    - "northern, western and central areas of Singapore"
+      -> start_loc: "northern, western and central areas", end_loc: None
+    """
+    if not location_str:
+        return {"start_loc": None, "end_loc": None}
+
+    # Clean the location string first
+    location_str = location_str.strip()
+
+    # Pattern 1: "Location (towards Destination)"
+    towards_match = re.search(
+        r"^([^(]+)\s*\(towards\s+([^)]+)\)", location_str, re.IGNORECASE
+    )
+    if towards_match:
+        return {
+            "start_loc": clean_location_string(towards_match.group(1)),
+            "end_loc": clean_location_string(towards_match.group(2)),
+        }
+
+    # Pattern 2: "Location (Description)" - treat description as end_loc
+    paren_match = re.search(r"^([^(]+)\s*\(([^)]+)\)", location_str)
+    if paren_match:
+        return {
+            "start_loc": clean_location_string(paren_match.group(1)),
+            "end_loc": clean_location_string(paren_match.group(2)),
+        }
+
+    # Pattern 3: "Location before Another Location"
+    before_match = re.search(r"^(.+?)\s+before\s+(.+)$", location_str, re.IGNORECASE)
+    if before_match:
+        return {
+            "start_loc": clean_location_string(before_match.group(1)),
+            "end_loc": clean_location_string(before_match.group(2)),
+        }
+
+    # Pattern 4: No directional info - single location goes to start_loc
+    return {"start_loc": clean_location_string(location_str), "end_loc": None}
+
+
+def parse_alert(text: str, alert_time: datetime) -> Dict[str, Any]:
+    """
+    Rule-based parser. Uses spaCy tokenization for robust span picking,
     plus a tiny time parser anchored to `alert_time`'s date.
     """
     doc = nlp(text)
     low = text.lower()
 
-    out = {"location": None, "start": None, "end": None, "event": None}
+    out = {
+        "start_loc": None,
+        "end_loc": None,
+        "start": None,
+        "end": None,
+        "event": None,
+    }
+
+    location_raw = None
 
     # --- 1) classify event by stable cues
     if low.startswith("[risk of flash floods]"):
         out["event"] = "flash_flood_risk"
         # location is between ":" and "[" (token-aware)
-        out["location"] = _span_between_tokens(doc, ":", "[")
+        location_raw = _span_between_tokens(doc, ":", "[")
 
     elif low.startswith("[flash flood occurred]"):
         out["event"] = "flash_flood"
         # "Flash flood at <LOC>."
-        out["location"] = _span_after_until(doc, "at", ".")
+        location_raw = _span_after_until(doc, "at", ".")
 
     elif "subsided at" in low:
         out["event"] = "flood_subsided"
         # "subsided at <LOC>."
-        out["location"] = _span_after_until(doc, "subsided", ".", after_word="at")
+        location_raw = _span_after_until(doc, "subsided", ".", after_word="at")
 
     elif "heavy rain expected" in low:
         out["event"] = "heavy_rain"
         # "over <LOC> from ..."
-        out["location"] = _span_between_keywords(doc, "over", "from")
+        location_raw = _span_between_keywords(doc, "over", "from")
         # "from HH:MM hours to HH:MM hours"
         start_txt = _text_after_before(text, "from", "hours")
         end_txt = _text_after_before(
@@ -49,6 +105,11 @@ def parse_alert(text: str, alert_time: datetime) -> Dict:
             out["start"] = _parse_time(start_txt, alert_time)
         if end_txt:
             out["end"] = _parse_time(end_txt, alert_time)
+
+    # Parse location into start_loc and end_loc
+    if location_raw:
+        location_data = _parse_location_direction(location_raw)
+        out.update(location_data)
 
     return out
 
@@ -167,6 +228,49 @@ def _parse_time(chunk: str, alert_time) -> Optional[datetime]:
         return None
 
 
+def clean_location_string(location_str: str) -> str:
+    """
+    Clean location string by removing redundancy and standardizing format.
+
+    Args:
+        location_str: Raw location string
+
+    Returns:
+        Cleaned location string in lowercase without ", Singapore" suffix
+    """
+    if not location_str or not isinstance(location_str, str):
+        return ""
+
+    # Strip whitespace
+    cleaned = location_str.strip()
+
+    # Remove ", Singapore" suffix (case insensitive)
+    if cleaned.lower().endswith(", singapore"):
+        cleaned = cleaned[:-11]  # Remove ", singapore"
+    elif cleaned.lower().endswith(",singapore"):
+        cleaned = cleaned[:-10]  # Remove ",singapore"
+
+    # Convert to lowercase
+    cleaned = cleaned.lower()
+
+    # Strip any remaining whitespace
+    return cleaned.strip()
+
+
+def normalize_location_for_lookup(location_str: str) -> str:
+    """
+    Normalize location string for database lookup.
+    This is an alias for clean_location_string for clarity.
+
+    Args:
+        location_str: Raw location string
+
+    Returns:
+        Normalized location string for database lookup
+    """
+    return clean_location_string(location_str)
+
+
 # --- Example usage ---
 if __name__ == "__main__":
     alert_time = datetime(2025, 9, 6, 18, 0)  # the time your bot fetched the alert
@@ -186,3 +290,17 @@ if __name__ == "__main__":
         parsed = parse_alert(e, alert_time)
         print(f"\nTEXT: {e}")
         print("PARSED:", parsed)
+
+    # Test location cleaning
+    print("\n--- Location Cleaning Tests ---")
+    test_locations = [
+        "Orchard Road, Singapore",
+        "Marina Bay Sands, Singapore",
+        "Jurong East Street 11,Singapore",
+        "PIE (Changi Airport towards Tuas)",
+        "ORCHARD ROAD, SINGAPORE",
+    ]
+
+    for loc in test_locations:
+        cleaned = clean_location_string(loc)
+        print(f"'{loc}' -> '{cleaned}'")
