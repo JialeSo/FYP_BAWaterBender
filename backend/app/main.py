@@ -1,8 +1,11 @@
 import logging
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers.router import api_router
 from dotenv import load_dotenv
+
+from config.config import ALLOWED_ORIGINS
 
 load_dotenv()
 
@@ -18,7 +21,8 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
+    allow_origins=ALLOWED_ORIGINS
+    or [
         "http://localhost:3000",  # React dev server
         "http://localhost:5173",  # Vite dev server
         "http://127.0.0.1:3000",
@@ -33,16 +37,22 @@ app.add_middleware(
 # Include the API router in the main app
 app.include_router(api_router)
 
-# start up Telegram listener module
-try:
-    from etl.pub.weather_alerts import weather_alerts as weather_alerts_listener
-    import asyncio
 
-    # Start the weather alerts listener in the background
-    asyncio.create_task(weather_alerts_listener.start_live_monitoring())
-    logger.info("✅ Telegram listener started as async task.")
-except Exception as e:
-    logger.info("❌ Failed to start Telegram listener: %s", e)
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    # Start up Telegram listener module
+    try:
+        from etl.pub.weather_alerts import weather_alerts as weather_alerts_listener
+
+        logger.info("✅ Credentials retrieved, starting Telegram listener...")
+
+        # Only start monitoring after credentials are retrieved
+        asyncio.create_task(weather_alerts_listener.start_live_monitoring())
+        logger.info("✅ Telegram listener started as async task.")
+
+    except Exception as e:
+        logger.error("❌ Failed to start Telegram listener: %s", e)
 
 
 @app.get("/")

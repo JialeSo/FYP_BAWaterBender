@@ -1,4 +1,4 @@
-query,lat,lon,last_updated
+query,latitude,longitude,last_updated
 "Tampines Expressway Punggol West Flyover, Singapore",1.379707,103.915978,2025-09-23T14:33:15.790069
 "yishun Avenue 2, Singapore",1.4371108,103.8337382,2025-09-23T14:33:15.790069
 "yishun Avenue 5, Singapore",1.4304259,103.8315094,2025-09-23T14:33:15.790069

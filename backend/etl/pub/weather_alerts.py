@@ -1,16 +1,22 @@
 import os
-from typing import Dict, List, Optional, Union
-
-from config.config import PUB_CHANNEL_USERNAME, SERVER_URL
-from common.db import DatabaseConnection
-from .utils import parse_alert
-from telethon import TelegramClient, events
-# from telethon.errors import SessionPasswordNeededError
 import asyncio
 import logging
-from dotenv import load_dotenv
-import httpx
 import json
+import httpx
+from typing import Dict, Optional
+from datetime import datetime
+
+from config.config import (
+    PUB_CHANNEL_USERNAME,
+    PUB_CREDENTIALS_BUCKET,
+    SERVER_URL,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+)
+from .pub_utils import parse_alert
+from telethon import TelegramClient, events
+from dotenv import load_dotenv
+from supabase import create_client, Client
 
 
 load_dotenv()
@@ -23,39 +29,55 @@ logger = logging.getLogger(__name__)
 class WeatherAlerts:
     def __init__(self):
         """Initialize Telegram client and load environment variables"""
-        api_id = os.getenv("TELE_API_ID", None)
-        api_hash = os.getenv("TELE_API_HASH", None)
-
+        api_id = os.getenv("TELE_API_ID")
+        api_hash = os.getenv("TELE_API_HASH")
+        self.bot_token = os.getenv("PUB_TELE_BOT_TOKEN")
         self.channel_username = PUB_CHANNEL_USERNAME
-        self.phone = os.getenv("TELE_PHONE_NO", None)
-        self.client = TelegramClient("session", api_id, api_hash)
+        self.phone = os.getenv("TELE_PHONE_NO")
 
         missing_vars = []
         if not api_id:
             missing_vars.append("TELE_API_ID")
         if not api_hash:
             missing_vars.append("TELE_API_HASH")
-        if not self.phone:
-            missing_vars.append("TELE_PHONE_NO")
         if not self.channel_username:
             missing_vars.append("PUB_CHANNEL_USERNAME")
-
-        logger.info(f"Using channel: {self.channel_username}")
+        if not self.phone:
+            missing_vars.append("TELE_PHONE_NO")
 
         if missing_vars:
             raise ValueError(
-                f"Missing required environment variables: {', '.join(missing_vars)}"
+                f"Missing required environment variables: " f"{', '.join(missing_vars)}"
             )
+
+        # At this point we know api_id and api_hash are not None
+        assert api_id is not None
+        assert api_hash is not None
+
+        # Retrieve tele credentials first
+        logger.info("🔄 Retrieving Telegram credentials from storage...")
+        self.get_credentials_from_storage()
+
+        self.client = TelegramClient("session", int(api_id), api_hash)
+
+        logger.info(f"Using channel: {self.channel_username}")
+
         logger.info(
-            f"WeatherAlertsETL initialized. Listening on {self.channel_username}"
+            f"WeatherAlertsETL initialized. " f"Listening on {self.channel_username}"
         )
 
-    async def extract_existing_messages(
-        self, save_to_db: bool = False, limit: int = 100
-    ) -> None:
+    async def extract_existing_messages(self, limit: int = 100) -> None:
         """Extract existing messages from a channel"""
         messages = []
-        await self.client.start(phone=self.phone)
+        if not self.client.is_connected():
+            await self.client.connect()
+
+        if not await self.client.is_user_authorized():
+            if self.phone:
+                self.client.start(phone=self.phone)
+            else:
+                logger.error("Phone number not provided for authorization")
+                return
 
         try:
             async for message in self.client.iter_messages(
@@ -65,7 +87,7 @@ class WeatherAlerts:
                     message_data = {
                         "id": message.id,
                         "text": message.text,
-                        "date": message.date.isoformat(),
+                        "created_at": message.date.isoformat(),
                         "sender_id": message.sender_id,
                     }
                     self._save_message(
@@ -74,11 +96,12 @@ class WeatherAlerts:
                     )
                     messages.append(message_data)
             logger.info(
-                f"Extracted {len(messages)} messages from {self.channel_username}"
+                f"Extracted {len(messages)} messages from " f"{self.channel_username}"
             )
 
             logger.debug(
-                f"Sample message: {messages[0] if messages else 'No messages found'}"
+                f"Sample message: "
+                f"{messages[0] if messages else 'No messages found'}"
             )
         except Exception as e:
             logger.error(f"Error extracting messages: {e}")
@@ -87,14 +110,16 @@ class WeatherAlerts:
         """Monitor channel for new messages"""
         url = SERVER_URL or "http://localhost:8000"
         WEBHOOK_URL = f"{url}/weather-alerts/webhook"
-        
+
         try:
             # Start the client with phone parameter - this handles authentication automatically
             await self.client.start(
                 phone=self.phone,
-                code_callback=lambda: input("Please enter the verification code you received: ")
+                code_callback=lambda: input(
+                    "Please enter the verification code you received: "
+                ),
             )
-            
+
             logger.info("✅ Authentication successful, starting monitoring...")
 
         except Exception as e:
@@ -105,20 +130,25 @@ class WeatherAlerts:
         @self.client.on(events.NewMessage(chats=self.channel_username))
         async def handler(event):
             data = {
-                "id": event.chat_id,
+                "id": event.message.id,
                 "sender_id": event.sender_id,
                 "text": event.message.message,
-                "date": str(event.message.date),
+                "created_at": event.message.date.isoformat(),
             }
             try:
                 async with httpx.AsyncClient(timeout=10) as client:
-                    await client.post(WEBHOOK_URL, json=data)
-                logger.debug(f"✅ Forwarded message: {data['text']}")
+                    response = await client.post(WEBHOOK_URL, json=data)
+                    logger.info(f"Webhook response: {response.status_code}")
+                    response.raise_for_status()
+                logger.info(f"✅ Forwarded message to webhook: {data['id']}")
+            except httpx.HTTPError as e:
+                msg_id = data["id"]
+                logger.error(f"❌ HTTP error for message {msg_id}: {e}")
             except Exception as e:
-                logger.error("❌ Failed to send webhook:", e)
+                msg_id = data["id"]
+                logger.error(f"❌ Failed webhook for message {msg_id}: {e}")
 
         logger.info(f"📡 Now monitoring {self.channel_username} for new messages...")
-        
         # Keep the client running
         await self.client.run_until_disconnected()
 
@@ -126,38 +156,15 @@ class WeatherAlerts:
         self,
         message: Dict,
         dir: Optional[str] = "./",
-        db: Optional[DatabaseConnection] = None,
     ) -> None:
-        """Placeholder function to save message to a database"""
-        logger.info(f"Saving message to database: {message}")
+        """Process and optionally save message to file"""
+        logger.info(f"Processing message: {message}")
 
-        # Convert date string back to datetime object before parsing
-        alert_datetime = message["date"]
-        if isinstance(alert_datetime, str):
-            # Parse ISO format string back to datetime
-            from datetime import datetime
+        # Process the message using the shared logic
+        processed_message = self.process_message(message)
 
-            alert_datetime = datetime.fromisoformat(
-                alert_datetime.replace("Z", "+00:00")
-            )
-
-        # parse message
-        parsed_msg = parse_alert(message["text"], alert_datetime)
-
-        # Flatten parsed_msg into the initial message dict
-        message.update(parsed_msg)
-
-        # Rename date field to date_time for consistency
-        if "date" in message:
-            message["event_date_time"] = message.pop("date")
-
-        if db:
-            try:
-                self._save_message_to_db(db=db, messages=message)
-            except Exception as e:
-                logger.error(f"Error saving message to DB: {e}")
         # Create messages directory if it doesn't exist
-        elif dir:
+        if dir:
             dir = os.path.join(dir, "messages")
             os.makedirs(dir, exist_ok=True)
 
@@ -173,49 +180,122 @@ class WeatherAlerts:
                 except json.JSONDecodeError:
                     messages = []
 
-            messages.append(message)
+            messages.append(processed_message)
 
             # Write all messages back to file
             with open(filename, "w", encoding="utf-8") as f:
-                json.dump(parsed_msg, f, indent=2, ensure_ascii=False)
+                json.dump(messages, f, indent=2, ensure_ascii=False)
             logger.info(f"Message appended to {filename}")
 
-    def _save_message_to_db(
-        self, messages: Union[Dict, List], db: DatabaseConnection
-    ) -> None:
-        """Save message to PostgreSQL database"""
-        logger.info(f"Saving message to database: {messages}")
+    def process_message(self, message: Dict) -> Dict:
+        """Process a weather alert message and return the processed data.
+
+        This method processes the message without saving to file or database,
+        making it suitable for use in pipelines.
+
+        Args:
+            message: Dictionary containing message data
+
+        Returns:
+            Processed message dictionary with parsed alert information
+        """
+        logger.info(f"Processing message: {message}")
+
+        # Convert created_at string back to datetime object before parsing
+        alert_datetime = message["created_at"]
+        if isinstance(alert_datetime, str):
+            # Parse ISO format string back to datetime with proper timezone
+            alert_datetime = datetime.fromisoformat(
+                alert_datetime.replace("Z", "+00:00")
+            )
+            # Ensure we have timezone information
+            if alert_datetime.tzinfo is None:
+                from datetime import timezone
+
+                alert_datetime = alert_datetime.replace(tzinfo=timezone.utc)
+        elif isinstance(alert_datetime, datetime) and alert_datetime.tzinfo is None:
+            # If datetime object has no timezone, assume UTC
+            from datetime import timezone
+
+            alert_datetime = alert_datetime.replace(tzinfo=timezone.utc)
+
+        # parse message
+        parsed_msg = parse_alert(message["text"], alert_datetime)
+
+        # Create a copy to avoid modifying the original message
+        processed_message = message.copy()
+
+        # Flatten parsed_msg into the message dict
+        processed_message.update(parsed_msg)
+
+        # Keep created_at field as is - no need to rename to event_date_time
+        # The database schema expects 'created_at' directly
+
+        return processed_message
+
+    def get_credentials_from_storage(self) -> None:
+        """Retrieve stored credentials for Telegram client from Supabase.
+
+        Downloads the session file named 'session.session_{phone_number}' from
+        Supabase storage and stores it as 'session.session' in the backend
+        directory.
+        """
         try:
+            if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+                logger.error("Missing Supabase configuration")
+                return
 
-            table = "PUB_weather_alerts"
-            # Convert id field to msg_id for database consistency
-            if isinstance(messages, dict):
-                messages = dict(messages)  # Create a copy to avoid modifying original
-                if "id" in messages:
-                    messages["msg_id"] = messages.pop("id")
-            elif isinstance(messages, list):
-                messages = [dict(msg) for msg in messages]  # Create copies
-                for msg in messages:
-                    if "id" in msg:
-                        msg["msg_id"] = msg.pop("id")
+            # Initialize Supabase client
+            supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-            logger.debug(f"Saving to table {table}: {messages}")
-            db.insert(table=table, data=messages)
+            # Check if phone number is available
+            if not self.phone:
+                logger.error("Phone number not available")
+                return
 
-            # Fix the variable reference issue - use msg_id instead of id
-            if isinstance(messages, dict):
-                logger.info(
-                    f"Message {messages.get('msg_id', 'unknown')} saved to database successfully"
+            # Clean phone number (remove any non-numeric characters except +)
+            clean_phone = (
+                self.phone.replace(" ", "")
+                .replace("-", "")
+                .replace("(", "")
+                .replace(")", "")
+            )
+            if clean_phone.startswith("+"):
+                clean_phone = clean_phone[1:]  # Remove the + sign
+
+            # Construct the session filename in storage
+            session_filename = f"session.session_{clean_phone}"
+            logger.info(f"Attempting to download session file: " f"{session_filename}")
+
+            # Download the session file from Supabase storage
+            response = supabase.storage.from_(PUB_CREDENTIALS_BUCKET).download(
+                session_filename
+            )
+
+            if response:
+                # Get the path to the backend directory
+                # (2 levels up from current file)
+                backend_dir = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "..", "..")
                 )
-            elif isinstance(messages, list):
-                logger.info(f"{len(messages)} messages saved to database successfully")
+                session_file_path = os.path.join(backend_dir, "session.session")
 
-            logger.info("✅ Message saved to database")
+                # Write the downloaded content to session.session
+                with open(session_file_path, "wb") as f:
+                    f.write(response)
+
+                logger.info(
+                    f"Session file successfully downloaded and "
+                    f"stored at: {session_file_path}"
+                )
+            else:
+                logger.warning(
+                    f"Session file {session_filename} not found " f"in storage"
+                )
+
         except Exception as e:
-            logger.error(f"Error saving message to database: {e}")
-        finally:
-            if db:
-                db.close()
+            logger.error(f"Error retrieving session from storage: {e}")
+            # Don't raise the exception, just log it as function returns None
 
 
 weather_alerts = WeatherAlerts()
@@ -223,7 +303,7 @@ weather_alerts = WeatherAlerts()
 if __name__ == "__main__":
     # Run historical extraction
     scraper = WeatherAlerts()
-    asyncio.run(scraper.extract_existing_messages(save_to_db=True, limit=1))
+    asyncio.run(scraper.extract_existing_messages(limit=1))
 
     # Run live monitoring
     # asyncio.run(monitor_new_messages())
