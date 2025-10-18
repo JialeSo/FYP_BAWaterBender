@@ -7,6 +7,7 @@ load_dotenv()
 # Environment Configuration
 # ==========================================
 APP_ENV = os.getenv("APP_ENV", "development")
+PORT = int(os.getenv("PORT", 8000))
 
 is_production = APP_ENV.lower() in ["production", "prod"]
 is_development = APP_ENV.lower() in ["development", "dev", "local"]

@@ -1,17 +1,13 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "main.py",
-      "use": "@vercel/python"
-    }
-  ],
+  "framework": "fastapi",
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "main.py"
+      "src": "app/(.*)",
+      "dest": "app/app.py"
     }
   ],
+
   "env": {
     "PYTHONPATH": "."
   }

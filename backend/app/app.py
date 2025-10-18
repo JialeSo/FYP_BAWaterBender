@@ -1,11 +1,14 @@
 import logging
 import asyncio
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers.router import api_router
+import uvicorn
+from .routers.router import api_router  # Changed back to relative import
 from dotenv import load_dotenv
+from config.config import is_development
 
-from config.config import ALLOWED_ORIGINS
+from config.config import ALLOWED_ORIGINS, PORT
 
 load_dotenv()
 
@@ -38,6 +41,12 @@ app.add_middleware(
 app.include_router(api_router)
 
 
+@app.get("/")
+async def root():
+    """Basic endpoint that returns app name and version"""
+    return {"name": "FYP BAWaterBender API", "version": "1.0.0"}
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
@@ -55,13 +64,5 @@ async def startup_event():
         logger.error("❌ Failed to start Telegram listener: %s", e)
 
 
-@app.get("/")
-async def root():
-    """Root endpoint for health check"""
-    return {"message": "FYP BAWaterBender API is running!", "status": "healthy"}
-
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "message": "API is operational"}
+if __name__ == "__main__":
+    uvicorn.run("api.app:app", port=PORT, reload=is_development)
