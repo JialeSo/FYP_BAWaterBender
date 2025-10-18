@@ -2,13 +2,13 @@
   "version": 2,
   "framework": "fastapi",
   "functions": {
-    "api/app.py": {
+    "app/app.py": {
       "includeFiles": "api/app.py,requirements.txt,api/**/*.py,config/**/*.py,common/**/*.py,etl/common/**/*.py,etl/amenities/**/*.py,etl/pub/**/*.py,etl/onemap/**/*.py,etl/historical_floods/**/*.py,etl/*.py,etl/roadnetwork/**/*.py"
     }
   },
   "routes": [
     {
-      "src": "api/app.py"
+      "src": "app/app.py"
     }
   ],
   "env": {

@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, Request, HTTPException
-from api.controllers.weather_alerts_controller import weather_alerts_controller
+from app.controllers.weather_alerts_controller import weather_alerts_controller
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

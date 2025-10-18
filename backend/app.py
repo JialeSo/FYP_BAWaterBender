@@ -2,7 +2,7 @@ import os
 import uvicorn
 from dotenv import load_dotenv
 from config.config import is_development
-from api.app import app  # Import the FastAPI app instance
+from app.app import app  # Import the FastAPI app instance
 
 load_dotenv()
 
