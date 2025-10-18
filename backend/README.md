@@ -62,9 +62,13 @@ SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Telegram API (for weather alerts)
-TELEGRAM_API_ID=your_api_id
-TELEGRAM_API_HASH=your_api_hash
-TELEGRAM_PHONE=your_phone_number
+TELE_API_ID=your_telegram_api_id
+TELE_API_HASH=your_telegram_api_hash
+TELE_PHONE_NO=+your_phone_number_with_country_code
+
+# PUB Channel Configuration
+PUB_CHANNEL_USERNAME=@pub_channel_username
+PUB_CREDENTIALS_BUCKET=telegram-sessions
 
 # Application Settings
 APP_ENV=development
@@ -76,7 +80,73 @@ JWT_SECRET=your-secret-key
 JWT_EXPIRES_MIN=10080
 ```
 
-### 4. Run the Application
+### 4. Telegram Session Setup
+
+The application uses Telegram's session-based authentication to avoid repeated login prompts. Follow these steps to set up your Telegram session:
+
+#### **Step 1: Generate Session File**
+
+First, you'll need to create a session file locally:
+
+1. Create a simple Python script to generate the session:
+
+```python
+from telethon import TelegramClient
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+api_id = os.getenv("TELE_API_ID")
+api_hash = os.getenv("TELE_API_HASH")
+phone = os.getenv("TELE_PHONE_NO")
+
+# This will create a session.session file
+client = TelegramClient("session", int(api_id), api_hash)
+
+async def main():
+    await client.start(phone=phone)
+    print("Session created successfully!")
+    await client.disconnect()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+2. Run the script and follow the authentication prompts:
+   - Enter the verification code sent to your phone
+   - If two-factor authentication is enabled, enter your password
+
+3. This will create a `session.session` file in your project directory
+
+#### **Step 2: Upload Session to Supabase Storage**
+
+1. **Create Storage Bucket**: In your Supabase dashboard, create a storage bucket named `telegram-sessions`
+
+2. **Prepare Session File**: Rename your session file using the naming convention:
+   ```
+   session.session_{phone_number_without_plus}
+   ```
+   
+   **Examples**:
+   - Phone: `+6512345678` → Filename: `session.session_6512345678`
+   - Phone: `+1234567890` → Filename: `session.session_1234567890`
+
+3. **Upload to Supabase**: Upload the renamed file to the `telegram-sessions` bucket
+
+4. **Set Bucket Permissions**: Ensure your service role has read access to the bucket
+
+#### **Session Management**
+
+The application automatically handles session management:
+
+1. **Startup**: Downloads the session file from Supabase storage
+2. **Authentication**: Uses the session file for automatic login
+3. **Storage**: Saves the session as `session.session` in the backend directory
+4. **Error Handling**: Graceful fallback if session retrieval fails
+
+### 5. Run the Application
 
 ```bash
 python app.py
@@ -270,12 +340,27 @@ The application implements comprehensive error handling:
 
 ### Telegram Weather Alerts
 
-Automated monitoring of PUB flood alerts:
+Automated monitoring of PUB flood alerts with session-based authentication:
 
-- **Real-time Processing**: Telegram bot listens for new alerts
+- **Session Management**: Automatic retrieval of Telegram session from Supabase storage
+- **Credential Security**: Session files stored securely in Supabase with proper naming convention
+- **Real-time Processing**: Telegram client listens for new alerts using stored session
 - **Data Extraction**: Parses alert messages for structured data
 - **Database Storage**: Stores processed alerts for API access
 - **Error Recovery**: Automatic reconnection and error handling
+- **Authentication Flow**: 
+  1. Download session file from Supabase (`session.session_{phone_number}`)
+  2. Initialize Telegram client with existing session
+  3. Start monitoring without manual authentication
+
+#### **Session File Naming Convention**
+
+Session files in Supabase storage follow this pattern:
+- **Storage Path**: `telegram-sessions/session.session_{phone_number}`
+- **Phone Format**: Remove `+` and any formatting characters
+- **Examples**:
+  - `+65 1234 5678` → `session.session_6512345678`
+  - `+1-234-567-8900` → `session.session_12345678900`
 
 ### Scheduled ETL Jobs
 
@@ -307,65 +392,31 @@ The application is configured for Vercel deployment:
 - **Environment Variables**: Set in Vercel dashboard
 - **Build Process**: Automatic dependency installation
 
-## 🧪 Testing
+## 🔧 Troubleshooting
 
-### Running Tests
+### Telegram Authentication
 
-```bash
-# Run all tests
-pytest
+**Issue**: "Session file not found" error
+**Solution**: 
+1. Verify session file exists in Supabase `pub_tele_creds` bucket
+2. Check filename follows convention: `session.session_{phone_number_no}`
+3. Ensure phone number in `.env` matches the session file
 
-# Run with coverage
-pytest --cov=app --cov-report=html
+### Common Setup Issues
 
-# Run specific test file
-pytest tests/test_weather_alerts.py
-```
+**Issue**: Environment variables not loading
+**Solution**:
+1. Ensure `.env` file is in the root directory
+2. Check variable names match exactly (case-sensitive)
+3. Restart the application after changes
 
-### Test Structure
+**Issue**: Database connection errors
+**Solution**:
+1. Verify Supabase URL and keys are correct
+2. Check network connectivity
+3. Ensure database is running and accessible
 
-- **Unit Tests**: Individual component testing
-- **Integration Tests**: API endpoint testing
-- **ETL Tests**: Data processing validation
 
-## 📈 Performance
 
-### Optimization Features
-
-- **Database Connection Pooling**: Efficient database resource usage
-- **Response Caching**: Redis-based API response caching
-- **Async Operations**: Non-blocking I/O for external API calls
-- **Data Pagination**: Large dataset handling
-
-### Monitoring
-
-- **Response Time Tracking**: Built-in request timing
-- **Database Query Optimization**: Query analysis and indexing
-- **Memory Usage Monitoring**: Resource utilization tracking
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/new-feature`
-3. Make changes and test thoroughly
-4. Commit with descriptive messages
-5. Push and create a Pull Request
-
-### Code Standards
-
-- **Python**: Follow PEP 8 style guidelines
-- **Type Hints**: Use type annotations throughout
-- **Documentation**: Document all functions and classes
-- **Testing**: Write tests for new functionality
-
-## 📞 Support
-
-For issues and questions:
-
-- **GitHub Issues**: [Project Issues](https://github.com/JialeSo/FYP_BAWaterBender/issues)
-- **Documentation**: Check `/docs` API documentation
-- **Logs**: Check application logs for error details
-
----
 
 **BAWaterBender Backend** - Comprehensive flood management system for Singapore 🇸🇬

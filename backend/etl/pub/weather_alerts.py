@@ -1,21 +1,22 @@
 import os
-from typing import Dict, List, Optional, Union
-
-from config.config import PUB_CHANNEL_USERNAME, SERVER_URL
-from common.db import DatabaseConnection
-from .utils import parse_alert
-from telethon import TelegramClient, events
-# from telethon.errors import SessionPasswordNeededError
 import asyncio
 import logging
-from datetime import datetime
+import json
+import httpx
 from typing import Dict, Optional
+from datetime import datetime
 
-from config.config import PUB_CHANNEL_USERNAME, SERVER_URL
+from config.config import (
+    PUB_CHANNEL_USERNAME,
+    PUB_CREDENTIALS_BUCKET,
+    SERVER_URL,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+)
 from .pub_utils import parse_alert
 from telethon import TelegramClient, events
 from dotenv import load_dotenv
-import httpx
+from supabase import create_client, Client
 
 
 load_dotenv()
@@ -52,6 +53,10 @@ class WeatherAlerts:
         # At this point we know api_id and api_hash are not None
         assert api_id is not None
         assert api_hash is not None
+
+        # Retrieve tele credentials first
+        logger.info("🔄 Retrieving Telegram credentials from storage...")
+        self.get_credentials_from_storage()
 
         self.client = TelegramClient("session", int(api_id), api_hash)
 
@@ -105,7 +110,7 @@ class WeatherAlerts:
         """Monitor channel for new messages"""
         url = SERVER_URL or "http://localhost:8000"
         WEBHOOK_URL = f"{url}/weather-alerts/webhook"
-        
+
         try:
             # Start the client with phone parameter - this handles authentication automatically
             await self.client.start(
@@ -206,10 +211,12 @@ class WeatherAlerts:
             # Ensure we have timezone information
             if alert_datetime.tzinfo is None:
                 from datetime import timezone
+
                 alert_datetime = alert_datetime.replace(tzinfo=timezone.utc)
         elif isinstance(alert_datetime, datetime) and alert_datetime.tzinfo is None:
             # If datetime object has no timezone, assume UTC
             from datetime import timezone
+
             alert_datetime = alert_datetime.replace(tzinfo=timezone.utc)
 
         # parse message
@@ -225,6 +232,70 @@ class WeatherAlerts:
         # The database schema expects 'created_at' directly
 
         return processed_message
+
+    def get_credentials_from_storage(self) -> None:
+        """Retrieve stored credentials for Telegram client from Supabase.
+
+        Downloads the session file named 'session.session_{phone_number}' from
+        Supabase storage and stores it as 'session.session' in the backend
+        directory.
+        """
+        try:
+            if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+                logger.error("Missing Supabase configuration")
+                return
+
+            # Initialize Supabase client
+            supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+            # Check if phone number is available
+            if not self.phone:
+                logger.error("Phone number not available")
+                return
+
+            # Clean phone number (remove any non-numeric characters except +)
+            clean_phone = (
+                self.phone.replace(" ", "")
+                .replace("-", "")
+                .replace("(", "")
+                .replace(")", "")
+            )
+            if clean_phone.startswith("+"):
+                clean_phone = clean_phone[1:]  # Remove the + sign
+
+            # Construct the session filename in storage
+            session_filename = f"session.session_{clean_phone}"
+            logger.info(f"Attempting to download session file: " f"{session_filename}")
+
+            # Download the session file from Supabase storage
+            response = supabase.storage.from_(PUB_CREDENTIALS_BUCKET).download(
+                session_filename
+            )
+
+            if response:
+                # Get the path to the backend directory
+                # (2 levels up from current file)
+                backend_dir = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "..", "..")
+                )
+                session_file_path = os.path.join(backend_dir, "session.session")
+
+                # Write the downloaded content to session.session
+                with open(session_file_path, "wb") as f:
+                    f.write(response)
+
+                logger.info(
+                    f"Session file successfully downloaded and "
+                    f"stored at: {session_file_path}"
+                )
+            else:
+                logger.warning(
+                    f"Session file {session_filename} not found " f"in storage"
+                )
+
+        except Exception as e:
+            logger.error(f"Error retrieving session from storage: {e}")
+            # Don't raise the exception, just log it as function returns None
 
 
 weather_alerts = WeatherAlerts()

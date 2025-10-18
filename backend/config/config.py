@@ -29,7 +29,9 @@ ALLOWED_ORIGINS = [
 # External Services Configuration
 # ==========================================
 PUB_CHANNEL_USERNAME = "pubfloodalerts" if is_production else "testPubAlerts"
+PUB_CREDENTIALS_BUCKET = "pub_tele_credentials"
 SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000/api")
+
 
 LOCATIONIQ_KEY = os.getenv("LOCATIONIQ_KEY")
 LOCATIONIQ_FORWARD_URL = "https://us1.locationiq.com/v1/search.php"
