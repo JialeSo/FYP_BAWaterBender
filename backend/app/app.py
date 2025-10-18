@@ -41,6 +41,12 @@ app.add_middleware(
 app.include_router(api_router)
 
 
+@app.get("/")
+async def root():
+    """Basic endpoint that returns app name and version"""
+    return {"name": "FYP BAWaterBender API", "version": "1.0.0"}
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
