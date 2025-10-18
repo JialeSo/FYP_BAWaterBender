@@ -59,4 +59,4 @@ async def startup_event():
 
 
 if __name__ == "__main__":
-    uvicorn.run("app.app:app", port=PORT, reload=is_development)
+    uvicorn.run("api.app:app", port=PORT, reload=is_development)
