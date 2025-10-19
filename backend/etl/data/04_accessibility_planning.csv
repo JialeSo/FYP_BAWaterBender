@@ -1,0 +1,826 @@
+planning_area,category,model,score
+ANG MO KIO,community_spaces,2sfca,27.95379496818724
+ANG MO KIO,community_spaces,cumulative,640.0833333333334
+ANG MO KIO,community_spaces,hansen,84134.65025396642
+ANG MO KIO,education_institutions,2sfca,65.19117283479675
+ANG MO KIO,education_institutions,cumulative,211.25
+ANG MO KIO,education_institutions,hansen,850.6354775208798
+ANG MO KIO,emergency_services,2sfca,2.8697022574357036
+ANG MO KIO,emergency_services,cumulative,2.9166666666666665
+ANG MO KIO,emergency_services,hansen,8808.127672572118
+ANG MO KIO,essential_services,2sfca,100.32086820362947
+ANG MO KIO,essential_services,cumulative,164.91666666666666
+ANG MO KIO,essential_services,hansen,1334820.2520427415
+ANG MO KIO,transport_services,2sfca,134.52817403789308
+ANG MO KIO,transport_services,cumulative,434.1666666666667
+ANG MO KIO,transport_services,hansen,674223.9714649717
+BEDOK,community_spaces,2sfca,45.353664435852245
+BEDOK,community_spaces,cumulative,592.625
+BEDOK,community_spaces,hansen,128884.04770806202
+BEDOK,education_institutions,2sfca,121.81933679034378
+BEDOK,education_institutions,cumulative,230.5
+BEDOK,education_institutions,hansen,32980.53076562288
+BEDOK,emergency_services,2sfca,6.058094553444678
+BEDOK,emergency_services,cumulative,4.375
+BEDOK,emergency_services,hansen,12.687865847658008
+BEDOK,essential_services,2sfca,188.13980103945403
+BEDOK,essential_services,cumulative,185.125
+BEDOK,essential_services,hansen,6750.2788594502645
+BEDOK,transport_services,2sfca,235.2103231558578
+BEDOK,transport_services,cumulative,454.0
+BEDOK,transport_services,hansen,2476.8433607363763
+BISHAN,community_spaces,2sfca,24.86447045841463
+BISHAN,community_spaces,cumulative,681.3333333333334
+BISHAN,community_spaces,hansen,163.32626878469685
+BISHAN,education_institutions,2sfca,64.7325552138851
+BISHAN,education_institutions,cumulative,241.66666666666666
+BISHAN,education_institutions,hansen,2668079.1017403933
+BISHAN,emergency_services,2sfca,2.7728258819090734
+BISHAN,emergency_services,cumulative,3.3333333333333335
+BISHAN,emergency_services,hansen,18.43026261822698
+BISHAN,essential_services,2sfca,106.79691533592471
+BISHAN,essential_services,cumulative,215.66666666666666
+BISHAN,essential_services,hansen,5335614.333935904
+BISHAN,transport_services,2sfca,126.28234057079256
+BISHAN,transport_services,cumulative,502.3333333333333
+BISHAN,transport_services,hansen,955.4468421199384
+BOON LAY,community_spaces,2sfca,9.85139924439154
+BOON LAY,community_spaces,cumulative,202.25
+BOON LAY,community_spaces,hansen,22.497234438064677
+BOON LAY,education_institutions,2sfca,35.63165009617662
+BOON LAY,education_institutions,cumulative,85.25
+BOON LAY,education_institutions,hansen,55.56759366395218
+BOON LAY,emergency_services,2sfca,3.885202818959625
+BOON LAY,emergency_services,cumulative,2.75
+BOON LAY,emergency_services,hansen,8.140390556835964
+BOON LAY,essential_services,2sfca,55.119080920163995
+BOON LAY,essential_services,cumulative,65.75
+BOON LAY,essential_services,hansen,94.58219167971627
+BOON LAY,transport_services,2sfca,178.5886357248058
+BOON LAY,transport_services,cumulative,382.25
+BOON LAY,transport_services,hansen,2001043.3834634954
+BUKIT BATOK,community_spaces,2sfca,24.690024527705575
+BUKIT BATOK,community_spaces,cumulative,581.4444444444445
+BUKIT BATOK,community_spaces,hansen,111581.9882326297
+BUKIT BATOK,education_institutions,2sfca,71.21549654505537
+BUKIT BATOK,education_institutions,cumulative,217.22222222222223
+BUKIT BATOK,education_institutions,hansen,891732.7303879282
+BUKIT BATOK,emergency_services,2sfca,3.680402715039808
+BUKIT BATOK,emergency_services,cumulative,3.6666666666666665
+BUKIT BATOK,emergency_services,hansen,13.436937870866167
+BUKIT BATOK,essential_services,2sfca,115.76911122631292
+BUKIT BATOK,essential_services,cumulative,177.0
+BUKIT BATOK,essential_services,hansen,5338772.3454422
+BUKIT BATOK,transport_services,2sfca,141.2428504040366
+BUKIT BATOK,transport_services,cumulative,443.8888888888889
+BUKIT BATOK,transport_services,hansen,893494.8337177727
+BUKIT MERAH,community_spaces,2sfca,14.79361049643097
+BUKIT MERAH,community_spaces,cumulative,683.0588235294117
+BUKIT MERAH,community_spaces,hansen,252.07431036886396
+BUKIT MERAH,education_institutions,2sfca,28.737925734364943
+BUKIT MERAH,education_institutions,cumulative,204.41176470588235
+BUKIT MERAH,education_institutions,hansen,472958.7742626163
+BUKIT MERAH,emergency_services,2sfca,3.801107917044373
+BUKIT MERAH,emergency_services,cumulative,7.352941176470588
+BUKIT MERAH,emergency_services,hansen,54.98739320874
+BUKIT MERAH,essential_services,2sfca,54.63822318996494
+BUKIT MERAH,essential_services,cumulative,194.7058823529412
+BUKIT MERAH,essential_services,hansen,943238.8088302448
+BUKIT MERAH,transport_services,2sfca,83.6030838784072
+BUKIT MERAH,transport_services,cumulative,591.8235294117648
+BUKIT MERAH,transport_services,hansen,1415175.4382346552
+BUKIT PANJANG,community_spaces,2sfca,25.9496604262284
+BUKIT PANJANG,community_spaces,cumulative,511.42857142857144
+BUKIT PANJANG,community_spaces,hansen,143182.17735651642
+BUKIT PANJANG,education_institutions,2sfca,64.65482782108911
+BUKIT PANJANG,education_institutions,cumulative,165.0
+BUKIT PANJANG,education_institutions,hansen,3429846.9646029645
+BUKIT PANJANG,emergency_services,2sfca,3.407797901769403
+BUKIT PANJANG,emergency_services,cumulative,2.857142857142857
+BUKIT PANJANG,emergency_services,hansen,32.175333245278594
+BUKIT PANJANG,essential_services,2sfca,96.55239759071137
+BUKIT PANJANG,essential_services,cumulative,123.14285714285714
+BUKIT PANJANG,essential_services,hansen,4572973.101633848
+BUKIT PANJANG,transport_services,2sfca,126.28522318795477
+BUKIT PANJANG,transport_services,cumulative,325.57142857142856
+BUKIT PANJANG,transport_services,hansen,1145801.827527957
+BUKIT TIMAH,community_spaces,2sfca,14.538587893295821
+BUKIT TIMAH,community_spaces,cumulative,399.625
+BUKIT TIMAH,community_spaces,hansen,240.05004340220617
+BUKIT TIMAH,education_institutions,2sfca,42.28330036917804
+BUKIT TIMAH,education_institutions,cumulative,147.5
+BUKIT TIMAH,education_institutions,hansen,338.960139995686
+BUKIT TIMAH,emergency_services,2sfca,2.0301181403026387
+BUKIT TIMAH,emergency_services,cumulative,2.5
+BUKIT TIMAH,emergency_services,hansen,44.23318604673176
+BUKIT TIMAH,essential_services,2sfca,56.81140704153143
+BUKIT TIMAH,essential_services,cumulative,102.875
+BUKIT TIMAH,essential_services,hansen,537.679508730101
+BUKIT TIMAH,transport_services,2sfca,79.11071542794232
+BUKIT TIMAH,transport_services,cumulative,311.625
+BUKIT TIMAH,transport_services,hansen,763.2085595522648
+CENTRAL WATER CATCHMENT,community_spaces,2sfca,19.395982461598965
+CENTRAL WATER CATCHMENT,community_spaces,cumulative,329.0
+CENTRAL WATER CATCHMENT,community_spaces,hansen,52.72652249077579
+CENTRAL WATER CATCHMENT,education_institutions,2sfca,28.816444448448756
+CENTRAL WATER CATCHMENT,education_institutions,cumulative,69.0
+CENTRAL WATER CATCHMENT,education_institutions,hansen,40.42547695298577
+CENTRAL WATER CATCHMENT,emergency_services,2sfca,1.3157894736842106
+CENTRAL WATER CATCHMENT,emergency_services,cumulative,1.0
+CENTRAL WATER CATCHMENT,emergency_services,hansen,1.1720296316226784
+CENTRAL WATER CATCHMENT,essential_services,2sfca,39.90531380944626
+CENTRAL WATER CATCHMENT,essential_services,cumulative,47.0
+CENTRAL WATER CATCHMENT,essential_services,hansen,64.66451722912393
+CENTRAL WATER CATCHMENT,transport_services,2sfca,79.28579863802908
+CENTRAL WATER CATCHMENT,transport_services,cumulative,183.0
+CENTRAL WATER CATCHMENT,transport_services,hansen,188.67759426499086
+CHANGI,community_spaces,2sfca,41.30496094319624
+CHANGI,community_spaces,cumulative,262.6666666666667
+CHANGI,community_spaces,hansen,56.35139294924266
+CHANGI,education_institutions,2sfca,28.485743450449334
+CHANGI,education_institutions,cumulative,49.666666666666664
+CHANGI,education_institutions,hansen,46.38396989248057
+CHANGI,emergency_services,2sfca,21.547202797202797
+CHANGI,emergency_services,cumulative,3.3333333333333335
+CHANGI,emergency_services,hansen,12.019804470453252
+CHANGI,essential_services,2sfca,53.443960396901566
+CHANGI,essential_services,cumulative,40.333333333333336
+CHANGI,essential_services,hansen,57.44095883842197
+CHANGI,transport_services,2sfca,128.59220822750237
+CHANGI,transport_services,cumulative,148.33333333333334
+CHANGI,transport_services,hansen,2695544.567992621
+CHANGI BAY,community_spaces,2sfca,2.0
+CHANGI BAY,community_spaces,cumulative,6.0
+CHANGI BAY,community_spaces,hansen,0.32408788559371454
+CHANGI BAY,education_institutions,2sfca,0.0
+CHANGI BAY,education_institutions,cumulative,0.0
+CHANGI BAY,education_institutions,hansen,0.0
+CHANGI BAY,emergency_services,2sfca,0.0
+CHANGI BAY,emergency_services,cumulative,0.0
+CHANGI BAY,emergency_services,hansen,0.0
+CHANGI BAY,essential_services,2sfca,0.0
+CHANGI BAY,essential_services,cumulative,0.0
+CHANGI BAY,essential_services,hansen,0.0
+CHANGI BAY,transport_services,2sfca,34.666666666666664
+CHANGI BAY,transport_services,cumulative,5.0
+CHANGI BAY,transport_services,hansen,40.89184869600123
+CHOA CHU KANG,community_spaces,2sfca,24.434191680282158
+CHOA CHU KANG,community_spaces,cumulative,506.8333333333333
+CHOA CHU KANG,community_spaces,hansen,334265.51440057985
+CHOA CHU KANG,education_institutions,2sfca,71.98850293470308
+CHOA CHU KANG,education_institutions,cumulative,184.66666666666666
+CHOA CHU KANG,education_institutions,hansen,4153.470995299306
+CHOA CHU KANG,emergency_services,2sfca,5.696778711484593
+CHOA CHU KANG,emergency_services,cumulative,3.6666666666666665
+CHOA CHU KANG,emergency_services,hansen,770.7689202535212
+CHOA CHU KANG,essential_services,2sfca,111.66069740932534
+CHOA CHU KANG,essential_services,cumulative,141.83333333333334
+CHOA CHU KANG,essential_services,hansen,7542.884555333166
+CHOA CHU KANG,transport_services,2sfca,157.66420143780638
+CHOA CHU KANG,transport_services,cumulative,378.8333333333333
+CHOA CHU KANG,transport_services,hansen,1341613.8472610472
+CLEMENTI,community_spaces,2sfca,21.79916944056548
+CLEMENTI,community_spaces,cumulative,483.77777777777777
+CLEMENTI,community_spaces,hansen,376.62201616147945
+CLEMENTI,education_institutions,2sfca,49.73153512746713
+CLEMENTI,education_institutions,cumulative,157.55555555555554
+CLEMENTI,education_institutions,hansen,891162.2912407084
+CLEMENTI,emergency_services,2sfca,4.659780546333238
+CLEMENTI,emergency_services,cumulative,4.444444444444445
+CLEMENTI,emergency_services,hansen,55.87635780118091
+CLEMENTI,essential_services,2sfca,79.41642935165154
+CLEMENTI,essential_services,cumulative,128.22222222222223
+CLEMENTI,essential_services,hansen,1782484.2392657914
+CLEMENTI,transport_services,2sfca,143.87355274289504
+CLEMENTI,transport_services,cumulative,439.0
+CLEMENTI,transport_services,hansen,1778993.4017606466
+DOWNTOWN CORE,community_spaces,2sfca,10.952568683209249
+DOWNTOWN CORE,community_spaces,cumulative,699.3846153846154
+DOWNTOWN CORE,community_spaces,hansen,154735.4291499399
+DOWNTOWN CORE,education_institutions,2sfca,25.75100170341141
+DOWNTOWN CORE,education_institutions,cumulative,207.15384615384616
+DOWNTOWN CORE,education_institutions,hansen,616298.0484126962
+DOWNTOWN CORE,emergency_services,2sfca,3.08707965149189
+DOWNTOWN CORE,emergency_services,cumulative,7.076923076923077
+DOWNTOWN CORE,emergency_services,hansen,52.290834246836006
+DOWNTOWN CORE,essential_services,2sfca,50.78298595048758
+DOWNTOWN CORE,essential_services,cumulative,208.0
+DOWNTOWN CORE,essential_services,hansen,1232312.584094857
+DOWNTOWN CORE,transport_services,2sfca,76.4050494628835
+DOWNTOWN CORE,transport_services,cumulative,632.1538461538462
+DOWNTOWN CORE,transport_services,hansen,642977.1449115622
+GEYLANG,community_spaces,2sfca,31.33277546962497
+GEYLANG,community_spaces,cumulative,964.4
+GEYLANG,community_spaces,hansen,201599.35231438768
+GEYLANG,education_institutions,2sfca,90.34392337377487
+GEYLANG,education_institutions,cumulative,327.8
+GEYLANG,education_institutions,hansen,736.5754619854044
+GEYLANG,emergency_services,2sfca,5.770026347677087
+GEYLANG,emergency_services,cumulative,7.4
+GEYLANG,emergency_services,hansen,113.97352770179153
+GEYLANG,essential_services,2sfca,156.7402217757489
+GEYLANG,essential_services,cumulative,302.0
+GEYLANG,essential_services,hansen,1199.0880115264933
+GEYLANG,transport_services,2sfca,186.2389363844412
+GEYLANG,transport_services,cumulative,736.0
+GEYLANG,transport_services,hansen,3202303.5260422016
+HOUGANG,community_spaces,2sfca,18.116574895749423
+HOUGANG,community_spaces,cumulative,546.1
+HOUGANG,community_spaces,hansen,100247.29239274099
+HOUGANG,education_institutions,2sfca,83.9902145304599
+HOUGANG,education_institutions,cumulative,303.5
+HOUGANG,education_institutions,hansen,813255.1382778066
+HOUGANG,emergency_services,2sfca,2.387575329715404
+HOUGANG,emergency_services,cumulative,2.7
+HOUGANG,emergency_services,hansen,14.03858300795387
+HOUGANG,essential_services,2sfca,140.26154974736542
+HOUGANG,essential_services,cumulative,255.9
+HOUGANG,essential_services,hansen,3230967.3257599683
+HOUGANG,transport_services,2sfca,161.93724305490917
+HOUGANG,transport_services,cumulative,605.8
+HOUGANG,transport_services,hansen,802002.8975942162
+JURONG EAST,community_spaces,2sfca,17.479510116969102
+JURONG EAST,community_spaces,cumulative,413.90909090909093
+JURONG EAST,community_spaces,hansen,3181914.646422277
+JURONG EAST,education_institutions,2sfca,48.01649028000813
+JURONG EAST,education_institutions,cumulative,145.8181818181818
+JURONG EAST,education_institutions,hansen,25758.174588237274
+JURONG EAST,emergency_services,2sfca,3.1034121063007634
+JURONG EAST,emergency_services,cumulative,2.909090909090909
+JURONG EAST,emergency_services,hansen,319.11556876153065
+JURONG EAST,essential_services,2sfca,82.63988960360938
+JURONG EAST,essential_services,cumulative,124.45454545454545
+JURONG EAST,essential_services,hansen,52296.50120642614
+JURONG EAST,transport_services,2sfca,120.71405045309733
+JURONG EAST,transport_services,cumulative,360.09090909090907
+JURONG EAST,transport_services,hansen,17407.56842773867
+JURONG WEST,community_spaces,2sfca,15.951137124402265
+JURONG WEST,community_spaces,cumulative,333.3333333333333
+JURONG WEST,community_spaces,hansen,301.0677944785214
+JURONG WEST,education_institutions,2sfca,60.59236321960176
+JURONG WEST,education_institutions,cumulative,153.66666666666666
+JURONG WEST,education_institutions,hansen,904.3396850773755
+JURONG WEST,emergency_services,2sfca,4.392492464180304
+JURONG WEST,emergency_services,cumulative,3.4444444444444446
+JURONG WEST,emergency_services,hansen,61.48814849050075
+JURONG WEST,essential_services,2sfca,88.86008031353516
+JURONG WEST,essential_services,cumulative,116.0
+JURONG WEST,essential_services,hansen,1527.860888307458
+JURONG WEST,transport_services,2sfca,205.93176712416226
+JURONG WEST,transport_services,cumulative,458.77777777777777
+JURONG WEST,transport_services,hansen,894116.6671330711
+KALLANG,community_spaces,2sfca,18.37287623698528
+KALLANG,community_spaces,cumulative,921.7777777777778
+KALLANG,community_spaces,hansen,3630.9014266929653
+KALLANG,education_institutions,2sfca,47.102115585357716
+KALLANG,education_institutions,cumulative,272.6666666666667
+KALLANG,education_institutions,hansen,1779440.936386335
+KALLANG,emergency_services,2sfca,3.7542815053897933
+KALLANG,emergency_services,cumulative,7.111111111111111
+KALLANG,emergency_services,hansen,33.989259837144886
+KALLANG,essential_services,2sfca,93.38507161775375
+KALLANG,essential_services,cumulative,275.44444444444446
+KALLANG,essential_services,hansen,8893303.804415273
+KALLANG,transport_services,2sfca,112.17685834081738
+KALLANG,transport_services,cumulative,711.5555555555555
+KALLANG,transport_services,hansen,2670365.6793909785
+LIM CHU KANG,community_spaces,2sfca,8.333333333333332
+LIM CHU KANG,community_spaces,cumulative,25.0
+LIM CHU KANG,community_spaces,hansen,3.1095108211990734
+LIM CHU KANG,education_institutions,2sfca,0.0
+LIM CHU KANG,education_institutions,cumulative,0.0
+LIM CHU KANG,education_institutions,hansen,0.0
+LIM CHU KANG,emergency_services,2sfca,0.0
+LIM CHU KANG,emergency_services,cumulative,0.0
+LIM CHU KANG,emergency_services,hansen,0.0
+LIM CHU KANG,essential_services,2sfca,32.0
+LIM CHU KANG,essential_services,cumulative,2.0
+LIM CHU KANG,essential_services,hansen,4.206843178490023
+LIM CHU KANG,transport_services,2sfca,238.8
+LIM CHU KANG,transport_services,cumulative,52.0
+LIM CHU KANG,transport_services,hansen,69.48390285908272
+MANDAI,community_spaces,2sfca,22.58551188298597
+MANDAI,community_spaces,cumulative,286.3333333333333
+MANDAI,community_spaces,hansen,167.7050834469945
+MANDAI,education_institutions,2sfca,60.53045938163181
+MANDAI,education_institutions,cumulative,134.0
+MANDAI,education_institutions,hansen,407.7858551969382
+MANDAI,emergency_services,2sfca,2.687708855472014
+MANDAI,emergency_services,cumulative,2.0
+MANDAI,emergency_services,hansen,7.1193566318799
+MANDAI,essential_services,2sfca,101.1716517474439
+MANDAI,essential_services,cumulative,114.0
+MANDAI,essential_services,hansen,721.9503940435778
+MANDAI,transport_services,2sfca,123.13117388486887
+MANDAI,transport_services,cumulative,263.3333333333333
+MANDAI,transport_services,hansen,559.8122504231532
+MARINA EAST,community_spaces,2sfca,18.892664591120834
+MARINA EAST,community_spaces,cumulative,803.0
+MARINA EAST,community_spaces,hansen,80.99662833036085
+MARINA EAST,education_institutions,2sfca,33.51796023765359
+MARINA EAST,education_institutions,cumulative,171.0
+MARINA EAST,education_institutions,hansen,109.35840503501908
+MARINA EAST,emergency_services,2sfca,2.7164930753938137
+MARINA EAST,emergency_services,cumulative,6.0
+MARINA EAST,emergency_services,hansen,15.374205501878453
+MARINA EAST,essential_services,2sfca,63.82995381047484
+MARINA EAST,essential_services,cumulative,166.0
+MARINA EAST,essential_services,hansen,189.2883170044002
+MARINA EAST,transport_services,2sfca,80.26987503650963
+MARINA EAST,transport_services,cumulative,509.0
+MARINA EAST,transport_services,hansen,365.84751490770236
+MARINA SOUTH,community_spaces,2sfca,4.901617241300519
+MARINA SOUTH,community_spaces,cumulative,360.0
+MARINA SOUTH,community_spaces,hansen,26.850483761911754
+MARINA SOUTH,education_institutions,2sfca,7.076307337334556
+MARINA SOUTH,education_institutions,cumulative,66.0
+MARINA SOUTH,education_institutions,hansen,39.17096066090212
+MARINA SOUTH,emergency_services,2sfca,0.7051282051282052
+MARINA SOUTH,emergency_services,cumulative,2.0
+MARINA SOUTH,emergency_services,hansen,5.79611913011642
+MARINA SOUTH,essential_services,2sfca,17.673910468894007
+MARINA SOUTH,essential_services,cumulative,81.0
+MARINA SOUTH,essential_services,hansen,111.79606903264535
+MARINA SOUTH,transport_services,2sfca,37.75749449168418
+MARINA SOUTH,transport_services,cumulative,337.0
+MARINA SOUTH,transport_services,hansen,500.67264505023064
+MARINE PARADE,community_spaces,2sfca,33.402360868164216
+MARINE PARADE,community_spaces,cumulative,714.0
+MARINE PARADE,community_spaces,hansen,683.7364569739968
+MARINE PARADE,education_institutions,2sfca,73.06325612468086
+MARINE PARADE,education_institutions,cumulative,206.0
+MARINE PARADE,education_institutions,hansen,803.5814903151042
+MARINE PARADE,emergency_services,2sfca,6.035059925210663
+MARINE PARADE,emergency_services,cumulative,6.6
+MARINE PARADE,emergency_services,hansen,33.577153541055296
+MARINE PARADE,essential_services,2sfca,119.19339706240157
+MARINE PARADE,essential_services,cumulative,177.2
+MARINE PARADE,essential_services,hansen,1279.7876239168957
+MARINE PARADE,transport_services,2sfca,145.12703070920062
+MARINE PARADE,transport_services,cumulative,463.8
+MARINE PARADE,transport_services,hansen,886.175274638171
+MUSEUM,community_spaces,2sfca,14.861334327302167
+MUSEUM,community_spaces,cumulative,950.0
+MUSEUM,community_spaces,hansen,342676.9420164779
+MUSEUM,education_institutions,2sfca,32.183329401852596
+MUSEUM,education_institutions,cumulative,265.6666666666667
+MUSEUM,education_institutions,hansen,666.997407685628
+MUSEUM,emergency_services,2sfca,2.9363460905803636
+MUSEUM,emergency_services,cumulative,7.333333333333333
+MUSEUM,emergency_services,hansen,56.89475853376536
+MUSEUM,essential_services,2sfca,63.44693262695616
+MUSEUM,essential_services,cumulative,265.0
+MUSEUM,essential_services,hansen,835.6387322113196
+MUSEUM,transport_services,2sfca,86.75536357572945
+MUSEUM,transport_services,cumulative,736.3333333333334
+MUSEUM,transport_services,hansen,5344666.245465617
+NEWTON,community_spaces,2sfca,16.19722321793606
+NEWTON,community_spaces,cumulative,954.6666666666666
+NEWTON,community_spaces,hansen,186.54991950542225
+NEWTON,education_institutions,2sfca,38.49965269658648
+NEWTON,education_institutions,cumulative,288.5
+NEWTON,education_institutions,hansen,757.2033209215319
+NEWTON,emergency_services,2sfca,2.114877249285032
+NEWTON,emergency_services,cumulative,5.333333333333333
+NEWTON,emergency_services,hansen,259.93848996859896
+NEWTON,essential_services,2sfca,71.10953858442905
+NEWTON,essential_services,cumulative,276.8333333333333
+NEWTON,essential_services,hansen,1090.5762313785315
+NEWTON,transport_services,2sfca,95.74978811796827
+NEWTON,transport_services,cumulative,757.5
+NEWTON,transport_services,hansen,1613.3956151533519
+NORTH-EASTERN ISLANDS,community_spaces,2sfca,38.215584415584416
+NORTH-EASTERN ISLANDS,community_spaces,cumulative,162.0
+NORTH-EASTERN ISLANDS,community_spaces,hansen,790.0270555565347
+NORTH-EASTERN ISLANDS,education_institutions,2sfca,0.0
+NORTH-EASTERN ISLANDS,education_institutions,cumulative,0.0
+NORTH-EASTERN ISLANDS,education_institutions,hansen,0.0
+NORTH-EASTERN ISLANDS,emergency_services,2sfca,50.0
+NORTH-EASTERN ISLANDS,emergency_services,cumulative,4.0
+NORTH-EASTERN ISLANDS,emergency_services,hansen,13.466479803879203
+NORTH-EASTERN ISLANDS,essential_services,2sfca,13.333333333333332
+NORTH-EASTERN ISLANDS,essential_services,cumulative,3.0
+NORTH-EASTERN ISLANDS,essential_services,hansen,732.1402214948419
+NORTH-EASTERN ISLANDS,transport_services,2sfca,103.98961038961039
+NORTH-EASTERN ISLANDS,transport_services,cumulative,63.0
+NORTH-EASTERN ISLANDS,transport_services,hansen,663.5752186548294
+NOVENA,community_spaces,2sfca,18.9716401141965
+NOVENA,community_spaces,cumulative,852.0
+NOVENA,community_spaces,hansen,163.80718288051912
+NOVENA,education_institutions,2sfca,47.51304151749788
+NOVENA,education_institutions,cumulative,247.4
+NOVENA,education_institutions,hansen,630.3112315833819
+NOVENA,emergency_services,2sfca,2.3042824112402367
+NOVENA,emergency_services,cumulative,4.6
+NOVENA,emergency_services,hansen,16.160437837485738
+NOVENA,essential_services,2sfca,75.64937743670733
+NOVENA,essential_services,cumulative,222.4
+NOVENA,essential_services,hansen,913.3999976965766
+NOVENA,transport_services,2sfca,92.2919715173837
+NOVENA,transport_services,cumulative,592.4
+NOVENA,transport_services,hansen,8090.299185363132
+ORCHARD,community_spaces,2sfca,15.39062493643866
+ORCHARD,community_spaces,cumulative,912.6666666666666
+ORCHARD,community_spaces,hansen,205.402382637532
+ORCHARD,education_institutions,2sfca,39.55571037151128
+ORCHARD,education_institutions,cumulative,298.6666666666667
+ORCHARD,education_institutions,hansen,426.2829152696622
+ORCHARD,emergency_services,2sfca,1.7944653685916883
+ORCHARD,emergency_services,cumulative,5.0
+ORCHARD,emergency_services,hansen,20.84716381552208
+ORCHARD,essential_services,2sfca,71.77982752113827
+ORCHARD,essential_services,cumulative,279.6666666666667
+ORCHARD,essential_services,hansen,990.7643754732802
+ORCHARD,transport_services,2sfca,100.22684655454763
+ORCHARD,transport_services,cumulative,791.0
+ORCHARD,transport_services,hansen,8002458.925473201
+OUTRAM,community_spaces,2sfca,9.439506945713234
+OUTRAM,community_spaces,cumulative,653.0
+OUTRAM,community_spaces,hansen,389.93763558308734
+OUTRAM,education_institutions,2sfca,26.227943108931054
+OUTRAM,education_institutions,cumulative,220.5
+OUTRAM,education_institutions,hansen,2000479.0014656293
+OUTRAM,emergency_services,2sfca,3.762806550188827
+OUTRAM,emergency_services,cumulative,8.25
+OUTRAM,emergency_services,hansen,38.26016257398448
+OUTRAM,essential_services,2sfca,50.05188943109336
+OUTRAM,essential_services,cumulative,211.5
+OUTRAM,essential_services,hansen,1653.1202937566295
+OUTRAM,transport_services,2sfca,78.80788086749864
+OUTRAM,transport_services,cumulative,667.0
+OUTRAM,transport_services,hansen,2074496.4649257618
+PASIR RIS,community_spaces,2sfca,52.49316174467848
+PASIR RIS,community_spaces,cumulative,591.5
+PASIR RIS,community_spaces,hansen,1600613.221053976
+PASIR RIS,education_institutions,2sfca,88.84103743004165
+PASIR RIS,education_institutions,cumulative,160.625
+PASIR RIS,education_institutions,hansen,1242.7050916124724
+PASIR RIS,emergency_services,2sfca,7.621492070021482
+PASIR RIS,emergency_services,cumulative,3.5
+PASIR RIS,emergency_services,hansen,30.00307639711914
+PASIR RIS,essential_services,2sfca,129.95838582294053
+PASIR RIS,essential_services,cumulative,116.375
+PASIR RIS,essential_services,hansen,1028.5790630546269
+PASIR RIS,transport_services,2sfca,215.55676008780628
+PASIR RIS,transport_services,cumulative,350.75
+PASIR RIS,transport_services,hansen,1002109.0846216365
+PAYA LEBAR,community_spaces,2sfca,23.525605965573412
+PAYA LEBAR,community_spaces,cumulative,435.0
+PAYA LEBAR,community_spaces,hansen,38.960947276890714
+PAYA LEBAR,education_institutions,2sfca,82.14901971036798
+PAYA LEBAR,education_institutions,cumulative,221.4
+PAYA LEBAR,education_institutions,hansen,153.78438202575538
+PAYA LEBAR,emergency_services,2sfca,3.352693892495683
+PAYA LEBAR,emergency_services,cumulative,2.8
+PAYA LEBAR,emergency_services,hansen,10.266423816527972
+PAYA LEBAR,essential_services,2sfca,125.93641462530778
+PAYA LEBAR,essential_services,cumulative,176.2
+PAYA LEBAR,essential_services,hansen,236.35434959010007
+PAYA LEBAR,transport_services,2sfca,157.82052367001904
+PAYA LEBAR,transport_services,cumulative,444.8
+PAYA LEBAR,transport_services,hansen,1603675.3709373123
+PIONEER,community_spaces,2sfca,3.5809257305862503
+PIONEER,community_spaces,cumulative,70.2
+PIONEER,community_spaces,hansen,4.803425380672776
+PIONEER,education_institutions,2sfca,14.407031567735293
+PIONEER,education_institutions,cumulative,31.0
+PIONEER,education_institutions,hansen,19.749461502927893
+PIONEER,emergency_services,2sfca,4.1951469583048535
+PIONEER,emergency_services,cumulative,2.2
+PIONEER,emergency_services,hansen,5.8438679702046645
+PIONEER,essential_services,2sfca,21.803665816960738
+PIONEER,essential_services,cumulative,23.0
+PIONEER,essential_services,hansen,40.808208276491506
+PIONEER,transport_services,2sfca,210.15684124349946
+PIONEER,transport_services,cumulative,325.8
+PIONEER,transport_services,hansen,4809184.240145962
+PUNGGOL,community_spaces,2sfca,11.919888222475718
+PUNGGOL,community_spaces,cumulative,227.57142857142858
+PUNGGOL,community_spaces,hansen,714626.8578002219
+PUNGGOL,education_institutions,2sfca,66.26088944123431
+PUNGGOL,education_institutions,cumulative,171.71428571428572
+PUNGGOL,education_institutions,hansen,3431142.348615032
+PUNGGOL,emergency_services,2sfca,1.6666666666666667
+PUNGGOL,emergency_services,cumulative,1.5714285714285714
+PUNGGOL,emergency_services,hansen,17.547380528186665
+PUNGGOL,essential_services,2sfca,113.11378251585681
+PUNGGOL,essential_services,cumulative,145.85714285714286
+PUNGGOL,essential_services,hansen,6894111.16713684
+PUNGGOL,transport_services,2sfca,98.02297498101522
+PUNGGOL,transport_services,cumulative,271.85714285714283
+PUNGGOL,transport_services,hansen,1153012.9908277732
+QUEENSTOWN,community_spaces,2sfca,20.886813026222583
+QUEENSTOWN,community_spaces,cumulative,585.5333333333333
+QUEENSTOWN,community_spaces,hansen,74419.44217042143
+QUEENSTOWN,education_institutions,2sfca,39.54625945003543
+QUEENSTOWN,education_institutions,cumulative,170.06666666666666
+QUEENSTOWN,education_institutions,hansen,2134463.927481319
+QUEENSTOWN,emergency_services,2sfca,3.8412254374457637
+QUEENSTOWN,emergency_services,cumulative,4.933333333333334
+QUEENSTOWN,emergency_services,hansen,19.141108179722405
+QUEENSTOWN,essential_services,2sfca,59.83103747148519
+QUEENSTOWN,essential_services,cumulative,132.4
+QUEENSTOWN,essential_services,hansen,3201562.1520284046
+QUEENSTOWN,transport_services,2sfca,106.02072424468629
+QUEENSTOWN,transport_services,cumulative,444.73333333333335
+QUEENSTOWN,transport_services,hansen,1069816.0873409007
+RIVER VALLEY,community_spaces,2sfca,13.566325857940068
+RIVER VALLEY,community_spaces,cumulative,849.8
+RIVER VALLEY,community_spaces,hansen,166.7584621949832
+RIVER VALLEY,education_institutions,2sfca,35.451948049553735
+RIVER VALLEY,education_institutions,cumulative,279.4
+RIVER VALLEY,education_institutions,hansen,434.7766628960988
+RIVER VALLEY,emergency_services,2sfca,2.797077474536085
+RIVER VALLEY,emergency_services,cumulative,7.0
+RIVER VALLEY,emergency_services,hansen,20.380151602733186
+RIVER VALLEY,essential_services,2sfca,66.20538329343528
+RIVER VALLEY,essential_services,cumulative,266.2
+RIVER VALLEY,essential_services,hansen,897.0269483072177
+RIVER VALLEY,transport_services,2sfca,93.92920542828094
+RIVER VALLEY,transport_services,cumulative,764.2
+RIVER VALLEY,transport_services,hansen,1972.1250158138914
+ROCHOR,community_spaces,2sfca,17.097412109441784
+ROCHOR,community_spaces,cumulative,1020.3
+ROCHOR,community_spaces,hansen,401078.4315994801
+ROCHOR,education_institutions,2sfca,38.32333126099935
+ROCHOR,education_institutions,cumulative,288.6
+ROCHOR,education_institutions,hansen,808059.6048217313
+ROCHOR,emergency_services,2sfca,3.0676207319910733
+ROCHOR,emergency_services,cumulative,7.2
+ROCHOR,emergency_services,hansen,29.970218246533214
+ROCHOR,essential_services,2sfca,78.26843040076886
+ROCHOR,essential_services,cumulative,298.9
+ROCHOR,essential_services,hansen,6571.914397702805
+ROCHOR,transport_services,2sfca,99.45664909925385
+ROCHOR,transport_services,cumulative,786.9
+ROCHOR,transport_services,hansen,1602638.8478481653
+SELETAR,community_spaces,2sfca,5.167919945980414
+SELETAR,community_spaces,cumulative,111.0
+SELETAR,community_spaces,hansen,10.23457923349045
+SELETAR,education_institutions,2sfca,27.029006108887874
+SELETAR,education_institutions,cumulative,74.75
+SELETAR,education_institutions,hansen,46.38983620181493
+SELETAR,emergency_services,2sfca,0.5208333333333334
+SELETAR,emergency_services,cumulative,0.5
+SELETAR,emergency_services,hansen,0.750671849331147
+SELETAR,essential_services,2sfca,45.511520536856885
+SELETAR,essential_services,cumulative,62.75
+SELETAR,essential_services,hansen,74.99431686081606
+SELETAR,transport_services,2sfca,53.6086718889356
+SELETAR,transport_services,cumulative,144.0
+SELETAR,transport_services,hansen,123.94113792799594
+SEMBAWANG,community_spaces,2sfca,19.68866431433208
+SEMBAWANG,community_spaces,cumulative,305.0
+SEMBAWANG,community_spaces,hansen,111533.23089568024
+SEMBAWANG,education_institutions,2sfca,70.17848973233367
+SEMBAWANG,education_institutions,cumulative,162.22222222222223
+SEMBAWANG,education_institutions,hansen,1782036.9595407774
+SEMBAWANG,emergency_services,2sfca,3.5035505430242275
+SEMBAWANG,emergency_services,cumulative,2.6666666666666665
+SEMBAWANG,emergency_services,hansen,13.496901351285139
+SEMBAWANG,essential_services,2sfca,115.59622050799508
+SEMBAWANG,essential_services,cumulative,137.55555555555554
+SEMBAWANG,essential_services,hansen,8516.377664398224
+SEMBAWANG,transport_services,2sfca,138.49666374280545
+SEMBAWANG,transport_services,cumulative,313.3333333333333
+SEMBAWANG,transport_services,hansen,3580172.2659981092
+SENGKANG,community_spaces,2sfca,21.356130681422673
+SENGKANG,community_spaces,cumulative,444.2857142857143
+SENGKANG,community_spaces,hansen,106.63666544789005
+SENGKANG,education_institutions,2sfca,89.64858547941371
+SENGKANG,education_institutions,cumulative,267.7142857142857
+SENGKANG,education_institutions,hansen,2287041.4879461084
+SENGKANG,emergency_services,2sfca,2.4907857879994104
+SENGKANG,emergency_services,cumulative,2.2857142857142856
+SENGKANG,emergency_services,hansen,12.28433567061359
+SENGKANG,essential_services,2sfca,148.97764769548272
+SENGKANG,essential_services,cumulative,220.28571428571428
+SENGKANG,essential_services,hansen,2257.4778077306696
+SENGKANG,transport_services,2sfca,161.20274862313426
+SENGKANG,transport_services,cumulative,486.0
+SENGKANG,transport_services,hansen,10643.812954292138
+SERANGOON,community_spaces,2sfca,23.419345067430367
+SERANGOON,community_spaces,cumulative,748.7142857142857
+SERANGOON,community_spaces,hansen,190.60335919473417
+SERANGOON,education_institutions,2sfca,85.27320090489773
+SERANGOON,education_institutions,cumulative,338.85714285714283
+SERANGOON,education_institutions,hansen,747.8917297602355
+SERANGOON,emergency_services,2sfca,2.743480000956287
+SERANGOON,emergency_services,cumulative,3.5714285714285716
+SERANGOON,emergency_services,hansen,6.942907510210936
+SERANGOON,essential_services,2sfca,139.8779935319042
+SERANGOON,essential_services,cumulative,285.14285714285717
+SERANGOON,essential_services,hansen,2286799.4710565293
+SERANGOON,transport_services,2sfca,165.70593006686107
+SERANGOON,transport_services,cumulative,674.1428571428571
+SERANGOON,transport_services,hansen,12413.534223110124
+SIMPANG,community_spaces,2sfca,10.222646516271078
+SIMPANG,community_spaces,cumulative,163.25
+SIMPANG,community_spaces,hansen,250074.6537161865
+SIMPANG,education_institutions,2sfca,41.31698543615491
+SIMPANG,education_institutions,cumulative,90.25
+SIMPANG,education_institutions,hansen,164.76523652728446
+SIMPANG,emergency_services,2sfca,1.8111685463659148
+SIMPANG,emergency_services,cumulative,1.25
+SIMPANG,emergency_services,hansen,12.17553811756531
+SIMPANG,essential_services,2sfca,71.69119823880223
+SIMPANG,essential_services,cumulative,78.25
+SIMPANG,essential_services,hansen,265.37230661697924
+SIMPANG,transport_services,2sfca,73.35927360326068
+SIMPANG,transport_services,cumulative,163.75
+SIMPANG,transport_services,hansen,261.73398952500685
+SINGAPORE RIVER,community_spaces,2sfca,11.377599712509612
+SINGAPORE RIVER,community_spaces,cumulative,767.6666666666666
+SINGAPORE RIVER,community_spaces,hansen,472.51815310622874
+SINGAPORE RIVER,education_institutions,2sfca,28.531596680662048
+SINGAPORE RIVER,education_institutions,cumulative,241.33333333333334
+SINGAPORE RIVER,education_institutions,hansen,531.2144513861919
+SINGAPORE RIVER,emergency_services,2sfca,2.826828778577037
+SINGAPORE RIVER,emergency_services,cumulative,7.0
+SINGAPORE RIVER,emergency_services,hansen,45.62321038188745
+SINGAPORE RIVER,essential_services,2sfca,55.22784108843329
+SINGAPORE RIVER,essential_services,cumulative,234.66666666666666
+SINGAPORE RIVER,essential_services,hansen,1786.476419736943
+SINGAPORE RIVER,transport_services,2sfca,82.8033837321258
+SINGAPORE RIVER,transport_services,cumulative,703.6666666666666
+SINGAPORE RIVER,transport_services,hansen,2668527.2985637723
+SOUTHERN ISLANDS,community_spaces,2sfca,8.244823222269636
+SOUTHERN ISLANDS,community_spaces,cumulative,336.0
+SOUTHERN ISLANDS,community_spaces,hansen,22.666979001796477
+SOUTHERN ISLANDS,education_institutions,2sfca,15.539449391782655
+SOUTHERN ISLANDS,education_institutions,cumulative,115.0
+SOUTHERN ISLANDS,education_institutions,hansen,16000072.164676523
+SOUTHERN ISLANDS,emergency_services,2sfca,2.8062087242376736
+SOUTHERN ISLANDS,emergency_services,cumulative,5.0
+SOUTHERN ISLANDS,emergency_services,hansen,25000016.686766174
+SOUTHERN ISLANDS,essential_services,2sfca,34.02220186982682
+SOUTHERN ISLANDS,essential_services,cumulative,125.0
+SOUTHERN ISLANDS,essential_services,hansen,16000180.891716408
+SOUTHERN ISLANDS,transport_services,2sfca,42.48935559036274
+SOUTHERN ISLANDS,transport_services,cumulative,306.0
+SOUTHERN ISLANDS,transport_services,hansen,8000250.309111512
+STRAITS VIEW,community_spaces,2sfca,5.246722141545522
+STRAITS VIEW,community_spaces,cumulative,383.0
+STRAITS VIEW,community_spaces,hansen,33.91996563982201
+STRAITS VIEW,education_institutions,2sfca,10.011190464493405
+STRAITS VIEW,education_institutions,cumulative,91.0
+STRAITS VIEW,education_institutions,hansen,69.57181371853845
+STRAITS VIEW,emergency_services,2sfca,1.6101774271034355
+STRAITS VIEW,emergency_services,cumulative,4.0
+STRAITS VIEW,emergency_services,hansen,18.67361748378611
+STRAITS VIEW,essential_services,2sfca,23.788422462919787
+STRAITS VIEW,essential_services,cumulative,106.0
+STRAITS VIEW,essential_services,hansen,205.22706267452372
+STRAITS VIEW,transport_services,2sfca,44.30795234795406
+STRAITS VIEW,transport_services,cumulative,384.0
+STRAITS VIEW,transport_services,hansen,413.65934405090104
+SUNGEI KADUT,community_spaces,2sfca,15.99245482530836
+SUNGEI KADUT,community_spaces,cumulative,206.0
+SUNGEI KADUT,community_spaces,hansen,19.95902914016669
+SUNGEI KADUT,education_institutions,2sfca,30.70325337782223
+SUNGEI KADUT,education_institutions,cumulative,64.6
+SUNGEI KADUT,education_institutions,hansen,36.721810358232055
+SUNGEI KADUT,emergency_services,2sfca,5.2908708938120705
+SUNGEI KADUT,emergency_services,cumulative,2.4
+SUNGEI KADUT,emergency_services,hansen,7.568467333286598
+SUNGEI KADUT,essential_services,2sfca,48.1201809482601
+SUNGEI KADUT,essential_services,cumulative,50.0
+SUNGEI KADUT,essential_services,hansen,57.12755543264251
+SUNGEI KADUT,transport_services,2sfca,123.53890405817037
+SUNGEI KADUT,transport_services,cumulative,193.4
+SUNGEI KADUT,transport_services,hansen,3200375.3583764355
+TAMPINES,community_spaces,2sfca,42.984225577312266
+TAMPINES,community_spaces,cumulative,477.0
+TAMPINES,community_spaces,hansen,195.73713347457328
+TAMPINES,education_institutions,2sfca,124.84214118045698
+TAMPINES,education_institutions,cumulative,209.6
+TAMPINES,education_institutions,hansen,17269.881899449152
+TAMPINES,emergency_services,2sfca,6.128296540061246
+TAMPINES,emergency_services,cumulative,3.0
+TAMPINES,emergency_services,hansen,12.969814223107074
+TAMPINES,essential_services,2sfca,194.70588538259125
+TAMPINES,essential_services,cumulative,156.2
+TAMPINES,essential_services,hansen,3030.7573441439736
+TAMPINES,transport_services,2sfca,261.7610689705044
+TAMPINES,transport_services,cumulative,409.8
+TAMPINES,transport_services,hansen,1799.8328538626488
+TANGLIN,community_spaces,2sfca,14.927386560699647
+TANGLIN,community_spaces,cumulative,697.0
+TANGLIN,community_spaces,hansen,253820.92304543385
+TANGLIN,education_institutions,2sfca,38.096277965407694
+TANGLIN,education_institutions,cumulative,230.5
+TANGLIN,education_institutions,hansen,342.3463499969063
+TANGLIN,emergency_services,2sfca,1.606815497206547
+TANGLIN,emergency_services,cumulative,3.75
+TANGLIN,emergency_services,hansen,7.978405529998129
+TANGLIN,essential_services,2sfca,58.855618673458075
+TANGLIN,essential_services,cumulative,189.5
+TANGLIN,essential_services,hansen,360.4263757605272
+TANGLIN,transport_services,2sfca,81.87393030705454
+TANGLIN,transport_services,cumulative,546.25
+TANGLIN,transport_services,hansen,565.4826038918471
+TENGAH,community_spaces,2sfca,19.263157378287058
+TENGAH,community_spaces,cumulative,455.5
+TENGAH,community_spaces,hansen,55.1912747983145
+TENGAH,education_institutions,2sfca,66.05125999831893
+TENGAH,education_institutions,cumulative,195.83333333333334
+TENGAH,education_institutions,hansen,345.4750102622043
+TENGAH,emergency_services,2sfca,3.5126124364941487
+TENGAH,emergency_services,cumulative,3.3333333333333335
+TENGAH,emergency_services,hansen,8.778308987760544
+TENGAH,essential_services,2sfca,103.02772580591345
+TENGAH,essential_services,cumulative,152.83333333333334
+TENGAH,essential_services,hansen,312.39655760385
+TENGAH,transport_services,2sfca,129.20757992697864
+TENGAH,transport_services,cumulative,382.3333333333333
+TENGAH,transport_services,hansen,595.2220380856276
+TOA PAYOH,community_spaces,2sfca,20.87169454980001
+TOA PAYOH,community_spaces,cumulative,851.75
+TOA PAYOH,community_spaces,hansen,177.99386508312867
+TOA PAYOH,education_institutions,2sfca,64.53032256578157
+TOA PAYOH,education_institutions,cumulative,325.4166666666667
+TOA PAYOH,education_institutions,hansen,10423.272696422677
+TOA PAYOH,emergency_services,2sfca,3.376592519303854
+TOA PAYOH,emergency_services,cumulative,5.666666666666667
+TOA PAYOH,emergency_services,hansen,118.09210393899055
+TOA PAYOH,essential_services,2sfca,117.42577527318643
+TOA PAYOH,essential_services,cumulative,305.1666666666667
+TOA PAYOH,essential_services,hansen,2681721.7345090425
+TOA PAYOH,transport_services,2sfca,133.39435125949038
+TOA PAYOH,transport_services,cumulative,694.4166666666666
+TOA PAYOH,transport_services,hansen,675442.2624391346
+TUAS,community_spaces,2sfca,0.0
+TUAS,community_spaces,cumulative,0.0
+TUAS,community_spaces,hansen,0.0
+TUAS,education_institutions,2sfca,0.1568627450980392
+TUAS,education_institutions,cumulative,0.3333333333333333
+TUAS,education_institutions,hansen,0.12964338866028402
+TUAS,emergency_services,2sfca,10.0
+TUAS,emergency_services,cumulative,1.8333333333333333
+TUAS,emergency_services,hansen,6.906647423876252
+TUAS,essential_services,2sfca,4.434937611408199
+TUAS,essential_services,cumulative,2.0
+TUAS,essential_services,hansen,2.7359852139289296
+TUAS,transport_services,2sfca,167.79857593387007
+TUAS,transport_services,cumulative,153.16666666666666
+TUAS,transport_services,hansen,924.5544689869738
+WESTERN ISLANDS,community_spaces,2sfca,5.374608759593817
+WESTERN ISLANDS,community_spaces,cumulative,152.0
+WESTERN ISLANDS,community_spaces,hansen,19922.153902169655
+WESTERN ISLANDS,education_institutions,2sfca,7.561382839612539
+WESTERN ISLANDS,education_institutions,cumulative,41.0
+WESTERN ISLANDS,education_institutions,hansen,38.711517555309264
+WESTERN ISLANDS,emergency_services,2sfca,9.314142224318541
+WESTERN ISLANDS,emergency_services,cumulative,2.0
+WESTERN ISLANDS,emergency_services,hansen,8.551524158106101
+WESTERN ISLANDS,essential_services,2sfca,12.411389168276644
+WESTERN ISLANDS,essential_services,cumulative,34.0
+WESTERN ISLANDS,essential_services,hansen,73.94361759217367
+WESTERN ISLANDS,transport_services,2sfca,30.029062494577385
+WESTERN ISLANDS,transport_services,cumulative,115.33333333333333
+WESTERN ISLANDS,transport_services,hansen,7503.465900397366
+WESTERN WATER CATCHMENT,community_spaces,2sfca,2.3317511524709666
+WESTERN WATER CATCHMENT,community_spaces,cumulative,28.666666666666668
+WESTERN WATER CATCHMENT,community_spaces,hansen,6547.164721109283
+WESTERN WATER CATCHMENT,education_institutions,2sfca,8.04290849964561
+WESTERN WATER CATCHMENT,education_institutions,cumulative,18.333333333333332
+WESTERN WATER CATCHMENT,education_institutions,hansen,7.3797335650785385
+WESTERN WATER CATCHMENT,emergency_services,2sfca,1.196172248803828
+WESTERN WATER CATCHMENT,emergency_services,cumulative,1.0
+WESTERN WATER CATCHMENT,emergency_services,hansen,1.2302867869060077
+WESTERN WATER CATCHMENT,essential_services,2sfca,12.884670158515897
+WESTERN WATER CATCHMENT,essential_services,cumulative,14.333333333333334
+WESTERN WATER CATCHMENT,essential_services,hansen,12.09525526514333
+WESTERN WATER CATCHMENT,transport_services,2sfca,105.26481676562173
+WESTERN WATER CATCHMENT,transport_services,cumulative,69.0
+WESTERN WATER CATCHMENT,transport_services,hansen,239.44398458888028
+WOODLANDS,community_spaces,2sfca,20.366824960941486
+WOODLANDS,community_spaces,cumulative,310.3333333333333
+WOODLANDS,community_spaces,hansen,113503.48031895356
+WOODLANDS,education_institutions,2sfca,79.23116264191779
+WOODLANDS,education_institutions,cumulative,164.77777777777777
+WOODLANDS,education_institutions,hansen,1780511.92547923
+WOODLANDS,emergency_services,2sfca,4.28656078327131
+WOODLANDS,emergency_services,cumulative,2.6666666666666665
+WOODLANDS,emergency_services,hansen,73.92106256437393
+WOODLANDS,essential_services,2sfca,122.46970625109988
+WOODLANDS,essential_services,cumulative,131.66666666666666
+WOODLANDS,essential_services,hansen,3558479.648853982
+WOODLANDS,transport_services,2sfca,174.40179239704077
+WOODLANDS,transport_services,cumulative,342.44444444444446
+WOODLANDS,transport_services,hansen,3112.271405196674
+YISHUN,community_spaces,2sfca,19.63926057897207
+YISHUN,community_spaces,cumulative,323.6666666666667
+YISHUN,community_spaces,hansen,334286.2179804924
+YISHUN,education_institutions,2sfca,62.61401227795269
+YISHUN,education_institutions,cumulative,136.44444444444446
+YISHUN,education_institutions,hansen,1779760.386647294
+YISHUN,emergency_services,2sfca,3.5340086326928435
+YISHUN,emergency_services,cumulative,2.4444444444444446
+YISHUN,emergency_services,hansen,2777787.9332460356
+YISHUN,essential_services,2sfca,111.517364709378
+YISHUN,essential_services,cumulative,122.22222222222223
+YISHUN,essential_services,hansen,3876.920321253489
+YISHUN,transport_services,2sfca,114.727427665737
+YISHUN,transport_services,cumulative,255.33333333333334
+YISHUN,transport_services,hansen,890345.7680534531
