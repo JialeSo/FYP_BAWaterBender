@@ -20,6 +20,55 @@ router = APIRouter(
     prefix="/road-network", tags=["road-network"]
 )  
 
+def to_geojson(rows: List[Dict]) -> Dict[str, Any]:
+    """
+    Convert rows with GeoJSON geometry to FeatureCollection
+    """
+    features: List[Dict] = []
+
+    for row in rows:
+        # Look for the geojson field
+        geom_value = row.get("geojson") or row.get("geom")
+        
+        if geom_value is None:
+            logger.warning(f"Row {row.get('id')} has no geometry")
+            continue
+
+        geom_obj = None
+
+        # Parse string to JSON if needed
+        if isinstance(geom_value, str):
+            try:
+                geom_obj = json.loads(geom_value)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse geometry for row {row.get('id')}: {e}")
+                continue
+        elif isinstance(geom_value, dict):
+            geom_obj = geom_value
+        else:
+            logger.warning(f"Unexpected geom type for row {row.get('id')}: {type(geom_value)}")
+            continue
+
+        # Build properties (exclude geometry fields)
+        props = {
+            k: v
+            for k, v in row.items()
+            if k not in ("geojson", "geom", "geometry")
+        }
+
+        features.append({
+            "type": "Feature",
+            "geometry": geom_obj,
+            "properties": props
+        })
+
+    logger.info(f"Created {len(features)} features from {len(rows)} rows")
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "count": len(features)
+    }
+
 # get all road network data
 @router.get("/")
 async def get_all_road_network_data():
