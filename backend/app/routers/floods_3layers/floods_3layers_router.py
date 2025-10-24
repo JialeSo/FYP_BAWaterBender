@@ -25,11 +25,92 @@ def handle_response(result):
         return {"data": result.data, "count": len(result.data)}
     else:
         return {"data": [], "count": 0}
+    
+def to_geojson(data):
+    """
+    Convert flood data to GeoJSON FeatureCollection format.
+    Creates LineString features connecting start and end coordinates.
+    """
+    features = []
+    
+    for record in data:
+        # Skip records without valid coordinates
+        if not all([
+            record.get('start_lat'),
+            record.get('start_lng'),
+            record.get('end_lat'),
+            record.get('end_lng')
+        ]):
+            continue
+        
+        try:
+            # Convert coordinates to float (end_lat and end_lng are text fields)
+            start_lng = float(record['start_lng'])
+            start_lat = float(record['start_lat'])
+            end_lng = float(record['end_lng'])
+            end_lat = float(record['end_lat'])
+            
+            # Determine geometry type based on whether start and end are the same
+            if start_lng == end_lng and start_lat == end_lat:
+                # Point geometry for single location floods
+                geometry = {
+                    "type": "Point",
+                    "coordinates": [start_lng, start_lat]
+                }
+            else:
+                # LineString geometry for floods spanning multiple locations
+                geometry = {
+                    "type": "LineString",
+                    "coordinates": [
+                        [start_lng, start_lat],
+                        [end_lng, end_lat]
+                    ]
+                }
+            
+            # Build properties object with all relevant fields
+            properties = {
+                "id": record.get('id'),
+                "event_date": record.get('event_date'),
+                "location": record.get('location'),
+                "event": record.get('event'),
+                "parent_road": record.get('parent_road'),
+                "start_postal_code": record.get('start_postal_code'),
+                "end_postal_code": record.get('end_postal_code'),
+                "start_planning_area": record.get('start_planning_area'),
+                "start_subzone": record.get('start_subzone'),
+                "start_street_name": record.get('start_street_name'),
+                "end_planning_area": record.get('end_planning_area'),
+                "end_subzone": record.get('end_subzone'),
+                "end_street_name": record.get('end_street_name'),
+            }
+            
+            # Create GeoJSON feature
+            feature = {
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": properties
+            }
+            
+            features.append(feature)
+            
+        except (ValueError, TypeError) as e:
+            # Skip records with invalid coordinate data
+            logger.warning(f"Skipping record {record.get('id')} due to invalid coordinates: {e}")
+            continue
+    
+    # Return GeoJSON FeatureCollection
+    return {
+        "type": "FeatureCollection",
+        "features": features
+    }
 
 ##################
 ### GET ROUTES ###
 ##################
 
+######################
+### json responses ###
+######################
 # get all flood data
 @router.get("/")
 async def get_all_flood_data():     
@@ -173,3 +254,24 @@ async def get_floods_by_street_name(street_name: str):
     except Exception as e:
             logger.error(f"❌ Error fetching floods_3layers data by street name: {e}")
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+#########################
+### geojson responses ###
+#########################
+@router.get("/geojson/")
+async def get_floods_geojson():     
+    try:
+        result = db.table("floods_3layers").select("*").execute()
+        
+        if not result.data:
+            raise HTTPException(
+                status_code=404,
+                detail="No flood data found."
+            )
+        
+        geojson = to_geojson(result.data)
+        return geojson
+        
+    except Exception as e:
+        logger.error(f"❌ Error fetching floods_3layers geojson data: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
