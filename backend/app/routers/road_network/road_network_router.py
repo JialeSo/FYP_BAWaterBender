@@ -3,7 +3,15 @@ from fastapi import APIRouter, Request, HTTPException
 from common.db import db
 from typing import Any, Dict, List
 import json
-
+# try optional libs for reprojection / WKB handling
+try:
+    from shapely import wkb, wkt
+    from shapely.geometry import shape, mapping
+    from shapely.ops import transform as shapely_transform
+    from pyproj import Transformer
+    _HAS_SHAPELY = True
+except ImportError:  # More specific than Exception
+    _HAS_SHAPELY = False
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
