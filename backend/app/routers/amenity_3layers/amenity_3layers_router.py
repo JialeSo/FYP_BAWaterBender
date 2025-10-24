@@ -17,6 +17,60 @@ def handle_response(result):
         return {"data": result.data, "count": len(result.data)}
     else:
         return {"data": [], "count": 0}
+
+def to_geojson(data):
+    """
+    Convert Supabase data to GeoJSON with validation.
+    """
+    if not data:
+        return {
+            "type": "FeatureCollection",
+            "features": []
+        }
+    
+    features = []
+    
+    for item in data:
+        try:
+            # Validate lat/lon exist and are valid numbers
+            if "lat" not in item or "lon" not in item:
+                print(f"Warning: Skipping item without lat/lon: {item.get('id')}")
+                continue
+            
+            lat = item["lat"]
+            lon = item["lon"]
+            
+            # Skip null values
+            if lat is None or lon is None:
+                print(f"Warning: Skipping item with null coordinates: {item.get('id')}")
+                continue
+            
+            # Convert to float and validate range
+            lat = float(lat)
+            lon = float(lon)
+            
+            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                print(f"Warning: Invalid coordinates for item {item.get('id')}: lat={lat}, lon={lon}")
+                continue
+            
+            feature = {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [lon, lat]  # GeoJSON is [longitude, latitude]
+                },
+                "properties": {k: v for k, v in item.items() if k not in ["lon", "lat"]}
+            }
+            features.append(feature)
+            
+        except (ValueError, TypeError) as e:
+            print(f"Error processing item {item.get('id')}: {e}")
+            continue
+    
+    return {
+        "type": "FeatureCollection",
+        "features": features
+    }
     
 # # get all amenity data
 # @router.get("/")
@@ -32,6 +86,11 @@ def handle_response(result):
 #     except Exception as e:
 #         logger.error(f"❌ Error fetching amenity_3layers data: {e}")
 #         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+######################
+### json responses ###
+######################
 
 # get all amenity data based on columns
 @router.get("/")
@@ -170,6 +229,34 @@ async def get_amenities_by_postal_code(postal_code: str):
         logger.error(f"❌ Error fetching floods_3layers data by postal code: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-# footfall (pending)
+#########################
+### geojson responses ###
+#########################
 
-# accessibility (pending)
+# get all amenity data as geojson
+@router.get("/geojson")
+async def get_all_amenities_geojson():
+    selected_columns = [
+        "amenity_id",
+        "amenity_type",
+        "amenity_name",
+        "postal_code", 
+        "lon", 
+        "lat",
+        "amenity_planning_area_id",
+        "amenity_subzone_id",
+        "road_name"
+    ]
+
+    try:
+        result = db.table("amenity_3layers").select(*selected_columns).execute()
+
+        if result.data:
+            geojson = to_geojson(result.data)
+            return geojson
+        else:
+            return {"type": "FeatureCollection", "features": []}
+            
+    except Exception as e:
+        logger.error(f"❌ Error fetching amenity_3layers data: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
