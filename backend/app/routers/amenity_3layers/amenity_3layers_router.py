@@ -18,16 +18,40 @@ def handle_response(result):
     else:
         return {"data": [], "count": 0}
     
-# get all amenity data
-@router.get("/")
-async def get_all_amenities():  
-    try:
-        result = db.table("amenity_3layers").select("*").execute()
+# # get all amenity data
+# @router.get("/")
+# async def get_all_amenities():  
+#     try:
+#         result = db.table("amenity_3layers").select("*").execute()
 
-        if result.data:
-            return {"data": result.data, "count": len(result.data)}
-        else:
-            return {"data": [], "count": 0}
+#         if result.data:
+#             return {"data": result.data, "count": len(result.data)}
+#         else:
+#             return {"data": [], "count": 0}
+            
+#     except Exception as e:
+#         logger.error(f"❌ Error fetching amenity_3layers data: {e}")
+#         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+# get all amenity data based on columns
+@router.get("/")
+async def get_all_amenities():
+    selected_columns = [
+        "amenity_id",
+        "amenity_type",
+        "amenity_name",
+        "postalcode", 
+        "lon", 
+        "lat",
+        "planning_area_id",
+        "subzone_id",
+        "road_id"
+    ]
+
+    try:
+        result = db.table("amenity_3layers").select(*selected_columns).execute()
+
+        return handle_response(result)
             
     except Exception as e:
         logger.error(f"❌ Error fetching amenity_3layers data: {e}")
