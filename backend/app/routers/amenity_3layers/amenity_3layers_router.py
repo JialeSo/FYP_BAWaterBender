@@ -38,15 +38,12 @@ async def get_all_amenities():
 async def get_amenities_by_planning_area(planning_area: str):  
     planning_area = clean_string(planning_area)
     try:
-        filter_query = f"start_planning_area.eq.{planning_area},end_planning_area.eq.{planning_area}"
-
         # Query amenity by planning area
-        result = db.table("amenity_3layers").select("*").or_(filter_query).execute()
-
+        result = db.table("amenity_3layers").select("*").eq("planning_area", planning_area).execute()
         if not result.data:
             raise HTTPException(
                 status_code=404,
-                detail=f"Planning area '{planning_area}' not found in start_planning_area or end_planning_area. Please check the spelling and try again."
+                detail=f"Planning area '{planning_area}' not found in planning_area records. Please check the spelling and try again."
             )
 
         return handle_response(result)
@@ -62,15 +59,11 @@ async def get_amenities_by_planning_area(planning_area: str):
 async def get_amenities_by_subzone(subzone: str):  
     subzone = clean_string(subzone)
     try:
-        filter_query = f"start_subzone.eq.{subzone},end_subzone.eq.{subzone}"
-
-        # Query amenity by subzone
-        result = db.table("amenity_3layers").select("*").or_(filter_query).execute()
-
+        result = db.table("amenity_3layers").select("*").eq("subzone", subzone).execute()
         if not result.data:
             raise HTTPException(
                 status_code=404,
-                detail=f"Subzone '{subzone}' not found in start_subzone or end_subzone records. Please check the spelling and try again."
+                detail=f"Subzone '{subzone}' not found in subzone records. Please check the spelling and try again."
             )
 
         return handle_response(result)
