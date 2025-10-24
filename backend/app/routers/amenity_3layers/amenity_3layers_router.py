@@ -40,12 +40,12 @@ async def get_all_amenities():
         "amenity_id",
         "amenity_type",
         "amenity_name",
-        "postalcode", 
+        "postal_code", 
         "lon", 
         "lat",
-        "planning_area_id",
-        "subzone_id",
-        "road_id"
+        "amenity_planning_area_id",
+        "amenity_subzone_id",
+        "road_name"
     ]
 
     try:
