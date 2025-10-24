@@ -1,12 +1,15 @@
 import logging
 from fastapi import APIRouter, Request, HTTPException
 from common.db import db
+from typing import Any, Dict, List
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/subzone", tags=["subzone"])  # Fixed: was "/weather-alerts"
+
 def to_geojson(result: Any) -> Dict[str, Any]:
     """
     Convert DB query result (result.data or list of rows) to a GeoJSON FeatureCollection
