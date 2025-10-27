@@ -15,8 +15,10 @@ etl/pub/messages/*
 *.pyd
 
 # ETl/Dataset (large files)
+etl/data
 etl/data/geojson_layers
 etl/flood_road_segment_matching.ipynb
+
 
 # MacOS 
 */.DS_Store
