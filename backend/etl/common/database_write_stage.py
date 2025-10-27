@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from .pipeline_stage import PipelineStage
-from common.db import DatabaseConnection
+from backend.common.db import DatabaseConnection
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,11 @@ class DatabaseWriteStage(PipelineStage):
             logger.debug(f"Writing {batch_info} ({len(batch)} records)")
 
             try:
-                if self.db and hasattr(self.db, "insert"):
+                if self.db and self.on_conflict and hasattr(self.db, "upsert"):
+                    # Use upsert when on_conflict is provided
+                    self.db.upsert(table=self.table_name, data=batch, on_conflict=self.on_conflict)
+                elif self.db and hasattr(self.db, "insert"):
+                    # Default to insert
                     self.db.insert(table=self.table_name, data=batch)
                 else:
                     raise Exception("Database connection not available")

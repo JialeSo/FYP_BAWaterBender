@@ -36,11 +36,7 @@ from shapely.geometry import Point, LineString, shape
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-# Import from relative path within amenities module
-try:
-    from core.utils import normalize_road_name
-except ImportError:
-    from backend.etl.amenities.core.utils import normalize_road_name
+# No longer need normalize_road_name since OSM network has clean names
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -49,14 +45,15 @@ BASE_DIR = Path(__file__).resolve().parent
 class OSMnxRoadMatcherPaths:
     """Path configuration for OSMnx-based road matching."""
 
+    # Default paths aligned with core.config.Config
     amenities_csv: Path = field(
-        default_factory=lambda: BASE_DIR / "../data/amenities/amenities_with_importance_score.csv"
+        default_factory=lambda: BASE_DIR.parents[1] / "data" / "02_amenities_classified.csv"
     )
     road_network_geojson: Path = field(
-        default_factory=lambda: BASE_DIR / "../../../data/geojson_layers/road_network.geojson"
+        default_factory=lambda: BASE_DIR.parents[1] / "data" / "roadnetwork" / "road_network_final.geojson"
     )
     output_csv: Path = field(
-        default_factory=lambda: BASE_DIR / "../../../data/amenities/amenities_with_nearest_roads.csv"
+        default_factory=lambda: BASE_DIR.parents[3] / "frontend" / "public" / "map" / "amenities_3layers.csv"
     )
 
 
@@ -85,12 +82,11 @@ class RoadNetworkGraph:
         # Convert to GeoDataFrame
         gdf = gpd.GeoDataFrame.from_features(geo_data["features"], crs="EPSG:4326")
 
-        # Store road metadata (RN_ID, RD_NAME, etc.)
+        # Store road metadata (RN_ID from OSM network)
         for idx, row in gdf.iterrows():
             self._road_metadata[idx] = {
-                "RN_ID": row.get("RN_ID", ""),
-                "RD_NAME": row.get("RD_NAME", ""),
-                "RD_NAME_norm": normalize_road_name(row.get("RD_NAME", "")),
+                "road_id": row.get("RN_ID", ""),
+                "road_name": row.get("name", ""),  # OSM uses 'name' field
             }
 
         # Create graph from GeoDataFrame using OSMnx
@@ -115,9 +111,8 @@ class RoadNetworkGraph:
                     key=edge_id,
                     osmid=edge_id,
                     geometry=geom,
-                    RN_ID=row.get("RN_ID", ""),
-                    RD_NAME=row.get("RD_NAME", ""),
-                    RD_NAME_norm=normalize_road_name(row.get("RD_NAME", "")),
+                    road_id=row.get("RN_ID", ""),
+                    road_name=row.get("name", ""),  # OSM uses 'name' field
                     length=geom.length,
                 )
                 edge_id += 1
@@ -134,9 +129,8 @@ class RoadNetworkGraph:
                         key=edge_id,
                         osmid=edge_id,
                         geometry=line,
-                        RN_ID=row.get("RN_ID", ""),
-                        RD_NAME=row.get("RD_NAME", ""),
-                        RD_NAME_norm=normalize_road_name(row.get("RD_NAME", "")),
+                        road_id=row.get("RN_ID", ""),
+                        road_name=row.get("name", ""),  # OSM uses 'name' field
                         length=line.length,
                     )
                     edge_id += 1
@@ -149,9 +143,8 @@ class RoadNetworkGraph:
                 "v": v,
                 "key": k,
                 "geometry": data["geometry"],
-                "RN_ID": data.get("RN_ID", ""),
-                "RD_NAME": data.get("RD_NAME", ""),
-                "RD_NAME_norm": data.get("RD_NAME_norm", ""),
+                "road_id": data.get("road_id", ""),
+                "road_name": data.get("road_name", ""),
                 "length": data.get("length", 0),
             })
 
@@ -209,8 +202,8 @@ class OSMnxAmenitySnapper:
         # Extract road IDs and names
         results = []
         for idx in nearest_indices:
-            road_id = self.edges_gdf.loc[idx, "RN_ID"]
-            road_name = self.edges_gdf.loc[idx, "RD_NAME"]
+            road_id = self.edges_gdf.loc[idx, "road_id"]
+            road_name = self.edges_gdf.loc[idx, "road_name"]
             results.append((road_id, road_name))
 
         # Pad with None if fewer than max_candidates found
@@ -225,7 +218,6 @@ class OSMnxAmenitySnapper:
 
         Args:
             amenities_df: DataFrame with columns: amenity_id, lat, lon
-
         Returns:
             DataFrame with nearest road IDs and names
         """
@@ -288,9 +280,16 @@ class OSMnxRoadMatcherPipeline:
         network = RoadNetworkGraph(self.paths.road_network_geojson)
         graph, edges_gdf = network.load()
 
-        # Load amenities
+        # Load amenities with postal_code as string to preserve leading zeros
         print(f"  Loading amenities from {self.paths.amenities_csv.name}...")
-        amenities_df = pd.read_csv(self.paths.amenities_csv)
+        amenities_df = pd.read_csv(self.paths.amenities_csv, dtype={'postal_code': str})
+
+        # Ensure postal codes are 6 digits with leading zeros
+        if 'postal_code' in amenities_df.columns:
+            amenities_df['postal_code'] = amenities_df['postal_code'].astype(str).str.strip()
+            amenities_df['postal_code'] = amenities_df['postal_code'].apply(
+                lambda x: x.zfill(6) if x and x.isdigit() and len(x) <= 6 else x
+            )
 
         # Ensure required columns exist
         required_cols = ["amenity_id", "lat", "lon"]
@@ -302,17 +301,77 @@ class OSMnxRoadMatcherPipeline:
 
         # Snap amenities to roads
         snapper = OSMnxAmenitySnapper(graph, edges_gdf, max_candidates=4)
-        matched_df = snapper.snap_batch(amenities_df)
+        roads_df = snapper.snap_batch(amenities_df)
+
+        # Merge the road matching results with the original amenity data
+        matched_df = amenities_df.merge(roads_df, on='amenity_id', how='left')
+
+        # Add road_id column (using nearest_road_1_id as the primary road)
+        matched_df['road_id'] = matched_df['nearest_road_1_id']
+
+        # Rename columns to match the new naming convention
+        # planning_area_id -> pa_id, subzone_id -> sz_id, road_id -> rn_id
+        matched_df = matched_df.rename(columns={
+            'planning_area_id': 'pa_id',
+            'subzone_id': 'sz_id',
+            'road_id': 'rn_id'
+        })
+
+        # Select only required columns for amenities_3layers.csv
+        required_output_cols = [
+            "amenity_id",
+            "amenity_type",
+            "amenity_name",
+            "postal_code",
+            "lat",
+            "lon",
+            "amenity_category_id",  # Will check for amenity_category as fallback
+            "pa_id",  # Renamed from planning_area_id
+            "sz_id",  # Renamed from subzone_id
+            "rn_id"   # Renamed from road_id
+        ]
+
+        # Handle amenity_category vs amenity_category_id
+        if 'amenity_category' in matched_df.columns and 'amenity_category_id' not in matched_df.columns:
+            matched_df['amenity_category_id'] = matched_df['amenity_category']
+
+        # Keep only columns that exist
+        existing_cols = [col for col in required_output_cols if col in matched_df.columns]
+        final_df = matched_df[existing_cols].copy()
+
+        # Rename postal_code to postalcode (without underscore) for final output
+        if 'postal_code' in final_df.columns:
+            final_df = final_df.rename(columns={'postal_code': 'postalcode'})
+            # Update the column list
+            existing_cols = [col if col != 'postal_code' else 'postalcode' for col in existing_cols]
+
+        # Convert ID columns to integers (not floats)
+        # Note: column names have been renamed to pa_id, sz_id, rn_id
+        id_columns = ['amenity_id', 'amenity_category_id', 'pa_id', 'sz_id']
+        for col in id_columns:
+            if col in final_df.columns:
+                # Convert to int, handling NaN values
+                final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
+                final_df[col] = final_df[col].fillna(0).astype(int)
+
+        # Convert rn_id (e.g., "R042218") to clean integer (e.g., 42218)
+        if 'rn_id' in final_df.columns:
+            rn_series = final_df['rn_id'].fillna('').astype(str)
+            # Extract the numeric part; default to 0 when missing
+            final_df['rn_id'] = rn_series.str.extract(r"(\d+)").fillna('0').astype(int)
+
+        # No road lookup table is produced anymore (per latest requirements)
 
         # Save output
         target = output or self.paths.output_csv
         target.parent.mkdir(parents=True, exist_ok=True)
-        matched_df.to_csv(target, index=False)
+        final_df.to_csv(target, index=False)
 
-        print(f"\n  ✓ Matched data saved to {target}")
-        print(f"  Total records: {len(matched_df):,}\n")
+        print(f"\n  ✓ Final amenities_3layers.csv saved to {target}")
+        print(f"  Total records: {len(final_df):,}")
+        print(f"  Columns: {', '.join(existing_cols)}\n")
 
-        return matched_df
+        return final_df
 
 
 def _build_parser() -> argparse.ArgumentParser:

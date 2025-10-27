@@ -13,8 +13,11 @@
       "properties": {
         "SUBZONE_N": "DEPOT ROAD",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000001",
-        "PA_ID": "000004"
+        "SZ_ID": 1,
+        "PA_ID": 4,
+        "area": 0.4423,
+        "population": 6570,
+        "population_density": 14854.17
       },
       "geometry": {
         "type": "Polygon",
@@ -459,8 +462,11 @@
       "properties": {
         "SUBZONE_N": "BUKIT MERAH",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000002",
-        "PA_ID": "000004"
+        "SZ_ID": 2,
+        "PA_ID": 4,
+        "area": 0.4117,
+        "population": 940,
+        "population_density": 2283.22
       },
       "geometry": {
         "type": "Polygon",
@@ -670,8 +676,11 @@
       "properties": {
         "SUBZONE_N": "CHINATOWN",
         "PLN_AREA_N": "OUTRAM",
-        "SZ_ID": "000003",
-        "PA_ID": "000046"
+        "SZ_ID": 3,
+        "PA_ID": 46,
+        "area": 0.5872,
+        "population": 9850,
+        "population_density": 16774.52
       },
       "geometry": {
         "type": "Polygon",
@@ -1826,8 +1835,11 @@
       "properties": {
         "SUBZONE_N": "PHILLIP",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000004",
-        "PA_ID": "000040"
+        "SZ_ID": 4,
+        "PA_ID": 40,
+        "area": 0.0394,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -2022,8 +2034,11 @@
       "properties": {
         "SUBZONE_N": "RAFFLES PLACE",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000005",
-        "PA_ID": "000040"
+        "SZ_ID": 5,
+        "PA_ID": 40,
+        "area": 0.1888,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -2523,8 +2538,11 @@
       "properties": {
         "SUBZONE_N": "CHINA SQUARE",
         "PLN_AREA_N": "OUTRAM",
-        "SZ_ID": "000006",
-        "PA_ID": "000046"
+        "SZ_ID": 6,
+        "PA_ID": 46,
+        "area": 0.133,
+        "population": 1180,
+        "population_density": 8872.18
       },
       "geometry": {
         "type": "Polygon",
@@ -2839,8 +2857,11 @@
       "properties": {
         "SUBZONE_N": "TIONG BAHRU",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000007",
-        "PA_ID": "000004"
+        "SZ_ID": 7,
+        "PA_ID": 4,
+        "area": 0.4481,
+        "population": 12130,
+        "population_density": 27069.85
       },
       "geometry": {
         "type": "Polygon",
@@ -3095,8 +3116,11 @@
       "properties": {
         "SUBZONE_N": "BAYFRONT SUBZONE",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000008",
-        "PA_ID": "000040"
+        "SZ_ID": 8,
+        "PA_ID": 40,
+        "area": 0.5212,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -3271,8 +3295,11 @@
       "properties": {
         "SUBZONE_N": "TIONG BAHRU STATION",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000009",
-        "PA_ID": "000004"
+        "SZ_ID": 9,
+        "PA_ID": 4,
+        "area": 0.3508,
+        "population": 14420,
+        "population_density": 41106.04
       },
       "geometry": {
         "type": "Polygon",
@@ -3377,8 +3404,11 @@
       "properties": {
         "SUBZONE_N": "CLIFFORD PIER",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000010",
-        "PA_ID": "000040"
+        "SZ_ID": 10,
+        "PA_ID": 40,
+        "area": 0.2618,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -3668,8 +3698,11 @@
       "properties": {
         "SUBZONE_N": "MARINA SOUTH",
         "PLN_AREA_N": "MARINA SOUTH",
-        "SZ_ID": "000011",
-        "PA_ID": "000042"
+        "SZ_ID": 11,
+        "PA_ID": 42,
+        "area": 1.6304,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -4449,8 +4482,11 @@
       "properties": {
         "SUBZONE_N": "NICOLL",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000012",
-        "PA_ID": "000040"
+        "SZ_ID": 12,
+        "PA_ID": 40,
+        "area": 0.6149,
+        "population": 290,
+        "population_density": 471.62
       },
       "geometry": {
         "type": "Polygon",
@@ -5835,8 +5871,11 @@
       "properties": {
         "SUBZONE_N": "MARINA EAST",
         "PLN_AREA_N": "MARINA EAST",
-        "SZ_ID": "000013",
-        "PA_ID": "000041"
+        "SZ_ID": 13,
+        "PA_ID": 41,
+        "area": 1.844,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -7351,8 +7390,11 @@
       "properties": {
         "SUBZONE_N": "INSTITUTION HILL",
         "PLN_AREA_N": "RIVER VALLEY",
-        "SZ_ID": "000014",
-        "PA_ID": "000034"
+        "SZ_ID": 14,
+        "PA_ID": 34,
+        "area": 0.3926,
+        "population": 4200,
+        "population_density": 10697.91
       },
       "geometry": {
         "type": "Polygon",
@@ -8197,8 +8239,11 @@
       "properties": {
         "SUBZONE_N": "ROBERTSON QUAY",
         "PLN_AREA_N": "SINGAPORE RIVER",
-        "SZ_ID": "000015",
-        "PA_ID": "000036"
+        "SZ_ID": 15,
+        "PA_ID": 36,
+        "area": 0.5066,
+        "population": 4370,
+        "population_density": 8626.14
       },
       "geometry": {
         "type": "Polygon",
@@ -9413,8 +9458,11 @@
       "properties": {
         "SUBZONE_N": "JURONG ISLAND AND BUKOM",
         "PLN_AREA_N": "WESTERN ISLANDS",
-        "SZ_ID": "000016",
-        "PA_ID": "000031"
+        "SZ_ID": 16,
+        "PA_ID": 31,
+        "area": 36.6392,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -20253,8 +20301,11 @@
       "properties": {
         "SUBZONE_N": "FORT CANNING",
         "PLN_AREA_N": "MUSEUM",
-        "SZ_ID": "000017",
-        "PA_ID": "000043"
+        "SZ_ID": 17,
+        "PA_ID": 43,
+        "area": 0.3887,
+        "population": 210,
+        "population_density": 540.26
       },
       "geometry": {
         "type": "Polygon",
@@ -20939,8 +20990,11 @@
       "properties": {
         "SUBZONE_N": "PEARL'S HILL",
         "PLN_AREA_N": "OUTRAM",
-        "SZ_ID": "000018",
-        "PA_ID": "000046"
+        "SZ_ID": 18,
+        "PA_ID": 46,
+        "area": 0.5616,
+        "population": 5230,
+        "population_density": 9312.68
       },
       "geometry": {
         "type": "Polygon",
@@ -21865,8 +21919,11 @@
       "properties": {
         "SUBZONE_N": "BOAT QUAY",
         "PLN_AREA_N": "SINGAPORE RIVER",
-        "SZ_ID": "000019",
-        "PA_ID": "000036"
+        "SZ_ID": 19,
+        "PA_ID": 36,
+        "area": 0.1608,
+        "population": 20,
+        "population_density": 124.38
       },
       "geometry": {
         "type": "Polygon",
@@ -22121,8 +22178,11 @@
       "properties": {
         "SUBZONE_N": "HENDERSON HILL",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000020",
-        "PA_ID": "000004"
+        "SZ_ID": 20,
+        "PA_ID": 4,
+        "area": 0.5952,
+        "population": 11480,
+        "population_density": 19287.63
       },
       "geometry": {
         "type": "Polygon",
@@ -22387,8 +22447,11 @@
       "properties": {
         "SUBZONE_N": "REDHILL",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000021",
-        "PA_ID": "000004"
+        "SZ_ID": 21,
+        "PA_ID": 4,
+        "area": 0.3876,
+        "population": 10980,
+        "population_density": 28328.17
       },
       "geometry": {
         "type": "Polygon",
@@ -22653,8 +22716,11 @@
       "properties": {
         "SUBZONE_N": "ALEXANDRA HILL",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000022",
-        "PA_ID": "000004"
+        "SZ_ID": 22,
+        "PA_ID": 4,
+        "area": 1.0304,
+        "population": 12310,
+        "population_density": 11946.82
       },
       "geometry": {
         "type": "Polygon",
@@ -22969,8 +23035,11 @@
       "properties": {
         "SUBZONE_N": "BUKIT HO SWEE",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000023",
-        "PA_ID": "000004"
+        "SZ_ID": 23,
+        "PA_ID": 4,
+        "area": 0.5517,
+        "population": 13270,
+        "population_density": 24052.93
       },
       "geometry": {
         "type": "Polygon",
@@ -23405,8 +23474,11 @@
       "properties": {
         "SUBZONE_N": "CLARKE QUAY",
         "PLN_AREA_N": "SINGAPORE RIVER",
-        "SZ_ID": "000024",
-        "PA_ID": "000036"
+        "SZ_ID": 24,
+        "PA_ID": 36,
+        "area": 0.2902,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -23771,8 +23843,11 @@
       "properties": {
         "SUBZONE_N": "PASIR PANJANG 1",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000025",
-        "PA_ID": "000017"
+        "SZ_ID": 25,
+        "PA_ID": 17,
+        "area": 1.0848,
+        "population": 4660,
+        "population_density": 4295.72
       },
       "geometry": {
         "type": "Polygon",
@@ -24877,8 +24952,11 @@
       "properties": {
         "SUBZONE_N": "QUEENSWAY",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000026",
-        "PA_ID": "000017"
+        "SZ_ID": 26,
+        "PA_ID": 17,
+        "area": 0.6289,
+        "population": 140,
+        "population_density": 222.61
       },
       "geometry": {
         "type": "Polygon",
@@ -25103,8 +25181,11 @@
       "properties": {
         "SUBZONE_N": "MARINA EAST (MP)",
         "PLN_AREA_N": "MARINE PARADE",
-        "SZ_ID": "000027",
-        "PA_ID": "000039"
+        "SZ_ID": 27,
+        "PA_ID": 39,
+        "area": 1.5903,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -26399,8 +26480,11 @@
       "properties": {
         "SUBZONE_N": "SUDONG",
         "PLN_AREA_N": "WESTERN ISLANDS",
-        "SZ_ID": "000028",
-        "PA_ID": "000031"
+        "SZ_ID": 28,
+        "PA_ID": 31,
+        "area": 4.2073,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -30015,8 +30099,11 @@
       "properties": {
         "SUBZONE_N": "SEMAKAU",
         "PLN_AREA_N": "WESTERN ISLANDS",
-        "SZ_ID": "000029",
-        "PA_ID": "000031"
+        "SZ_ID": 29,
+        "PA_ID": 31,
+        "area": 4.9638,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -36667,8 +36754,11 @@
       "properties": {
         "SUBZONE_N": "SOUTHERN GROUP",
         "PLN_AREA_N": "SOUTHERN ISLANDS",
-        "SZ_ID": "000030",
-        "PA_ID": "000027"
+        "SZ_ID": 30,
+        "PA_ID": 27,
+        "area": 2.2064,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -45382,8 +45472,11 @@
       "properties": {
         "SUBZONE_N": "SENTOSA",
         "PLN_AREA_N": "SOUTHERN ISLANDS",
-        "SZ_ID": "000031",
-        "PA_ID": "000027"
+        "SZ_ID": 31,
+        "PA_ID": 27,
+        "area": 4.9198,
+        "population": 2650,
+        "population_density": 538.64
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -55941,8 +56034,11 @@
       "properties": {
         "SUBZONE_N": "CITY TERMINALS",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000032",
-        "PA_ID": "000004"
+        "SZ_ID": 32,
+        "PA_ID": 4,
+        "area": 3.4516,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -58172,8 +58268,11 @@
       "properties": {
         "SUBZONE_N": "ANSON",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000033",
-        "PA_ID": "000040"
+        "SZ_ID": 33,
+        "PA_ID": 40,
+        "area": 0.1032,
+        "population": 50,
+        "population_density": 484.5
       },
       "geometry": {
         "type": "Polygon",
@@ -58613,8 +58712,11 @@
       "properties": {
         "SUBZONE_N": "STRAITS VIEW",
         "PLN_AREA_N": "STRAITS VIEW",
-        "SZ_ID": "000034",
-        "PA_ID": "000037"
+        "SZ_ID": 34,
+        "PA_ID": 37,
+        "area": 1.1273,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -59144,8 +59246,11 @@
       "properties": {
         "SUBZONE_N": "MARITIME SQUARE",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000035",
-        "PA_ID": "000004"
+        "SZ_ID": 35,
+        "PA_ID": 4,
+        "area": 2.6987,
+        "population": 5100,
+        "population_density": 1889.8
       },
       "geometry": {
         "type": "Polygon",
@@ -65060,8 +65165,11 @@
       "properties": {
         "SUBZONE_N": "TELOK BLANGAH RISE",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000036",
-        "PA_ID": "000004"
+        "SZ_ID": 36,
+        "PA_ID": 4,
+        "area": 0.5335,
+        "population": 11400,
+        "population_density": 21368.32
       },
       "geometry": {
         "type": "Polygon",
@@ -65521,8 +65629,11 @@
       "properties": {
         "SUBZONE_N": "TANJONG PAGAR",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000037",
-        "PA_ID": "000040"
+        "SZ_ID": 37,
+        "PA_ID": 40,
+        "area": 0.1455,
+        "population": 900,
+        "population_density": 6185.57
       },
       "geometry": {
         "type": "Polygon",
@@ -66017,8 +66128,11 @@
       "properties": {
         "SUBZONE_N": "EVERTON PARK",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000038",
-        "PA_ID": "000004"
+        "SZ_ID": 38,
+        "PA_ID": 4,
+        "area": 0.6357,
+        "population": 7320,
+        "population_density": 11514.87
       },
       "geometry": {
         "type": "Polygon",
@@ -66313,8 +66427,11 @@
       "properties": {
         "SUBZONE_N": "TELOK BLANGAH WAY",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000039",
-        "PA_ID": "000004"
+        "SZ_ID": 39,
+        "PA_ID": 4,
+        "area": 0.2768,
+        "population": 8220,
+        "population_density": 29696.53
       },
       "geometry": {
         "type": "Polygon",
@@ -66599,8 +66716,11 @@
       "properties": {
         "SUBZONE_N": "MAXWELL",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000040",
-        "PA_ID": "000040"
+        "SZ_ID": 40,
+        "PA_ID": 40,
+        "area": 0.0637,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -67190,8 +67310,11 @@
       "properties": {
         "SUBZONE_N": "CECIL",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000041",
-        "PA_ID": "000040"
+        "SZ_ID": 41,
+        "PA_ID": 40,
+        "area": 0.1966,
+        "population": 520,
+        "population_density": 2644.96
       },
       "geometry": {
         "type": "Polygon",
@@ -67626,8 +67749,11 @@
       "properties": {
         "SUBZONE_N": "KAMPONG TIONG BAHRU",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000042",
-        "PA_ID": "000004"
+        "SZ_ID": 42,
+        "PA_ID": 4,
+        "area": 0.3653,
+        "population": 9700,
+        "population_density": 26553.52
       },
       "geometry": {
         "type": "Polygon",
@@ -67812,8 +67938,11 @@
       "properties": {
         "SUBZONE_N": "TELOK BLANGAH DRIVE",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000043",
-        "PA_ID": "000004"
+        "SZ_ID": 43,
+        "PA_ID": 4,
+        "area": 1.455,
+        "population": 18720,
+        "population_density": 12865.98
       },
       "geometry": {
         "type": "Polygon",
@@ -68383,8 +68512,11 @@
       "properties": {
         "SUBZONE_N": "PASIR PANJANG 2",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000044",
-        "PA_ID": "000017"
+        "SZ_ID": 44,
+        "PA_ID": 17,
+        "area": 0.8532,
+        "population": 3540,
+        "population_density": 4149.09
       },
       "geometry": {
         "type": "Polygon",
@@ -69079,8 +69211,11 @@
       "properties": {
         "SUBZONE_N": "CENTRAL SUBZONE",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000045",
-        "PA_ID": "000040"
+        "SZ_ID": 45,
+        "PA_ID": 40,
+        "area": 1.0707,
+        "population": 1450,
+        "population_density": 1354.25
       },
       "geometry": {
         "type": "Polygon",
@@ -70080,8 +70215,11 @@
       "properties": {
         "SUBZONE_N": "SINGAPORE GENERAL HOSPITAL",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000046",
-        "PA_ID": "000004"
+        "SZ_ID": 46,
+        "PA_ID": 4,
+        "area": 0.533,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -70336,8 +70474,11 @@
       "properties": {
         "SUBZONE_N": "BUGIS",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000047",
-        "PA_ID": "000040"
+        "SZ_ID": 47,
+        "PA_ID": 40,
+        "area": 0.2802,
+        "population": 1200,
+        "population_density": 4282.66
       },
       "geometry": {
         "type": "Polygon",
@@ -71007,8 +71148,11 @@
       "properties": {
         "SUBZONE_N": "VICTORIA",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000048",
-        "PA_ID": "000035"
+        "SZ_ID": 48,
+        "PA_ID": 35,
+        "area": 0.2143,
+        "population": 1660,
+        "population_density": 7746.15
       },
       "geometry": {
         "type": "Polygon",
@@ -71733,8 +71877,11 @@
       "properties": {
         "SUBZONE_N": "PATERSON",
         "PLN_AREA_N": "RIVER VALLEY",
-        "SZ_ID": "000049",
-        "PA_ID": "000034"
+        "SZ_ID": 49,
+        "PA_ID": 34,
+        "area": 0.1731,
+        "population": 320,
+        "population_density": 1848.64
       },
       "geometry": {
         "type": "Polygon",
@@ -72169,8 +72316,11 @@
       "properties": {
         "SUBZONE_N": "EAST COAST",
         "PLN_AREA_N": "MARINE PARADE",
-        "SZ_ID": "000050",
-        "PA_ID": "000039"
+        "SZ_ID": 50,
+        "PA_ID": 39,
+        "area": 0.5918,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -73150,8 +73300,11 @@
       "properties": {
         "SUBZONE_N": "NATIONAL UNIVERSITY OF S'PORE",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000051",
-        "PA_ID": "000017"
+        "SZ_ID": 51,
+        "PA_ID": 17,
+        "area": 1.7535,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -74041,8 +74194,11 @@
       "properties": {
         "SUBZONE_N": "ONE TREE HILL",
         "PLN_AREA_N": "RIVER VALLEY",
-        "SZ_ID": "000052",
-        "PA_ID": "000034"
+        "SZ_ID": 52,
+        "PA_ID": 34,
+        "area": 0.3407,
+        "population": 2220,
+        "population_density": 6516.0
       },
       "geometry": {
         "type": "Polygon",
@@ -75027,8 +75183,11 @@
       "properties": {
         "SUBZONE_N": "COMMONWEALTH",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000053",
-        "PA_ID": "000017"
+        "SZ_ID": 53,
+        "PA_ID": 17,
+        "area": 0.3105,
+        "population": 6360,
+        "population_density": 20483.09
       },
       "geometry": {
         "type": "Polygon",
@@ -75343,8 +75502,11 @@
       "properties": {
         "SUBZONE_N": "DOVER",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000054",
-        "PA_ID": "000017"
+        "SZ_ID": 54,
+        "PA_ID": 17,
+        "area": 1.3803,
+        "population": 10700,
+        "population_density": 7751.94
       },
       "geometry": {
         "type": "Polygon",
@@ -75934,8 +76096,11 @@
       "properties": {
         "SUBZONE_N": "RIDOUT",
         "PLN_AREA_N": "TANGLIN",
-        "SZ_ID": "000055",
-        "PA_ID": "000048"
+        "SZ_ID": 55,
+        "PA_ID": 48,
+        "area": 1.9518,
+        "population": 1430,
+        "population_density": 732.66
       },
       "geometry": {
         "type": "Polygon",
@@ -76625,8 +76790,11 @@
       "properties": {
         "SUBZONE_N": "CAIRNHILL",
         "PLN_AREA_N": "NEWTON",
-        "SZ_ID": "000056",
-        "PA_ID": "000044"
+        "SZ_ID": 56,
+        "PA_ID": 44,
+        "area": 0.4515,
+        "population": 4370,
+        "population_density": 9678.85
       },
       "geometry": {
         "type": "Polygon",
@@ -77996,8 +78164,11 @@
       "properties": {
         "SUBZONE_N": "CLEMENTI WEST",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000057",
-        "PA_ID": "000010"
+        "SZ_ID": 57,
+        "PA_ID": 10,
+        "area": 0.6975,
+        "population": 14330,
+        "population_density": 20544.8
       },
       "geometry": {
         "type": "Polygon",
@@ -78417,8 +78588,11 @@
       "properties": {
         "SUBZONE_N": "MONK'S HILL",
         "PLN_AREA_N": "NEWTON",
-        "SZ_ID": "000058",
-        "PA_ID": "000044"
+        "SZ_ID": 58,
+        "PA_ID": 44,
+        "area": 0.1727,
+        "population": 1000,
+        "population_density": 5790.39
       },
       "geometry": {
         "type": "Polygon",
@@ -79058,8 +79232,11 @@
       "properties": {
         "SUBZONE_N": "SIGLAP",
         "PLN_AREA_N": "BEDOK",
-        "SZ_ID": "000059",
-        "PA_ID": "000001"
+        "SZ_ID": 59,
+        "PA_ID": 1,
+        "area": 1.0978,
+        "population": 7310,
+        "population_density": 6658.77
       },
       "geometry": {
         "type": "Polygon",
@@ -80464,8 +80641,11 @@
       "properties": {
         "SUBZONE_N": "CLEMENTI WOODS",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000060",
-        "PA_ID": "000010"
+        "SZ_ID": 60,
+        "PA_ID": 10,
+        "area": 1.058,
+        "population": 19300,
+        "population_density": 18241.97
       },
       "geometry": {
         "type": "Polygon",
@@ -81170,8 +81350,11 @@
       "properties": {
         "SUBZONE_N": "PIONEER SECTOR",
         "PLN_AREA_N": "PIONEER",
-        "SZ_ID": "000061",
-        "PA_ID": "000015"
+        "SZ_ID": 61,
+        "PA_ID": 15,
+        "area": 2.7968,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -82756,8 +82939,11 @@
       "properties": {
         "SUBZONE_N": "PENJURU CRESCENT",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000062",
-        "PA_ID": "000012"
+        "SZ_ID": 62,
+        "PA_ID": 12,
+        "area": 3.051,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -85257,8 +85443,11 @@
       "properties": {
         "SUBZONE_N": "ORANGE GROVE",
         "PLN_AREA_N": "NEWTON",
-        "SZ_ID": "000063",
-        "PA_ID": "000044"
+        "SZ_ID": 63,
+        "PA_ID": 44,
+        "area": 0.3362,
+        "population": 2120,
+        "population_density": 6305.77
       },
       "geometry": {
         "type": "Polygon",
@@ -85973,8 +86162,11 @@
       "properties": {
         "SUBZONE_N": "KAMPONG BUGIS",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000064",
-        "PA_ID": "000022"
+        "SZ_ID": 64,
+        "PA_ID": 22,
+        "area": 0.7422,
+        "population": 1690,
+        "population_density": 2277.01
       },
       "geometry": {
         "type": "Polygon",
@@ -86304,8 +86496,11 @@
       "properties": {
         "SUBZONE_N": "KENT RIDGE",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000065",
-        "PA_ID": "000017"
+        "SZ_ID": 65,
+        "PA_ID": 17,
+        "area": 1.8268,
+        "population": 2460,
+        "population_density": 1346.62
       },
       "geometry": {
         "type": "Polygon",
@@ -87455,8 +87650,11 @@
       "properties": {
         "SUBZONE_N": "ALEXANDRA NORTH",
         "PLN_AREA_N": "BUKIT MERAH",
-        "SZ_ID": "000066",
-        "PA_ID": "000004"
+        "SZ_ID": 66,
+        "PA_ID": 4,
+        "area": 0.2937,
+        "population": 3010,
+        "population_density": 10248.55
       },
       "geometry": {
         "type": "Polygon",
@@ -87756,8 +87954,11 @@
       "properties": {
         "SUBZONE_N": "TANGLIN HALT",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000067",
-        "PA_ID": "000017"
+        "SZ_ID": 67,
+        "PA_ID": 17,
+        "area": 0.5573,
+        "population": 5580,
+        "population_density": 10012.56
       },
       "geometry": {
         "type": "Polygon",
@@ -89057,8 +89258,11 @@
       "properties": {
         "SUBZONE_N": "MACKENZIE",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000068",
-        "PA_ID": "000035"
+        "SZ_ID": 68,
+        "PA_ID": 35,
+        "area": 0.0557,
+        "population": 10,
+        "population_density": 179.53
       },
       "geometry": {
         "type": "Polygon",
@@ -89318,8 +89522,11 @@
       "properties": {
         "SUBZONE_N": "SUNGEI ROAD",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000069",
-        "PA_ID": "000035"
+        "SZ_ID": 69,
+        "PA_ID": 35,
+        "area": 0.1163,
+        "population": 1900,
+        "population_density": 16337.06
       },
       "geometry": {
         "type": "Polygon",
@@ -89639,8 +89846,11 @@
       "properties": {
         "SUBZONE_N": "ONE NORTH",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000070",
-        "PA_ID": "000017"
+        "SZ_ID": 70,
+        "PA_ID": 17,
+        "area": 2.0034,
+        "population": 1280,
+        "population_density": 638.91
       },
       "geometry": {
         "type": "Polygon",
@@ -91420,8 +91630,11 @@
       "properties": {
         "SUBZONE_N": "TANJONG RHU",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000071",
-        "PA_ID": "000022"
+        "SZ_ID": 71,
+        "PA_ID": 22,
+        "area": 2.4346,
+        "population": 11540,
+        "population_density": 4740.0
       },
       "geometry": {
         "type": "Polygon",
@@ -92086,8 +92299,11 @@
       "properties": {
         "SUBZONE_N": "KATONG",
         "PLN_AREA_N": "MARINE PARADE",
-        "SZ_ID": "000072",
-        "PA_ID": "000039"
+        "SZ_ID": 72,
+        "PA_ID": 39,
+        "area": 1.079,
+        "population": 9160,
+        "population_density": 8489.34
       },
       "geometry": {
         "type": "Polygon",
@@ -92677,8 +92893,11 @@
       "properties": {
         "SUBZONE_N": "BOULEVARD",
         "PLN_AREA_N": "ORCHARD",
-        "SZ_ID": "000073",
-        "PA_ID": "000045"
+        "SZ_ID": 73,
+        "PA_ID": 45,
+        "area": 0.4606,
+        "population": 310,
+        "population_density": 673.04
       },
       "geometry": {
         "type": "Polygon",
@@ -94308,8 +94527,11 @@
       "properties": {
         "SUBZONE_N": "ISTANA NEGARA",
         "PLN_AREA_N": "NEWTON",
-        "SZ_ID": "000074",
-        "PA_ID": "000044"
+        "SZ_ID": 74,
+        "PA_ID": 44,
+        "area": 0.5435,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -95319,8 +95541,11 @@
       "properties": {
         "SUBZONE_N": "LITTLE INDIA",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000075",
-        "PA_ID": "000035"
+        "SZ_ID": 75,
+        "PA_ID": 35,
+        "area": 0.2783,
+        "population": 2760,
+        "population_density": 9917.36
       },
       "geometry": {
         "type": "Polygon",
@@ -95595,8 +95820,11 @@
       "properties": {
         "SUBZONE_N": "GUL BASIN",
         "PLN_AREA_N": "PIONEER",
-        "SZ_ID": "000076",
-        "PA_ID": "000015"
+        "SZ_ID": 76,
+        "PA_ID": 15,
+        "area": 1.7706,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -99086,8 +99314,11 @@
       "properties": {
         "SUBZONE_N": "MARINA CENTRE",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000077",
-        "PA_ID": "000040"
+        "SZ_ID": 77,
+        "PA_ID": 40,
+        "area": 0.887,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -100592,8 +100823,11 @@
       "properties": {
         "SUBZONE_N": "BRAS BASAH",
         "PLN_AREA_N": "MUSEUM",
-        "SZ_ID": "000078",
-        "PA_ID": "000043"
+        "SZ_ID": 78,
+        "PA_ID": 43,
+        "area": 0.2188,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -101523,8 +101757,11 @@
       "properties": {
         "SUBZONE_N": "SOMERSET",
         "PLN_AREA_N": "ORCHARD",
-        "SZ_ID": "000079",
-        "PA_ID": "000045"
+        "SZ_ID": 79,
+        "PA_ID": 45,
+        "area": 0.3294,
+        "population": 30,
+        "population_density": 91.07
       },
       "geometry": {
         "type": "Polygon",
@@ -102639,8 +102876,11 @@
       "properties": {
         "SUBZONE_N": "BENCOOLEN",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000080",
-        "PA_ID": "000035"
+        "SZ_ID": 80,
+        "PA_ID": 35,
+        "area": 0.1707,
+        "population": 1200,
+        "population_density": 7029.88
       },
       "geometry": {
         "type": "Polygon",
@@ -103100,8 +103340,11 @@
       "properties": {
         "SUBZONE_N": "CHATSWORTH",
         "PLN_AREA_N": "TANGLIN",
-        "SZ_ID": "000081",
-        "PA_ID": "000048"
+        "SZ_ID": 81,
+        "PA_ID": 48,
+        "area": 1.3462,
+        "population": 7820,
+        "population_density": 5808.94
       },
       "geometry": {
         "type": "Polygon",
@@ -104211,8 +104454,11 @@
       "properties": {
         "SUBZONE_N": "KAMPONG GLAM",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000082",
-        "PA_ID": "000035"
+        "SZ_ID": 82,
+        "PA_ID": 35,
+        "area": 0.1713,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -104367,8 +104613,11 @@
       "properties": {
         "SUBZONE_N": "SELEGIE",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000083",
-        "PA_ID": "000035"
+        "SZ_ID": 83,
+        "PA_ID": 35,
+        "area": 0.0496,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -104808,8 +105057,11 @@
       "properties": {
         "SUBZONE_N": "MOUNT EMILY",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000084",
-        "PA_ID": "000035"
+        "SZ_ID": 84,
+        "PA_ID": 35,
+        "area": 0.194,
+        "population": 2090,
+        "population_density": 10773.2
       },
       "geometry": {
         "type": "Polygon",
@@ -105824,8 +106076,11 @@
       "properties": {
         "SUBZONE_N": "ROCHOR CANAL",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000085",
-        "PA_ID": "000035"
+        "SZ_ID": 85,
+        "PA_ID": 35,
+        "area": 0.1202,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -106230,8 +106485,11 @@
       "properties": {
         "SUBZONE_N": "MARGARET DRIVE",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000086",
-        "PA_ID": "000017"
+        "SZ_ID": 86,
+        "PA_ID": 17,
+        "area": 1.0266,
+        "population": 23810,
+        "population_density": 23193.06
       },
       "geometry": {
         "type": "Polygon",
@@ -106791,8 +107049,11 @@
       "properties": {
         "SUBZONE_N": "OXLEY",
         "PLN_AREA_N": "RIVER VALLEY",
-        "SZ_ID": "000087",
-        "PA_ID": "000034"
+        "SZ_ID": 87,
+        "PA_ID": 34,
+        "area": 0.2008,
+        "population": 1530,
+        "population_density": 7619.52
       },
       "geometry": {
         "type": "Polygon",
@@ -107462,8 +107723,11 @@
       "properties": {
         "SUBZONE_N": "CITY HALL",
         "PLN_AREA_N": "DOWNTOWN CORE",
-        "SZ_ID": "000088",
-        "PA_ID": "000040"
+        "SZ_ID": 88,
+        "PA_ID": 40,
+        "area": 0.7106,
+        "population": 40,
+        "population_density": 56.29
       },
       "geometry": {
         "type": "Polygon",
@@ -108328,8 +108592,11 @@
       "properties": {
         "SUBZONE_N": "MEI CHIN",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000089",
-        "PA_ID": "000017"
+        "SZ_ID": 89,
+        "PA_ID": 17,
+        "area": 0.7487,
+        "population": 16210,
+        "population_density": 21650.86
       },
       "geometry": {
         "type": "Polygon",
@@ -108519,8 +108786,11 @@
       "properties": {
         "SUBZONE_N": "LEONIE HILL",
         "PLN_AREA_N": "RIVER VALLEY",
-        "SZ_ID": "000090",
-        "PA_ID": "000034"
+        "SZ_ID": 90,
+        "PA_ID": 34,
+        "area": 0.3685,
+        "population": 3930,
+        "population_density": 10664.86
       },
       "geometry": {
         "type": "Polygon",
@@ -109405,8 +109675,11 @@
       "properties": {
         "SUBZONE_N": "PORT",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000091",
-        "PA_ID": "000017"
+        "SZ_ID": 91,
+        "PA_ID": 17,
+        "area": 7.6062,
+        "population": 60,
+        "population_density": 7.89
       },
       "geometry": {
         "type": "Polygon",
@@ -110916,8 +111189,11 @@
       "properties": {
         "SUBZONE_N": "DHOBY GHAUT",
         "PLN_AREA_N": "MUSEUM",
-        "SZ_ID": "000092",
-        "PA_ID": "000043"
+        "SZ_ID": 92,
+        "PA_ID": 43,
+        "area": 0.222,
+        "population": 470,
+        "population_density": 2117.12
       },
       "geometry": {
         "type": "Polygon",
@@ -112132,8 +112408,11 @@
       "properties": {
         "SUBZONE_N": "MACPHERSON",
         "PLN_AREA_N": "GEYLANG",
-        "SZ_ID": "000093",
-        "PA_ID": "000053"
+        "SZ_ID": 93,
+        "PA_ID": 53,
+        "area": 1.2634,
+        "population": 26290,
+        "population_density": 20808.93
       },
       "geometry": {
         "type": "Polygon",
@@ -112528,8 +112807,11 @@
       "properties": {
         "SUBZONE_N": "KIM KEAT",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000094",
-        "PA_ID": "000029"
+        "SZ_ID": 94,
+        "PA_ID": 29,
+        "area": 0.3698,
+        "population": 9570,
+        "population_density": 25878.85
       },
       "geometry": {
         "type": "Polygon",
@@ -112799,8 +113081,11 @@
       "properties": {
         "SUBZONE_N": "BEDOK NORTH",
         "PLN_AREA_N": "BEDOK",
-        "SZ_ID": "000095",
-        "PA_ID": "000001"
+        "SZ_ID": 95,
+        "PA_ID": 1,
+        "area": 3.2037,
+        "population": 79960,
+        "population_density": 24958.64
       },
       "geometry": {
         "type": "Polygon",
@@ -113235,8 +113520,11 @@
       "properties": {
         "SUBZONE_N": "TOA PAYOH CENTRAL",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000096",
-        "PA_ID": "000029"
+        "SZ_ID": 96,
+        "PA_ID": 29,
+        "area": 1.1073,
+        "population": 27340,
+        "population_density": 24690.69
       },
       "geometry": {
         "type": "Polygon",
@@ -113736,8 +114024,11 @@
       "properties": {
         "SUBZONE_N": "JURONG GATEWAY",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000097",
-        "PA_ID": "000012"
+        "SZ_ID": 97,
+        "PA_ID": 12,
+        "area": 0.5546,
+        "population": 410,
+        "population_density": 739.27
       },
       "geometry": {
         "type": "Polygon",
@@ -113972,8 +114263,11 @@
       "properties": {
         "SUBZONE_N": "HOLLAND ROAD",
         "PLN_AREA_N": "BUKIT TIMAH",
-        "SZ_ID": "000098",
-        "PA_ID": "000006"
+        "SZ_ID": 98,
+        "PA_ID": 6,
+        "area": 3.3872,
+        "population": 11640,
+        "population_density": 3436.47
       },
       "geometry": {
         "type": "Polygon",
@@ -114623,8 +114917,11 @@
       "properties": {
         "SUBZONE_N": "KAMPONG UBI",
         "PLN_AREA_N": "GEYLANG",
-        "SZ_ID": "000099",
-        "PA_ID": "000053"
+        "SZ_ID": 99,
+        "PA_ID": 53,
+        "area": 1.878,
+        "population": 13660,
+        "population_density": 7273.7
       },
       "geometry": {
         "type": "Polygon",
@@ -115114,8 +115411,11 @@
       "properties": {
         "SUBZONE_N": "SENNETT",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000100",
-        "PA_ID": "000029"
+        "SZ_ID": 100,
+        "PA_ID": 29,
+        "area": 0.8678,
+        "population": 17430,
+        "population_density": 20085.27
       },
       "geometry": {
         "type": "Polygon",
@@ -115335,8 +115635,11 @@
       "properties": {
         "SUBZONE_N": "POTONG PASIR",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000101",
-        "PA_ID": "000029"
+        "SZ_ID": 101,
+        "PA_ID": 29,
+        "area": 0.6391,
+        "population": 12410,
+        "population_density": 19417.93
       },
       "geometry": {
         "type": "Polygon",
@@ -115631,8 +115934,11 @@
       "properties": {
         "SUBZONE_N": "TUAS NORTH",
         "PLN_AREA_N": "TUAS",
-        "SZ_ID": "000102",
-        "PA_ID": "000030"
+        "SZ_ID": 102,
+        "PA_ID": 30,
+        "area": 3.2601,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -115847,8 +116153,11 @@
       "properties": {
         "SUBZONE_N": "PEI CHUN",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000103",
-        "PA_ID": "000029"
+        "SZ_ID": 103,
+        "PA_ID": 29,
+        "area": 0.4114,
+        "population": 9670,
+        "population_density": 23505.1
       },
       "geometry": {
         "type": "Polygon",
@@ -116138,8 +116447,11 @@
       "properties": {
         "SUBZONE_N": "BOON TECK",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000104",
-        "PA_ID": "000029"
+        "SZ_ID": 104,
+        "PA_ID": 29,
+        "area": 0.4187,
+        "population": 14260,
+        "population_density": 34057.8
       },
       "geometry": {
         "type": "Polygon",
@@ -116534,8 +116846,11 @@
       "properties": {
         "SUBZONE_N": "KIAN TECK",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000105",
-        "PA_ID": "000013"
+        "SZ_ID": 105,
+        "PA_ID": 13,
+        "area": 2.0982,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -117075,8 +117390,11 @@
       "properties": {
         "SUBZONE_N": "SAFTI",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000106",
-        "PA_ID": "000013"
+        "SZ_ID": 106,
+        "PA_ID": 13,
+        "area": 1.5245,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -117551,8 +117869,11 @@
       "properties": {
         "SUBZONE_N": "FARRER PARK",
         "PLN_AREA_N": "ROCHOR",
-        "SZ_ID": "000107",
-        "PA_ID": "000035"
+        "SZ_ID": 107,
+        "PA_ID": 35,
+        "area": 0.2181,
+        "population": 2360,
+        "population_density": 10820.72
       },
       "geometry": {
         "type": "Polygon",
@@ -117942,8 +118263,11 @@
       "properties": {
         "SUBZONE_N": "NEWTON CIRCUS",
         "PLN_AREA_N": "NEWTON",
-        "SZ_ID": "000108",
-        "PA_ID": "000044"
+        "SZ_ID": 108,
+        "PA_ID": 44,
+        "area": 0.2135,
+        "population": 290,
+        "population_density": 1358.31
       },
       "geometry": {
         "type": "Polygon",
@@ -118488,8 +118812,11 @@
       "properties": {
         "SUBZONE_N": "JURONG PORT",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000109",
-        "PA_ID": "000012"
+        "SZ_ID": 109,
+        "PA_ID": 12,
+        "area": 2.4648,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -119812,8 +120139,11 @@
       "properties": {
         "SUBZONE_N": "ANG MO KIO TOWN CENTRE",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000110",
-        "PA_ID": "000052"
+        "SZ_ID": 110,
+        "PA_ID": 52,
+        "area": 0.3169,
+        "population": 4920,
+        "population_density": 15525.4
       },
       "geometry": {
         "type": "Polygon",
@@ -120123,8 +120453,11 @@
       "properties": {
         "SUBZONE_N": "KEBUN BAHRU",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000111",
-        "PA_ID": "000052"
+        "SZ_ID": 111,
+        "PA_ID": 52,
+        "area": 1.0464,
+        "population": 21500,
+        "population_density": 20546.64
       },
       "geometry": {
         "type": "Polygon",
@@ -120614,8 +120947,11 @@
       "properties": {
         "SUBZONE_N": "SERANGOON NORTH IND ESTATE",
         "PLN_AREA_N": "SERANGOON",
-        "SZ_ID": "000112",
-        "PA_ID": "000021"
+        "SZ_ID": 112,
+        "PA_ID": 21,
+        "area": 0.9214,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -120950,8 +121286,11 @@
       "properties": {
         "SUBZONE_N": "TENGAH INDUSTRIAL ESTATE",
         "PLN_AREA_N": "TENGAH",
-        "SZ_ID": "000113",
-        "PA_ID": "000049"
+        "SZ_ID": 113,
+        "PA_ID": 49,
+        "area": 2.3933,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -121256,8 +121595,11 @@
       "properties": {
         "SUBZONE_N": "SAMULUN",
         "PLN_AREA_N": "BOON LAY",
-        "SZ_ID": "000114",
-        "PA_ID": "000002"
+        "SZ_ID": 114,
+        "PA_ID": 2,
+        "area": 1.9414,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -124317,8 +124659,11 @@
       "properties": {
         "SUBZONE_N": "SHIPYARD",
         "PLN_AREA_N": "BOON LAY",
-        "SZ_ID": "000115",
-        "PA_ID": "000002"
+        "SZ_ID": 115,
+        "PA_ID": 2,
+        "area": 2.1212,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -125963,8 +126308,11 @@
       "properties": {
         "SUBZONE_N": "GHIM MOH",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000116",
-        "PA_ID": "000017"
+        "SZ_ID": 116,
+        "PA_ID": 17,
+        "area": 0.4856,
+        "population": 13120,
+        "population_density": 27018.12
       },
       "geometry": {
         "type": "Polygon",
@@ -126579,8 +126927,11 @@
       "properties": {
         "SUBZONE_N": "LAVENDER",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000117",
-        "PA_ID": "000022"
+        "SZ_ID": 117,
+        "PA_ID": 22,
+        "area": 0.7569,
+        "population": 9890,
+        "population_density": 13066.46
       },
       "geometry": {
         "type": "Polygon",
@@ -127110,8 +127461,11 @@
       "properties": {
         "SUBZONE_N": "FRANKEL",
         "PLN_AREA_N": "BEDOK",
-        "SZ_ID": "000118",
-        "PA_ID": "000001"
+        "SZ_ID": 118,
+        "PA_ID": 1,
+        "area": 4.2971,
+        "population": 34460,
+        "population_density": 8019.36
       },
       "geometry": {
         "type": "Polygon",
@@ -127686,8 +128040,11 @@
       "properties": {
         "SUBZONE_N": "CLEMENTI NORTH",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000119",
-        "PA_ID": "000010"
+        "SZ_ID": 119,
+        "PA_ID": 10,
+        "area": 0.9911,
+        "population": 30400,
+        "population_density": 30672.99
       },
       "geometry": {
         "type": "Polygon",
@@ -128257,8 +128614,11 @@
       "properties": {
         "SUBZONE_N": "LEEDON PARK",
         "PLN_AREA_N": "BUKIT TIMAH",
-        "SZ_ID": "000120",
-        "PA_ID": "000006"
+        "SZ_ID": 120,
+        "PA_ID": 6,
+        "area": 2.0385,
+        "population": 7480,
+        "population_density": 3669.36
       },
       "geometry": {
         "type": "Polygon",
@@ -130193,8 +130553,11 @@
       "properties": {
         "SUBZONE_N": "GEYLANG EAST",
         "PLN_AREA_N": "GEYLANG",
-        "SZ_ID": "000121",
-        "PA_ID": "000053"
+        "SZ_ID": 121,
+        "PA_ID": 53,
+        "area": 2.5784,
+        "population": 32500,
+        "population_density": 12604.72
       },
       "geometry": {
         "type": "Polygon",
@@ -130839,8 +131202,11 @@
       "properties": {
         "SUBZONE_N": "TEBAN GARDENS",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000122",
-        "PA_ID": "000012"
+        "SZ_ID": 122,
+        "PA_ID": 12,
+        "area": 3.1876,
+        "population": 17090,
+        "population_density": 5361.4
       },
       "geometry": {
         "type": "Polygon",
@@ -131315,8 +131681,11 @@
       "properties": {
         "SUBZONE_N": "JURONG RIVER",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000123",
-        "PA_ID": "000012"
+        "SZ_ID": 123,
+        "PA_ID": 12,
+        "area": 2.561,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -131511,8 +131880,11 @@
       "properties": {
         "SUBZONE_N": "GEYLANG BAHRU",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000124",
-        "PA_ID": "000022"
+        "SZ_ID": 124,
+        "PA_ID": 22,
+        "area": 0.7355,
+        "population": 10290,
+        "population_density": 13990.48
       },
       "geometry": {
         "type": "Polygon",
@@ -132092,8 +132464,11 @@
       "properties": {
         "SUBZONE_N": "GOODWOOD PARK",
         "PLN_AREA_N": "NEWTON",
-        "SZ_ID": "000125",
-        "PA_ID": "000044"
+        "SZ_ID": 125,
+        "PA_ID": 44,
+        "area": 0.3513,
+        "population": 1480,
+        "population_density": 4212.92
       },
       "geometry": {
         "type": "Polygon",
@@ -132703,8 +133078,11 @@
       "properties": {
         "SUBZONE_N": "PANDAN",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000126",
-        "PA_ID": "000010"
+        "SZ_ID": 126,
+        "PA_ID": 10,
+        "area": 1.3129,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -133069,8 +133447,11 @@
       "properties": {
         "SUBZONE_N": "SINGAPORE POLYTECHNIC",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000127",
-        "PA_ID": "000017"
+        "SZ_ID": 127,
+        "PA_ID": 17,
+        "area": 0.9475,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -133425,8 +133806,11 @@
       "properties": {
         "SUBZONE_N": "CLEMENTI CENTRAL",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000128",
-        "PA_ID": "000010"
+        "SZ_ID": 128,
+        "PA_ID": 10,
+        "area": 0.7492,
+        "population": 14100,
+        "population_density": 18820.07
       },
       "geometry": {
         "type": "Polygon",
@@ -133946,8 +134330,11 @@
       "properties": {
         "SUBZONE_N": "KAMPONG JAVA",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000129",
-        "PA_ID": "000022"
+        "SZ_ID": 129,
+        "PA_ID": 22,
+        "area": 1.052,
+        "population": 10060,
+        "population_density": 9562.74
       },
       "geometry": {
         "type": "Polygon",
@@ -134432,8 +134819,11 @@
       "properties": {
         "SUBZONE_N": "BOON KENG",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000130",
-        "PA_ID": "000022"
+        "SZ_ID": 130,
+        "PA_ID": 22,
+        "area": 0.4109,
+        "population": 12040,
+        "population_density": 29301.53
       },
       "geometry": {
         "type": "Polygon",
@@ -134913,8 +135303,11 @@
       "properties": {
         "SUBZONE_N": "KALLANG BAHRU",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000131",
-        "PA_ID": "000022"
+        "SZ_ID": 131,
+        "PA_ID": 22,
+        "area": 0.8397,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -135294,8 +135687,11 @@
       "properties": {
         "SUBZONE_N": "ULU PANDAN",
         "PLN_AREA_N": "BUKIT TIMAH",
-        "SZ_ID": "000132",
-        "PA_ID": "000006"
+        "SZ_ID": 132,
+        "PA_ID": 6,
+        "area": 1.2271,
+        "population": 11250,
+        "population_density": 9167.96
       },
       "geometry": {
         "type": "Polygon",
@@ -136235,8 +136631,11 @@
       "properties": {
         "SUBZONE_N": "FARRER COURT",
         "PLN_AREA_N": "BUKIT TIMAH",
-        "SZ_ID": "000133",
-        "PA_ID": "000006"
+        "SZ_ID": 133,
+        "PA_ID": 6,
+        "area": 0.5588,
+        "population": 7650,
+        "population_density": 13690.05
       },
       "geometry": {
         "type": "Polygon",
@@ -136856,8 +137255,11 @@
       "properties": {
         "SUBZONE_N": "NASSIM",
         "PLN_AREA_N": "TANGLIN",
-        "SZ_ID": "000134",
-        "PA_ID": "000048"
+        "SZ_ID": 134,
+        "PA_ID": 48,
+        "area": 2.0961,
+        "population": 10760,
+        "population_density": 5133.34
       },
       "geometry": {
         "type": "Polygon",
@@ -137937,8 +138339,11 @@
       "properties": {
         "SUBZONE_N": "WEST COAST",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000135",
-        "PA_ID": "000010"
+        "SZ_ID": 135,
+        "PA_ID": 10,
+        "area": 0.7226,
+        "population": 10250,
+        "population_density": 14184.89
       },
       "geometry": {
         "type": "Polygon",
@@ -138398,8 +138803,11 @@
       "properties": {
         "SUBZONE_N": "BAYSHORE",
         "PLN_AREA_N": "BEDOK",
-        "SZ_ID": "000136",
-        "PA_ID": "000001"
+        "SZ_ID": 136,
+        "PA_ID": 1,
+        "area": 2.5505,
+        "population": 8110,
+        "population_density": 3179.77
       },
       "geometry": {
         "type": "Polygon",
@@ -139824,8 +140232,11 @@
       "properties": {
         "SUBZONE_N": "BENOI SECTOR",
         "PLN_AREA_N": "PIONEER",
-        "SZ_ID": "000137",
-        "PA_ID": "000015"
+        "SZ_ID": 137,
+        "PA_ID": 15,
+        "area": 2.0426,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -140015,8 +140426,11 @@
       "properties": {
         "SUBZONE_N": "GUL CIRCLE",
         "PLN_AREA_N": "PIONEER",
-        "SZ_ID": "000138",
-        "PA_ID": "000015"
+        "SZ_ID": 138,
+        "PA_ID": 15,
+        "area": 3.2604,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -140386,8 +140800,11 @@
       "properties": {
         "SUBZONE_N": "TYERSALL",
         "PLN_AREA_N": "TANGLIN",
-        "SZ_ID": "000139",
-        "PA_ID": "000048"
+        "SZ_ID": 139,
+        "PA_ID": 48,
+        "area": 2.1583,
+        "population": 4120,
+        "population_density": 1908.91
       },
       "geometry": {
         "type": "Polygon",
@@ -141002,8 +141419,11 @@
       "properties": {
         "SUBZONE_N": "MOULMEIN",
         "PLN_AREA_N": "NOVENA",
-        "SZ_ID": "000140",
-        "PA_ID": "000025"
+        "SZ_ID": 140,
+        "PA_ID": 25,
+        "area": 1.3475,
+        "population": 11800,
+        "population_density": 8756.96
       },
       "geometry": {
         "type": "Polygon",
@@ -141723,8 +142143,11 @@
       "properties": {
         "SUBZONE_N": "LIU FANG",
         "PLN_AREA_N": "BOON LAY",
-        "SZ_ID": "000141",
-        "PA_ID": "000002"
+        "SZ_ID": 141,
+        "PA_ID": 2,
+        "area": 2.3389,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -142044,8 +142467,11 @@
       "properties": {
         "SUBZONE_N": "TANGLIN",
         "PLN_AREA_N": "ORCHARD",
-        "SZ_ID": "000142",
-        "PA_ID": "000045"
+        "SZ_ID": 142,
+        "PA_ID": 45,
+        "area": 0.1675,
+        "population": 660,
+        "population_density": 3940.3
       },
       "geometry": {
         "type": "Polygon",
@@ -142835,8 +143261,11 @@
       "properties": {
         "SUBZONE_N": "MARINE PARADE",
         "PLN_AREA_N": "MARINE PARADE",
-        "SZ_ID": "000143",
-        "PA_ID": "000039"
+        "SZ_ID": 143,
+        "PA_ID": 39,
+        "area": 1.16,
+        "population": 27250,
+        "population_density": 23491.38
       },
       "geometry": {
         "type": "Polygon",
@@ -143261,8 +143690,11 @@
       "properties": {
         "SUBZONE_N": "JOO KOON",
         "PLN_AREA_N": "PIONEER",
-        "SZ_ID": "000144",
-        "PA_ID": "000015"
+        "SZ_ID": 144,
+        "PA_ID": 15,
+        "area": 2.3494,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -143742,8 +144174,11 @@
       "properties": {
         "SUBZONE_N": "KALLANG WAY",
         "PLN_AREA_N": "GEYLANG",
-        "SZ_ID": "000145",
-        "PA_ID": "000053"
+        "SZ_ID": 145,
+        "PA_ID": 53,
+        "area": 0.9635,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -144193,8 +144628,11 @@
       "properties": {
         "SUBZONE_N": "INTERNATIONAL BUSINESS PARK",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000146",
-        "PA_ID": "000012"
+        "SZ_ID": 146,
+        "PA_ID": 12,
+        "area": 0.485,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -144389,8 +144827,11 @@
       "properties": {
         "SUBZONE_N": "TUKANG",
         "PLN_AREA_N": "BOON LAY",
-        "SZ_ID": "000147",
-        "PA_ID": "000002"
+        "SZ_ID": 147,
+        "PA_ID": 2,
+        "area": 1.8813,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -144820,8 +145261,11 @@
       "properties": {
         "SUBZONE_N": "CORONATION ROAD",
         "PLN_AREA_N": "BUKIT TIMAH",
-        "SZ_ID": "000148",
-        "PA_ID": "000006"
+        "SZ_ID": 148,
+        "PA_ID": 6,
+        "area": 1.4251,
+        "population": 7240,
+        "population_density": 5080.35
       },
       "geometry": {
         "type": "Polygon",
@@ -145356,8 +145800,11 @@
       "properties": {
         "SUBZONE_N": "KEMBANGAN",
         "PLN_AREA_N": "BEDOK",
-        "SZ_ID": "000149",
-        "PA_ID": "000001"
+        "SZ_ID": 149,
+        "PA_ID": 1,
+        "area": 2.3873,
+        "population": 34730,
+        "population_density": 14547.82
       },
       "geometry": {
         "type": "Polygon",
@@ -145677,8 +146124,11 @@
       "properties": {
         "SUBZONE_N": "DUNEARN",
         "PLN_AREA_N": "NOVENA",
-        "SZ_ID": "000150",
-        "PA_ID": "000025"
+        "SZ_ID": 150,
+        "PA_ID": 25,
+        "area": 1.2299,
+        "population": 3970,
+        "population_density": 3227.9
       },
       "geometry": {
         "type": "Polygon",
@@ -146068,8 +146518,11 @@
       "properties": {
         "SUBZONE_N": "SUNSET WAY",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000151",
-        "PA_ID": "000010"
+        "SZ_ID": 151,
+        "PA_ID": 10,
+        "area": 0.9639,
+        "population": 6460,
+        "population_density": 6701.94
       },
       "geometry": {
         "type": "Polygon",
@@ -146704,8 +147157,11 @@
       "properties": {
         "SUBZONE_N": "ANAK BUKIT",
         "PLN_AREA_N": "BUKIT TIMAH",
-        "SZ_ID": "000152",
-        "PA_ID": "000006"
+        "SZ_ID": 152,
+        "PA_ID": 6,
+        "area": 2.7733,
+        "population": 24160,
+        "population_density": 8711.64
       },
       "geometry": {
         "type": "Polygon",
@@ -147635,8 +148091,11 @@
       "properties": {
         "SUBZONE_N": "SWISS CLUB",
         "PLN_AREA_N": "BUKIT TIMAH",
-        "SZ_ID": "000153",
-        "PA_ID": "000006"
+        "SZ_ID": 153,
+        "PA_ID": 6,
+        "area": 3.4685,
+        "population": 6120,
+        "population_density": 1764.45
       },
       "geometry": {
         "type": "Polygon",
@@ -148311,8 +148770,11 @@
       "properties": {
         "SUBZONE_N": "XILIN",
         "PLN_AREA_N": "TAMPINES",
-        "SZ_ID": "000154",
-        "PA_ID": "000047"
+        "SZ_ID": 154,
+        "PA_ID": 47,
+        "area": 7.6558,
+        "population": 1750,
+        "population_density": 228.58
       },
       "geometry": {
         "type": "Polygon",
@@ -150592,8 +151054,11 @@
       "properties": {
         "SUBZONE_N": "FABER",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000155",
-        "PA_ID": "000010"
+        "SZ_ID": 155,
+        "PA_ID": 10,
+        "area": 0.9482,
+        "population": 8450,
+        "population_density": 8911.62
       },
       "geometry": {
         "type": "Polygon",
@@ -151233,8 +151698,11 @@
       "properties": {
         "SUBZONE_N": "MALCOLM",
         "PLN_AREA_N": "NOVENA",
-        "SZ_ID": "000156",
-        "PA_ID": "000025"
+        "SZ_ID": 156,
+        "PA_ID": 25,
+        "area": 1.3191,
+        "population": 3250,
+        "population_density": 2463.8
       },
       "geometry": {
         "type": "Polygon",
@@ -151914,8 +152382,11 @@
       "properties": {
         "SUBZONE_N": "BEDOK SOUTH",
         "PLN_AREA_N": "BEDOK",
-        "SZ_ID": "000157",
-        "PA_ID": "000001"
+        "SZ_ID": 157,
+        "PA_ID": 1,
+        "area": 2.9973,
+        "population": 47730,
+        "population_density": 15924.33
       },
       "geometry": {
         "type": "Polygon",
@@ -152235,8 +152706,11 @@
       "properties": {
         "SUBZONE_N": "DEFU INDUSTRIAL PARK",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000158",
-        "PA_ID": "000011"
+        "SZ_ID": 158,
+        "PA_ID": 11,
+        "area": 1.9741,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -153441,8 +153915,11 @@
       "properties": {
         "SUBZONE_N": "CHANGI BAY",
         "PLN_AREA_N": "CHANGI BAY",
-        "SZ_ID": "000159",
-        "PA_ID": "000038"
+        "SZ_ID": 159,
+        "PA_ID": 38,
+        "area": 1.9726,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -156011,8 +156488,11 @@
       "properties": {
         "SUBZONE_N": "PAYA LEBAR EAST",
         "PLN_AREA_N": "PAYA LEBAR",
-        "SZ_ID": "000160",
-        "PA_ID": "000054"
+        "SZ_ID": 160,
+        "PA_ID": 54,
+        "area": 2.2592,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -156452,8 +156932,11 @@
       "properties": {
         "SUBZONE_N": "HONG KAH NORTH",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000161",
-        "PA_ID": "000003"
+        "SZ_ID": 161,
+        "PA_ID": 3,
+        "area": 0.8592,
+        "population": 24520,
+        "population_density": 28538.18
       },
       "geometry": {
         "type": "Polygon",
@@ -156763,8 +157246,11 @@
       "properties": {
         "SUBZONE_N": "KOVAN",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000162",
-        "PA_ID": "000011"
+        "SZ_ID": 162,
+        "PA_ID": 11,
+        "area": 1.9486,
+        "population": 27410,
+        "population_density": 14066.51
       },
       "geometry": {
         "type": "Polygon",
@@ -157139,8 +157625,11 @@
       "properties": {
         "SUBZONE_N": "CHONG BOON",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000163",
-        "PA_ID": "000052"
+        "SZ_ID": 163,
+        "PA_ID": 52,
+        "area": 1.0786,
+        "population": 24350,
+        "population_density": 22575.56
       },
       "geometry": {
         "type": "Polygon",
@@ -157595,8 +158084,11 @@
       "properties": {
         "SUBZONE_N": "SERANGOON GARDEN",
         "PLN_AREA_N": "SERANGOON",
-        "SZ_ID": "000164",
-        "PA_ID": "000021"
+        "SZ_ID": 164,
+        "PA_ID": 21,
+        "area": 3.0231,
+        "population": 36880,
+        "population_density": 12199.4
       },
       "geometry": {
         "type": "Polygon",
@@ -158371,8 +158863,11 @@
       "properties": {
         "SUBZONE_N": "HOUGANG CENTRAL",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000165",
-        "PA_ID": "000011"
+        "SZ_ID": 165,
+        "PA_ID": 11,
+        "area": 0.4417,
+        "population": 4630,
+        "population_density": 10482.23
       },
       "geometry": {
         "type": "Polygon",
@@ -158567,8 +159062,11 @@
       "properties": {
         "SUBZONE_N": "LOYANG EAST",
         "PLN_AREA_N": "PASIR RIS",
-        "SZ_ID": "000166",
-        "PA_ID": "000014"
+        "SZ_ID": 166,
+        "PA_ID": 14,
+        "area": 0.9721,
+        "population": 2040,
+        "population_density": 2098.55
       },
       "geometry": {
         "type": "Polygon",
@@ -158888,8 +159386,11 @@
       "properties": {
         "SUBZONE_N": "DAIRY FARM",
         "PLN_AREA_N": "BUKIT PANJANG",
-        "SZ_ID": "000167",
-        "PA_ID": "000005"
+        "SZ_ID": 167,
+        "PA_ID": 5,
+        "area": 1.2359,
+        "population": 7820,
+        "population_density": 6327.37
       },
       "geometry": {
         "type": "Polygon",
@@ -159379,8 +159880,11 @@
       "properties": {
         "SUBZONE_N": "PASIR RIS DRIVE",
         "PLN_AREA_N": "PASIR RIS",
-        "SZ_ID": "000168",
-        "PA_ID": "000014"
+        "SZ_ID": 168,
+        "PA_ID": 14,
+        "area": 1.6398,
+        "population": 51020,
+        "population_density": 31113.55
       },
       "geometry": {
         "type": "Polygon",
@@ -159905,8 +160409,11 @@
       "properties": {
         "SUBZONE_N": "TAMPINES NORTH",
         "PLN_AREA_N": "TAMPINES",
-        "SZ_ID": "000169",
-        "PA_ID": "000047"
+        "SZ_ID": 169,
+        "PA_ID": 47,
+        "area": 2.5431,
+        "population": 35640,
+        "population_density": 14014.39
       },
       "geometry": {
         "type": "Polygon",
@@ -160461,8 +160968,11 @@
       "properties": {
         "SUBZONE_N": "CHENG SAN",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000170",
-        "PA_ID": "000052"
+        "SZ_ID": 170,
+        "PA_ID": 52,
+        "area": 0.9557,
+        "population": 26500,
+        "population_density": 27728.37
       },
       "geometry": {
         "type": "Polygon",
@@ -160897,8 +161407,11 @@
       "properties": {
         "SUBZONE_N": "SEMBAWANG HILLS",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000171",
-        "PA_ID": "000052"
+        "SZ_ID": 171,
+        "PA_ID": 52,
+        "area": 0.8945,
+        "population": 6820,
+        "population_density": 7624.37
       },
       "geometry": {
         "type": "Polygon",
@@ -161743,8 +162256,11 @@
       "properties": {
         "SUBZONE_N": "JELEBU",
         "PLN_AREA_N": "BUKIT PANJANG",
-        "SZ_ID": "000172",
-        "PA_ID": "000005"
+        "SZ_ID": 172,
+        "PA_ID": 5,
+        "area": 0.9112,
+        "population": 29570,
+        "population_density": 32451.71
       },
       "geometry": {
         "type": "Polygon",
@@ -162144,8 +162660,11 @@
       "properties": {
         "SUBZONE_N": "KEAT HONG",
         "PLN_AREA_N": "CHOA CHU KANG",
-        "SZ_ID": "000173",
-        "PA_ID": "000009"
+        "SZ_ID": 173,
+        "PA_ID": 9,
+        "area": 1.1438,
+        "population": 39000,
+        "population_density": 34096.87
       },
       "geometry": {
         "type": "Polygon",
@@ -162380,8 +162899,11 @@
       "properties": {
         "SUBZONE_N": "BENDEMEER",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000174",
-        "PA_ID": "000022"
+        "SZ_ID": 174,
+        "PA_ID": 22,
+        "area": 1.3768,
+        "population": 37370,
+        "population_density": 27142.65
       },
       "geometry": {
         "type": "Polygon",
@@ -163011,8 +163533,11 @@
       "properties": {
         "SUBZONE_N": "BALESTIER",
         "PLN_AREA_N": "NOVENA",
-        "SZ_ID": "000175",
-        "PA_ID": "000025"
+        "SZ_ID": 175,
+        "PA_ID": 25,
+        "area": 1.9266,
+        "population": 31760,
+        "population_density": 16485.0
       },
       "geometry": {
         "type": "Polygon",
@@ -163677,8 +164202,11 @@
       "properties": {
         "SUBZONE_N": "TUAS PROMENADE",
         "PLN_AREA_N": "TUAS",
-        "SZ_ID": "000176",
-        "PA_ID": "000030"
+        "SZ_ID": 176,
+        "PA_ID": 30,
+        "area": 4.1371,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -165568,8 +166096,11 @@
       "properties": {
         "SUBZONE_N": "SERANGOON CENTRAL",
         "PLN_AREA_N": "SERANGOON",
-        "SZ_ID": "000177",
-        "PA_ID": "000021"
+        "SZ_ID": 177,
+        "PA_ID": 21,
+        "area": 1.0619,
+        "population": 22250,
+        "population_density": 20953.01
       },
       "geometry": {
         "type": "Polygon",
@@ -165984,8 +166515,11 @@
       "properties": {
         "SUBZONE_N": "BISHAN EAST",
         "PLN_AREA_N": "BISHAN",
-        "SZ_ID": "000178",
-        "PA_ID": "000051"
+        "SZ_ID": 178,
+        "PA_ID": 51,
+        "area": 1.7945,
+        "population": 26900,
+        "population_density": 14990.25
       },
       "geometry": {
         "type": "Polygon",
@@ -166380,8 +166914,11 @@
       "properties": {
         "SUBZONE_N": "TAMPINES WEST",
         "PLN_AREA_N": "TAMPINES",
-        "SZ_ID": "000179",
-        "PA_ID": "000047"
+        "SZ_ID": 179,
+        "PA_ID": 47,
+        "area": 3.4752,
+        "population": 87010,
+        "population_density": 25037.41
       },
       "geometry": {
         "type": "Polygon",
@@ -166906,8 +167443,11 @@
       "properties": {
         "SUBZONE_N": "BRICKWORKS",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000180",
-        "PA_ID": "000003"
+        "SZ_ID": 180,
+        "PA_ID": 3,
+        "area": 1.2317,
+        "population": 30890,
+        "population_density": 25079.16
       },
       "geometry": {
         "type": "Polygon",
@@ -167397,8 +167937,11 @@
       "properties": {
         "SUBZONE_N": "SERANGOON NORTH",
         "PLN_AREA_N": "SERANGOON",
-        "SZ_ID": "000181",
-        "PA_ID": "000021"
+        "SZ_ID": 181,
+        "PA_ID": 21,
+        "area": 0.6847,
+        "population": 14990,
+        "population_density": 21892.8
       },
       "geometry": {
         "type": "Polygon",
@@ -167678,8 +168221,11 @@
       "properties": {
         "SUBZONE_N": "GUILIN",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000182",
-        "PA_ID": "000003"
+        "SZ_ID": 182,
+        "PA_ID": 3,
+        "area": 1.0851,
+        "population": 12590,
+        "population_density": 11602.62
       },
       "geometry": {
         "type": "Polygon",
@@ -168494,8 +169040,11 @@
       "properties": {
         "SUBZONE_N": "WENYA",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000183",
-        "PA_ID": "000013"
+        "SZ_ID": 183,
+        "PA_ID": 13,
+        "area": 1.9749,
+        "population": 7900,
+        "population_density": 4000.2
       },
       "geometry": {
         "type": "Polygon",
@@ -168735,8 +169284,11 @@
       "properties": {
         "SUBZONE_N": "NATURE RESERVE",
         "PLN_AREA_N": "BUKIT PANJANG",
-        "SZ_ID": "000184",
-        "PA_ID": "000005"
+        "SZ_ID": 184,
+        "PA_ID": 5,
+        "area": 4.1413,
+        "population": 3940,
+        "population_density": 951.39
       },
       "geometry": {
         "type": "Polygon",
@@ -169461,8 +170013,11 @@
       "properties": {
         "SUBZONE_N": "TAMPINES EAST",
         "PLN_AREA_N": "TAMPINES",
-        "SZ_ID": "000185",
-        "PA_ID": "000047"
+        "SZ_ID": 185,
+        "PA_ID": 47,
+        "area": 4.3437,
+        "population": 126370,
+        "population_density": 29092.71
       },
       "geometry": {
         "type": "Polygon",
@@ -170277,8 +170832,11 @@
       "properties": {
         "SUBZONE_N": "LORONG AH SOO",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000186",
-        "PA_ID": "000011"
+        "SZ_ID": 186,
+        "PA_ID": 11,
+        "area": 1.5155,
+        "population": 31220,
+        "population_density": 20600.46
       },
       "geometry": {
         "type": "Polygon",
@@ -170593,8 +171151,11 @@
       "properties": {
         "SUBZONE_N": "FLORA DRIVE",
         "PLN_AREA_N": "PASIR RIS",
-        "SZ_ID": "000187",
-        "PA_ID": "000014"
+        "SZ_ID": 187,
+        "PA_ID": 14,
+        "area": 0.945,
+        "population": 16100,
+        "population_density": 17037.04
       },
       "geometry": {
         "type": "Polygon",
@@ -170914,8 +171475,11 @@
       "properties": {
         "SUBZONE_N": "HILLVIEW",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000188",
-        "PA_ID": "000003"
+        "SZ_ID": 188,
+        "PA_ID": 3,
+        "area": 1.9936,
+        "population": 20480,
+        "population_density": 10272.87
       },
       "geometry": {
         "type": "Polygon",
@@ -171890,8 +172454,11 @@
       "properties": {
         "SUBZONE_N": "TOH TUCK",
         "PLN_AREA_N": "CLEMENTI",
-        "SZ_ID": "000189",
-        "PA_ID": "000010"
+        "SZ_ID": 189,
+        "PA_ID": 10,
+        "area": 2.078,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -172476,8 +173043,11 @@
       "properties": {
         "SUBZONE_N": "MOUNT PLEASANT",
         "PLN_AREA_N": "NOVENA",
-        "SZ_ID": "000190",
-        "PA_ID": "000025"
+        "SZ_ID": 190,
+        "PA_ID": 25,
+        "area": 3.1449,
+        "population": 710,
+        "population_density": 225.76
       },
       "geometry": {
         "type": "Polygon",
@@ -173177,8 +173747,11 @@
       "properties": {
         "SUBZONE_N": "HILLCREST",
         "PLN_AREA_N": "BUKIT TIMAH",
-        "SZ_ID": "000191",
-        "PA_ID": "000006"
+        "SZ_ID": 191,
+        "PA_ID": 6,
+        "area": 2.6365,
+        "population": 9600,
+        "population_density": 3641.19
       },
       "geometry": {
         "type": "Polygon",
@@ -174173,8 +174746,11 @@
       "properties": {
         "SUBZONE_N": "JOO SENG",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000192",
-        "PA_ID": "000029"
+        "SZ_ID": 192,
+        "PA_ID": 29,
+        "area": 1.0572,
+        "population": 7880,
+        "population_density": 7453.65
       },
       "geometry": {
         "type": "Polygon",
@@ -174594,8 +175170,11 @@
       "properties": {
         "SUBZONE_N": "CHIN BEE",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000193",
-        "PA_ID": "000013"
+        "SZ_ID": 193,
+        "PA_ID": 13,
+        "area": 1.2879,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -174895,8 +175474,11 @@
       "properties": {
         "SUBZONE_N": "LORONG 8 TOA PAYOH",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000194",
-        "PA_ID": "000029"
+        "SZ_ID": 194,
+        "PA_ID": 29,
+        "area": 0.4396,
+        "population": 6650,
+        "population_density": 15127.39
       },
       "geometry": {
         "type": "Polygon",
@@ -175261,8 +175843,11 @@
       "properties": {
         "SUBZONE_N": "TOH GUAN",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000195",
-        "PA_ID": "000012"
+        "SZ_ID": 195,
+        "PA_ID": 12,
+        "area": 0.7469,
+        "population": 13590,
+        "population_density": 18195.21
       },
       "geometry": {
         "type": "Polygon",
@@ -175532,8 +176117,11 @@
       "properties": {
         "SUBZONE_N": "SIMEI",
         "PLN_AREA_N": "TAMPINES",
-        "SZ_ID": "000196",
-        "PA_ID": "000047"
+        "SZ_ID": 196,
+        "PA_ID": 47,
+        "area": 2.7775,
+        "population": 37970,
+        "population_density": 13670.57
       },
       "geometry": {
         "type": "Polygon",
@@ -176093,8 +176681,11 @@
       "properties": {
         "SUBZONE_N": "BOON LAY PLACE",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000197",
-        "PA_ID": "000013"
+        "SZ_ID": 197,
+        "PA_ID": 13,
+        "area": 0.9063,
+        "population": 29770,
+        "population_density": 32847.84
       },
       "geometry": {
         "type": "Polygon",
@@ -176314,8 +176905,11 @@
       "properties": {
         "SUBZONE_N": "BUKIT BATOK EAST",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000198",
-        "PA_ID": "000003"
+        "SZ_ID": 198,
+        "PA_ID": 3,
+        "area": 0.3802,
+        "population": 11770,
+        "population_density": 30957.39
       },
       "geometry": {
         "type": "Polygon",
@@ -176540,8 +177134,11 @@
       "properties": {
         "SUBZONE_N": "BUKIT BATOK WEST",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000199",
-        "PA_ID": "000003"
+        "SZ_ID": 199,
+        "PA_ID": 3,
+        "area": 0.5275,
+        "population": 14190,
+        "population_density": 26900.47
       },
       "geometry": {
         "type": "Polygon",
@@ -176971,8 +177568,11 @@
       "properties": {
         "SUBZONE_N": "BUKIT BATOK CENTRAL",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000200",
-        "PA_ID": "000003"
+        "SZ_ID": 200,
+        "PA_ID": 3,
+        "area": 0.8003,
+        "population": 27120,
+        "population_density": 33887.29
       },
       "geometry": {
         "type": "Polygon",
@@ -177377,8 +177977,11 @@
       "properties": {
         "SUBZONE_N": "UPPER PAYA LEBAR",
         "PLN_AREA_N": "SERANGOON",
-        "SZ_ID": "000201",
-        "PA_ID": "000021"
+        "SZ_ID": 201,
+        "PA_ID": 21,
+        "area": 0.8986,
+        "population": 18270,
+        "population_density": 20331.63
       },
       "geometry": {
         "type": "Polygon",
@@ -178133,8 +178736,11 @@
       "properties": {
         "SUBZONE_N": "TAI SENG",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000202",
-        "PA_ID": "000011"
+        "SZ_ID": 202,
+        "PA_ID": 11,
+        "area": 1.7962,
+        "population": 13620,
+        "population_density": 7582.67
       },
       "geometry": {
         "type": "Polygon",
@@ -178924,8 +179530,11 @@
       "properties": {
         "SUBZONE_N": "TENGEH",
         "PLN_AREA_N": "TUAS",
-        "SZ_ID": "000203",
-        "PA_ID": "000030"
+        "SZ_ID": 203,
+        "PA_ID": 30,
+        "area": 2.2512,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -179595,8 +180204,11 @@
       "properties": {
         "SUBZONE_N": "YUHUA WEST",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000204",
-        "PA_ID": "000012"
+        "SZ_ID": 204,
+        "PA_ID": 12,
+        "area": 0.7761,
+        "population": 18140,
+        "population_density": 23373.28
       },
       "geometry": {
         "type": "Polygon",
@@ -180241,8 +180853,11 @@
       "properties": {
         "SUBZONE_N": "BRADDELL",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000205",
-        "PA_ID": "000029"
+        "SZ_ID": 205,
+        "PA_ID": 29,
+        "area": 0.4462,
+        "population": 9530,
+        "population_density": 21358.14
       },
       "geometry": {
         "type": "Polygon",
@@ -180567,8 +181182,11 @@
       "properties": {
         "SUBZONE_N": "BIDADARI",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000206",
-        "PA_ID": "000029"
+        "SZ_ID": 206,
+        "PA_ID": 29,
+        "area": 0.5725,
+        "population": 9220,
+        "population_density": 16104.8
       },
       "geometry": {
         "type": "Polygon",
@@ -180948,8 +181566,11 @@
       "properties": {
         "SUBZONE_N": "WOODLEIGH",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000207",
-        "PA_ID": "000029"
+        "SZ_ID": 207,
+        "PA_ID": 29,
+        "area": 0.8134,
+        "population": 3500,
+        "population_density": 4302.93
       },
       "geometry": {
         "type": "Polygon",
@@ -181364,8 +181985,11 @@
       "properties": {
         "SUBZONE_N": "TAMAN JURONG",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000208",
-        "PA_ID": "000013"
+        "SZ_ID": 208,
+        "PA_ID": 13,
+        "area": 1.4843,
+        "population": 38660,
+        "population_density": 26045.95
       },
       "geometry": {
         "type": "Polygon",
@@ -181855,8 +182479,11 @@
       "properties": {
         "SUBZONE_N": "LAKESIDE (LEISURE)",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000209",
-        "PA_ID": "000012"
+        "SZ_ID": 209,
+        "PA_ID": 12,
+        "area": 1.9771,
+        "population": 270,
+        "population_density": 136.56
       },
       "geometry": {
         "type": "Polygon",
@@ -183586,8 +184213,11 @@
       "properties": {
         "SUBZONE_N": "TOA PAYOH WEST",
         "PLN_AREA_N": "TOA PAYOH",
-        "SZ_ID": "000210",
-        "PA_ID": "000029"
+        "SZ_ID": 210,
+        "PA_ID": 29,
+        "area": 1.0373,
+        "population": 13980,
+        "population_density": 13477.3
       },
       "geometry": {
         "type": "Polygon",
@@ -184092,8 +184722,11 @@
       "properties": {
         "SUBZONE_N": "KAKI BUKIT",
         "PLN_AREA_N": "BEDOK",
-        "SZ_ID": "000211",
-        "PA_ID": "000001"
+        "SZ_ID": 211,
+        "PA_ID": 1,
+        "area": 2.8209,
+        "population": 34910,
+        "population_density": 12375.48
       },
       "geometry": {
         "type": "Polygon",
@@ -184948,8 +185581,11 @@
       "properties": {
         "SUBZONE_N": "YUHUA EAST",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000212",
-        "PA_ID": "000012"
+        "SZ_ID": 212,
+        "PA_ID": 12,
+        "area": 0.9248,
+        "population": 22880,
+        "population_density": 24740.48
       },
       "geometry": {
         "type": "Polygon",
@@ -185249,8 +185885,11 @@
       "properties": {
         "SUBZONE_N": "BUKIT BATOK SOUTH",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000213",
-        "PA_ID": "000003"
+        "SZ_ID": 213,
+        "PA_ID": 3,
+        "area": 1.8064,
+        "population": 14360,
+        "population_density": 7949.51
       },
       "geometry": {
         "type": "Polygon",
@@ -185865,8 +186504,11 @@
       "properties": {
         "SUBZONE_N": "JURONG WEST CENTRAL",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000214",
-        "PA_ID": "000013"
+        "SZ_ID": 214,
+        "PA_ID": 13,
+        "area": 1.4045,
+        "population": 60950,
+        "population_density": 43396.23
       },
       "geometry": {
         "type": "Polygon",
@@ -186206,8 +186848,11 @@
       "properties": {
         "SUBZONE_N": "BEDOK RESERVOIR",
         "PLN_AREA_N": "BEDOK",
-        "SZ_ID": "000215",
-        "PA_ID": "000001"
+        "SZ_ID": 215,
+        "PA_ID": 1,
+        "area": 2.3793,
+        "population": 24880,
+        "population_density": 10456.86
       },
       "geometry": {
         "type": "Polygon",
@@ -186682,8 +187327,11 @@
       "properties": {
         "SUBZONE_N": "LOWER SELETAR",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000216",
-        "PA_ID": "000055"
+        "SZ_ID": 216,
+        "PA_ID": 55,
+        "area": 8.4512,
+        "population": 19040,
+        "population_density": 2252.93
       },
       "geometry": {
         "type": "Polygon",
@@ -189885,8 +190533,11 @@
       "properties": {
         "SUBZONE_N": "NORTHSHORE",
         "PLN_AREA_N": "PUNGGOL",
-        "SZ_ID": "000217",
-        "PA_ID": "000016"
+        "SZ_ID": 217,
+        "PA_ID": 16,
+        "area": 1.3734,
+        "population": 24780,
+        "population_density": 18042.81
       },
       "geometry": {
         "type": "Polygon",
@@ -191746,8 +192397,11 @@
       "properties": {
         "SUBZONE_N": "MANDAI ESTATE",
         "PLN_AREA_N": "MANDAI",
-        "SZ_ID": "000218",
-        "PA_ID": "000050"
+        "SZ_ID": 218,
+        "PA_ID": 50,
+        "area": 0.1431,
+        "population": 2030,
+        "population_density": 14185.88
       },
       "geometry": {
         "type": "Polygon",
@@ -192102,8 +192756,11 @@
       "properties": {
         "SUBZONE_N": "YISHUN CENTRAL",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000219",
-        "PA_ID": "000055"
+        "SZ_ID": 219,
+        "PA_ID": 55,
+        "area": 0.4364,
+        "population": 2860,
+        "population_density": 6553.62
       },
       "geometry": {
         "type": "Polygon",
@@ -192443,8 +193100,11 @@
       "properties": {
         "SUBZONE_N": "PASIR RIS CENTRAL",
         "PLN_AREA_N": "PASIR RIS",
-        "SZ_ID": "000220",
-        "PA_ID": "000014"
+        "SZ_ID": 220,
+        "PA_ID": 14,
+        "area": 1.5115,
+        "population": 31680,
+        "population_density": 20959.31
       },
       "geometry": {
         "type": "Polygon",
@@ -193099,8 +193759,11 @@
       "properties": {
         "SUBZONE_N": "GOMBAK",
         "PLN_AREA_N": "BUKIT BATOK",
-        "SZ_ID": "000221",
-        "PA_ID": "000003"
+        "SZ_ID": 221,
+        "PA_ID": 3,
+        "area": 2.4562,
+        "population": 9730,
+        "population_density": 3961.4
       },
       "geometry": {
         "type": "Polygon",
@@ -193880,8 +194543,11 @@
       "properties": {
         "SUBZONE_N": "PAYA LEBAR NORTH",
         "PLN_AREA_N": "PAYA LEBAR",
-        "SZ_ID": "000222",
-        "PA_ID": "000054"
+        "SZ_ID": 222,
+        "PA_ID": 54,
+        "area": 1.2872,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -194301,8 +194967,11 @@
       "properties": {
         "SUBZONE_N": "HOUGANG EAST",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000223",
-        "PA_ID": "000011"
+        "SZ_ID": 223,
+        "PA_ID": 11,
+        "area": 0.8427,
+        "population": 23490,
+        "population_density": 27874.69
       },
       "geometry": {
         "type": "Polygon",
@@ -194482,8 +195151,11 @@
       "properties": {
         "SUBZONE_N": "LORONG HALUS",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000224",
-        "PA_ID": "000011"
+        "SZ_ID": 224,
+        "PA_ID": 11,
+        "area": 1.3335,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -194808,8 +195480,11 @@
       "properties": {
         "SUBZONE_N": "KANGKAR",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000225",
-        "PA_ID": "000011"
+        "SZ_ID": 225,
+        "PA_ID": 11,
+        "area": 1.0074,
+        "population": 34980,
+        "population_density": 34723.05
       },
       "geometry": {
         "type": "Polygon",
@@ -195079,8 +195754,11 @@
       "properties": {
         "SUBZONE_N": "CHANGI WEST",
         "PLN_AREA_N": "CHANGI",
-        "SZ_ID": "000226",
-        "PA_ID": "000008"
+        "SZ_ID": 226,
+        "PA_ID": 8,
+        "area": 4.8039,
+        "population": 270,
+        "population_density": 56.2
       },
       "geometry": {
         "type": "Polygon",
@@ -196275,8 +196953,11 @@
       "properties": {
         "SUBZONE_N": "HOLLAND DRIVE",
         "PLN_AREA_N": "QUEENSTOWN",
-        "SZ_ID": "000227",
-        "PA_ID": "000017"
+        "SZ_ID": 227,
+        "PA_ID": 17,
+        "area": 0.4707,
+        "population": 11990,
+        "population_density": 25472.7
       },
       "geometry": {
         "type": "Polygon",
@@ -197521,8 +198202,11 @@
       "properties": {
         "SUBZONE_N": "HOUGANG WEST",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000228",
-        "PA_ID": "000011"
+        "SZ_ID": 228,
+        "PA_ID": 11,
+        "area": 1.3289,
+        "population": 42450,
+        "population_density": 31943.71
       },
       "geometry": {
         "type": "Polygon",
@@ -198017,8 +198701,11 @@
       "properties": {
         "SUBZONE_N": "PAYA LEBAR WEST",
         "PLN_AREA_N": "PAYA LEBAR",
-        "SZ_ID": "000229",
-        "PA_ID": "000054"
+        "SZ_ID": 229,
+        "PA_ID": 54,
+        "area": 0.6017,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -198608,8 +199295,11 @@
       "properties": {
         "SUBZONE_N": "BANGKIT",
         "PLN_AREA_N": "BUKIT PANJANG",
-        "SZ_ID": "000230",
-        "PA_ID": "000005"
+        "SZ_ID": 230,
+        "PA_ID": 5,
+        "area": 0.7632,
+        "population": 20820,
+        "population_density": 27279.87
       },
       "geometry": {
         "type": "Polygon",
@@ -198959,8 +199649,11 @@
       "properties": {
         "SUBZONE_N": "LORONG HALUS NORTH",
         "PLN_AREA_N": "SENGKANG",
-        "SZ_ID": "000231",
-        "PA_ID": "000020"
+        "SZ_ID": 231,
+        "PA_ID": 20,
+        "area": 0.9249,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -199320,8 +200013,11 @@
       "properties": {
         "SUBZONE_N": "PENG SIANG",
         "PLN_AREA_N": "CHOA CHU KANG",
-        "SZ_ID": "000232",
-        "PA_ID": "000009"
+        "SZ_ID": 232,
+        "PA_ID": 9,
+        "area": 0.8627,
+        "population": 33040,
+        "population_density": 38298.37
       },
       "geometry": {
         "type": "Polygon",
@@ -199616,8 +200312,11 @@
       "properties": {
         "SUBZONE_N": "PASIR RIS WEST",
         "PLN_AREA_N": "PASIR RIS",
-        "SZ_ID": "000233",
-        "PA_ID": "000014"
+        "SZ_ID": 233,
+        "PA_ID": 14,
+        "area": 1.5834,
+        "population": 34870,
+        "population_density": 22022.23
       },
       "geometry": {
         "type": "Polygon",
@@ -200162,8 +200861,11 @@
       "properties": {
         "SUBZONE_N": "YIO CHU KANG WEST",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000234",
-        "PA_ID": "000052"
+        "SZ_ID": 234,
+        "PA_ID": 52,
+        "area": 0.8461,
+        "population": 24130,
+        "population_density": 28519.09
       },
       "geometry": {
         "type": "Polygon",
@@ -200398,8 +201100,11 @@
       "properties": {
         "SUBZONE_N": "CHANGI POINT",
         "PLN_AREA_N": "CHANGI",
-        "SZ_ID": "000235",
-        "PA_ID": "000008"
+        "SZ_ID": 235,
+        "PA_ID": 8,
+        "area": 0.9979,
+        "population": 360,
+        "population_density": 360.76
       },
       "geometry": {
         "type": "Polygon",
@@ -201699,8 +202404,11 @@
       "properties": {
         "SUBZONE_N": "SENGKANG TOWN CENTRE",
         "PLN_AREA_N": "SENGKANG",
-        "SZ_ID": "000236",
-        "PA_ID": "000020"
+        "SZ_ID": 236,
+        "PA_ID": 20,
+        "area": 1.4605,
+        "population": 59520,
+        "population_density": 40753.17
       },
       "geometry": {
         "type": "Polygon",
@@ -202015,8 +202723,11 @@
       "properties": {
         "SUBZONE_N": "ANCHORVALE",
         "PLN_AREA_N": "SENGKANG",
-        "SZ_ID": "000237",
-        "PA_ID": "000020"
+        "SZ_ID": 237,
+        "PA_ID": 20,
+        "area": 1.4967,
+        "population": 52440,
+        "population_density": 35037.08
       },
       "geometry": {
         "type": "Polygon",
@@ -202271,8 +202982,11 @@
       "properties": {
         "SUBZONE_N": "SENGKANG WEST",
         "PLN_AREA_N": "SENGKANG",
-        "SZ_ID": "000238",
-        "PA_ID": "000020"
+        "SZ_ID": 238,
+        "PA_ID": 20,
+        "area": 1.6671,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -203057,8 +203771,11 @@
       "properties": {
         "SUBZONE_N": "FERNVALE",
         "PLN_AREA_N": "SENGKANG",
-        "SZ_ID": "000239",
-        "PA_ID": "000020"
+        "SZ_ID": 239,
+        "PA_ID": 20,
+        "area": 2.3916,
+        "population": 70800,
+        "population_density": 29603.61
       },
       "geometry": {
         "type": "Polygon",
@@ -203483,8 +204200,11 @@
       "properties": {
         "SUBZONE_N": "PUNGGOL FIELD",
         "PLN_AREA_N": "PUNGGOL",
-        "SZ_ID": "000240",
-        "PA_ID": "000016"
+        "SZ_ID": 240,
+        "PA_ID": 16,
+        "area": 1.3787,
+        "population": 47960,
+        "population_density": 34786.39
       },
       "geometry": {
         "type": "Polygon",
@@ -203764,8 +204484,11 @@
       "properties": {
         "SUBZONE_N": "YEW TEE",
         "PLN_AREA_N": "CHOA CHU KANG",
-        "SZ_ID": "000241",
-        "PA_ID": "000009"
+        "SZ_ID": 241,
+        "PA_ID": 9,
+        "area": 0.9232,
+        "population": 39130,
+        "population_density": 42385.18
       },
       "geometry": {
         "type": "Polygon",
@@ -204285,8 +205008,11 @@
       "properties": {
         "SUBZONE_N": "PASIR RIS WAFER FAB PARK",
         "PLN_AREA_N": "PASIR RIS",
-        "SZ_ID": "000242",
-        "PA_ID": "000014"
+        "SZ_ID": 242,
+        "PA_ID": 14,
+        "area": 5.3254,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -205536,8 +206262,11 @@
       "properties": {
         "SUBZONE_N": "TRAFALGAR",
         "PLN_AREA_N": "HOUGANG",
-        "SZ_ID": "000243",
-        "PA_ID": "000011"
+        "SZ_ID": 243,
+        "PA_ID": 11,
+        "area": 1.7444,
+        "population": 46210,
+        "population_density": 26490.48
       },
       "geometry": {
         "type": "Polygon",
@@ -206167,8 +206896,11 @@
       "properties": {
         "SUBZONE_N": "TECK WHYE",
         "PLN_AREA_N": "CHOA CHU KANG",
-        "SZ_ID": "000244",
-        "PA_ID": "000009"
+        "SZ_ID": 244,
+        "PA_ID": 9,
+        "area": 1.0032,
+        "population": 24190,
+        "population_density": 24112.84
       },
       "geometry": {
         "type": "Polygon",
@@ -206568,8 +207300,11 @@
       "properties": {
         "SUBZONE_N": "CHOA CHU KANG CENTRAL",
         "PLN_AREA_N": "CHOA CHU KANG",
-        "SZ_ID": "000245",
-        "PA_ID": "000009"
+        "SZ_ID": 245,
+        "PA_ID": 9,
+        "area": 1.0957,
+        "population": 21740,
+        "population_density": 19841.2
       },
       "geometry": {
         "type": "Polygon",
@@ -206929,8 +207664,11 @@
       "properties": {
         "SUBZONE_N": "FAJAR",
         "PLN_AREA_N": "BUKIT PANJANG",
-        "SZ_ID": "000246",
-        "PA_ID": "000005"
+        "SZ_ID": 246,
+        "PA_ID": 5,
+        "area": 0.6685,
+        "population": 25990,
+        "population_density": 38878.09
       },
       "geometry": {
         "type": "Polygon",
@@ -207215,8 +207953,11 @@
       "properties": {
         "SUBZONE_N": "SENJA",
         "PLN_AREA_N": "BUKIT PANJANG",
-        "SZ_ID": "000247",
-        "PA_ID": "000005"
+        "SZ_ID": 247,
+        "PA_ID": 5,
+        "area": 0.6249,
+        "population": 23300,
+        "population_density": 37285.97
       },
       "geometry": {
         "type": "Polygon",
@@ -207581,8 +208322,11 @@
       "properties": {
         "SUBZONE_N": "SAUJANA",
         "PLN_AREA_N": "BUKIT PANJANG",
-        "SZ_ID": "000248",
-        "PA_ID": "000005"
+        "SZ_ID": 248,
+        "PA_ID": 5,
+        "area": 0.675,
+        "population": 24720,
+        "population_density": 36622.22
       },
       "geometry": {
         "type": "Polygon",
@@ -208027,8 +208771,11 @@
       "properties": {
         "SUBZONE_N": "SELETAR HILLS",
         "PLN_AREA_N": "SERANGOON",
-        "SZ_ID": "000249",
-        "PA_ID": "000021"
+        "SZ_ID": 249,
+        "PA_ID": 21,
+        "area": 2.3307,
+        "population": 15230,
+        "population_density": 6534.52
       },
       "geometry": {
         "type": "Polygon",
@@ -208663,8 +209410,11 @@
       "properties": {
         "SUBZONE_N": "COMPASSVALE",
         "PLN_AREA_N": "SENGKANG",
-        "SZ_ID": "000250",
-        "PA_ID": "000020"
+        "SZ_ID": 250,
+        "PA_ID": 20,
+        "area": 1.0932,
+        "population": 21830,
+        "population_density": 19968.9
       },
       "geometry": {
         "type": "Polygon",
@@ -209024,8 +209774,11 @@
       "properties": {
         "SUBZONE_N": "YIO CHU KANG EAST",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000251",
-        "PA_ID": "000052"
+        "SZ_ID": 251,
+        "PA_ID": 52,
+        "area": 1.8619,
+        "population": 4150,
+        "population_density": 2228.91
       },
       "geometry": {
         "type": "Polygon",
@@ -209460,8 +210213,11 @@
       "properties": {
         "SUBZONE_N": "YIO CHU KANG",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000252",
-        "PA_ID": "000052"
+        "SZ_ID": 252,
+        "PA_ID": 52,
+        "area": 0.9094,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -209706,8 +210462,11 @@
       "properties": {
         "SUBZONE_N": "LOYANG WEST",
         "PLN_AREA_N": "PASIR RIS",
-        "SZ_ID": "000253",
-        "PA_ID": "000014"
+        "SZ_ID": 253,
+        "PA_ID": 14,
+        "area": 2.1062,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -210237,8 +210996,11 @@
       "properties": {
         "SUBZONE_N": "TAGORE",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000254",
-        "PA_ID": "000052"
+        "SZ_ID": 254,
+        "PA_ID": 52,
+        "area": 3.3342,
+        "population": 7680,
+        "population_density": 2303.4
       },
       "geometry": {
         "type": "Polygon",
@@ -211278,8 +212040,11 @@
       "properties": {
         "SUBZONE_N": "PASIR RIS PARK",
         "PLN_AREA_N": "PASIR RIS",
-        "SZ_ID": "000255",
-        "PA_ID": "000014"
+        "SZ_ID": 255,
+        "PA_ID": 14,
+        "area": 1.7197,
+        "population": 7890,
+        "population_density": 4588.01
       },
       "geometry": {
         "type": "Polygon",
@@ -212724,8 +213489,11 @@
       "properties": {
         "SUBZONE_N": "CHOA CHU KANG NORTH",
         "PLN_AREA_N": "CHOA CHU KANG",
-        "SZ_ID": "000256",
-        "PA_ID": "000009"
+        "SZ_ID": 256,
+        "PA_ID": 9,
+        "area": 1.0886,
+        "population": 30260,
+        "population_density": 27797.17
       },
       "geometry": {
         "type": "Polygon",
@@ -213180,8 +213948,11 @@
       "properties": {
         "SUBZONE_N": "RIVERVALE",
         "PLN_AREA_N": "SENGKANG",
-        "SZ_ID": "000257",
-        "PA_ID": "000020"
+        "SZ_ID": 257,
+        "PA_ID": 20,
+        "area": 1.569,
+        "population": 62620,
+        "population_density": 39910.77
       },
       "geometry": {
         "type": "Polygon",
@@ -213606,8 +214377,11 @@
       "properties": {
         "SUBZONE_N": "YIO CHU KANG NORTH",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000258",
-        "PA_ID": "000052"
+        "SZ_ID": 258,
+        "PA_ID": 52,
+        "area": 1.4645,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -214042,8 +214816,11 @@
       "properties": {
         "SUBZONE_N": "YUNNAN",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000259",
-        "PA_ID": "000013"
+        "SZ_ID": 259,
+        "PA_ID": 13,
+        "area": 2.2063,
+        "population": 65000,
+        "population_density": 29461.09
       },
       "geometry": {
         "type": "Polygon",
@@ -214588,8 +215365,11 @@
       "properties": {
         "SUBZONE_N": "LORONG CHUAN",
         "PLN_AREA_N": "SERANGOON",
-        "SZ_ID": "000260",
-        "PA_ID": "000021"
+        "SZ_ID": 260,
+        "PA_ID": 21,
+        "area": 1.1801,
+        "population": 8440,
+        "population_density": 7151.94
       },
       "geometry": {
         "type": "Polygon",
@@ -215144,8 +215924,11 @@
       "properties": {
         "SUBZONE_N": "HONG KAH",
         "PLN_AREA_N": "JURONG WEST",
-        "SZ_ID": "000261",
-        "PA_ID": "000013"
+        "SZ_ID": 261,
+        "PA_ID": 13,
+        "area": 1.7935,
+        "population": 50990,
+        "population_density": 28430.44
       },
       "geometry": {
         "type": "Polygon",
@@ -216035,8 +216818,11 @@
       "properties": {
         "SUBZONE_N": "SELETAR",
         "PLN_AREA_N": "SELETAR",
-        "SZ_ID": "000262",
-        "PA_ID": "000018"
+        "SZ_ID": 262,
+        "PA_ID": 18,
+        "area": 3.9161,
+        "population": 250,
+        "population_density": 63.84
       },
       "geometry": {
         "type": "Polygon",
@@ -216616,8 +217402,11 @@
       "properties": {
         "SUBZONE_N": "PANG SUA",
         "PLN_AREA_N": "SUNGEI KADUT",
-        "SZ_ID": "000263",
-        "PA_ID": "000028"
+        "SZ_ID": 263,
+        "PA_ID": 28,
+        "area": 2.1754,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -217377,8 +218166,11 @@
       "properties": {
         "SUBZONE_N": "SELETAR AEROSPACE PARK",
         "PLN_AREA_N": "SELETAR",
-        "SZ_ID": "000264",
-        "PA_ID": "000018"
+        "SZ_ID": 264,
+        "PA_ID": 18,
+        "area": 3.623,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -218103,8 +218895,11 @@
       "properties": {
         "SUBZONE_N": "KHATIB",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000265",
-        "PA_ID": "000055"
+        "SZ_ID": 265,
+        "PA_ID": 55,
+        "area": 1.4329,
+        "population": 9700,
+        "population_density": 6769.49
       },
       "geometry": {
         "type": "Polygon",
@@ -218524,8 +219319,11 @@
       "properties": {
         "SUBZONE_N": "MANDAI WEST",
         "PLN_AREA_N": "MANDAI",
-        "SZ_ID": "000266",
-        "PA_ID": "000050"
+        "SZ_ID": 266,
+        "PA_ID": 50,
+        "area": 4.3884,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -219115,8 +219913,11 @@
       "properties": {
         "SUBZONE_N": "CONEY ISLAND",
         "PLN_AREA_N": "PUNGGOL",
-        "SZ_ID": "000267",
-        "PA_ID": "000016"
+        "SZ_ID": 267,
+        "PA_ID": 16,
+        "area": 1.2004,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -219946,8 +220747,11 @@
       "properties": {
         "SUBZONE_N": "YISHUN SOUTH",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000268",
-        "PA_ID": "000055"
+        "SZ_ID": 268,
+        "PA_ID": 55,
+        "area": 1.3402,
+        "population": 40960,
+        "population_density": 30562.6
       },
       "geometry": {
         "type": "Polygon",
@@ -220607,8 +221411,11 @@
       "properties": {
         "SUBZONE_N": "RESERVOIR VIEW",
         "PLN_AREA_N": "SUNGEI KADUT",
-        "SZ_ID": "000269",
-        "PA_ID": "000028"
+        "SZ_ID": 269,
+        "PA_ID": 28,
+        "area": 3.2841,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -221943,8 +222750,11 @@
       "properties": {
         "SUBZONE_N": "WOODLANDS EAST",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000270",
-        "PA_ID": "000033"
+        "SZ_ID": 270,
+        "PA_ID": 33,
+        "area": 2.5535,
+        "population": 98380,
+        "population_density": 38527.51
       },
       "geometry": {
         "type": "Polygon",
@@ -222554,8 +223364,11 @@
       "properties": {
         "SUBZONE_N": "SEMBAWANG CENTRAL",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000271",
-        "PA_ID": "000019"
+        "SZ_ID": 271,
+        "PA_ID": 19,
+        "area": 0.9614,
+        "population": 34770,
+        "population_density": 36166.01
       },
       "geometry": {
         "type": "Polygon",
@@ -222820,8 +223633,11 @@
       "properties": {
         "SUBZONE_N": "GREENWOOD PARK",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000272",
-        "PA_ID": "000033"
+        "SZ_ID": 272,
+        "PA_ID": 33,
+        "area": 1.2813,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -223401,8 +224217,11 @@
       "properties": {
         "SUBZONE_N": "SEMBAWANG EAST",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000273",
-        "PA_ID": "000019"
+        "SZ_ID": 273,
+        "PA_ID": 19,
+        "area": 0.7581,
+        "population": 24750,
+        "population_density": 32647.41
       },
       "geometry": {
         "type": "Polygon",
@@ -223552,8 +224371,11 @@
       "properties": {
         "SUBZONE_N": "SENOKO WEST",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000274",
-        "PA_ID": "000033"
+        "SZ_ID": 274,
+        "PA_ID": 33,
+        "area": 0.9059,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -223953,8 +224775,11 @@
       "properties": {
         "SUBZONE_N": "MATILDA",
         "PLN_AREA_N": "PUNGGOL",
-        "SZ_ID": "000275",
-        "PA_ID": "000016"
+        "SZ_ID": 275,
+        "PA_ID": 16,
+        "area": 1.418,
+        "population": 52400,
+        "population_density": 36953.46
       },
       "geometry": {
         "type": "Polygon",
@@ -224474,8 +225299,11 @@
       "properties": {
         "SUBZONE_N": "WATERWAY EAST",
         "PLN_AREA_N": "PUNGGOL",
-        "SZ_ID": "000276",
-        "PA_ID": "000016"
+        "SZ_ID": 276,
+        "PA_ID": 16,
+        "area": 1.4892,
+        "population": 53900,
+        "population_density": 36193.93
       },
       "geometry": {
         "type": "Polygon",
@@ -224745,8 +225573,11 @@
       "properties": {
         "SUBZONE_N": "GALI BATU",
         "PLN_AREA_N": "SUNGEI KADUT",
-        "SZ_ID": "000277",
-        "PA_ID": "000028"
+        "SZ_ID": 277,
+        "PA_ID": 28,
+        "area": 5.1861,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -225351,8 +226182,11 @@
       "properties": {
         "SUBZONE_N": "CRAWFORD",
         "PLN_AREA_N": "KALLANG",
-        "SZ_ID": "000278",
-        "PA_ID": "000022"
+        "SZ_ID": 278,
+        "PA_ID": 22,
+        "area": 0.236,
+        "population": 7570,
+        "population_density": 32076.27
       },
       "geometry": {
         "type": "Polygon",
@@ -225727,8 +226561,11 @@
       "properties": {
         "SUBZONE_N": "TUAS BAY",
         "PLN_AREA_N": "TUAS",
-        "SZ_ID": "000279",
-        "PA_ID": "000030"
+        "SZ_ID": 279,
+        "PA_ID": 30,
+        "area": 5.8642,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -227073,8 +227910,11 @@
       "properties": {
         "SUBZONE_N": "TUAS VIEW",
         "PLN_AREA_N": "TUAS",
-        "SZ_ID": "000280",
-        "PA_ID": "000030"
+        "SZ_ID": 280,
+        "PA_ID": 30,
+        "area": 4.472,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -227609,8 +228449,11 @@
       "properties": {
         "SUBZONE_N": "BAHAR",
         "PLN_AREA_N": "WESTERN WATER CATCHMENT",
-        "SZ_ID": "000281",
-        "PA_ID": "000032"
+        "SZ_ID": 281,
+        "PA_ID": 32,
+        "area": 0.5001,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -228005,8 +228848,11 @@
       "properties": {
         "SUBZONE_N": "CLEANTECH",
         "PLN_AREA_N": "WESTERN WATER CATCHMENT",
-        "SZ_ID": "000282",
-        "PA_ID": "000032"
+        "SZ_ID": 282,
+        "PA_ID": 32,
+        "area": 0.6976,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -228456,8 +229302,11 @@
       "properties": {
         "SUBZONE_N": "LAKESIDE (BUSINESS)",
         "PLN_AREA_N": "JURONG EAST",
-        "SZ_ID": "000283",
-        "PA_ID": "000012"
+        "SZ_ID": 283,
+        "PA_ID": 12,
+        "area": 1.1309,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -230007,8 +230856,11 @@
       "properties": {
         "SUBZONE_N": "PARK",
         "PLN_AREA_N": "TENGAH",
-        "SZ_ID": "000284",
-        "PA_ID": "000049"
+        "SZ_ID": 284,
+        "PA_ID": 49,
+        "area": 1.4592,
+        "population": 4000,
+        "population_density": 2741.23
       },
       "geometry": {
         "type": "Polygon",
@@ -230458,8 +231310,11 @@
       "properties": {
         "SUBZONE_N": "BRICKLAND",
         "PLN_AREA_N": "TENGAH",
-        "SZ_ID": "000285",
-        "PA_ID": "000049"
+        "SZ_ID": 285,
+        "PA_ID": 49,
+        "area": 0.7847,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -230689,8 +231544,11 @@
       "properties": {
         "SUBZONE_N": "FOREST HILL",
         "PLN_AREA_N": "TENGAH",
-        "SZ_ID": "000286",
-        "PA_ID": "000049"
+        "SZ_ID": 286,
+        "PA_ID": 49,
+        "area": 1.0464,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -231050,8 +231908,11 @@
       "properties": {
         "SUBZONE_N": "PLANTATION",
         "PLN_AREA_N": "TENGAH",
-        "SZ_ID": "000287",
-        "PA_ID": "000049"
+        "SZ_ID": 287,
+        "PA_ID": 49,
+        "area": 0.8991,
+        "population": 12180,
+        "population_density": 13546.88
       },
       "geometry": {
         "type": "Polygon",
@@ -231366,8 +232227,11 @@
       "properties": {
         "SUBZONE_N": "GARDEN",
         "PLN_AREA_N": "TENGAH",
-        "SZ_ID": "000288",
-        "PA_ID": "000049"
+        "SZ_ID": 288,
+        "PA_ID": 49,
+        "area": 0.7808,
+        "population": 6800,
+        "population_density": 8709.02
       },
       "geometry": {
         "type": "Polygon",
@@ -231527,8 +232391,11 @@
       "properties": {
         "SUBZONE_N": "AIRPORT ROAD",
         "PLN_AREA_N": "PAYA LEBAR",
-        "SZ_ID": "000289",
-        "PA_ID": "000054"
+        "SZ_ID": 289,
+        "PA_ID": 54,
+        "area": 0.4829,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -233163,8 +234030,11 @@
       "properties": {
         "SUBZONE_N": "NORTH COAST",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000290",
-        "PA_ID": "000033"
+        "SZ_ID": 290,
+        "PA_ID": 33,
+        "area": 2.4509,
+        "population": 11200,
+        "population_density": 4569.75
       },
       "geometry": {
         "type": "Polygon",
@@ -235859,8 +236729,11 @@
       "properties": {
         "SUBZONE_N": "SPRINGLEAF",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000291",
-        "PA_ID": "000055"
+        "SZ_ID": 291,
+        "PA_ID": 55,
+        "area": 2.2092,
+        "population": 4170,
+        "population_density": 1887.56
       },
       "geometry": {
         "type": "Polygon",
@@ -236265,8 +237138,11 @@
       "properties": {
         "SUBZONE_N": "PUNGGOL TOWN CENTRE",
         "PLN_AREA_N": "PUNGGOL",
-        "SZ_ID": "000292",
-        "PA_ID": "000016"
+        "SZ_ID": 292,
+        "PA_ID": 16,
+        "area": 1.262,
+        "population": 25060,
+        "population_density": 19857.37
       },
       "geometry": {
         "type": "Polygon",
@@ -236681,8 +237557,11 @@
       "properties": {
         "SUBZONE_N": "PUNGGOL CANAL",
         "PLN_AREA_N": "PUNGGOL",
-        "SZ_ID": "000293",
-        "PA_ID": "000016"
+        "SZ_ID": 293,
+        "PA_ID": 16,
+        "area": 1.2524,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -236902,8 +237781,11 @@
       "properties": {
         "SUBZONE_N": "CENTRAL WATER CATCHMENT",
         "PLN_AREA_N": "CENTRAL WATER CATCHMENT",
-        "SZ_ID": "000294",
-        "PA_ID": "000007"
+        "SZ_ID": 294,
+        "PA_ID": 7,
+        "area": 37.1587,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -240818,8 +241700,11 @@
       "properties": {
         "SUBZONE_N": "SEMBAWANG STRAITS",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000295",
-        "PA_ID": "000019"
+        "SZ_ID": 295,
+        "PA_ID": 19,
+        "area": 1.5407,
+        "population": 2290,
+        "population_density": 1486.34
       },
       "geometry": {
         "type": "Polygon",
@@ -241464,8 +242349,11 @@
       "properties": {
         "SUBZONE_N": "THE WHARVES",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000296",
-        "PA_ID": "000019"
+        "SZ_ID": 296,
+        "PA_ID": 19,
+        "area": 1.6358,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -243375,8 +244263,11 @@
       "properties": {
         "SUBZONE_N": "SENOKO NORTH",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000297",
-        "PA_ID": "000019"
+        "SZ_ID": 297,
+        "PA_ID": 19,
+        "area": 2.2412,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -245201,8 +246092,11 @@
       "properties": {
         "SUBZONE_N": "CHANGI AIRPORT",
         "PLN_AREA_N": "CHANGI",
-        "SZ_ID": "000298",
-        "PA_ID": "000008"
+        "SZ_ID": 298,
+        "PA_ID": 8,
+        "area": 35.6689,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -248557,8 +249451,11 @@
       "properties": {
         "SUBZONE_N": "PEOPLE'S PARK",
         "PLN_AREA_N": "OUTRAM",
-        "SZ_ID": "000299",
-        "PA_ID": "000046"
+        "SZ_ID": 299,
+        "PA_ID": 46,
+        "area": 0.0914,
+        "population": 180,
+        "population_density": 1969.37
       },
       "geometry": {
         "type": "Polygon",
@@ -249063,8 +249960,11 @@
       "properties": {
         "SUBZONE_N": "MOUNTBATTEN",
         "PLN_AREA_N": "MARINE PARADE",
-        "SZ_ID": "000300",
-        "PA_ID": "000039"
+        "SZ_ID": 300,
+        "PA_ID": 39,
+        "area": 1.7119,
+        "population": 10480,
+        "population_density": 6121.85
       },
       "geometry": {
         "type": "Polygon",
@@ -249724,8 +250624,11 @@
       "properties": {
         "SUBZONE_N": "ALJUNIED",
         "PLN_AREA_N": "GEYLANG",
-        "SZ_ID": "000301",
-        "PA_ID": "000053"
+        "SZ_ID": 301,
+        "PA_ID": 53,
+        "area": 2.9615,
+        "population": 42540,
+        "population_density": 14364.34
       },
       "geometry": {
         "type": "Polygon",
@@ -250560,8 +251463,11 @@
       "properties": {
         "SUBZONE_N": "PULAU PUNGGOL TIMOR",
         "PLN_AREA_N": "SELETAR",
-        "SZ_ID": "000302",
-        "PA_ID": "000018"
+        "SZ_ID": 302,
+        "PA_ID": 18,
+        "area": 1.2597,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -251257,8 +252163,11 @@
       "properties": {
         "SUBZONE_N": "TURF CLUB",
         "PLN_AREA_N": "SUNGEI KADUT",
-        "SZ_ID": "000303",
-        "PA_ID": "000028"
+        "SZ_ID": 303,
+        "PA_ID": 28,
+        "area": 3.2914,
+        "population": 640,
+        "population_density": 194.45
       },
       "geometry": {
         "type": "Polygon",
@@ -251838,8 +252747,11 @@
       "properties": {
         "SUBZONE_N": "WOODLANDS SOUTH",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000304",
-        "PA_ID": "000033"
+        "SZ_ID": 304,
+        "PA_ID": 33,
+        "area": 1.576,
+        "population": 41640,
+        "population_density": 26421.32
       },
       "geometry": {
         "type": "Polygon",
@@ -252369,8 +253281,11 @@
       "properties": {
         "SUBZONE_N": "WOODGROVE",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000305",
-        "PA_ID": "000033"
+        "SZ_ID": 305,
+        "PA_ID": 33,
+        "area": 1.6642,
+        "population": 32060,
+        "population_density": 19264.51
       },
       "geometry": {
         "type": "Polygon",
@@ -253010,8 +253925,11 @@
       "properties": {
         "SUBZONE_N": "YISHUN EAST",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000306",
-        "PA_ID": "000055"
+        "SZ_ID": 306,
+        "PA_ID": 55,
+        "area": 1.7692,
+        "population": 73550,
+        "population_density": 41572.46
       },
       "geometry": {
         "type": "Polygon",
@@ -253501,8 +254419,11 @@
       "properties": {
         "SUBZONE_N": "MURAI",
         "PLN_AREA_N": "WESTERN WATER CATCHMENT",
-        "SZ_ID": "000307",
-        "PA_ID": "000032"
+        "SZ_ID": 307,
+        "PA_ID": 32,
+        "area": 68.5501,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -263597,8 +264518,11 @@
       "properties": {
         "SUBZONE_N": "PULAU PUNGGOL BARAT",
         "PLN_AREA_N": "SELETAR",
-        "SZ_ID": "000308",
-        "PA_ID": "000018"
+        "SZ_ID": 308,
+        "PA_ID": 18,
+        "area": 2.05,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -264133,8 +265057,11 @@
       "properties": {
         "SUBZONE_N": "PULAU SELETAR",
         "PLN_AREA_N": "SIMPANG",
-        "SZ_ID": "000309",
-        "PA_ID": "000026"
+        "SZ_ID": 309,
+        "PA_ID": 26,
+        "area": 1.6113,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -265579,8 +266506,11 @@
       "properties": {
         "SUBZONE_N": "ADMIRALTY",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000310",
-        "PA_ID": "000019"
+        "SZ_ID": 310,
+        "PA_ID": 19,
+        "area": 1.2616,
+        "population": 13510,
+        "population_density": 10708.62
       },
       "geometry": {
         "type": "Polygon",
@@ -265930,8 +266860,11 @@
       "properties": {
         "SUBZONE_N": "LIM CHU KANG",
         "PLN_AREA_N": "LIM CHU KANG",
-        "SZ_ID": "000311",
-        "PA_ID": "000023"
+        "SZ_ID": 311,
+        "PA_ID": 23,
+        "area": 17.4953,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -274116,8 +275049,11 @@
       "properties": {
         "SUBZONE_N": "SIMPANG NORTH",
         "PLN_AREA_N": "SIMPANG",
-        "SZ_ID": "000312",
-        "PA_ID": "000026"
+        "SZ_ID": 312,
+        "PA_ID": 26,
+        "area": 3.4505,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -274957,8 +275893,11 @@
       "properties": {
         "SUBZONE_N": "SENOKO SOUTH",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000313",
-        "PA_ID": "000019"
+        "SZ_ID": 313,
+        "PA_ID": 19,
+        "area": 1.7434,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -275303,8 +276242,11 @@
       "properties": {
         "SUBZONE_N": "SEMBAWANG NORTH",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000314",
-        "PA_ID": "000019"
+        "SZ_ID": 314,
+        "PA_ID": 19,
+        "area": 1.3945,
+        "population": 25540,
+        "population_density": 18314.81
       },
       "geometry": {
         "type": "Polygon",
@@ -275689,8 +276631,11 @@
       "properties": {
         "SUBZONE_N": "TANJONG IRAU",
         "PLN_AREA_N": "SIMPANG",
-        "SZ_ID": "000315",
-        "PA_ID": "000026"
+        "SZ_ID": 315,
+        "PA_ID": 26,
+        "area": 1.0744,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -276415,8 +277360,11 @@
       "properties": {
         "SUBZONE_N": "YISHUN WEST",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000316",
-        "PA_ID": "000055"
+        "SZ_ID": 316,
+        "PA_ID": 55,
+        "area": 1.5178,
+        "population": 50300,
+        "population_density": 33140.07
       },
       "geometry": {
         "type": "Polygon",
@@ -277081,8 +278029,11 @@
       "properties": {
         "SUBZONE_N": "WOODLANDS REGIONAL CENTRE",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000317",
-        "PA_ID": "000033"
+        "SZ_ID": 317,
+        "PA_ID": 33,
+        "area": 0.5957,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -277687,8 +278638,11 @@
       "properties": {
         "SUBZONE_N": "NORTH-EASTERN ISLANDS",
         "PLN_AREA_N": "NORTH-EASTERN ISLANDS",
-        "SZ_ID": "000318",
-        "PA_ID": "000024"
+        "SZ_ID": 318,
+        "PA_ID": 24,
+        "area": 67.2497,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -285482,8 +286436,11 @@
       "properties": {
         "SUBZONE_N": "SIMPANG SOUTH",
         "PLN_AREA_N": "SIMPANG",
-        "SZ_ID": "000319",
-        "PA_ID": "000026"
+        "SZ_ID": 319,
+        "PA_ID": 26,
+        "area": 2.1471,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -286468,8 +287425,11 @@
       "properties": {
         "SUBZONE_N": "NORTHLAND",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000320",
-        "PA_ID": "000055"
+        "SZ_ID": 320,
+        "PA_ID": 55,
+        "area": 1.511,
+        "population": 26690,
+        "population_density": 17663.8
       },
       "geometry": {
         "type": "Polygon",
@@ -286939,8 +287899,11 @@
       "properties": {
         "SUBZONE_N": "MIDVIEW",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000321",
-        "PA_ID": "000033"
+        "SZ_ID": 321,
+        "PA_ID": 33,
+        "area": 0.9364,
+        "population": 33690,
+        "population_density": 35978.21
       },
       "geometry": {
         "type": "Polygon",
@@ -287585,8 +288548,11 @@
       "properties": {
         "SUBZONE_N": "WOODLANDS WEST",
         "PLN_AREA_N": "WOODLANDS",
-        "SZ_ID": "000322",
-        "PA_ID": "000033"
+        "SZ_ID": 322,
+        "PA_ID": 33,
+        "area": 1.6486,
+        "population": 36500,
+        "population_density": 22140.0
       },
       "geometry": {
         "type": "Polygon",
@@ -288346,8 +289312,11 @@
       "properties": {
         "SUBZONE_N": "SEMBAWANG SPRINGS",
         "PLN_AREA_N": "SEMBAWANG",
-        "SZ_ID": "000323",
-        "PA_ID": "000019"
+        "SZ_ID": 323,
+        "PA_ID": 19,
+        "area": 1.0994,
+        "population": 12040,
+        "population_density": 10951.43
       },
       "geometry": {
         "type": "Polygon",
@@ -288877,8 +289846,11 @@
       "properties": {
         "SUBZONE_N": "KRANJI",
         "PLN_AREA_N": "SUNGEI KADUT",
-        "SZ_ID": "000324",
-        "PA_ID": "000028"
+        "SZ_ID": 324,
+        "PA_ID": 28,
+        "area": 3.652,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -289688,8 +290660,11 @@
       "properties": {
         "SUBZONE_N": "PLAB",
         "PLN_AREA_N": "PAYA LEBAR",
-        "SZ_ID": "000325",
-        "PA_ID": "000054"
+        "SZ_ID": 325,
+        "PA_ID": 54,
+        "area": 7.0542,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -291574,8 +292549,11 @@
       "properties": {
         "SUBZONE_N": "MANDAI EAST",
         "PLN_AREA_N": "MANDAI",
-        "SZ_ID": "000326",
-        "PA_ID": "000050"
+        "SZ_ID": 326,
+        "PA_ID": 50,
+        "area": 7.2358,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "Polygon",
@@ -292640,8 +293618,11 @@
       "properties": {
         "SUBZONE_N": "NEE SOON",
         "PLN_AREA_N": "YISHUN",
-        "SZ_ID": "000327",
-        "PA_ID": "000055"
+        "SZ_ID": 327,
+        "PA_ID": 55,
+        "area": 2.2067,
+        "population": 940,
+        "population_density": 425.98
       },
       "geometry": {
         "type": "Polygon",
@@ -293176,8 +294157,11 @@
       "properties": {
         "SUBZONE_N": "UPPER THOMSON",
         "PLN_AREA_N": "BISHAN",
-        "SZ_ID": "000328",
-        "PA_ID": "000051"
+        "SZ_ID": 328,
+        "PA_ID": 51,
+        "area": 3.8495,
+        "population": 31280,
+        "population_density": 8125.73
       },
       "geometry": {
         "type": "Polygon",
@@ -294542,8 +295526,11 @@
       "properties": {
         "SUBZONE_N": "SHANGRI-LA",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000329",
-        "PA_ID": "000052"
+        "SZ_ID": 329,
+        "PA_ID": 52,
+        "area": 0.6879,
+        "population": 17460,
+        "population_density": 25381.6
       },
       "geometry": {
         "type": "Polygon",
@@ -295078,8 +296065,11 @@
       "properties": {
         "SUBZONE_N": "TOWNSVILLE",
         "PLN_AREA_N": "ANG MO KIO",
-        "SZ_ID": "000330",
-        "PA_ID": "000052"
+        "SZ_ID": 330,
+        "PA_ID": 52,
+        "area": 0.5464,
+        "population": 19840,
+        "population_density": 36310.4
       },
       "geometry": {
         "type": "Polygon",
@@ -295474,8 +296464,11 @@
       "properties": {
         "SUBZONE_N": "MARYMOUNT",
         "PLN_AREA_N": "BISHAN",
-        "SZ_ID": "000331",
-        "PA_ID": "000051"
+        "SZ_ID": 331,
+        "PA_ID": 51,
+        "area": 1.9641,
+        "population": 28730,
+        "population_density": 14627.56
       },
       "geometry": {
         "type": "Polygon",
@@ -296010,8 +297003,11 @@
       "properties": {
         "SUBZONE_N": "TUAS VIEW EXTENSION",
         "PLN_AREA_N": "TUAS",
-        "SZ_ID": "000332",
-        "PA_ID": "000030"
+        "SZ_ID": 332,
+        "PA_ID": 30,
+        "area": 27.7099,
+        "population": 0,
+        "population_density": 0.0
       },
       "geometry": {
         "type": "MultiPolygon",

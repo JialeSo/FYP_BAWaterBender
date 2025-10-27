@@ -10,5 +10,10 @@ Classes:
 
 from .pipeline_stage import PipelineStage
 from .pipeline import Pipeline
+from .database_write_stage import DatabaseWriteStage
 
-__all__ = ["PipelineStage", "Pipeline"]
+__all__ = [
+    "PipelineStage",
+    "Pipeline",
+    "DatabaseWriteStage",
+]

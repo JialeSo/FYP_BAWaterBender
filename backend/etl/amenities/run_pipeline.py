@@ -187,12 +187,11 @@ def show_outputs():
     output_files = [
         ("Step 1: Geocoded Amenities", config.paths.amenities_geocoded_csv),
         ("Step 2: Classified Amenities", config.paths.amenities_with_priority_csv),
-        ("Step 3: Road Network Mapping", config.paths.amenities_with_nearest_roads_csv),
+        ("Step 3: Road Network Mapping (Final Output)", config.paths.amenities_3layers_csv),
         ("Step 4: Accessibility Grid", config.paths.accessibility_grid_csv),
         ("Step 4: Planning Accessibility Scores", config.paths.accessibility_planning_csv),
         ("Step 5: Planning Composite Scores", config.paths.accessibility_fusion_planning_csv),
         ("Step 5: Subzone Composite Scores", config.paths.accessibility_fusion_subzone_csv),
-        ("Final Output", config.paths.amenities_final_csv),
     ]
 
     print("Expected Output Files:")

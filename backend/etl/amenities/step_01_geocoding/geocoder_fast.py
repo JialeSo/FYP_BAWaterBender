@@ -6,8 +6,6 @@ Simple and fast geocoding that:
 1. Uses postal code lookup from onemap_postal_codes.csv
 2. Does bulk spatial joins for planning areas and subzones
 3. Skips slow road network matching (done in Step 3 instead)
-
-This is 100x faster than the old row-by-row approach.
 """
 
 from pathlib import Path
@@ -81,11 +79,14 @@ def fast_geocode(
     print("Joining with planning areas...")
     amenities_gdf = gpd.sjoin(
         amenities_gdf,
-        planning_gdf[['PLN_AREA_N', 'geometry']],
+        planning_gdf[['PLN_AREA_N', 'PA_ID', 'geometry']],
         how='left',
         predicate='within'
     )
-    amenities_gdf = amenities_gdf.rename(columns={'PLN_AREA_N': 'planning_area'})
+    amenities_gdf = amenities_gdf.rename(columns={
+        'PLN_AREA_N': 'planning_area',
+        'PA_ID': 'planning_area_id'
+    })
 
     # Drop index_right column from spatial join
     if 'index_right' in amenities_gdf.columns:
@@ -95,11 +96,14 @@ def fast_geocode(
     print("Joining with subzones...")
     amenities_gdf = gpd.sjoin(
         amenities_gdf,
-        subzone_gdf[['SUBZONE_N', 'geometry']],
+        subzone_gdf[['SUBZONE_N', 'SZ_ID', 'geometry']],
         how='left',
         predicate='within'
     )
-    amenities_gdf = amenities_gdf.rename(columns={'SUBZONE_N': 'subzone'})
+    amenities_gdf = amenities_gdf.rename(columns={
+        'SUBZONE_N': 'subzone',
+        'SZ_ID': 'subzone_id'
+    })
 
     # Drop index_right column from spatial join
     if 'index_right' in amenities_gdf.columns:
@@ -112,9 +116,16 @@ def fast_geocode(
         print(f"  Loaded {len(roads_gdf):,} road segments")
 
         # Use sjoin_nearest to find closest road for each amenity
+        # Note: OSM network uses 'road_id' and 'name' fields
+        road_cols = ['geometry']
+        if 'name' in roads_gdf.columns:
+            road_cols.insert(0, 'name')
+        if 'road_id' in roads_gdf.columns:
+            road_cols.insert(0, 'road_id')
+
         amenities_gdf = gpd.sjoin_nearest(
             amenities_gdf,
-            roads_gdf[['RD_NAME', 'geometry']],
+            roads_gdf[road_cols],
             how='left',
             max_distance=0.01,  # ~1km max distance
             distance_col='road_distance'
@@ -123,44 +134,69 @@ def fast_geocode(
         # Keep only first match per amenity (remove duplicates from equidistant roads)
         amenities_gdf = amenities_gdf.drop_duplicates(subset=['amenity_id'], keep='first')
 
-        # Rename and clean up
-        if 'RD_NAME' in amenities_gdf.columns:
+        # Rename and clean up for OSM network
+        if 'name' in amenities_gdf.columns:
             # Use road network road name if amenity road_name is missing
             amenities_gdf['road_name'] = amenities_gdf['road_name'].fillna(
-                amenities_gdf['RD_NAME']
+                amenities_gdf['name']
             )
-            amenities_gdf = amenities_gdf.drop(columns=['RD_NAME'])
+            amenities_gdf = amenities_gdf.drop(columns=['name'])
+
+        if 'road_id' in amenities_gdf.columns:
+            # Rename road_id to street_id for consistency within this step
+            amenities_gdf = amenities_gdf.rename(columns={'road_id': 'street_id'})
 
         # Drop index_right from spatial join
         if 'index_right' in amenities_gdf.columns:
             amenities_gdf = amenities_gdf.drop(columns=['index_right'])
 
+    # NOTE: Bus stops do not use postal codes. They have BusStopCode (5-digit identifier)
+    # which should NOT be padded to create fake postal codes. Bus stops already get their
+    # planning_area and subzone correctly via spatial joins above (lines 78-110).
+    # For amenities with actual postal codes, we use the postal code reference below.
+
     # Load postal code reference if available
     if postal_codes_csv and Path(postal_codes_csv).exists():
         print("Loading postal code reference...")
-        postal_df = pd.read_csv(postal_codes_csv, dtype={'postal': str})
+        postal_df = pd.read_csv(postal_codes_csv, dtype=str)
+        postal_df.columns = [col.strip().lower() for col in postal_df.columns]
+
+        if 'postal' not in postal_df.columns:
+            raise KeyError("Postal reference CSV must contain a 'postal' column")
 
         # Clean postal codes (ensure 6 digits)
-        amenities_gdf['postal_code'] = amenities_gdf['postal_code'].astype(str).str.zfill(6)
+        amenities_gdf['postal_code'] = (
+            amenities_gdf['postal_code']
+            .astype(str)
+            .str.extract(r"(\d{6})", expand=False)
+            .fillna('')
+            .str.zfill(6)
+        )
         postal_df['postal'] = postal_df['postal'].astype(str).str.zfill(6)
 
-        # Merge to get additional postal code metadata
+        postal_df = postal_df.drop_duplicates(subset=['postal'])
+
+        select_columns = ['postal']
+        for candidate in ['building', 'address', 'road_name']:
+            if candidate in postal_df.columns:
+                select_columns.append(candidate)
+
         amenities_gdf = amenities_gdf.merge(
-            postal_df[['postal', 'building', 'address', 'road_name']],
+            postal_df[select_columns],
             left_on='postal_code',
             right_on='postal',
             how='left',
             suffixes=('', '_postal')
         )
 
-        # Use postal road_name if amenity road_name is missing
-        if 'road_name_postal' in amenities_gdf.columns:
+        postal_road_col = 'road_name_postal' if 'road_name_postal' in amenities_gdf.columns else 'road_name'
+        if postal_road_col in amenities_gdf.columns:
             amenities_gdf['road_name'] = amenities_gdf['road_name'].fillna(
-                amenities_gdf['road_name_postal']
+                amenities_gdf[postal_road_col]
             )
-            amenities_gdf = amenities_gdf.drop(columns=['road_name_postal'])
+            if postal_road_col != 'road_name':
+                amenities_gdf = amenities_gdf.drop(columns=[postal_road_col])
 
-        # Drop duplicate postal column
         if 'postal' in amenities_gdf.columns:
             amenities_gdf = amenities_gdf.drop(columns=['postal'])
 
@@ -168,10 +204,14 @@ def fast_geocode(
     print("Finalizing...")
     df = pd.DataFrame(amenities_gdf.drop(columns='geometry'))
 
+    if 'amenity_id' in df.columns:
+        df = df.drop_duplicates(subset=['amenity_id'])
+
     # Reorder columns for clarity
     priority_cols = [
         'amenity_id', 'amenity_type', 'amenity_name',
-        'planning_area', 'subzone', 'road_name', 'postal_code',
+        'planning_area', 'planning_area_id', 'subzone', 'subzone_id',
+        'road_name', 'street_id', 'postal_code',
         'lat', 'lon', 'geom_type', 'source_file'
     ]
     other_cols = [col for col in df.columns if col not in priority_cols]
