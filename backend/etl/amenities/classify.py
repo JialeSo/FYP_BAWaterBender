@@ -28,6 +28,85 @@ TYPE_NORMALISATION_PREFIXES: tuple[str, ...] = (
     "geojson_",
 )
 
+# Optional OneMap theme queryname -> category mapping loaded from JSON
+_THEME_QN_DEFAULT_MAP: Dict[str, str] = {
+    # Education
+    "kindergartens": "Education_institutions",
+    "childcare": "Education_institutions",
+    "preschools": "Education_institutions",
+    "preschool": "Education_institutions",
+    "preschoolslocation": "Education_institutions",
+
+    # Healthcare
+    "polyclinics": "Healthcare_facilities",
+    "public_access_aeds": "Emergency_services",
+    "aeds": "Emergency_services",
+
+    # Community
+    "community_clubs": "Community_spaces",
+    "communityclubs": "Community_spaces",
+    "commmediationctr": "Community_spaces",
+    "mosques": "Community_spaces",
+    "churches": "Community_spaces",
+    "synagogues": "Community_spaces",
+    "chinese_temples": "Community_spaces",
+    "indian_temples": "Community_spaces",
+    "sikh_temples": "Community_spaces",
+    "sports_centres": "Community_spaces",
+
+    # Tourism / culture
+    "museums": "Tourism",
+    "galleries": "Tourism",
+}
+
+
+def _load_theme_queryname_map() -> Dict[str, str]:
+    """Load external OneMap theme queryname -> category overrides if present."""
+    path = DATA_ROOT / "onemap" / "theme_category_map.json"
+    if not path.exists():
+        return _THEME_QN_DEFAULT_MAP
+    try:
+        import json as _json
+        data = _json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            # normalize keys to lower snake
+            norm = {}
+            for k, v in data.items():
+                kk = _normalise_amenity_type(k)
+                norm[kk] = v
+            # extend defaults, user overrides win
+            merged = {**_THEME_QN_DEFAULT_MAP, **norm}
+            return merged
+    except Exception:
+        pass
+    return _THEME_QN_DEFAULT_MAP
+
+
+def _heuristic_category_from_queryname(qn: str) -> str | None:
+    """Cheap heuristics to assign category from queryname when no explicit rule exists."""
+    if not qn:
+        return None
+    q = qn.lower()
+    # Education
+    if any(k in q for k in ["school", "preschool", "kindergarten", "childcare", "library", "tuition", "studentcare"]):
+        return "Education_institutions"
+    # Healthcare or emergency
+    if any(k in q for k in ["clinic", "hospital", "polyclinic", "pharmacy", "aeds", "aed", "blood", "screen"]):
+        return "Healthcare_facilities" if "aed" not in q else "Emergency_services"
+    # Transport
+    if any(k in q for k in ["bus", "mrt", "lrt", "interchange", "parking", "taxi", "bicycle", "cycle", "carpark"]):
+        return "Transport_services"
+    # Community / recreation
+    if any(k in q for k in ["park", "sports", "stadium", "pool", "swimming", "community", "temple", "church", "mosque", "synagogue", "cemeter", "club"]):
+        return "Community_spaces"
+    # Tourism / culture
+    if any(k in q for k in ["museum", "gallery", "attraction", "heritage"]):
+        return "Tourism"
+    # Retail / services
+    if any(k in q for k in ["hawker", "mall", "market", "retail", "shop", "centre", "center"]):
+        return "Retail_services"
+    return None
+
 
 # ============================================================================
 # ImportanceScorer (embedded)
@@ -49,6 +128,13 @@ class ImportanceScorer:
         "Tourism": (9.0, 2.0),
         "Retail_services": (10.0, 2.0),
         "Others": (11.0, 1.0),
+
+        # High-level 5-group priorities (replacement categories)
+        "Emergency_&_Public_Safety": (1.0, 10.0),
+        "Healthcare_&_Essential_Utilities": (2.0, 8.0),
+        "Residential_&_Community": (3.0, 6.0),
+        "Education_&_Mobility": (4.0, 5.0),
+        "Commerce_&_Leisure": (5.0, 3.0),
     }
 
     def get_importance_score(self, category: str) -> float:
@@ -109,6 +195,8 @@ TYPE_CATEGORY_MAP: Dict[str, str] = {
     "police": "Emergency_services",
     "hospital": "Emergency_services",
     "moh_hospitals": "Emergency_services",
+    "public_access_aeds": "Emergency_services",
+    "aeds": "Emergency_services",
     "bombshelters": "Emergency_services",
     "civildefencepublicshelters": "Emergency_services",
     "scdfhq": "Emergency_services",
@@ -131,6 +219,7 @@ TYPE_CATEGORY_MAP: Dict[str, str] = {
     "spa": "Healthcare_facilities",
     "optician": "Healthcare_facilities",
     "registered_pharmacy": "Healthcare_facilities",
+    "polyclinics": "Healthcare_facilities",
     "vaccination_polyclinics": "Healthcare_facilities",
     "blood_bank": "Healthcare_facilities",
     "breastscreen": "Healthcare_facilities",
@@ -241,6 +330,7 @@ TYPE_CATEGORY_MAP: Dict[str, str] = {
     "information": "Tourism",
     "theme_park": "Tourism",
     "museum": "Tourism",
+    "museums": "Tourism",
     "gallery": "Tourism",
     "fountain": "Tourism",
     "theatre": "Tourism",
@@ -503,6 +593,95 @@ TYPE_CATEGORY_MAP: Dict[str, str] = {
 }
 
 
+# Substring-based fallback rules for amenity_type when exact match failed
+TYPE_SUBSTR_RULES: Dict[str, str] = {
+    # Education
+    "school": "Education_institutions",
+    "polytechnic": "Education_institutions",
+    "university": "Education_institutions",
+    "college": "Education_institutions",
+    "library": "Education_institutions",
+    "kindergarten": "Education_institutions",
+    "preschool": "Education_institutions",
+
+    # Emergency/health
+    "polyclinic": "Healthcare_facilities",
+    "clinic": "Healthcare_facilities",
+    "dental": "Healthcare_facilities",
+    "hospital": "Healthcare_facilities",
+    "pharmacy": "Healthcare_facilities",
+    "aed": "Emergency_services",
+    "shelter": "Emergency_services",
+    "fire": "Emergency_services",
+    "police": "Emergency_services",
+
+    # Transport
+    "bus": "Transport_services",
+    "mrt": "Transport_services",
+    "lrt": "Transport_services",
+    "taxi": "Transport_services",
+    "carpark": "Transport_services",
+    "parking": "Transport_services",
+    "cycle": "Transport_services",
+
+    # Community/recreation
+    "park": "Community_spaces",
+    "playground": "Community_spaces",
+    "temple": "Community_spaces",
+    "church": "Community_spaces",
+    "mosque": "Community_spaces",
+    "synagogue": "Community_spaces",
+    "gurdwara": "Community_spaces",
+    "community": "Community_spaces",
+    "sports": "Community_spaces",
+    "stadium": "Community_spaces",
+    "swimming": "Community_spaces",
+
+    # Retail / services
+    "mall": "Retail_services",
+    "market": "Retail_services",
+    "hawker": "Retail_services",
+    "supermarket": "Retail_services",
+    "shop": "Retail_services",
+    "retail": "Retail_services",
+    "hotel": "Residential",
+}
+
+
+NAME_REGEX_RULES: list[tuple[re.Pattern, str]] = [
+    # Education
+    (re.compile(r"\b(primary|secondary) school\b", re.I), "Education_institutions"),
+    (re.compile(r"\bjunior college\b", re.I), "Education_institutions"),
+    (re.compile(r"\b(polytechnic|university|college|institute)\b", re.I), "Education_institutions"),
+    (re.compile(r"\b(kindergarten|preschool|student care)\b", re.I), "Education_institutions"),
+    (re.compile(r"\blibrary\b", re.I), "Education_institutions"),
+
+    # Emergency / Healthcare
+    (re.compile(r"\b(polyclinic|clinic|medical centre|dental|dentist)\b", re.I), "Healthcare_facilities"),
+    (re.compile(r"\b(hospital|nursing home|eldercare|dialysis)\b", re.I), "Healthcare_facilities"),
+    (re.compile(r"\b(guardian|watsons|unity)\b", re.I), "Healthcare_facilities"),
+    (re.compile(r"\b(aed|defibrillator|civil defence|scdf|fire station|police)\b", re.I), "Emergency_services"),
+
+    # Transport
+    (re.compile(r"\b(mrt|lrt) station\b", re.I), "Transport_services"),
+    (re.compile(r"\b(bus (stop|interchange)|taxi|ferry|harbour|pier)\b", re.I), "Transport_services"),
+
+    # Retail / food
+    (re.compile(r"\b(supermarket|minimart|hawker|market|food (centre|center)|mall|plaza|centre|center)\b", re.I), "Retail_services"),
+    (re.compile(r"\b(restaurant|cafe|coffee|kopitiam)\b", re.I), "Retail_services"),
+    (re.compile(r"\b(money ?changer|remittance|pawnbroker)\b", re.I), "Retail_services"),
+
+    # Community / religion / recreation
+    (re.compile(r"\b(community club|safra|sports|stadium|swimming complex)\b", re.I), "Community_spaces"),
+    (re.compile(r"\b(church|mosque|temple|synagogue|gurdwara)\b", re.I), "Community_spaces"),
+    (re.compile(r"\b(park|playground|garden|bbq)\b", re.I), "Community_spaces"),
+
+    # Tourism / hotels
+    (re.compile(r"\b(museum|gallery|theatre|attraction|resort|zoo|aquarium|sentosa)\b", re.I), "Tourism"),
+    (re.compile(r"\b(hotel|residence|residences|hostel|lodge|condo(minium)?)\b", re.I), "Residential"),
+]
+
+
 def _classify_mixed_use_amenity(name: str, description: str = "") -> str:
     """
     Classify mixed-use amenities (bfabuildings, dfc_gtp) based on name and description.
@@ -591,6 +770,79 @@ def _classify_mixed_use_amenity(name: str, description: str = "") -> str:
     return "Others"
 
 
+def _heuristic_category_from_name_desc(name: str, description: str = "") -> str | None:
+    """Generic heuristic for classifying amenities by name/description.
+
+    Applied as a fallback for records still in "Others" after type and theme mappings.
+    Keeps rules broad and conservative to avoid mislabeling.
+    """
+    text = f"{str(name or '').lower()} {str(description or '').lower()}".strip()
+    if not text:
+        return None
+
+    # Education before healthcare to avoid e.g., "student care clinic" mislabels
+    if any(k in text for k in (
+        'school', 'polytechnic', 'university', 'college', 'institute',
+        'kindergarten', 'preschool', 'student care', 'junior college',
+        'primary school', 'secondary school', 'library', 'ite', 'madrasah',
+    )):
+        return "Education_institutions"
+
+    if any(k in text for k in (
+        'police', 'fire station', 'civil defence', 'scdf', 'emergency', 'ambulance',
+        'neighbourhood police', 'npcc', 'spf', 'aed', 'defibrillator', 'shelter',
+    )):
+        return "Emergency_services"
+
+    if any(k in text for k in (
+        'hospital', 'clinic', 'medical centre', 'polyclinic', 'eldercare', 'nursing home',
+        'dialysis', 'dental', 'dentist', 'pharmacy', 'guardian', 'watsons', 'unity pharmacy',
+    )):
+        return "Healthcare_facilities"
+
+    if any(k in text for k in (
+        'mrt station', 'lrt station', 'bus interchange', 'transport', 'airport', 'terminal', 'taxi',
+        'bus stop', 'station', 'pier', 'ferry', 'harbour', 'dock',
+    )):
+        return "Transport_services"
+
+    if any(k in text for k in (
+        'ntuc', 'fairprice', 'giant', 'sheng siong', 'cold storage', 'market', 'minimart',
+        'supermarket', 'shopping', 'mall', 'plaza', 'centre', 'center', 'hawker', 'food court',
+        'restaurant', 'hotel', 'retail', 'store', 'shop', 'pharmacy', 'money changer', 'moneychanger',
+    )):
+        return "Retail_services"
+
+    if any(k in text for k in (
+        'museum', 'gallery', 'theatre', 'theater', 'attraction', 'resort', 'sentosa', 'zoo', 'aquarium', 'casino',
+    )):
+        return "Tourism"
+
+    if any(k in text for k in (
+        'community', 'club', 'sports', 'swimming', 'recreation', 'stadium', 'hall', 'park', 'playground',
+        'church', 'mosque', 'temple', 'cemetery', 'masjid', 'gurdwara', 'synagogue', 'youth hub',
+    )):
+        return "Community_spaces"
+
+    if any(k in text for k in (
+        'residence', 'condominium', 'apartment', 'home', 'lodge', 'hostel', 'condo', 'dormitory', 'residences',
+    )):
+        return "Residential"
+
+    if any(k in text for k in (
+        'court', 'government', 'ministry', 'authority', 'cpf', 'immigration', 'registry', 'civil service',
+        'hdb hub', 'hdb branch', 'iras', 'ica', 'parliament', 'town council',
+    )):
+        return "Government_services"
+
+    if any(k in text for k in (
+        'atm', 'post office', 'singpost', 'parcel locker', 'drinking water', 'water point', 'fuel', 'petrol',
+    )):
+        return "Essential_services"
+
+    return None
+
+
 # ============================================================================
 # Classifier Class
 # ============================================================================
@@ -602,14 +854,54 @@ class AmenityClassifier:
         """Initialize classifier with ImportanceScorer."""
         self.scorer = ImportanceScorer()
         self.category_lookup = None
+        self.group_lookup = None
         self.type_lookup = None
         self.planning_lookup = None
         self.subzone_lookup = None
 
+        # Mapping of fine categories to 5 high-level groups
+        self.CATEGORY_TO_GROUP = {
+            # 1. Emergency & Public Safety
+            "Emergency_services": "Emergency_&_Public_Safety",
+            "Government_services": "Emergency_&_Public_Safety",
+
+            # 2. Healthcare & Essential Utilities
+            "Healthcare_facilities": "Healthcare_&_Essential_Utilities",
+            "Essential_services": "Healthcare_&_Essential_Utilities",
+
+            # 3. Residential & Community
+            "Residential": "Residential_&_Community",
+            "Community_spaces": "Residential_&_Community",
+
+            # 4. Education & Mobility
+            "Education_institutions": "Education_&_Mobility",
+            "Transport_services": "Education_&_Mobility",
+
+            # 5. Commerce & Leisure
+            "Retail_services": "Commerce_&_Leisure",
+            "Tourism": "Commerce_&_Leisure",
+            "Others": "Commerce_&_Leisure",
+        }
+
     def _normalize_amenity_types(self, df: pd.DataFrame) -> pd.DataFrame:
         """Normalize amenity type strings."""
+        # If OneMap theme queryname is present, prefer it for type matching
+        if "theme_queryname" in df.columns and "amenity_type" in df.columns:
+            qn = df["theme_queryname"].astype(str).str.strip()
+            # Backfill amenity_type from theme_queryname where amenity_type is missing/blank
+            at = df["amenity_type"].astype(str).fillna("").str.strip()
+            need = (at.eq("") | at.isna()) & qn.ne("") & qn.notna()
+            if need.any():
+                df.loc[need, "amenity_type"] = qn[need]
+
         if "amenity_type" in df.columns:
-            df["amenity_type"] = _normalise_type_series(df["amenity_type"])
+            df["amenity_type"] = _normalise_type_series(df["amenity_type"]).fillna("")
+            # As a final guard, if still empty and theme_queryname exists, copy it (normalized)
+            if "theme_queryname" in df.columns:
+                qn_norm = _normalise_type_series(df["theme_queryname"].fillna(""))
+                still_empty = df["amenity_type"].eq("") & qn_norm.ne("")
+                if still_empty.any():
+                    df.loc[still_empty, "amenity_type"] = qn_norm[still_empty]
         return df
 
     def _apply_category_mapping(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -619,6 +911,57 @@ class AmenityClassifier:
 
         # First apply the regular mapping
         df["amenity_category"] = df["amenity_type"].map(TYPE_CATEGORY_MAP)
+
+        # If OneMap theme queryname exists, use a dedicated mapping to improve coverage
+        if "theme_queryname" in df.columns:
+            theme_map = _load_theme_queryname_map()
+            qn = _normalise_type_series(df["theme_queryname"].fillna(""))
+            mapped = qn.map(theme_map)
+            # Fill where missing or still Others
+            need_fill = df["amenity_category"].isna() | df["amenity_category"].eq("Others")
+            df.loc[need_fill & mapped.notna(), "amenity_category"] = mapped[need_fill & mapped.notna()]
+
+            # Apply heuristics for any remaining
+            still = df["amenity_category"].isna() | df["amenity_category"].eq("Others")
+            if still.any():
+                heuristic = qn.map(lambda s: _heuristic_category_from_queryname(s) or "")
+                df.loc[still & heuristic.ne(""), "amenity_category"] = heuristic[still & heuristic.ne("")]
+
+        # Fallback 1: amenity_type substring rules
+        mask_others = df["amenity_category"].isna() | df["amenity_category"].eq("Others")
+        if mask_others.any():
+            types = df.loc[mask_others, "amenity_type"].astype(str).str.lower().fillna("")
+            inferred = []
+            for t in types:
+                cat = None
+                for sub, c in TYPE_SUBSTR_RULES.items():
+                    if sub in t:
+                        cat = c
+                        break
+                inferred.append(cat)
+            df.loc[mask_others, "amenity_category"] = [
+                inferred[i] if inferred[i] is not None else df.loc[idx, "amenity_category"]
+                for i, idx in enumerate(types.index)
+            ]
+
+        # Fallback 2: amenity_name regex rules
+        mask_others = df["amenity_category"].isna() | df["amenity_category"].eq("Others")
+        if mask_others.any() and "amenity_name" in df.columns:
+            names = df.loc[mask_others, "amenity_name"].astype(str).fillna("")
+            descs = df.loc[mask_others, "description"] if "description" in df.columns else pd.Series([""] * len(names), index=names.index)
+            combined = (names.str.cat(descs.astype(str), sep=" ").str.lower())
+            out = []
+            for text in combined:
+                cat = None
+                for pat, cat_name in NAME_REGEX_RULES:
+                    if pat.search(text):
+                        cat = cat_name
+                        break
+                out.append(cat)
+            df.loc[mask_others, "amenity_category"] = [
+                out[i] if out[i] is not None else df.loc[idx, "amenity_category"]
+                for i, idx in enumerate(combined.index)
+            ]
 
         # List of mixed-use amenity sources that need name/description-based classification
         mixed_use_sources = ["bfabuildings", "onemap_bfabuildings", "dfc_gtp", "onemap_dfc_gtp"]
@@ -635,8 +978,20 @@ class AmenityClassifier:
                 df.loc[source_mask, "amenity_category"] = df.loc[source_mask].apply(
                     lambda row: _classify_mixed_use_amenity(
                         str(row.get("amenity_name", "")),
-                        ""
+                        str(row.get("description", ""))
                     ), axis=1
+                )
+
+        # Final fallback: Generic heuristic for any remaining Others
+        if "amenity_name" in df.columns:
+            mask_others = df["amenity_category"].isna() | df["amenity_category"].eq("Others")
+            if mask_others.any():
+                df.loc[mask_others, "amenity_category"] = df.loc[mask_others].apply(
+                    lambda row: _heuristic_category_from_name_desc(
+                        str(row.get("amenity_name", "")),
+                        str(row.get("description", ""))
+                    ) or row.get("amenity_category", "Others"),
+                    axis=1,
                 )
 
         df["amenity_category"] = df["amenity_category"].fillna("Others")
@@ -735,7 +1090,11 @@ class AmenityClassifier:
         output_dir: Path
     ) -> pd.DataFrame:
         """Create all lookup tables and map IDs."""
-        # Create category lookup with importance scores
+        # Collapse detailed categories into 5 high-level groups and REPLACE amenity_category
+        grouped = df["amenity_category"].map(self.CATEGORY_TO_GROUP).fillna("Commerce_&_Leisure")
+        df["amenity_category"] = grouped
+
+        # Create category lookup (now for 5 groups) with importance scores
         self.category_lookup = self._create_category_importance_lookup(
             df,
             output_dir / "amenity_category_lookup.csv"
@@ -863,12 +1222,14 @@ class AmenityClassifier:
         df = pd.read_csv(input_csv, dtype={'postal_code': str})
         logger.info("Loaded %d records", len(df))
 
-        # Ensure postal codes are 6 digits with leading zeros
+        # Ensure postal codes are 6 digits; set missing/NaN to '000000'
         if 'postal_code' in df.columns:
             df['postal_code'] = df['postal_code'].astype(str).str.strip()
             df['postal_code'] = df['postal_code'].apply(
-                lambda x: x.zfill(6) if x and x.isdigit() and len(x) <= 6 else x
+                lambda x: (x.zfill(6) if x.isdigit() and len(x) <= 6 else x)
             )
+            # Normalize blanks/NaNs to '000000'
+            df.loc[df['postal_code'].isin(['', 'nan', 'NaN', 'None']), 'postal_code'] = '000000'
 
         # Set output directory for lookups
         if output_dir is None:
@@ -891,6 +1252,38 @@ class AmenityClassifier:
                 .round(2)
             )
             logger.info("Amenity category distribution (%% of total):\n%s", category_share.to_string())
+        # Diagnostics (optional): gated by AMENITIES_DIAGNOSTICS=1
+        try:
+            import os as _os
+            if _os.getenv("AMENITIES_DIAGNOSTICS", "0").lower() in {"1", "true", "yes"}:
+                diag_dir = (output_dir or output_csv.parent) / "diagnostics"
+                diag_dir.mkdir(parents=True, exist_ok=True)
+                mask_others = df["amenity_category"].eq("Others")
+                if mask_others.any():
+                    (
+                        df.loc[mask_others]
+                        .groupby(df.loc[mask_others, "amenity_type"].fillna(""))
+                        .size()
+                        .sort_values(ascending=False)
+                        .to_csv(diag_dir / "others_by_amenity_type.csv", header=["count"])
+                    )
+                    if "theme_queryname" in df.columns:
+                        (
+                            df.loc[mask_others]
+                            .groupby(df.loc[mask_others, "theme_queryname"].fillna(""))
+                            .size()
+                            .sort_values(ascending=False)
+                            .to_csv(diag_dir / "others_by_theme_queryname.csv", header=["count"])
+                        )
+                    sample_cols = [c for c in [
+                        "amenity_type", "theme_queryname", "amenity_name", "description", "source_file"
+                    ] if c in df.columns]
+                    df.loc[mask_others, sample_cols].head(1000).to_csv(
+                        diag_dir / "others_samples.csv", index=False
+                    )
+                    logger.info("Wrote diagnostics for 'Others' → %s", diag_dir)
+        except Exception:
+            pass
 
         # Create full output (all columns for reference)
         reference_csv = output_csv.with_name("amenities_with_importance_score.csv")

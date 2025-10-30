@@ -9,10 +9,10 @@ import pandas as pd
 from backend.etl.common.pipeline import Pipeline
 from backend.etl.common.pipeline_stage import PipelineStage
 from backend.etl.common.database_write_stage import DatabaseWriteStage
-from backend.etl.amenities.processors.consolidate import consolidate_amenities
-from backend.etl.amenities.processors.geocode import geocode_amenities
-from backend.etl.amenities.processors.classify import classify_amenities
-from backend.etl.amenities.processors.match_roads import match_roads
+from backend.etl.amenities.consolidate import consolidate_amenities
+from backend.etl.amenities.geocode import geocode_amenities
+from backend.etl.amenities.classify import classify_amenities
+from backend.etl.amenities.match_roads import match_roads
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ class FetchAndConsolidateStage(PipelineStage):
                 etl_data_dir / "amenities_consolidated.geojson"
             )
         )
+        self.persist_consolidated: bool = bool(self.config.get("persist_consolidated", False))
 
     async def process(self, data: Any) -> Dict[str, Any]:
         """Fetch and consolidate all amenities.
@@ -68,7 +69,10 @@ class FetchAndConsolidateStage(PipelineStage):
         # - Loads GeoJSON files from backend/etl/data/geojson/
         # - Loads OSM OnEMap from backend/etl/data/amenities/osm_onemap_matched.json
         # - Fetches from OneMap API (if configured)
-        consolidated_geojson = consolidate_amenities(output_file=self.output_file)
+        consolidated_geojson = consolidate_amenities(
+            output_file=self.output_file,
+            save=self.persist_consolidated,
+        )
 
         feature_count = len(consolidated_geojson.get('features', []))
         logger.info(f"✓ Consolidated {feature_count:,} total amenities")
@@ -120,7 +124,7 @@ class AmenitiesThreeLayersStage(PipelineStage):
             )
         )
 
-        # Reference data paths - all in backend/etl/data
+        # Reference data paths - prefer backend/etl/data, fallback to frontend/public/map if missing
         self.planning_geojson = Path(
             self.config.get(
                 "planning_geojson",
@@ -149,28 +153,48 @@ class AmenitiesThreeLayersStage(PipelineStage):
             )
         )
 
+        # Fallbacks from frontend if backend references are missing
+        try:
+            frontend_map_dir = Path(__file__).resolve().parents[3] / "frontend" / "public" / "map"
+            if not self.planning_geojson.exists():
+                fb = frontend_map_dir / "planning_area.geojson"
+                if fb.exists():
+                    self.planning_geojson = fb
+            if not self.subzone_geojson.exists():
+                fb = frontend_map_dir / "subzone_area.geojson"
+                if fb.exists():
+                    self.subzone_geojson = fb
+        except Exception:
+            pass
+        # Allow skipping classification and road matching to output raw only
+        try:
+            import os as _os
+            self.raw_only: bool = bool(self.config.get("raw_only", False)) or (
+                _os.getenv("AMENITIES_RAW_ONLY", "0").lower() in {"1", "true", "yes"}
+            )
+        except Exception:
+            self.raw_only = bool(self.config.get("raw_only", False))
+
     def validate_config(self) -> bool:
-        """Validate configuration parameters.
+        """Lightweight validation.
 
-        Returns:
-            True if configuration is valid
-
-        Raises:
-            ValueError: If configuration is invalid
+        Do not hard-require intermediate/reference files; processing will
+        gracefully skip steps when inputs are missing.
         """
-        # Check required files exist
-        required_files = [
-            self.input_geojson,
-            self.planning_geojson,
-            self.subzone_geojson,
-            self.road_network_geojson,
-            self.postal_codes_csv,
+        # Warn instead of failing hard – geocode step will skip joins if refs are missing
+        to_check = [
+            ("input_geojson", self.input_geojson),
+            ("planning_geojson", self.planning_geojson),
+            ("subzone_geojson", self.subzone_geojson),
+            ("road_network_geojson", self.road_network_geojson),
+            ("postal_codes_csv", self.postal_codes_csv),
         ]
-
-        missing = [str(f) for f in required_files if not f.exists()]
+        missing = [name for name, p in to_check if not p.exists()]
         if missing:
-            raise ValueError(f"Required files not found: {', '.join(missing)}")
-
+            logger.warning(
+                "Amenities Three Layers: missing inputs will be skipped: %s",
+                ", ".join(missing),
+            )
         return True
 
     async def process(self, data: Any) -> pd.DataFrame:
@@ -185,13 +209,32 @@ class AmenitiesThreeLayersStage(PipelineStage):
         logger.info("Starting 3 layers processing for amenities")
 
         # Use temp files for intermediate steps (cleaned up automatically)
+        # If upstream provided consolidated GeoJSON in-memory, persist to a temp file first
+        temp_input_path: Optional[Path] = None
+        if isinstance(data, dict) and data.get('type') == 'FeatureCollection':
+            tf = tempfile.NamedTemporaryFile(suffix='.geojson', delete=False)
+            temp_input_path = Path(tf.name)
+            tf.close()
+            import json
+            with open(temp_input_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f)
+            logger.info(f"Wrote consolidated amenities to temp file: {temp_input_path}")
+
+        input_geojson_path = temp_input_path if temp_input_path else self.input_geojson
+
         with tempfile.NamedTemporaryFile(suffix='.csv', delete=True) as temp_geocoded, \
              tempfile.NamedTemporaryFile(suffix='.csv', delete=True) as temp_classified:
+
+            # Persistent data directory for outputs/lookups
+            data_dir = Path(__file__).resolve().parents[1] / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            amenities_dir = data_dir / "amenities"
+            amenities_dir.mkdir(parents=True, exist_ok=True)
 
             # Step 1: Geocoding (PA/SZ matching)
             logger.info("Step 1/3: Geocoding amenities (PA/SZ matching)")
             geocode_amenities(
-                input_geojson=self.input_geojson,
+                input_geojson=input_geojson_path,
                 output_csv=Path(temp_geocoded.name),
                 planning_geojson=self.planning_geojson,
                 subzone_geojson=self.subzone_geojson,
@@ -199,17 +242,39 @@ class AmenitiesThreeLayersStage(PipelineStage):
                 postal_codes_csv=self.postal_codes_csv,
             )
 
+            # Do not persist pre-classification CSV; proceed directly to classification
+
+            # If configured to output raw only, return immediately after saving raw file
+            if self.raw_only:
+                # Load and return raw geocoded as DataFrame
+                logger.info("Raw-only mode enabled; skipping classification and road matching")
+                raw_df = pd.read_csv(raw_out)
+                return raw_df
+
             # Step 2: Classification
             logger.info("Step 2/3: Classifying amenities (categories, priorities)")
             classify_amenities(
                 input_csv=Path(temp_geocoded.name),
                 output_csv=Path(temp_classified.name),
+                output_dir=amenities_dir,
             )
+
+            # Persist a copy of the classified output as amenities/amenities_raw.csv
+            try:
+                classified_out = amenities_dir / "amenities_raw.csv"
+                Path(temp_classified.name).replace(classified_out)
+                logger.info(f"Saved classified amenities → {classified_out}")
+                # Recreate temp file for downstream road matching
+                with open(classified_out, "rb") as src, open(temp_classified.name, "wb") as dst:
+                    dst.write(src.read())
+            except Exception as e:
+                logger.warning(f"Failed to persist amenities_raw.csv (post-classification): {e}")
 
             # Step 3: Road matching (writes final output)
             logger.info("Step 3/3: Matching amenities to roads (RN matching)")
+            # Use the persisted classified CSV for road matching to avoid temp filenames in logs
             match_roads(
-                amenities_csv=Path(temp_classified.name),
+                amenities_csv=classified_out,
                 road_network_geojson=self.road_network_geojson,
                 output_csv=self.output_csv,
             )
@@ -219,6 +284,13 @@ class AmenitiesThreeLayersStage(PipelineStage):
         df = pd.read_csv(self.output_csv)
 
         logger.info(f"✓ Amenities 3 layers processing complete: {len(df):,} amenities")
+
+        # Cleanup temp input file if created
+        if temp_input_path and temp_input_path.exists():
+            try:
+                temp_input_path.unlink()
+            except Exception:
+                pass
 
         return df
 
@@ -289,6 +361,17 @@ class AmenitiesPipeline(Pipeline):
 
         # Stage 3: Database Write
         db_config = self.config.get("database_write", {})
+        # Default to upsert on primary key 'id' to avoid duplicate key errors
+        db_config.setdefault("on_conflict", "id")
+        # Backward-compat: drop new grouping columns if target table hasn't been migrated yet
+        drop_cols_default = ["amenity_group_id", "amenity_group"]
+        existing_drop = db_config.get("drop_columns")
+        if existing_drop is None:
+            db_config["drop_columns"] = drop_cols_default
+        elif isinstance(existing_drop, (list, tuple, set)):
+            # Merge without duplicates
+            db_config["drop_columns"] = list({*existing_drop, *drop_cols_default})
+
         db_stage = DatabaseWriteStage(
             table_name=self.db_table, config=db_config
         )

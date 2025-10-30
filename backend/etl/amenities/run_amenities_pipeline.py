@@ -41,7 +41,8 @@ async def main():
     logger.info("="*80)
 
     try:
-        await run_amenities_pipeline(table_name="amenities")
+        # Write to the final table name used by the app/frontend
+        await run_amenities_pipeline(table_name="amenity_3layers")
 
         logger.info("="*80)
         logger.info("✓ AMENITIES PIPELINE COMPLETED SUCCESSFULLY")

@@ -10,6 +10,7 @@ from backend.etl.common.pipeline import Pipeline
 from backend.etl.common.pipeline_stage import PipelineStage
 from backend.etl.common.database_write_stage import DatabaseWriteStage
 from backend.etl.floods.scripts.process_floods_3layers import process_floods_data
+from backend.common.db import DatabaseConnection
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +41,12 @@ class LoadFloodsStage(PipelineStage):
         # All data in backend/etl/data
         etl_data_dir = Path(__file__).resolve().parents[1] / "data"
 
+        # Default to the combined PUB + historical source-of-truth CSV
+        # Historical floods occupy ID 1-213 in this file
         self.floods_csv = Path(
             self.config.get(
                 "floods_csv",
-                etl_data_dir / "floods" / "floods_fixed.csv"
+                etl_data_dir / "floods" / "PUB_and_huiying_flood.csv"
             )
         )
 
@@ -150,12 +153,21 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
         Raises:
             ValueError: If configuration is invalid
         """
-        required_files = [
-            self.planning_geojson,
-            self.subzone_geojson,
-            self.road_network_geojson,
-        ]
+        # Allow frontend fallbacks for planning/subzone like the amenities pipeline
+        try:
+            frontend_map_dir = Path(__file__).resolve().parents[3] / "frontend" / "public" / "map"
+            if not self.planning_geojson.exists():
+                fb = frontend_map_dir / "planning_area.geojson"
+                if fb.exists():
+                    self.planning_geojson = fb
+            if not self.subzone_geojson.exists():
+                fb = frontend_map_dir / "subzone_area.geojson"
+                if fb.exists():
+                    self.subzone_geojson = fb
+        except Exception:
+            pass
 
+        required_files = [self.planning_geojson, self.subzone_geojson, self.road_network_geojson]
         missing = [str(f) for f in required_files if not f.exists()]
         if missing:
             raise ValueError(f"Required files not found: {', '.join(missing)}")
@@ -196,6 +208,180 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
             # Clean up temp file
             if temp_input_path.exists():
                 temp_input_path.unlink()
+
+
+class SanitizeFloodsForDBStage(PipelineStage):
+    """Floods-specific sanitization and schema mapping prior to DB write.
+
+    - Drops unsupported columns and keeps only DB schema fields
+    - Coerces IDs to int and float fields to finite numbers
+    - Replaces NaN/inf with None for JSON safety
+    - Builds GeoJSON geom from origin or start coordinates when missing
+
+    Input: pandas DataFrame from previous stage
+    Output: List[Dict] ready for insertion to flood_3layers
+    """
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        super().__init__("Sanitize Floods For DB", config)
+
+        self.allowed_cols = {
+            "id",
+            "text",
+            "event_date",
+            "location",
+            "event",
+            "start_loc",
+            "end_loc",
+            "parent_road",
+            "cleaned_location",
+            "start_planning_area",
+            "end_planning_area",
+            "start_subzone",
+            "end_subzone",
+            "start_street_name",
+            "end_street_name",
+            "start_lat",
+            "start_lng",
+            "start_postal_code",
+            "start_pa_id",
+            "start_sz_id",
+            "start_rn_id",
+            "origin_lat",
+            "origin_lng",
+            "end100_a_lat",
+            "end100_a_lng",
+            "end100_b_lat",
+            "end100_b_lng",
+            "end_lat",
+            "end_lng",
+            "end_postal_code",
+            "end_pa_id",
+            "end_sz_id",
+            "end_rn_id",
+            "geom",
+        }
+
+    def _json_safe(self, v: Any) -> Any:
+        try:
+            import math as _math
+            if v is None:
+                return None
+            if isinstance(v, float) and (_math.isnan(v) or _math.isinf(v)):
+                return None
+            return v
+        except Exception:
+            return v
+
+    async def process(self, data: Any) -> Any:
+        import pandas as pd  # local import to keep module light
+
+        if data is None:
+            return []
+        if not hasattr(data, "to_dict"):
+            return data
+
+        df: pd.DataFrame = data.copy()
+
+        # Convert to records then sanitize each record
+        records = df.to_dict(orient="records")
+        out = []
+        for rec in records:
+            r = dict(rec)
+            # Remove noisy columns
+            r.pop("created_at", None)
+
+            # Build geom if missing
+            if r.get("geom") in (None, "", {}):
+                lat = None
+                lon = None
+                try:
+                    if r.get("origin_lat") is not None and r.get("origin_lng") is not None:
+                        lat = float(r.get("origin_lat"))
+                        lon = float(r.get("origin_lng"))
+                    elif r.get("start_lat") is not None and r.get("start_lng") is not None:
+                        lat = float(r.get("start_lat"))
+                        lon = float(r.get("start_lng"))
+                except Exception:
+                    lat = lon = None
+                if lat is not None and lon is not None:
+                    r["geom"] = {"type": "Point", "coordinates": [lon, lat]}
+
+            # Coerce integer ID fields
+            for icol in ("id", "start_pa_id", "start_sz_id", "start_rn_id", "end_pa_id", "end_sz_id", "end_rn_id"):
+                if icol in r and r[icol] is not None:
+                    try:
+                        r[icol] = int(r[icol])
+                    except Exception:
+                        r[icol] = None
+
+            # Coerce float fields and JSON-safe values
+            for fcol in (
+                "start_lat", "start_lng", "origin_lat", "origin_lng",
+                "end_lat", "end_lng", "end100_a_lat", "end100_a_lng", "end100_b_lat", "end100_b_lng",
+            ):
+                if fcol in r and r[fcol] is not None:
+                    try:
+                        rf = float(r[fcol])
+                        if pd.isna(rf) or pd.isnull(rf):
+                            r[fcol] = None
+                        else:
+                            r[fcol] = rf
+                    except Exception:
+                        r[fcol] = None
+
+            # Keep only allowed columns and sanitize values
+            r2 = {k: self._json_safe(v) for k, v in r.items() if k in self.allowed_cols}
+            out.append(r2)
+
+        return out
+
+
+class FloodsUpsertStage(PipelineStage):
+    """Floods-specific DB write using upsert on (id)."""
+
+    def __init__(self, table_name: str, config: Optional[Dict[str, Any]] = None):
+        super().__init__(f"Database Upsert ({table_name})", config)
+        self.table_name = table_name
+        self.batch_size = int(self.config.get("batch_size", 1000))
+        self.db = self.config.get("db_connection") or DatabaseConnection()
+
+    def validate_config(self) -> bool:
+        if not self.table_name:
+            raise ValueError("table_name is required")
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        # test connection
+        self.db._get_connection()
+        return True
+
+    async def process(self, data: Any) -> Any:
+        if not data:
+            return data
+
+        # Expect list[dict] from previous sanitize stage; if DataFrame, convert
+        try:
+            import pandas as _pd
+            if hasattr(data, "to_dict") and isinstance(data, _pd.DataFrame):
+                records = data.to_dict(orient="records")
+            else:
+                records = data
+        except Exception:
+            records = data
+
+        if not isinstance(records, list):
+            records = [records]
+
+        total = len(records)
+        for i in range(0, total, self.batch_size):
+            batch = records[i:i + self.batch_size]
+            try:
+                # Use upsert on primary key id
+                self.db.upsert(table=self.table_name, data=batch, on_conflict="id")
+            except Exception as e:
+                raise Exception(f"Upsert failed for batch {(i//self.batch_size)+1}: {e}")
+
+        return data
 
 
 # ============================================================================
@@ -262,11 +448,13 @@ class FloodsPipeline(Pipeline):
         three_layers_stage = ProcessFloodsThreeLayersStage(config=three_layers_config)
         stages.append(three_layers_stage)
 
-        # Stage 3: Database Write
+        # Stage 2.5: Sanitize/match schema for DB (floods-specific)
+        sanitize_stage = SanitizeFloodsForDBStage()
+        stages.append(sanitize_stage)
+
+        # Stage 3: Database Upsert (floods-specific behavior)
         db_config = self.config.get("database_write", {})
-        db_stage = DatabaseWriteStage(
-            table_name=self.db_table, config=db_config
-        )
+        db_stage = FloodsUpsertStage(table_name=self.db_table, config=db_config)
         stages.append(db_stage)
 
         return stages

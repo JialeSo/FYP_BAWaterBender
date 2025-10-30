@@ -24,8 +24,8 @@ warnings.filterwarnings('ignore', message='.*geographic CRS.*')
 def geocode_amenities(
     input_geojson: Path,
     output_csv: Path,
-    planning_geojson: Path,
-    subzone_geojson: Path,
+    planning_geojson: Path = None,
+    subzone_geojson: Path = None,
     road_network_geojson: Path = None,
     postal_codes_csv: Path = None,
 ) -> pd.DataFrame:
@@ -63,51 +63,55 @@ def geocode_amenities(
         amenities_gdf['lon'] = centroids.x
         amenities_gdf['lat'] = centroids.y
 
-    # Load planning areas
-    print("Loading planning areas...")
-    planning_gdf = gpd.read_file(planning_geojson).to_crs("EPSG:4326")
-    print(f"  Loaded {len(planning_gdf):,} planning areas")
+    # Load planning areas (optional)
+    planning_gdf = None
+    if planning_geojson and Path(planning_geojson).exists():
+        print("Loading planning areas...")
+        planning_gdf = gpd.read_file(planning_geojson).to_crs("EPSG:4326")
+        print(f"  Loaded {len(planning_gdf):,} planning areas")
+    else:
+        print("Skipping planning area join (file missing)")
 
-    # Load subzones
-    print("Loading subzones...")
-    subzone_gdf = gpd.read_file(subzone_geojson).to_crs("EPSG:4326")
-    print(f"  Loaded {len(subzone_gdf):,} subzones")
+    # Load subzones (optional)
+    subzone_gdf = None
+    if subzone_geojson and Path(subzone_geojson).exists():
+        print("Loading subzones...")
+        subzone_gdf = gpd.read_file(subzone_geojson).to_crs("EPSG:4326")
+        print(f"  Loaded {len(subzone_gdf):,} subzones")
+    else:
+        print("Skipping subzone join (file missing)")
 
     # Spatial join with planning areas (BULK operation - fast!)
-    print("Joining with planning areas...")
-    amenities_gdf = gpd.sjoin(
-        amenities_gdf,
-        planning_gdf[['PLN_AREA_N', 'PA_ID', 'geometry']],
-        how='left',
-        predicate='within'
-    )
-    # Use consistent column names: pa_id (not planning_area_id)
-    amenities_gdf = amenities_gdf.rename(columns={
-        'PLN_AREA_N': 'planning_area',
-        'PA_ID': 'pa_id'
-    })
-
-    # Drop index_right column from spatial join
-    if 'index_right' in amenities_gdf.columns:
-        amenities_gdf = amenities_gdf.drop(columns=['index_right'])
+    if planning_gdf is not None:
+        print("Joining with planning areas...")
+        amenities_gdf = gpd.sjoin(
+            amenities_gdf,
+            planning_gdf[['PLN_AREA_N', 'PA_ID', 'geometry']],
+            how='left',
+            predicate='within'
+        )
+        amenities_gdf = amenities_gdf.rename(columns={
+            'PLN_AREA_N': 'planning_area',
+            'PA_ID': 'pa_id'
+        })
+        if 'index_right' in amenities_gdf.columns:
+            amenities_gdf = amenities_gdf.drop(columns=['index_right'])
 
     # Spatial join with subzones (BULK operation - fast!)
-    print("Joining with subzones...")
-    amenities_gdf = gpd.sjoin(
-        amenities_gdf,
-        subzone_gdf[['SUBZONE_N', 'SZ_ID', 'geometry']],
-        how='left',
-        predicate='within'
-    )
-    # Use consistent column names: sz_id (not subzone_id)
-    amenities_gdf = amenities_gdf.rename(columns={
-        'SUBZONE_N': 'subzone',
-        'SZ_ID': 'sz_id'
-    })
-
-    # Drop index_right column from spatial join
-    if 'index_right' in amenities_gdf.columns:
-        amenities_gdf = amenities_gdf.drop(columns=['index_right'])
+    if subzone_gdf is not None:
+        print("Joining with subzones...")
+        amenities_gdf = gpd.sjoin(
+            amenities_gdf,
+            subzone_gdf[['SUBZONE_N', 'SZ_ID', 'geometry']],
+            how='left',
+            predicate='within'
+        )
+        amenities_gdf = amenities_gdf.rename(columns={
+            'SUBZONE_N': 'subzone',
+            'SZ_ID': 'sz_id'
+        })
+        if 'index_right' in amenities_gdf.columns:
+            amenities_gdf = amenities_gdf.drop(columns=['index_right'])
 
     # Join with road network to find nearest road
     if road_network_geojson and Path(road_network_geojson).exists():
@@ -154,8 +158,8 @@ def geocode_amenities(
     # which should NOT be padded to create fake postal codes. Bus stops already get their
     # planning_area and subzone correctly via spatial joins above.
 
-    # Load postal code reference if available
-    if postal_codes_csv and Path(postal_codes_csv).exists():
+    # Load postal code reference if available and if amenities have a postal_code column
+    if postal_codes_csv and Path(postal_codes_csv).exists() and ('postal_code' in amenities_gdf.columns):
         print("Loading postal code reference...")
         postal_df = pd.read_csv(postal_codes_csv, dtype=str)
         postal_df.columns = [col.strip().lower() for col in postal_df.columns]
@@ -163,14 +167,14 @@ def geocode_amenities(
         if 'postal' not in postal_df.columns:
             raise KeyError("Postal reference CSV must contain a 'postal' column")
 
-        # Clean postal codes (ensure 6 digits)
-        amenities_gdf['postal_code'] = (
-            amenities_gdf['postal_code']
-            .astype(str)
-            .str.extract(r"(\d{6})", expand=False)
-            .fillna('')
-            .str.zfill(6)
-        )
+        # Clean postal codes (ensure 6 digits) for non-bus-stops only.
+        # Bus stops carry a 5-digit BusStopCode in 'postal_code' and must be preserved.
+        is_bus = amenities_gdf.get('amenity_type', pd.Series(index=amenities_gdf.index, dtype=str))
+        is_bus = is_bus.astype(str).str.lower().eq('bus_stops')
+        pc_series = amenities_gdf['postal_code'].astype(str)
+        extracted = pc_series.str.extract(r"(\d{6})", expand=False).fillna('')
+        cleaned = extracted.apply(lambda x: x.zfill(6) if x.strip() else '')
+        amenities_gdf.loc[~is_bus, 'postal_code'] = cleaned[~is_bus]
         postal_df['postal'] = postal_df['postal'].astype(str).str.zfill(6)
 
         postal_df = postal_df.drop_duplicates(subset=['postal'])
@@ -198,10 +202,24 @@ def geocode_amenities(
 
         if 'postal' in amenities_gdf.columns:
             amenities_gdf = amenities_gdf.drop(columns=['postal'])
+    elif postal_codes_csv and Path(postal_codes_csv).exists():
+        print("Skipping postal reference merge (no postal_code column in amenities)")
 
     # Convert to DataFrame (drop geometry for CSV output)
     print("Finalizing...")
-    df = pd.DataFrame(amenities_gdf.drop(columns='geometry'))
+    base = amenities_gdf
+    if 'geometry' in base.columns:
+        base = base.drop(columns='geometry')
+    df = pd.DataFrame(base)
+
+    # Ensure required columns exist even for empty inputs
+    for col in [
+        'amenity_id', 'amenity_type', 'amenity_name', 'planning_area', 'pa_id',
+        'subzone', 'sz_id', 'road_name', 'street_id', 'postal_code', 'lat', 'lon',
+        'geom_type', 'source_file'
+    ]:
+        if col not in df.columns:
+            df[col] = pd.Series(dtype='object')
 
     if 'amenity_id' in df.columns:
         df = df.drop_duplicates(subset=['amenity_id'])
@@ -217,7 +235,7 @@ def geocode_amenities(
     final_cols = [col for col in priority_cols if col in df.columns] + other_cols
     df = df[final_cols]
 
-    name_series = df['amenity_name'].fillna('').astype(str).str.strip()
+    name_series = df.get('amenity_name', pd.Series(index=df.index)).fillna('').astype(str).str.strip()
     missing_mask = name_series.eq('')
     missing_count = int(missing_mask.sum())
     if missing_count:

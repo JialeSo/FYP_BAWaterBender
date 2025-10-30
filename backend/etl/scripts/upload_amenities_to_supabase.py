@@ -38,6 +38,15 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.etl.common import Pipeline, AmenitiesDatabaseWriteStage, DatabaseWriteStage
 
+
+def _resolve_lookup_path(filename: str) -> Path:
+    """Resolve lookup CSV path, trying data root then amenities subdir."""
+    root = PROJECT_ROOT / "backend" / "etl" / "data" / filename
+    if root.exists():
+        return root
+    alt = PROJECT_ROOT / "backend" / "etl" / "data" / "amenities" / filename
+    return alt
+
 # Allow overriding the target table via env; default to singular as requested
 AMENITIES_TABLE = os.getenv("AMENITIES_TABLE", "amenity_3layers")
 
@@ -60,7 +69,7 @@ def preview_csv(csv_path: Path, table_name: str) -> None:
 
 async def upload_amenity_category_lookup(dry_run: bool = False) -> None:
     """Upload amenity_category_lookup.csv to Supabase."""
-    csv_path = PROJECT_ROOT / "backend" / "etl" / "data" / "amenity_category_lookup.csv"
+    csv_path = _resolve_lookup_path("amenity_category_lookup.csv")
 
     if not csv_path.exists():
         print(f"⚠ Warning: {csv_path} not found. Skipping.")
@@ -99,9 +108,48 @@ async def upload_amenity_category_lookup(dry_run: bool = False) -> None:
         raise
 
 
+async def upload_amenity_group_lookup(dry_run: bool = False) -> None:
+    """Upload amenity_group_lookup.csv to Supabase."""
+    csv_path = _resolve_lookup_path("amenity_group_lookup.csv")
+
+    if not csv_path.exists():
+        print(f"⚠ Warning: {csv_path} not found. Skipping.")
+        return
+
+    preview_csv(csv_path, "amenity_group_lookup")
+
+    if dry_run:
+        print("🔍 DRY RUN - Skipping upload\n")
+        return
+
+    pipeline = Pipeline(
+        name="Upload Amenity Group Lookup",
+        stages=[
+            DatabaseWriteStage(
+                table_name="amenity_group_lookup",
+                config={
+                    "batch_size": 100,
+                }
+            )
+        ]
+    )
+
+    df = pd.read_csv(csv_path)
+    records = df.to_dict(orient="records")
+
+    print(f"📤 Uploading {len(records)} amenity groups to Supabase...")
+
+    try:
+        await pipeline.run(initial_data=records)
+        print(f"✓ Successfully uploaded amenity_group_lookup\n")
+    except Exception as e:
+        print(f"✗ Failed to upload amenity_group_lookup: {e}\n")
+        raise
+
+
 async def upload_planning_area_lookup(dry_run: bool = False) -> None:
     """Upload planning_area_lookup.csv (columns: pa_id, planning_area)."""
-    csv_path = PROJECT_ROOT / "backend" / "etl" / "data" / "planning_area_lookup.csv"
+    csv_path = _resolve_lookup_path("planning_area_lookup.csv")
 
     if not csv_path.exists():
         print(f"⚠ Warning: {csv_path} not found. Skipping.")
@@ -140,7 +188,7 @@ async def upload_planning_area_lookup(dry_run: bool = False) -> None:
 
 async def upload_subzone_lookup(dry_run: bool = False) -> None:
     """Upload subzone_lookup.csv (columns: sz_id, subzone)."""
-    csv_path = PROJECT_ROOT / "backend" / "etl" / "data" / "subzone_lookup.csv"
+    csv_path = _resolve_lookup_path("subzone_lookup.csv")
 
     if not csv_path.exists():
         print(f"⚠ Warning: {csv_path} not found. Skipping.")
@@ -215,6 +263,8 @@ async def upload_amenities_3layers(
     upload_storage: bool = False,
     storage_bucket: str | None = None,
     storage_path: str | None = None,
+    drop_columns: str | None = None,
+    drop_amenity_group: bool = False,
 ) -> None:
     """Upload amenities_3layers.csv to Supabase and optionally emit GeoJSON.
 
@@ -262,6 +312,19 @@ async def upload_amenities_3layers(
     removed = before - len(df)
     if removed > 0:
         print(f"🔁 Removed {removed:,} duplicate amenities by (amenity_type, id) within CSV")
+
+    # Optionally drop columns not present in DB schema
+    drop_list = []
+    if drop_columns:
+        drop_list.extend([c.strip() for c in drop_columns.split(",") if c.strip()])
+    if drop_amenity_group:
+        drop_list.append("amenity_group_id")
+        drop_list.append("amenity_group")
+    if drop_list:
+        existing = [c for c in drop_list if c in df.columns]
+        if existing:
+            print(f"🧹 Dropping columns not in DB schema: {existing}")
+            df = df.drop(columns=existing)
 
     # Strict sanitize NaN/Inf before JSON upload
     df = df.replace([np.inf, -np.inf], np.nan)
@@ -438,6 +501,16 @@ async def main():
         help="Path to an existing amenities_3layers CSV to upload from",
     )
     parser.add_argument(
+        "--drop-columns",
+        type=str,
+        help="Comma-separated list of columns to drop before upload",
+    )
+    parser.add_argument(
+        "--no-group-col",
+        action="store_true",
+        help="Drop amenity_group_id and amenity_group columns before upload",
+    )
+    parser.add_argument(
         "--upload-storage",
         action="store_true",
         help="Upload generated GeoJSON to Supabase Storage",
@@ -468,6 +541,7 @@ async def main():
         # Upload based on flags
         if args.lookups_only:
             await upload_amenity_category_lookup(dry_run=args.dry_run)
+            await upload_amenity_group_lookup(dry_run=args.dry_run)
             await upload_planning_area_lookup(dry_run=args.dry_run)
             await upload_subzone_lookup(dry_run=args.dry_run)
         elif args.amenities_only:
@@ -480,10 +554,13 @@ async def main():
             upload_storage=args.upload_storage,
             storage_bucket=args.storage_bucket,
             storage_path=args.storage_path,
+            drop_columns=args.drop_columns,
+            drop_amenity_group=args.no_group_col,
         )
         else:
             # Upload all by default
             await upload_amenity_category_lookup(dry_run=args.dry_run)
+            await upload_amenity_group_lookup(dry_run=args.dry_run)
             await upload_planning_area_lookup(dry_run=args.dry_run)
             await upload_subzone_lookup(dry_run=args.dry_run)
             await upload_amenities_3layers(
@@ -494,6 +571,8 @@ async def main():
                 upload_storage=args.upload_storage,
                 storage_bucket=args.storage_bucket,
                 storage_path=args.storage_path,
+                drop_columns=args.drop_columns,
+                drop_amenity_group=args.no_group_col,
             )
 
         if not args.dry_run:

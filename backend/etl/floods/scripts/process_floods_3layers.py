@@ -25,9 +25,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.etl.amenities.step_03_network_mapping.road_matcher_osmnx import (
-    RoadNetworkGraph,
-)
+# Use the consolidated road network graph used by the amenities pipeline
+from backend.etl.amenities.match_roads import RoadNetworkGraph
 
 
 def process_floods_data(

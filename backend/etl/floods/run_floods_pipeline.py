@@ -41,7 +41,7 @@ async def main():
     logger.info("="*80)
 
     try:
-        await run_floods_pipeline(table_name="floods")
+        await run_floods_pipeline(table_name="flood_3layers")
 
         logger.info("="*80)
         logger.info("✓ FLOODS PIPELINE COMPLETED SUCCESSFULLY")

@@ -35,12 +35,10 @@ Usage:
     execute_steps([0, 1, 2, 3], plot=False)
 """
 
-from backend.etl.amenities.processors import (
-    consolidate_amenities,
-    geocode_amenities,
-    classify_amenities,
-    match_roads,
-)
+from .consolidate import consolidate_amenities
+from .geocode import geocode_amenities
+from .classify import classify_amenities
+from .match_roads import match_roads
 
 __all__ = [
     "consolidate_amenities",
