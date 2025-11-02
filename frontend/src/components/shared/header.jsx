@@ -22,11 +22,11 @@ export default function Header() {
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            {/* dashboard map */}
+            {/* singapore historical flood map */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link to="/dashboard-map">
-                  <Button variant="ghost" size="sm">Dashboard Map</Button>
+                <Link to="/historical-flood-map">
+                  <Button variant="ghost" size="sm">Singapore Historical Flood Map</Button>
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
@@ -49,11 +49,11 @@ export default function Header() {
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            {/* singapore historical flood map */}
+            {/* dashboard map */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link to="/historical-flood-map">
-                  <Button variant="ghost" size="sm">Singapore Historical Flood Map</Button>
+                <Link to="/dashboard-map">
+                  <Button variant="ghost" size="sm">Dashboard Map</Button>
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>

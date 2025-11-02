@@ -1,4 +1,6 @@
-﻿// DashboardLayout.jsx
+﻿// src/pages/dashboardlayout.jsx
+"use client";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -7,46 +9,162 @@ import RightPanel from "./RightPanel";
 import { PanelLeft, PanelRight } from "lucide-react";
 import { useMapData } from "@/context/MapDataContext";
 
-/* ---------------- utilities for insights ---------------- */
-// ⬇️ Normalise to include *_id fields and use them downstream
-const normaliseFloodRecord = (record) => {
-  const planningArea = (record.start_planning_area || record.end_planning_area || "").trim();
-  const planningAreaId =
-    (
-      record.start_planning_area_id ||
-      record.end_planning_area_id ||
-      record.planning_area_id ||
-      ""
-    ).trim();
+/* ---------------- helpers ---------------- */
+const featureProps = (f) => f?.properties ?? {};
+const fcFeatures = (fc) => fc?.features ?? [];
 
-  const subzone = (record.start_subzone || record.end_subzone || "").trim();
-  const subzoneId =
-    (record.start_subzone_id || record.end_subzone_id || record.subzone_id || "").trim();
+/* optional: build id→name lookups from geojsons (used when flood rows only have ids) */
+const buildLookups = (planningData, subzoneData, roadData) => {
+  const paNameById = {};
+  const szNameById = {};
+  const szPaIdBySzId = {};
+  const paIdBySzId = {};
+  const roadNameById = {};
+
+  for (const f of fcFeatures(planningData)) {
+    const p = featureProps(f);
+    const id = (p.PA_ID ?? p.PLN_AREA_ID ?? p.PLN_AREA_C ?? "").toString().trim();
+    const name = (p.PLN_AREA_N ?? p.planning_area ?? "").toString().trim();
+    if (id && name) paNameById[id] = name;
+  }
+
+  for (const f of fcFeatures(subzoneData)) {
+    const p = featureProps(f);
+    const szId = (p.SUBZONE_C ?? p.SUBZONE_ID ?? p.SZ_ID ?? "").toString().trim();
+    const szName = (p.SUBZONE_N ?? p.subzone ?? "").toString().trim();
+    const paId = (p.PA_ID ?? p.PLN_AREA_ID ?? p.PLN_AREA_C ?? "").toString().trim();
+    if (szId && szName) szNameById[szId] = szName;
+    if (szId && paId) { szPaIdBySzId[szId] = paId; paIdBySzId[szId] = paId; }
+  }
+
+  for (const f of fcFeatures(roadData)) {
+    const p = featureProps(f);
+    const rid = (p.RN_ID ?? p.UNIQUE_ID ?? p.road_id ?? "").toString().trim();
+    const rname = (p.name ?? p.road ?? p.STREET_NAM ?? "").toString().trim();
+    if (rid && rname) roadNameById[rid] = rname;
+  }
+
+  return { paNameById, szNameById, szPaIdBySzId, paIdBySzId, roadNameById };
+};
+
+/* normalise flood row using enriched/raw dataset columns, with lookup fallbacks */
+const normaliseFloodRecord = (record = {}, lkp = {}) => {
+  const {
+    paNameById = {},
+    szNameById = {},
+    roadNameById = {},
+    szPaIdBySzId = {},
+    paIdBySzId = {},
+  } = lkp || {};
+
+  const planningAreaId = (
+    record.start_pa_id ??
+    record.end_pa_id ??
+    record.start_planning_area_id ??
+    record.end_planning_area_id ??
+    record.planning_area_id ??
+    record.pa_id ??
+    ""
+  ).toString().trim();
+
+  const subzoneId = (
+    record.start_sz_id ??
+    record.end_sz_id ??
+    record.start_subzone_id ??
+    record.end_subzone_id ??
+    record.subzone_id ??
+    record.sz_id ??
+    ""
+  ).toString().trim();
+
+  const roadId = (
+    record.origin_rn_id ??           // prefer origin (enriched)
+    record.start_rn_id ??
+    record.end_rn_id ??
+    record.start_street_id ??
+    record.end_street_id ??
+    record.RN_ID ??
+    record.UNIQUE_ID ??
+    ""
+  ).toString().trim();
+
+  const planningAreaExplicit = (
+    record.origin_planning_area ??   // prefer origin (enriched)
+    record.start_planning_area ??
+    record.end_planning_area ??
+    record.planning_area ??
+    ""
+  ).toString().trim();
+
+  const subzoneExplicit = (
+    record.origin_subzone ??         // prefer origin (enriched)
+    record.start_subzone ??
+    record.end_subzone ??
+    record.subzone ??
+    ""
+  ).toString().trim();
+
+  const roadExplicit = (
+    record.origin_road ??            // prefer origin (enriched)
+    record.start_street_name ??
+    record.end_street_name ??
+    record.parent_road ??
+    record.road ??
+    ""
+  ).toString().trim();
+
+  const derivedPaId = planningAreaId || szPaIdBySzId[subzoneId] || paIdBySzId[subzoneId] || "";
+  const planningArea =
+    planningAreaExplicit ||
+    paNameById[planningAreaId] ||
+    paNameById[derivedPaId] ||
+    "";
+
+  const subzone =
+    subzoneExplicit ||
+    szNameById[subzoneId] ||
+    "";
 
   const road =
-    (record.start_street_name || record.end_street_name || record.parent_road || "").trim();
-  const roadId =
-    (
-      record.start_street_id ||
-      record.end_street_id ||
-      record.RN_ID ||
-      record.UNIQUE_ID ||
-      ""
-    ).trim();
+    roadExplicit ||
+    roadNameById[roadId] ||
+    (roadId ? `road ${roadId}` : "");
 
-  const floodType =
-    (record.event || record.flood_type || "unknown").trim().toLowerCase() || "unknown";
+  const floodType = (
+    record.event ??
+    record.flood_type ??
+    "unknown"
+  ).toString().trim().toLowerCase() || "unknown";
 
-  const eventDate = record.event_date
-    ? new Date(record.event_date)
-    : record.date
-    ? new Date(record.date)
-    : null;
+  const eventDate = (() => {
+    const raw =
+      record.event_date_iso ??  // enriched first
+      record.event_date ??
+      record.start_date ??
+      record.date ??
+      record.dt ??
+      null;
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(+d) ? null : d;
+  })();
 
-  const year =
-    eventDate && Number.isFinite(eventDate.getFullYear())
-      ? eventDate.getFullYear()
-      : null;
+  const year = eventDate && Number.isFinite(eventDate.getFullYear()) ? eventDate.getFullYear() : null;
+
+  const toNum = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  const lat =
+    toNum(record.origin_lat) ??
+    toNum(record.start_lat) ??
+    toNum(record.end_lat);
+
+  const lng =
+    toNum(record.origin_lng) ??
+    toNum(record.start_lng) ??
+    toNum(record.end_lng);
 
   return {
     ...record,
@@ -59,14 +177,15 @@ const normaliseFloodRecord = (record) => {
     floodType,
     eventDate,
     year,
+    lat, lng,
   };
 };
 
 const aggregateCounts = (events, selector) => {
   const tally = new Map();
-  events.forEach((event) => {
-    const key = selector(event);
-    const label = key ? String(key).trim() : "Unknown";
+  events.forEach((e) => {
+    const key = selector(e);
+    const label = key ? String(key).trim() : "unknown";
     tally.set(label, (tally.get(label) || 0) + 1);
   });
   return Array.from(tally.entries())
@@ -74,12 +193,12 @@ const aggregateCounts = (events, selector) => {
     .sort((a, b) => b.count - a.count);
 };
 
-const countsToMap = (entries, selector = (entry) => entry.label) => {
+const countsToMap = (entries, selector = (e) => e.label) => {
   const map = {};
   let max = 0;
   entries.forEach((entry) => {
     const key = selector(entry);
-    if (!key || key === "Unknown") return;
+    if (!key || key === "unknown") return;
     map[key] = entry.count;
     if (entry.count > max) max = entry.count;
   });
@@ -95,32 +214,73 @@ const withinDate = (value, fromISO, toISO) => {
   return true;
 };
 
-/* ---------------- feature helpers ---------------- */
-const featureProps = (f) => f?.properties ?? {};
-const fcFeatures = (fc) => fc?.features ?? [];
+
 
 /* ---------------- component ---------------- */
-export default function DashboardLayout({ mapcomponent: MapComponent }) {
-  // pull everything from context
-  const {
-    planningFC,
-    subzoneFC,
-    roadFC,
-    floodsFC,
-    amenityFC,
-    loading: dataLoading,
-    error: dataError,
-  } = useMapData();
+export default function dashboardlayout({ mapcomponent: MapComponent }) {
+  const ctx = useMapData();
 
+  // prefer enriched datasets, fallback to raw if needed
+  const planningData =
+    ctx?.planning_fc_enriched ??
+    ctx?.planning_fc_raw ??
+    ctx?.planningFC ??
+    ctx?.planning_fc ??
+    ctx?.planning ??
+    null;
+
+  const subzoneData =
+    ctx?.subzone_fc_enriched ??
+    ctx?.subzone_fc_raw ??
+    ctx?.subzoneFC ??
+    ctx?.subzone_fc ??
+    ctx?.subzone ??
+    null;
+
+  const roadData =
+    ctx?.road_fc_enriched ??
+    ctx?.roadFC ??
+    ctx?.road_fc ??
+    ctx?.road ??
+    null;
+
+  const amenityData =
+    ctx?.amenity_fc_enriched ??   // ⬅️ enriched amenities (names + category)
+    ctx?.amenity_fc_raw ??
+    ctx?.amenityFC ??
+    ctx?.amenity_fc ??
+    ctx?.amenities ??
+    null;
+
+  const floodData =
+    ctx?.floods_fc_enriched ??    // ⬅️ enriched floods (origin/end + event_date_iso)
+    ctx?.floods_fc_raw ??
+    ctx?.floodsFC ??
+    ctx?.floods_fc ??
+    ctx?.floods ??
+    null;
+
+  const dataLoading = ctx.loading;
+  const dataError   = ctx.error;
+
+  const ready =
+    !!planningData && !!subzoneData && !!roadData && !!amenityData && !!floodData &&
+    Array.isArray(planningData.features) &&
+    Array.isArray(subzoneData.features) &&
+    Array.isArray(roadData.features) &&
+    Array.isArray(amenityData.features) &&
+    Array.isArray(floodData.features);
+
+  /* ui state */
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [resizeSignal, setResizeSignal] = useState(0);
   const [showFloods, setShowFloods] = useState(true);
   const [showAmenities, setShowAmenities] = useState(true);
 
-  /* selection state */
-  const [planningAreas, setPlanningAreas] = useState([]); // names for UI
-  const [selectedPlanningAreas, setSelectedPlanningAreas] = useState([]); // names for UI
+  /* selections */
+  const [planningAreas, setPlanningAreas] = useState([]);
+  const [selectedPlanningAreas, setSelectedPlanningAreas] = useState([]);
   const [selectedSubzone, setSelectedSubzone] = useState(null);
 
   /* amenity filters */
@@ -135,26 +295,19 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
   const [floodDateFrom, setFloodDateFrom] = useState("");
   const [floodDateTo, setFloodDateTo] = useState("");
 
-  /* raw datasets now come from context (as valid GeoJSON FCs) */
-  const planningData = planningFC;
-  const subzoneData = subzoneFC;
-  const roadData = roadFC;
-  const amenityData = amenityFC;
-  const floodData = floodsFC;
-
-  /* insights panel rows (derived from floodsFC) */
+  /* insights base */
   const [floodRows, setFloodRows] = useState([]);
   const [floodLoading, setFloodLoading] = useState(false);
   const [floodError, setFloodError] = useState(null);
+  const [selectedSubzones, setSelectedSubzones] = useState([]); // <-- add this
 
-  /* ---------- react to context changes ---------- */
+  /* ---------- react to datasets ---------- */
   useEffect(() => {
     let cancelled = false;
     setFloodLoading(true);
     setFloodError(null);
 
     try {
-      // planning area list (names for UI)
       const paNames = Array.from(
         new Set(
           fcFeatures(planningData)
@@ -165,7 +318,6 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       ).sort();
       if (!cancelled) setPlanningAreas(paNames);
 
-      // amenity filters
       const amenCats = Array.from(
         new Set(
           fcFeatures(amenityData)
@@ -174,6 +326,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
             .map((s) => String(s).trim())
         )
       ).sort();
+
       const amenTypes = Array.from(
         new Set(
           fcFeatures(amenityData)
@@ -182,24 +335,21 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
             .map((s) => String(s).trim())
         )
       ).sort();
-      if (!cancelled) {
-        setAmenityCategories(amenCats);
-        setAmenityTypesAll(amenTypes);
-      }
 
-      // flood filters + rows
       const floodTypes = Array.from(
         new Set(
           fcFeatures(floodData)
             .map((f) => featureProps(f))
-            .map((p) =>
-              (p?.event ?? p?.flood_type ?? "").toString().trim().toLowerCase()
-            )
+            .map((p) => (p?.event ?? p?.flood_type ?? "").toString().trim().toLowerCase())
             .filter(Boolean)
         )
       ).sort();
+
       const floodRowsObjects = fcFeatures(floodData).map((f) => featureProps(f));
+
       if (!cancelled) {
+        setAmenityCategories(amenCats);
+        setAmenityTypesAll(amenTypes);
         setFloodTypesAll(floodTypes);
         setFloodRows(floodRowsObjects);
       }
@@ -216,22 +366,27 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       if (!cancelled) setFloodLoading(false);
     }
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [planningData, amenityData, floodData]);
 
-  /* ---------- derived options ---------- */
+  /* ---------- options ---------- */
   const planningOptions = useMemo(
     () => [...new Set(planningAreas)].sort((a, b) => a.localeCompare(b)),
     [planningAreas]
   );
 
-  /* ---------- insights computed from rows ---------- */
-  const floodEvents = useMemo(() => floodRows.map(normaliseFloodRecord), [floodRows]);
+  /* ---------- lookups + insights precompute ---------- */
+  const floodLookups = useMemo(
+    () => buildLookups(planningData, subzoneData, roadData),
+    [planningData, subzoneData, roadData]
+  );
+
+  const floodEvents = useMemo(
+    () => floodRows.map((r) => normaliseFloodRecord(r, floodLookups)),
+    [floodRows, floodLookups]
+  );
 
   const filteredFloodEvents = useMemo(() => {
-    // UI still filters by PA NAME; aggregation is by ID
     const paAllowed = new Set(selectedPlanningAreas);
     const base = !paAllowed.size
       ? floodEvents
@@ -269,13 +424,11 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     }
 
     const filtered = filteredFloodEvents;
-
-    // ✅ overall & filtered counts by **ID**
     const overallPlanningCounts = aggregateCounts(floodEvents, (e) => e.planningAreaId);
 
     const focusSubzoneName = selectedSubzone?.properties?.SUBZONE_N?.trim() || null;
     const subzoneScopedEvents = focusSubzoneName
-      ? filtered.filter((e) => e.subzone === focusSubzoneName) // UI drill stays by name
+      ? filtered.filter((e) => e.subzone === focusSubzoneName)
       : filtered;
 
     const byPlanningArea = aggregateCounts(filtered, (e) => e.planningAreaId);
@@ -289,13 +442,12 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       .map(({ label, count }) => ({ year: Number(label), count }))
       .sort((a, b) => a.year - b.year);
 
-    // roads: prefer ID but keep name for display
     const roadTally = new Map();
     const roadSourceEvents = focusSubzoneName ? subzoneScopedEvents : filtered;
     roadSourceEvents.forEach((e) => {
       const id = (e.roadId || "").trim();
-      const name = e.road || id || "Unknown";
-      const key = id || name; // id first
+      const name = e.road || id || "unknown";
+      const key = id || name;
       if (!key) return;
       const entry = roadTally.get(key) || { id: id || null, name, count: 0 };
       entry.count += 1;
@@ -305,14 +457,13 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     const roadEntries = Array.from(roadTally.values()).sort((a, b) => b.count - a.count);
     const byRoad = roadEntries.map(({ id, name, count }) => ({ label: id || name, name, count }));
     const topRoads = roadEntries
-      .filter((r) => (r.id || r.name) && (r.name && r.name !== "Unknown"))
+      .filter((r) => (r.id || r.name) && r.name && r.name !== "unknown")
       .slice(0, 5)
       .map(({ name, count }) => ({ name, count }));
 
     const subzoneSource = focusSubzoneName ? subzoneScopedEvents : filtered;
-    // topSubzones labeled by ID (aggregation key == ID)
     const topSubzones = aggregateCounts(subzoneSource, (e) => e.subzoneId)
-      .filter((x) => x.label && x.label !== "Unknown")
+      .filter((x) => x.label && x.label !== "unknown")
       .slice(0, 5)
       .map(({ label, count }) => ({ name: label, count }));
 
@@ -333,18 +484,18 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
 
     return {
       totals,
-      byPlanningArea,              // labels are PA_ID
-      bySubzone,                   // labels are SZ_ID
-      byRoad,                      // labels are RN_ID (or name fallback)
+      byPlanningArea,
+      bySubzone,
+      byRoad,
       byType,
       yearSeries,
       topRoads,
-      topSubzones,                 // names are SZ_ID here (since we aggregate by id)
+      topSubzones,
       focusSubzoneName,
-      planningCountMap,            // keyed by PA_ID
-      subzoneCountMap,             // keyed by SZ_ID
-      roadCountMap,                // keyed by RN_ID (or name fallback)
-      overallPlanningCountMap,     // keyed by PA_ID
+      planningCountMap,
+      subzoneCountMap,
+      roadCountMap,
+      overallPlanningCountMap,
       maxPlanningCount,
       maxSubzoneCount,
       maxRoadCount,
@@ -352,7 +503,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     };
   }, [filteredFloodEvents, floodEvents, selectedSubzone]);
 
-  /* ---------- derived subzone options (UI still by name) ---------- */
+  /* ---------- subzone options ---------- */
   const subzoneOptions = useMemo(() => {
     const feats = fcFeatures(subzoneData);
     const paAllowed = new Set(selectedPlanningAreas);
@@ -371,7 +522,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     return rows.filter((r) => (seen.has(r.name) ? false : (seen.add(r.name), true)));
   }, [subzoneData, selectedPlanningAreas]);
 
-  /* ---------- amenity type options depend on chosen categories ---------- */
+  /* ---------- amenity type options depend on selected categories ---------- */
   const amenityTypeOptionsScoped = useMemo(() => {
     if (!amenityData?.features?.length) return [];
     const cats = new Set(selectedAmenityCategories.map(String));
@@ -432,7 +583,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     const tally = (arr, sel) => {
       const m = new Map();
       arr.forEach((f) => {
-        const k = sel(f) || "Unknown";
+        const k = sel(f) || "unknown";
         m.set(k, (m.get(k) || 0) + 1);
       });
       return Array.from(m, ([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
@@ -444,18 +595,19 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     const byType = tally(feats, (f) => String(f.properties?.amenity_type || "").trim());
 
     const topSubzones = bySubzone
-      .filter((x) => x.label && x.label !== "Unknown")
+      .filter((x) => x.label && x.label !== "unknown")
       .slice(0, 5)
       .map(({ label, count }) => ({ name: label, count }));
+
     const topTypes = byType.slice(0, 10).map(({ label, count }) => ({ name: label, count }));
 
     return {
       totals: {
         amenities: feats.length,
-        planningAreas: byPlanningArea.filter((x) => x.label && x.label !== "Unknown").length,
-        subzones: bySubzone.filter((x) => x.label && x.label !== "Unknown").length,
-        categories: byCategory.filter((x) => x.label && x.label !== "Unknown").length,
-        types: byType.filter((x) => x.label && x.label !== "Unknown").length,
+        planningAreas: byPlanningArea.filter((x) => x.label && x.label !== "unknown").length,
+        subzones: bySubzone.filter((x) => x.label && x.label !== "unknown").length,
+        categories: byCategory.filter((x) => x.label && x.label !== "unknown").length,
+        types: byType.filter((x) => x.label && x.label !== "unknown").length,
         topCategory: byCategory[0]?.label ?? null,
         topType: byType[0]?.label ?? null,
       },
@@ -468,16 +620,10 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     };
   }, [amenityFilteredFeatures]);
 
-  /* ---------- UI helpers ---------- */
+  /* ---------- ui helpers ---------- */
   const triggerResize = useCallback(() => setResizeSignal((v) => v + 1), []);
-  const handleToggleLeft = useCallback(() => {
-    setLeftOpen((o) => !o);
-    triggerResize();
-  }, [triggerResize]);
-  const handleToggleRight = useCallback(() => {
-    setRightOpen((o) => !o);
-    triggerResize();
-  }, [triggerResize]);
+  const handleToggleLeft = useCallback(() => { setLeftOpen((o) => !o); triggerResize(); }, [triggerResize]);
+  const handleToggleRight = useCallback(() => { setRightOpen((o) => !o); triggerResize(); }, [triggerResize]);
 
   const handlePlanningAreaSelection = useCallback((areas) => setSelectedPlanningAreas(areas), []);
   const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas([]), []);
@@ -509,14 +655,11 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         (f) => String(f?.properties?.SUBZONE_N || "").trim() === subzoneName
       );
       setSelectedSubzone(feat || null);
-
       const pa = feat?.properties?.PLN_AREA_N ? String(feat.properties.PLN_AREA_N).trim() : null;
       if (pa) setSelectedPlanningAreas([pa]);
     },
     [subzoneData]
   );
-
-  const clearSubzoneSelection = useCallback(() => setSelectedSubzone(null), []);
 
   useEffect(() => {
     if (!selectedPlanningAreas.length) return setSelectedSubzone(null);
@@ -534,48 +677,56 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     return "md:basis-3/4 md:max-w-[75%]";
   }, [leftOpen, rightOpen]);
 
-  // prevent toolbar clicks from bubbling to the map canvas
-  const stop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
 
   /* ---------- render ---------- */
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 px-4 py-6 md:px-6 lg:px-10">
-      <div className="flex flex-1 min-h-0 flex-col gap-6 md:flex-row">
-        {/* left filters */}
-        <aside className={cn("min-h-0 transition-all duration-300 ease-in-out", leftOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden")} aria-hidden={!leftOpen}>
-          <div className={cn("flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300", leftOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0")}>
-            <LeftPanel
-              options={planningOptions}
-              selected={selectedPlanningAreas}
-              onSelectionChange={handlePlanningAreaSelection}
-              onResetSelection={handleResetPlanningAreas}
-              subzoneOptions={subzoneOptions}
-              selectedSubzone={selectedSubzone ? String(selectedSubzone?.properties?.SUBZONE_N || "") : ""}
-              onSubzonePick={handleSubzonePickByName}
-              amenityCategoriesOptions={amenityCategories}
-              selectedAmenityCategories={selectedAmenityCategories}
-              onAmenityCategoriesChange={setSelectedAmenityCategories}
-              amenityTypesOptions={amenityTypesAll /* kept for compatibility */}
-              selectedAmenityTypes={selectedAmenityTypes}
-              onAmenityTypesChange={setSelectedAmenityTypes}
-              floodTypeOptions={floodTypesAll}
-              selectedFloodTypes={selectedFloodTypes}
-              onFloodTypesChange={setSelectedFloodTypes}
-              floodDateFrom={floodDateFrom}
-              floodDateTo={floodDateTo}
-              onFloodDateFromChange={setFloodDateFrom}
-              onFloodDateToChange={setFloodDateTo}
-            />
+      <div className="flex min-h-0 flex-1 flex-col gap-6 md:flex-row max-h-[95dvh]">
+        {/* left filters (match map height, scroll if needed) */}
+        <aside
+          className={cn(
+            "min-h-0 transition-all duration-300 ease-in-out",
+            leftOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden"
+          )}
+          aria-hidden={!leftOpen}
+        >
+          <div className={cn(
+            "flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300",
+            leftOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          )}>
+            <div className="max-h-[95dvh] h-full overflow-y-auto">
+              <LeftPanel
+                options={planningOptions}
+                selected={selectedPlanningAreas}
+                onSelectionChange={handlePlanningAreaSelection}
+                onResetSelection={handleResetPlanningAreas}
+                subzoneOptions={subzoneOptions}
+                selectedSubzones={selectedSubzones}                
+                onSelectedSubzonesChange={setSelectedSubzones}    
+                amenityCategoriesOptions={amenityCategories}
+                selectedAmenityCategories={selectedAmenityCategories}
+                onAmenityCategoriesChange={setSelectedAmenityCategories}
+                amenityTypesOptions={amenityTypesAll}
+                selectedAmenityTypes={selectedAmenityTypes}
+                onAmenityTypesChange={setSelectedAmenityTypes}
+                floodTypeOptions={floodTypesAll}
+                selectedFloodTypes={selectedFloodTypes}
+                onFloodTypesChange={setSelectedFloodTypes}
+                floodDateFrom={floodDateFrom}
+                floodDateTo={floodDateTo}
+                onFloodDateFromChange={setFloodDateFrom}
+                onFloodDateToChange={setFloodDateTo}
+              />
+            </div>
           </div>
         </aside>
 
-        {/* map */}
+        {/* map column */}
         <div
           className={cn(
-            "relative min-w-0 flex min-h-[24rem] grow min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 ease-in-out",
+            "relative min-w-0 min-h-0 flex grow flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 ease-in-out",
+            "h-[95dvh]",
             mapColumnClass
           )}
         >
@@ -594,7 +745,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
               }}
             >
               <PanelLeft className="h-4 w-4" />
-              <span>{leftOpen ? "Hide filters" : "Show filters"}</span>
+              <span>{leftOpen ? "hide filters" : "show filters"}</span>
             </Button>
             <Button
               type="button"
@@ -609,25 +760,25 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
               }}
             >
               <PanelRight className="h-4 w-4" />
-              <span>{rightOpen ? "Hide info" : "Show info"}</span>
+              <span>{rightOpen ? "hide info" : "show info"}</span>
             </Button>
           </div>
 
           <div className="flex-1 min-h-0">
-            {MapComponent && (
+            {!dataLoading && !dataError && ready && MapComponent ? (
               <MapComponent
                 resizeSignal={resizeSignal}
                 selectedPlanningAreas={selectedPlanningAreas}
                 selectedSubzone={selectedSubzone}
                 onPlanningAreaToggle={handlePlanningAreaFromMap}
                 onSubzoneSelect={handleSubzoneSelect}
-                /* datasets from context */
                 planningData={planningData}
                 subzoneData={subzoneData}
                 roadData={roadData}
                 amenityData={amenityData}
                 floodData={floodData}
                 /* filters */
+                selectedSubzones={selectedSubzones}
                 selectedAmenityCategories={selectedAmenityCategories}
                 selectedAmenityTypes={selectedAmenityTypes}
                 onAmenityTypesChange={setSelectedAmenityTypes}
@@ -636,32 +787,43 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
                 floodDateFrom={floodDateFrom}
                 floodDateTo={floodDateTo}
                 /* options / stats */
-                amenityTypes={amenityCategories}
+                amenityTypes={amenityCategories}  /* categories list used by map for icons */
                 floodTypes={floodTypesAll}
                 onPlanningAreasLoaded={setPlanningAreas}
-                floodStats={floodInsights} // ⬅️ maps keyed by IDs now
+                floodStats={floodInsights}
                 /* toggles */
                 showFloods={showFloods}
                 setShowFloods={setShowFloods}
                 showAmenities={showAmenities}
                 setShowAmenities={setShowAmenities}
               />
-            )}
+            ) : null}
           </div>
         </div>
 
-        {/* right info */}
-        <aside className={cn("min-h-0 transition-all duration-300 ease-in-out", rightOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden")} aria-hidden={!rightOpen}>
-          <div className={cn("flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300", rightOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0")}>
-            <RightPanel
-              feature={selectedSubzone}
-              onClearSelection={() => setSelectedSubzone(null)}
-              stats={floodInsights}
-              amenityStats={amenityInsights}
-              loading={dataLoading || floodLoading}
-              error={dataError || floodError}
-              selectedPlanningAreas={selectedPlanningAreas}
-            />
+        {/* right info (match height, scroll if needed) */}
+        <aside
+          className={cn(
+            "min-h-0 transition-all duration-300 ease-in-out",
+            rightOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden"
+          )}
+          aria-hidden={!rightOpen}
+        >
+          <div className={cn(
+            "flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300",
+            rightOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          )}>
+            <div className="max-h-[95dvh] h-full overflow-y-auto">
+              <RightPanel
+                feature={selectedSubzone}
+                onClearSelection={() => setSelectedSubzone(null)}
+                stats={floodInsights}
+                amenityStats={amenityInsights}
+                loading={dataLoading || floodLoading}
+                error={dataError || floodError}
+                selectedPlanningAreas={selectedPlanningAreas}
+              />
+            </div>
           </div>
         </aside>
       </div>

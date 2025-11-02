@@ -1,1975 +1,1044 @@
-// components/map/SingaporeHistoricalFloodMap.jsx
+// components/map/singaporehistoricalfloodmap.jsx
+"use client";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import ReactDOM from "react-dom/client";
-import PopupContent from "./PopupContent";
+import * as turf from "@turf/turf";
 
-import {
-  buildMatchFilter,
-  computeFeatureBounds,
-  mergeBounds,
-  buildChoroplethExpression,
-  buildLineWidthExpression,
-  aggregateAmenityStats,
-} from "../../../utils/map/helpers";
+/* ===== base config ===== */
+const mapbox_token = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
+const mapbox_style = "mapbox://styles/mapbox/streets-v12";
+const default_center = [103.8198, 1.3521];
+const default_zoom = 11;
 
-/* ===== mapbox base config ===== */
-const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
-const MAPBOX_STYLE = "mapbox://styles/mapbox/streets-v12";
-const DEFAULT_CENTER = [103.8198, 1.3521];
-const DEFAULT_ZOOM = 11;
-
-mapboxgl.accessToken = MAPBOX_TOKEN;
+mapboxgl.accessToken = mapbox_token;
 if (typeof mapboxgl.setTelemetryEnabled === "function") mapboxgl.setTelemetryEnabled(false);
 
 /* ===== ids ===== */
-const PLANNING_SOURCE_ID = "planning-area";
-const PLANNING_FILL_LAYER_ID = "planning-area-fill";
-const PLANNING_OUTLINE_LAYER_ID = "planning-area-outline";
-const PLANNING_HIGHLIGHT_LAYER_ID = "planning-area-highlight";
-const SUBZONE_SOURCE_ID = "subzone-area";
-const SUBZONE_FILL_LAYER_ID = "subzone-fill";
-const SUBZONE_OUTLINE_LAYER_ID = "subzone-outline";
-const SUBZONE_HIGHLIGHT_LAYER_ID = "subzone-highlight";
-const ROAD_SOURCE_ID = "road-network";
-const ROAD_LAYER_ID = "road-network-line";
-const AMENITY_SOURCE_ID = "amenities";
-const AMENITY_ICON_LAYER_ID = "amenities-icons";
+const PA_SRC = "pa-src";
+const PA_FILL = "pa-fill";
+const PA_OUTLINE = "pa-outline";
 
-/* PA flood bubbles (planning-level aggregation) */
-const PA_FLOOD_SOURCE_ID = "pa-flood-bubbles-source";
-const PA_FLOOD_BUBBLE_LAYER_ID = "pa-flood-bubbles";
-const PA_FLOOD_COUNT_LAYER_ID = "pa-flood-counts";
+const SZ_SRC = "sz-src";
+const SZ_FILL = "sz-fill";
+const SZ_OUTLINE = "sz-outline";
 
-/* Flood inside PA (stacked by exact/snap coordinates) */
-const FLOOD_STACKED_SOURCE_ID = "flood-stacked";         // merged-by-coordinate (within selected PA)
-const FLOOD_STACK_BUBBLE_LAYER_ID = "flood-stack-bubbles";
-const FLOOD_STACK_COUNT_LAYER_ID = "flood-stack-counts";
-const FLOOD_SINGLE_LAYER_ID = "flood-single";
+const FLOODS_SRC = "floods-src";
+const FLOOD_POINTS = "flood-points";
+const FLOOD_HEAT = "flood-heat";
 
-/* Spiderfy (temporary) */
-const FLOOD_SPIDER_SOURCE_ID = "flood-spider-source";
-const FLOOD_SPIDER_EDGES_SOURCE_ID = "flood-spider-edges-source";
-const FLOOD_SPIDER_EDGES_LAYER_ID = "flood-spider-edges";
-const FLOOD_SPIDER_POINTS_LAYER_ID = "flood-spider-points";
+const ROAD_SRC = "road-src";
+const ROAD_LINE = "road-line";
 
-/* hover outlines */
-const PA_HOVER_OUTLINE_ID = "planning-area-hover-outline";
-const PA_HOVER_OUTLINE_INNER_ID = "planning-area-hover-outline-inner";
-const SZ_HOVER_OUTLINE_ID = "subzone-hover-outline";
+const AMENITIES_SRC = "amenities-src";
+const AMENITY_POINTS = "amenity-points";
 
-/* filters / styling constants */
-const EMPTY_PA_FILTER = ["==", ["get", "PA_ID"], "__none__"];
-const EMPTY_SUBZONE_HIGHLIGHT = ["==", ["get", "SZ_ID"], "__none__"];
+const PA_CENTROIDS_SRC = "pa-centroids-src";
+const PA_BUBBLE_CIRCLES = "pa-bubble-circles";
+const PA_BUBBLE_LABELS = "pa-bubble-labels";
 
-const PLANNING_COLORS = ["#e0f2fe", "#bae6fd", "#93c5fd", "#60a5fa", "#3b82f6", "#1d4ed8"];
-const SUBZONE_COLORS = ["#fee2e2", "#fecaca", "#fca5a5", "#f87171", "#ef4444", "#dc2626"];
-const DEFAULT_PLANNING_COLOR = "#e2e8f0";
-const DEFAULT_SUBZONE_COLOR = "rgba(37, 99, 235, 0.18)";
-const DEFAULT_ROAD_WIDTH = 2.0;
-const HOVER_FILL_COLOR = "#fef08a";
+const SZ_CENTROIDS_SRC = "sz-centroids-src";
+const SZ_BUBBLE_CIRCLES = "sz-bubble-circles";
+const SZ_BUBBLE_LABELS = "sz-bubble-labels";
 
-/* amenity icon helpers */
-const slugify = (s) => s.toString().trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-const amenityIconId = (cat) => `amen_${slugify(cat)}`;
-const amenityIconUrl = (cat) => `/map/markers/${slugify(cat)}.png`;
-const AMENITY_ICON_DEFAULT_ID = "amen_default";
-const AMENITY_ICON_DEFAULT_URL = "/map/markers/default.png";
+/* ===== helpers ===== */
+const asFC = (d) =>
+  d && d.type === "FeatureCollection" && Array.isArray(d.features)
+    ? d
+    : { type: "FeatureCollection", features: [] };
 
-/* wrap map.loadImage in a promise */
-const loadImageAsync = (map, url) =>
-  new Promise((resolve, reject) => {
-    map.loadImage(url, (err, img) => {
-      if (err) reject(err);
-      else resolve(img);
-    });
-  });
+const toS = (v) => (v == null ? "" : String(v).trim());
+const toLC = (v) => toS(v).toLowerCase();
+const toTitle = (s) => String(s || "").toLowerCase().replace(/\b([a-z])/g, (_, c) => c.toUpperCase());
 
-/* flood icon helpers */
-const floodSlug = (s) => (s ?? "").toString().trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-const floodIconId = (type) => `flood_${floodSlug(type)}`;
-const floodIconUrl = (type) => `/map/markers/${floodSlug(type)}.png`;
-const FLOOD_ICON_DEFAULT_ID = "flood_default";
-const FLOOD_ICON_DEFAULT_URL = "/map/markers/default.png";
+const PA_NAME_KEYS = ["PLN_AREA_N", "pln_area_n", "planning_area", "pa_name"];
+const SZ_NAME_KEYS = ["SUBZONE_N", "subzone_n", "subzone"];
+const FLOOD_PA_NAME_KEYS = ["origin_planning_area", "planning_area", "pa_name", "start_planning_area", "end_planning_area"];
+const AMEN_PA_NAME_KEYS = ["planning_area", "PLN_AREA_N", "pa_name"];
+const ROAD_PA_NAME_KEYS = ["planning_area", "PLN_AREA_N", "pa_name"];
 
-const buildFloodIconExpression = (types) => {
-  const safe = (types || []).map((t) => String(t).trim()).filter(Boolean);
-  if (safe.length === 0) return FLOOD_ICON_DEFAULT_ID;
-  return [
-    "match",
-    ["downcase", ["to-string", ["coalesce", ["get", "event"], ["get", "flood_type"], ""]]],
-    ...safe.flatMap((t) => [t.toLowerCase(), floodIconId(t)]),
-    FLOOD_ICON_DEFAULT_ID,
-  ];
+const getProp = (obj, keys) => {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v != null && v !== "") return v;
+  }
+  return "";
 };
 
-/* preload flood icons used in this session */
-async function loadFloodIcons(map, typeList) {
-  if (FLOOD_ICON_DEFAULT_URL && !map.hasImage(FLOOD_ICON_DEFAULT_ID)) {
-    try {
-      const defImg = await loadImageAsync(map, FLOOD_ICON_DEFAULT_URL);
-      map.addImage(FLOOD_ICON_DEFAULT_ID, defImg, { pixelRatio: 2 });
-    } catch {}
-  }
-  await Promise.allSettled(
-    typeList.map(async (t) => {
-      const id = floodIconId(t);
-      if (map.hasImage(id)) return;
-      try {
-        const img = await loadImageAsync(map, floodIconUrl(t));
-        map.addImage(id, img, { pixelRatio: 2 });
-      } catch {}
-    })
-  );
-
-  map.on("styleimagemissing", async (e) => {
-    const id = e?.id || "";
-    if (!id.startsWith("flood_") || map.hasImage(id)) return;
-    try {
-      const img = await loadImageAsync(map, `/map/markers/flood/${id.replace(/^flood_/, "")}.png`);
-      map.addImage(id, img, { pixelRatio: 2 });
-      map.triggerRepaint();
-    } catch {
-      if (!map.hasImage(FLOOD_ICON_DEFAULT_ID) && FLOOD_ICON_DEFAULT_URL) {
-        try {
-          const defImg = await loadImageAsync(map, FLOOD_ICON_DEFAULT_URL);
-          map.addImage(FLOOD_ICON_DEFAULT_ID, defImg, { pixelRatio: 2 });
-          map.triggerRepaint();
-        } catch {}
-      }
-    }
-  });
-}
-
-/* ===== helpers for reading props safely ===== */
-const S = (v) => (v == null ? "" : String(v).trim());
-const lower = (v) => S(v).toLowerCase();
-const getFloodType = (props) => lower(props?.event ?? props?.flood_type ?? "");
-const getEventDate = (props) => S(props?.event_date ?? props?.date ?? "");
-
-/* Prefer IDs for PA / SZ / Road on flood points */
-const getFloodPlanningId = (p, nameToIdMap) =>
-  S(p.start_planning_area_id ?? p.end_planning_area_id ?? p.planning_area_id ?? nameToIdMap[S(p.planning_area ?? p.PLN_AREA_N)] ?? "");
-const getFloodSubzoneId = (p, nameToIdMap) =>
-  S(p.start_subzone_id ?? p.end_subzone_id ?? p.subzone_id ?? nameToIdMap[S(p.subzone ?? p.SUBZONE_N)] ?? "");
-const getFloodRoadId = (p) =>
-  S(p.start_street_id ?? p.end_street_id ?? p.RN_ID ?? p.UNIQUE_ID ?? p.nearest_road_1_rn_id ?? p.nearest_road_1_id);
-
-/* date range helper */
-const isWithinDateRange = (value, fromDate, toDate) => {
-  if (!fromDate && !toDate) return true;
-  if (!value) return false;
-  const candidate = new Date(value);
-  if (Number.isNaN(candidate.getTime())) return false;
-  if (fromDate && candidate < fromDate) return false;
-  if (toDate && candidate > toDate) return false;
+const withinDate = (value, fromISO, toISO) => {
+  if (!fromISO && !toISO) return true;
+  const d = value ? new Date(value) : null;
+  if (!d || Number.isNaN(d.getTime())) return false;
+  if (fromISO && d < new Date(fromISO)) return false;
+  if (toISO && d > new Date(toISO)) return false;
   return true;
 };
 
-/* ===== pretty hover builders ===== */
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
-const fmt = (n) => (Number.isFinite(+n) ? Number(n).toLocaleString() : String(n ?? "-"));
-
-function buildNiceAmenityHtml(p) {
-  const name = esc(p?.amenity_name || p?.amenity_type || "amenity");
-  const cat = esc(p?.amenity_category || "");
-  const rd = esc(p?.road_name || p?.nearest_road_1_name || "");
-  const pa = esc(p?.planning_area || "");
-  const sz = esc(p?.subzone || "");
-  return `
-    <div class="card">
-      <div class="title">⛑ ${name}</div>
-      <div class="chips">
-        ${cat ? `<span class="chip chip-amen">${cat}</span>` : ""}
-        ${rd ? `<span class="chip">${rd}</span>` : ""}
-      </div>
-      <div class="kv"><strong>Planning area:</strong> ${pa || "-"}</div>
-      <div class="kv"><strong>Subzone:</strong> ${sz || "-"}</div>
-    </div>
-  `;
-}
-
-function buildNiceFloodHtml(p) {
-  const event = esc(p?.event || p?.flood_type || "flood");
-  const when = esc(p?.event_date || p?.date || "");
-  const loc = esc(p?.location || p?.start_street_name || p?.end_street_name || "");
-  const pa = esc(p?.start_planning_area || p?.planning_area || "");
-  const sz = esc(p?.start_subzone || p?.subzone || "");
-  return `
-    <div class="card">
-      <div class="title">🌧 ${event}</div>
-      <div class="chips">
-        ${when ? `<span class="chip chip-flood">${when}</span>` : ""}
-        ${loc ? `<span class="chip">${loc}</span>` : ""}
-      </div>
-      <div class="kv"><strong>Planning area:</strong> ${pa || "-"}</div>
-      <div class="kv"><strong>Subzone:</strong> ${sz || "-"}</div>
-    </div>
-  `;
-}
-
-function buildRoadHoverHtml(props, amenMap, floodMap) {
-  const rnId = S(props?.RN_ID ?? props?.rd_id);
-  const name = S(props?.RD_NAME ?? props?.road_name ?? rnId ?? "Unknown road");
-  const amen = amenMap[rnId] ?? amenMap[name] ?? 0;
-  const flood = floodMap[rnId] ?? floodMap[name] ?? 0;
-
-  return `
-    <div class="card road-card">
-      <div class="title">${esc(name)}</div>
-      <div class="chips">
-        <span class="chip chip-amen">⛑ Amenities: <strong>${fmt(amen)}</strong></span>
-        <span class="chip chip-flood">🌧 Floods: <strong>${fmt(flood)}</strong></span>
-      </div>
-      <div class="kv"><strong>RN_ID:</strong> ${esc(rnId || "-")}</div>
-    </div>
-  `;
-}
-
-/* ===== per-road counts ===== */
-const inc = (obj, key, by = 1) => {
-  const k = S(key);
-  if (!k) return;
-  obj[k] = (obj[k] ?? 0) + by;
-};
-
-const computeRoadAmenityCounts = (fc) => {
-  const m = {};
-  for (const f of fc?.features ?? []) {
-    const p = f.properties || {};
-    const key = S(p.nearest_road_1_rn_id) || S(p.nearest_road_1_id) || S(p.nearest_road_1_name);
-    if (!key) continue;
-    inc(m, key, 1);
-  }
-  return m;
-};
-
-const computeRoadFloodCounts = (fc) => {
-  const m = {};
-  for (const f of fc?.features ?? []) {
-    const p = f.properties || {};
-    const key = getFloodRoadId(p) || S(p.parent_road) || S(p.start_street_name) || S(p.end_street_name);
-    if (!key) continue;
-    inc(m, key, 1);
-  }
-  return m;
-};
-
-/* ===== flood aggregates by ID ===== */
-const computeFloodCountsById = (floodFc, paNameToId, szNameToId) => {
-  const by_pa_id = {};
-  const by_sz_id = {};
-  for (const ft of floodFc?.features ?? []) {
-    const p = ft.properties || {};
-    const paId = getFloodPlanningId(p, paNameToId);
-    const szId = getFloodSubzoneId(p, szNameToId);
-    if (paId) inc(by_pa_id, paId, 1);
-    if (szId) inc(by_sz_id, szId, 1);
-  }
-  return { by_pa_id, by_sz_id };
-};
-
-const computeFloodBreakdownsById = (floodFc, paNameToId, szNameToId) => {
-  const byPaId = {};
-  const bySzId = {};
-  for (const ft of floodFc?.features ?? []) {
-    const p = ft.properties || {};
-    const paId = getFloodPlanningId(p, paNameToId);
-    const szId = getFloodSubzoneId(p, szNameToId);
-    const ev = S(p.event || p.flood_type) || "unspecified";
-    if (paId) {
-      byPaId[paId] = byPaId[paId] || { total: 0, by_category: {} };
-      byPaId[paId].total += 1;
-      byPaId[paId].by_category[ev] = (byPaId[paId].by_category[ev] ?? 0) + 1;
-    }
-    if (szId) {
-      bySzId[szId] = bySzId[szId] || { total: 0, by_category: {} };
-      bySzId[szId].total += 1;
-      bySzId[szId].by_category[ev] = (bySzId[szId].by_category[ev] ?? 0) + 1;
-    }
-  }
-  return { byPaId, bySzId };
-};
-
-/* ===== grouping helpers (same-location stacks inside PA) ===== */
-// snap to ~1.1m so tiny float noise still stacks
-const coordKey = (coords) => {
-  if (!coords) return "";
-  const [lng, lat] = coords;
-  const r = (v, n = 5) => Math.round(Number(v) * 10 ** n) / 10 ** n;
-  return `${r(lng)},${r(lat)}`;
-};
-
-const buildStackedFromFiltered = (filteredFc) => {
-  const map = new Map(); // key -> {center, members: [Feature]}
-  for (const f of filteredFc.features || []) {
-    const g = f.geometry;
-    if (!g || g.type !== "Point") continue;
-    const k = coordKey(g.coordinates);
-    if (!map.has(k)) map.set(k, { center: g.coordinates, members: [] });
-    map.get(k).members.push(f);
-  }
-  const stackedFeatures = [];
-  for (const [k, group] of map.entries()) {
-    const count = group.members.length;
-    stackedFeatures.push({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: group.center },
-      properties: { stack_key: k, count },
-    });
-  }
-  return {
-    stackedFc: { type: "FeatureCollection", features: stackedFeatures },
-    stackMap: map,
+const computeBounds = (geom) => {
+  if (!geom) return null;
+  const pts = [];
+  const push = (c) => { if (Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1])) pts.push(c); };
+  const walk = (g) => {
+    if (!g) return;
+    const type = (g.type || "").toLowerCase();
+    const coordinates = g.coordinates;
+    if (type === "point") push(coordinates);
+    else if (type === "multipoint" || type === "linestring") coordinates.forEach(push);
+    else if (type === "multilinestring" || type === "polygon") coordinates.flat(1).forEach(push);
+    else if (type === "multipolygon") coordinates.flat(2).forEach(push);
+    else if (type === "geometrycollection") (g.geometries || []).forEach(walk);
   };
+  walk(geom);
+  if (!pts.length) return null;
+  let minx = +Infinity, miny = +Infinity, maxx = -Infinity, maxy = -Infinity;
+  for (const [x, y] of pts) { if (x < minx) minx = x; if (y < miny) miny = y; if (x > maxx) maxx = x; if (y > maxy) maxy = y; }
+  return [[minx, miny], [maxx, maxy]];
 };
 
-/* ===== PA bubbles helpers ===== */
-const boundsCenter = (b) => {
-  if (!b) return null;
-  const [[minLng, minLat], [maxLng, maxLat]] = b;
-  return [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
+/* palettes */
+const CHORO_RAMP = ["#e0f2fe","#bae6fd","#93c5fd","#60a5fa","#3b82f6","#1d4ed8"];
+const PA_DEFAULT = "#e2e8f0";
+const SZ_DEFAULT = "rgba(37,99,235,0.18)";
+const KDE_GRAD = [
+  "interpolate", ["linear"], ["heatmap-density"],
+  0, "rgba(255,255,255,0)",
+  0.2, "#fee2e2",
+  0.4, "#fecaca",
+  0.6, "#fca5a5",
+  0.8, "#ef4444",
+  1, "#991b1b"
+];
+
+const inc = (obj, key, by = 1) => { const k = toS(key); if (!k) return; obj[k] = (obj[k] || 0) + by; };
+
+const normalizePlanning = (fc) => {
+  const src = asFC(fc);
+  const features = (src.features || []).map((f) => {
+    const p = { ...(f.properties || {}) };
+    const name = getProp(p, PA_NAME_KEYS);
+    if (name) { p.PLN_AREA_N = name; p.pln_area_n = name; }
+    return { ...f, properties: p };
+  });
+  return { type: "FeatureCollection", features };
 };
 
-function SingaporeHistoricalFloodMap({
-  resizeSignal,
-  selectedPlanningAreas = [],          // names (UI)
-  selectedSubzone,
-  onPlanningAreaToggle,
-  onPlanningAreasLoaded,
-  onSubzoneSelect,
+function computePACounts(floodFC, selectedTypesLC, fromISO, toISO) {
+  const m = {};
+  const hasType = selectedTypesLC && selectedTypesLC.length > 0;
+  for (const f of floodFC?.features || []) {
+    const p = f.properties || {};
+    const t = toLC(p.event ?? p.flood_type ?? "");
+    if (hasType && !selectedTypesLC.includes(t)) continue;
+    const dt = p.event_date_iso ?? p.event_date ?? p.start_date ?? p.date ?? p.dt ?? null;
+    if (!withinDate(dt, fromISO, toISO)) continue;
+    const pa = toS(getProp(p, FLOOD_PA_NAME_KEYS));
+    if (pa) inc(m, pa, 1);
+  }
+  return m;
+}
+function computeSZCounts(floodFC, selectedPAs, selectedTypesLC, fromISO, toISO) {
+  const sel = new Set((selectedPAs || []).map(toS).filter(Boolean));
+  const m = {};
+  const hasType = selectedTypesLC && selectedTypesLC.length > 0;
+  for (const f of floodFC?.features || []) {
+    const p = f.properties || {};
+    const t = toLC(p.event ?? p.flood_type ?? "");
+    if (hasType && !selectedTypesLC.includes(t)) continue;
+    const dt = p.event_date_iso ?? p.event_date ?? p.start_date ?? p.date ?? p.dt ?? null;
+    if (!withinDate(dt, fromISO, toISO)) continue;
+    const pa = toS(getProp(p, FLOOD_PA_NAME_KEYS));
+    if (sel.size && !sel.has(pa)) continue;
+    const sz = toS(p.origin_subzone || p.subzone || p.start_subzone || p.end_subzone);
+    if (sz) inc(m, sz, 1);
+  }
+  return m;
+}
+
+function computeAmenityCounts({ amenitiesFC, planningFC, subzoneFC, selectedPAs, selectedCats, selectedTypes }) {
+  const paCounts = {};
+  const szCounts = {};
+  const A = asFC(amenitiesFC);
+  if (!A.features.length) return { paCounts, szCounts };
+
+  const paAllow = new Set((selectedPAs || []).map(toS).filter(Boolean));
+  const catAllow = new Set((selectedCats || []).map(toS).filter(Boolean));
+  const typeAllow = new Set((selectedTypes || []).map(toS).filter(Boolean));
+
+  let hasPA = false, hasSZ = false;
+  for (const pt of A.features) {
+    const p = pt.properties || {};
+    if (getProp(p, PA_NAME_KEYS)) hasPA = true;
+    if (getProp(p, SZ_NAME_KEYS)) hasSZ = true;
+    if (hasPA && hasSZ) break;
+  }
+
+  const pass = (p) => {
+    if (paAllow.size) { const pa = toS(getProp(p, PA_NAME_KEYS)); if (!pa || !paAllow.has(pa)) return false; }
+    if (catAllow.size) { const c = toS(p.amenity_category); if (!c || !catAllow.has(c)) return false; }
+    if (typeAllow.size) { const t = toS(p.amenity_type); if (!t || !typeAllow.has(t)) return false; }
+    return true;
+  };
+
+  if (hasPA || hasSZ) {
+    for (const pt of A.features) {
+      const p = pt.properties || {};
+      if (!pass(p)) continue;
+      const pa = getProp(p, PA_NAME_KEYS);
+      const sz = getProp(p, SZ_NAME_KEYS);
+      if (pa) inc(paCounts, pa, 1);
+      if (sz) inc(szCounts, sz, 1);
+    }
+    return { paCounts, szCounts };
+  }
+
+  const paIndex = (planningFC.features || []).map((f) => ({ name: toS(getProp(f.properties, PA_NAME_KEYS)), geom: f.geometry }));
+  const szIndex = (subzoneFC.features || []).map((f) => ({ name: toS(getProp(f.properties, SZ_NAME_KEYS)), geom: f.geometry }));
+
+  for (const pt of A.features) {
+    const p = pt.properties || {};
+    if (!pass(p)) continue;
+    const gpt = turf.point(pt.geometry?.coordinates || []);
+    for (const { name, geom } of paIndex) { if (!name) continue; if (turf.booleanPointInPolygon(gpt, geom)) { inc(paCounts, name, 1); break; } }
+    for (const { name, geom } of szIndex) { if (!name) continue; if (turf.booleanPointInPolygon(gpt, geom)) { inc(szCounts, name, 1); break; } }
+  }
+  return { paCounts, szCounts };
+}
+
+function buildChoropleth(valueMap, nameField) {
+  const entries = Object.entries(valueMap || {});
+  if (!entries.length) return { expr: PA_DEFAULT, max: 1 };
+  const values = entries.map(([, v]) => +v || 0);
+  const max = Math.max(...values, 1);
+  return {
+    expr: [
+      "case",
+      ["==", ["coalesce", ["get", nameField], ""], ""],
+      PA_DEFAULT,
+      [
+        "interpolate",
+        ["linear"],
+        [
+          "to-number",
+          [
+            "coalesce",
+            [
+              "match",
+              ["to-string", ["get", nameField]],
+              ...entries.flatMap(([k, v]) => [String(k), Number(v) || 0]),
+              0,
+            ],
+            0,
+          ],
+        ],
+        0, CHORO_RAMP[0],
+        max * 0.2, CHORO_RAMP[1],
+        max * 0.4, CHORO_RAMP[2],
+        max * 0.6, CHORO_RAMP[3],
+        max * 0.8, CHORO_RAMP[4],
+        max, CHORO_RAMP[5],
+      ],
+    ],
+    max,
+  };
+}
+
+const buildCentroids = (polyFC, nameField, countsMap, extraPropsFn) => {
+  const feats = (polyFC?.features || []).map((f) => {
+    const name = toS(f?.properties?.[nameField]);
+    const b = computeBounds(f?.geometry);
+    if (!name || !b) return null;
+    const [[minx, miny], [maxx, maxy]] = b;
+    const center = [(minx + maxx) / 2, (miny + maxy) / 2];
+    return {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: center },
+      properties: { name, count: Number(countsMap?.[name] || 0), ...(extraPropsFn?.(f) || {}) },
+    };
+  }).filter(Boolean);
+  return { type: "FeatureCollection", features: feats };
+};
+
+const matchFilter = (prop, values) => {
+  const list = (values || []).map(toS).filter(Boolean);
+  if (!list.length) return ["boolean", true];
+  return ["in", ["to-string", ["coalesce", ["get", prop], ""]], ["literal", list]];
+};
+const anyKeyEqualsFilter = (keys, values) => {
+  const list = (values || []).map(toS).filter(Boolean);
+  if (!list.length) return ["boolean", false];
+  const parts = keys.map((k) => ["in", ["to-string", ["coalesce", ["get", k], ""]], ["literal", list]]);
+  return ["any", ...parts];
+};
+
+const legendBreaks = (max) => {
+  const m = Math.max(1e-9, +max || 1);
+  const ticks = [0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => Math.round(m * t * 10) / 10);
+  for (let i = 1; i < ticks.length; i++) if (ticks[i] < ticks[i - 1]) ticks[i] = ticks[i - 1];
+  return ticks;
+};
+
+const rankComplete = (names, map, desc = true) => {
+  const entries = (names || []).map((n) => [n, +map[n] || 0]).sort((a,b)=> (desc ? b[1]-a[1] : a[1]-b[1]));
+  const ranks = {};
+  entries.forEach(([k], i) => (ranks[k] = i + 1));
+  return { ranks, total: entries.length };
+};
+
+export default function singaporehistoricalfloodmap({
   planningData,
   subzoneData,
   roadData,
   amenityData,
   floodData,
-  amenityTypes = [],
-  floodTypes = [],
+  resizeSignal,
+  selectedPlanningAreas = [],
+  selectedSubzone = null,
   selectedAmenityCategories = [],
   selectedAmenityTypes = [],
-  onAmenityTypesChange,
+  selectedSubzones = [],
   selectedFloodTypes = [],
-  onFloodTypesChange,
   floodDateFrom = "",
   floodDateTo = "",
-  floodStats = {},
-  showFloods,
-  setShowFloods,
-  showAmenities,
-  setShowAmenities,
+  onPlanningAreaToggle,
+  onSubzoneSelect,
 }) {
-  const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
-  const popupRef = useRef(null);
-  const hoverPopupRef = useRef(null);
-  const hasLoadedRef = useRef(false);
+  const containerRef = useRef(null);
+  const loadedRef = useRef(false);
 
-  /* lookups & refs */
-  const planningAreaFeatureRef = useRef({});
-  const planningAreaIdRef = useRef({});     // name -> PA_ID
-  const paIdToNameRef = useRef({});         // PA_ID -> name
-  const subzoneNameToIdRef = useRef({});    // name -> SZ_ID
-  const szIdToNameRef = useRef({});         // SZ_ID -> name
+  const paPopupRef = useRef(null);
+  const szPopupRef = useRef(null);
 
-  const paNamesRef = useRef([]);
-  const amenityStatsByPARef = useRef({});
-  const amenityStatsBySZRef = useRef({});
-  const amenityStatsByPAAllRef = useRef({});
-  const amenityStatsBySZAllRef = useRef({});
-  const floodCatsByPAOverallRef = useRef({});
-  const floodCatsBySZOverallRef = useRef({});
-  const hoveredPlanningIdRef = useRef(null);
-  const hoveredSubzoneIdRef = useRef(null);
-  const subzoneToPARef = useRef(new Map());
-  const lastHadSelectionRef = useRef(false);
+  const [metric, setMetric] = useState("flood_count");
+  const [showChoropleth, setShowChoropleth] = useState(true);
+  const [showFloodMarkers, setShowFloodMarkers] = useState(false);
+  const [showAmenityMarkers, setShowAmenityMarkers] = useState(false);
+  const [showKDE, setShowKDE] = useState(false);
+  const [kdeRadius, setKdeRadius] = useState(22);
+  const [kdeIntensity, setKdeIntensity] = useState(0.9);
 
-  /* flood aggregates (by ID) */
-  const floodByPaOverallRef = useRef({});
-  const floodByPaRef = useRef({});
-  const floodBySzRef = useRef({});
-  const floodCatsByPARef = useRef({});
-  const floodCatsBySZRef = useRef({});
+  const planningFC = useMemo(() => normalizePlanning(planningData), [planningData]);
+  const subzoneFC  = useMemo(() => asFC(subzoneData), [subzoneData]);
+  const floodFC    = useMemo(() => asFC(floodData), [floodData]);
+  const amenitiesFC = useMemo(() => asFC(amenityData), [amenityData]);
+  const roadFC     = useMemo(() => asFC(roadData), [roadData]);
 
-  // per-road aggregates
-  const roadAmenityCountRef = useRef({});
-  const roadFloodCountRef = useRef({});
-  const roadWeightMapRef = useRef({});
-  const roadWeightMaxRef = useRef(0);
+  const paUniverse = useMemo(() => (planningFC.features || []).map(f => toS(getProp(f.properties, PA_NAME_KEYS))), [planningFC]);
+  const szUniverse = useMemo(() => (subzoneFC.features || []).map(f => toS(getProp(f.properties, SZ_NAME_KEYS))), [subzoneFC]);
 
-  // stacked points memory (inside selected PA view)
-  const floodStackMapRef = useRef(new Map()); // stack_key -> {center, members[]}
-
-  // planning-level PA bubble data in source
-  const [visibleFloodCount, setVisibleFloodCount] = useState(0);
-
-  const [error, setError] = useState(null);
-
-  /* local ui */
-  const [activeSubzoneName, setActiveSubzoneName] = useState(null);
-  const [viewMode, setViewMode] = useState("planning"); // 'planning' | 'subzone'
-
-  // spiderfy on/off guard
-  const spiderActiveRef = useRef(false);
-
-  useEffect(() => {
-    if (selectedPlanningAreas?.length && viewMode !== "subzone") {
-      setViewMode("subzone");
-      setShowAmenities?.(false);
+  const paArea = useMemo(() => {
+    const m = {};
+    for (const f of planningFC.features || []) {
+      const name = toS(getProp(f.properties, PA_NAME_KEYS));
+      m[name] = +f.properties?.area || 0;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPlanningAreas?.length]);
-
-  // if a subzone is picked from the left panel's search, zoom to it
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !hasLoadedRef.current) return;
-
-    const name = S(selectedSubzone?.properties?.SUBZONE_N);
-    if (!name) return;
-
-    const feat = (subzoneData?.features || []).find((f) => S(f?.properties?.SUBZONE_N) === name);
-    if (!feat) return;
-
-    const b = computeFeatureBounds(feat.geometry);
-    if (b) {
-      map.fitBounds(b, { padding: 48, duration: 800, maxZoom: 14 });
-      setViewMode("subzone");
-      setShowAmenities?.(true);
+    return m;
+  }, [planningFC]);
+  const szArea = useMemo(() => {
+    const m = {};
+    for (const f of subzoneFC.features || []) {
+      const name = toS(getProp(f.properties, SZ_NAME_KEYS));
+      m[name] = +f.properties?.area || 0;
     }
-  }, [selectedSubzone]);
+    return m;
+  }, [subzoneFC]);
 
-  const [colorMetric, setColorMetric] = useState("floods");
-  const [panelOpen, setPanelOpen] = useState(true);
-
-  /* flood filters (display list separate from parent’s selectedFloodTypes) */
-  const [displayFloodTypes, setDisplayFloodTypes] = useState(floodTypes || []);
-  useEffect(() => {
-    if ((floodTypes || []).length) {
-      setDisplayFloodTypes((cur) => (cur.length ? cur : floodTypes.map((v) => S(v))));
-    }
-  }, [floodTypes]);
-  const { roadCountMap = {}, maxRoadCount = 0 } = floodStats ?? {};
-
-  // filters from parent
-  const amenityCategoryFilter = useMemo(
-    () => (selectedAmenityCategories || []).map(S).filter(Boolean),
-    [selectedAmenityCategories]
+  const paFloodsCount = useMemo(
+    () => computePACounts(floodFC, selectedFloodTypes.map(toLC), floodDateFrom, floodDateTo),
+    [floodFC, selectedFloodTypes, floodDateFrom, floodDateTo]
   );
-  const amenityTypeFilter = useMemo(
-    () => (selectedAmenityTypes || []).map(S).filter(Boolean),
-    [selectedAmenityTypes]
+  const szFloodsCount = useMemo(
+    () => computeSZCounts(floodFC, selectedPlanningAreas, selectedFloodTypes.map(toLC), floodDateFrom, floodDateTo),
+    [floodFC, selectedPlanningAreas, selectedFloodTypes, floodDateFrom, floodDateTo]
   );
-  const floodTypeFilter = useMemo(
-    () => (selectedFloodTypes || []).map(S).filter(Boolean),
-    [selectedFloodTypes]
-  );
-  const floodTypeFilterLowerList = useMemo(() => floodTypeFilter.map((v) => v.toLowerCase()), [floodTypeFilter]);
-  const displayFloodTypesLowerList = useMemo(
-    () => (displayFloodTypes || []).map(S).filter(Boolean).map((v) => v.toLowerCase()),
-    [displayFloodTypes]
-  );
-
-  const globalAmenityCategories = useMemo(() => {
-    if ((amenityTypes || []).length) return amenityTypes.map(S).filter(Boolean).sort();
-    const cats = new Set();
-    for (const f of amenityData?.features ?? []) {
-      const c = S(f?.properties?.amenity_category);
-      if (c) cats.add(c);
+  const paFloodsDensity = useMemo(() => {
+    const m = {};
+    for (const [k, c] of Object.entries(paFloodsCount)) {
+      const a = +paArea[k] || 0;
+      m[k] = a > 0 ? (+c || 0) / a : 0;
     }
-    return Array.from(cats).sort();
-  }, [amenityTypes, amenityData]);
-
-  const availableAmenityCategories = useMemo(() => {
-    if (!amenityData) return [];
-    const paSet = new Set((selectedPlanningAreas || []).map(S).filter(Boolean));
-    const typeSet = new Set((selectedAmenityTypes || []).map(S).filter(Boolean));
-    const catFilterSet = new Set((selectedAmenityCategories || []).map(S).filter(Boolean));
-
-    const effectiveSubzoneName = S(selectedSubzone?.properties?.SUBZONE_N) || (activeSubzoneName || "");
-    const cats = new Set();
-
-    for (const f of amenityData.features || []) {
-      const p = f.properties || {};
-      const cat = S(p.amenity_category);
-      const typ = S(p.amenity_type);
-      if (!cat) continue;
-
-      if (catFilterSet.size && !catFilterSet.has(cat)) continue;
-      if (typeSet.size && !typeSet.has(typ)) continue;
-
-      if (paSet.size) {
-        const pa = S(p.planning_area);
-        if (!paSet.has(pa)) continue;
-      }
-      if (effectiveSubzoneName) {
-        const sz = S(p.subzone);
-        if (sz !== S(effectiveSubzoneName)) continue;
-      }
-      cats.add(cat);
+    return m;
+  }, [paFloodsCount, paArea]);
+  const szFloodsDensity = useMemo(() => {
+    const m = {};
+    for (const [k, c] of Object.entries(szFloodsCount)) {
+      const a = +szArea[k] || 0;
+      m[k] = a > 0 ? (+c || 0) / a : 0;
     }
-    return Array.from(cats).sort();
+    return m;
+  }, [szFloodsCount, szArea]);
+
+  const { paCounts: paAmenCount, szCounts: szAmenCount } = useMemo(
+    () => computeAmenityCounts({
+      amenitiesFC,
+      planningFC,
+      subzoneFC,
+      selectedPAs: selectedPlanningAreas,
+      selectedCats: selectedAmenityCategories,
+      selectedTypes: selectedAmenityTypes
+    }),
+    [amenitiesFC, planningFC, subzoneFC, selectedPlanningAreas, selectedAmenityCategories, selectedAmenityTypes]
+  );
+  const paAmenDensity = useMemo(() => {
+    const m = {};
+    for (const [k, c] of Object.entries(paAmenCount)) {
+      const a = +paArea[k] || 0;
+      m[k] = a > 0 ? (+c || 0) / a : 0;
+    }
+    return m;
+  }, [paAmenCount, paArea]);
+  const szAmenDensity = useMemo(() => {
+    const m = {};
+    for (const [k, c] of Object.entries(szAmenCount)) {
+      const a = +szArea[k] || 0;
+      m[k] = a > 0 ? (+c || 0) / a : 0;
+    }
+    return m;
+  }, [szAmenCount, szArea]);
+
+  const paRankFloodsCount   = useMemo(() => rankComplete(paUniverse, paFloodsCount),   [paUniverse, paFloodsCount]);
+  const paRankFloodsDensity = useMemo(() => rankComplete(paUniverse, paFloodsDensity), [paUniverse, paFloodsDensity]);
+  const paRankAmenCount     = useMemo(() => rankComplete(paUniverse, paAmenCount),     [paUniverse, paAmenCount]);
+  const paRankAmenDensity   = useMemo(() => rankComplete(paUniverse, paAmenDensity),   [paUniverse, paAmenDensity]);
+
+  const szRankFloodsCount   = useMemo(() => rankComplete(szUniverse, szFloodsCount),   [szUniverse, szFloodsCount]);
+  const szRankFloodsDensity = useMemo(() => rankComplete(szUniverse, szFloodsDensity), [szUniverse, szFloodsDensity]);
+  const szRankAmenCount     = useMemo(() => rankComplete(szUniverse, szAmenCount),     [szUniverse, szAmenCount]);
+  const szRankAmenDensity   = useMemo(() => rankComplete(szUniverse, szAmenDensity),   [szUniverse, szAmenDensity]);
+
+  const perPA_SZ_Ranks = useMemo(() => {
+    const paToSZ = {};
+    for (const f of subzoneFC.features || []) {
+      const sz = toS(getProp(f.properties, SZ_NAME_KEYS));
+      const pa = toS(getProp(f.properties, PA_NAME_KEYS));
+      if (!sz || !pa) continue;
+      (paToSZ[pa] ||= []).push(sz);
+    }
+    const build = (names, map) => {
+      const entries = (names || []).map(n => [n, +map[n] || 0]).sort((a,b)=>b[1]-a[1]);
+      const r = {}; entries.forEach(([k], i) => r[k] = i + 1);
+      return { ranks: r, total: entries.length };
+    };
+    const out = {};
+    for (const [pa, list] of Object.entries(paToSZ)) {
+      out[pa] = {
+        floodsCount:   build(list, szFloodsCount),
+        floodsDensity: build(list, szFloodsDensity),
+        amenCount:     build(list, szAmenCount),
+        amenDensity:   build(list, szAmenDensity),
+      };
+    }
+    return out;
+  }, [subzoneFC, szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity]);
+
+  const paCentroidsBase = useMemo(
+    () => buildCentroids(planningFC, "PLN_AREA_N", paFloodsCount, (f) => ({
+      population: f.properties?.population ?? null,
+      area_km2: +f.properties?.area || null,
+      population_density: f.properties?.population_density ?? null,
+    })),
+    [planningFC, paFloodsCount]
+  );
+  const szCentroidsBase = useMemo(
+    () => buildCentroids(subzoneFC, "SUBZONE_N", szFloodsCount, (f) => ({
+      pa_name: toS(getProp(f?.properties, PA_NAME_KEYS)),
+      area_km2: +f.properties?.area || null,
+    })),
+    [subzoneFC, szFloodsCount]
+  );
+
+  const getMetricValuePA = (name) => {
+    switch (metric) {
+      case "flood_density":   return paFloodsDensity[name] ?? 0;
+      case "amenity_count":   return paAmenCount[name] ?? 0;
+      case "amenity_density": return paAmenDensity[name] ?? 0;
+      default:                return paFloodsCount[name] ?? 0;
+    }
+  };
+  const getMetricValueSZ = (name) => {
+    switch (metric) {
+      case "flood_density":   return szFloodsDensity[name] ?? 0;
+      case "amenity_count":   return szAmenCount[name] ?? 0;
+      case "amenity_density": return szAmenDensity[name] ?? 0;
+      default:                return szFloodsCount[name] ?? 0;
+    }
+  };
+
+  const paBubbleFC = useMemo(() => {
+    const feats = (paCentroidsBase.features || []).map((f) => {
+      const name = f.properties?.name;
+      const v = getMetricValuePA(name);
+      return { ...f, properties: { ...f.properties, bubble_value: typeof v === "number" ? (metric.endsWith("_density") ? v.toFixed(2) : v) : v } };
+    });
+    return { type: "FeatureCollection", features: feats };
+  }, [paCentroidsBase, metric, paFloodsCount, paFloodsDensity, paAmenCount, paAmenDensity]);
+
+  const szBubbleFC = useMemo(() => {
+    const feats = (szCentroidsBase.features || []).map((f) => {
+      const name = f.properties?.name;
+      const v = getMetricValueSZ(name);
+      return { ...f, properties: { ...f.properties, bubble_value: typeof v === "number" ? (metric.endsWith("_density") ? v.toFixed(2) : v) : v } };
+    });
+    return { type: "FeatureCollection", features: feats };
+  }, [szCentroidsBase, metric, szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity]);
+
+  const hasPASelection = (selectedPlanningAreas || []).length > 0;
+  const hasSZSelection = (selectedSubzones || []).length > 0;
+
+  // Map used for the LEGEND only — respects SZ selection when PA is selected
+  const legendValueMap = useMemo(() => {
+    const base =
+      !hasPASelection
+        ? (metric === "flood_density" ? paFloodsDensity :
+           metric === "amenity_count" ? paAmenCount :
+           metric === "amenity_density" ? paAmenDensity : paFloodsCount)
+        : (metric === "flood_density" ? szFloodsDensity :
+           metric === "amenity_count" ? szAmenCount :
+           metric === "amenity_density" ? szAmenDensity : szFloodsCount);
+
+    if (hasPASelection && hasSZSelection) {
+      const allow = new Set((selectedSubzones || []).map(toS));
+      const out = {};
+      for (const [k, v] of Object.entries(base)) if (allow.has(k)) out[k] = v;
+      return out;
+    }
+    return base;
   }, [
-    amenityData,
-    selectedPlanningAreas,
-    selectedSubzone,
-    activeSubzoneName,
-    selectedAmenityCategories,
-    selectedAmenityTypes,
+    hasPASelection, hasSZSelection, selectedSubzones, metric,
+    paFloodsCount, paFloodsDensity, paAmenCount, paAmenDensity,
+    szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity
   ]);
 
-  const [displayAmenityCategories, setDisplayAmenityCategories] = useState([]);
-  const displayAmenityCategoriesNorm = useMemo(
-    () => (displayAmenityCategories || []).map(S).filter(Boolean),
-    [displayAmenityCategories]
-  );
+  const formatTick = (x) => (metric.endsWith("_density") ? (Math.round(x * 100) / 100).toString() : Math.round(x).toString());
 
-  const handleFloodTypesSelectAll = () => setDisplayFloodTypes(floodTypes || []);
-  const handleFloodTypesClear = () => setDisplayFloodTypes([]);
-  const handleFloodTypeDisplayToggle = (type, shouldEnable) => {
-    const normalized = S(type);
-    if (!normalized) return;
-    setDisplayFloodTypes((prev) => {
-      const next = new Set(prev);
-      if (shouldEnable) next.add(normalized);
-      else next.delete(normalized);
-      return Array.from(next);
-    });
-  };
-
-  const [displayAmenityTypes, setDisplayAmenityTypes] = useState(amenityTypes || []);
-  const displayAmenityTypesNorm = useMemo(
-    () => (displayAmenityTypes || []).map(S).filter(Boolean),
-    [displayAmenityTypes]
-  );
-  const handleAmenityTypesSelectAll = () => setDisplayAmenityTypes(amenityTypes || []);
-  const handleAmenityTypesClear = () => setDisplayAmenityTypes([]);
-  const handleAmenityTypeDisplayToggle = (type, shouldEnable) => {
-    const normalized = S(type);
-    if (!normalized) return;
-    setDisplayAmenityTypes((prev) => {
-      const next = new Set(prev);
-      if (shouldEnable) next.add(normalized);
-      else next.delete(normalized);
-      return Array.from(next);
-    });
-  };
-
-  useEffect(() => {
-    if (!displayAmenityCategories.length) {
-      setDisplayAmenityCategories(globalAmenityCategories);
-      return;
-    }
-    setDisplayAmenityCategories((prev) => {
-      const cur = new Set(prev.map(S));
-      for (const c of globalAmenityCategories) cur.add(c);
-      return Array.from(cur);
-    });
-  }, [globalAmenityCategories]);
-
-  // React popup helpers (hover for polygons)
-  const hoverReactRootRef = useRef(null);
-  const hoverReactContainerRef = useRef(null);
-  const popupCssInjectedRef = useRef(false);
-
-  const loadAmenityIcons = async (map, categories) => {
-    if (AMENITY_ICON_DEFAULT_URL && !map.hasImage(AMENITY_ICON_DEFAULT_ID)) {
-      try {
-        const defImg = await loadImageAsync(map, AMENITY_ICON_DEFAULT_URL);
-        map.addImage(AMENITY_ICON_DEFAULT_ID, defImg, { pixelRatio: 2 });
-      } catch {}
-    }
-    await Promise.allSettled(
-      categories.map(async (cat) => {
-        const id = amenityIconId(cat);
-        if (map.hasImage(id)) return;
-        try {
-          const img = await loadImageAsync(map, amenityIconUrl(cat));
-          map.addImage(id, img, { pixelRatio: 2 });
-        } catch {}
-      })
-    );
-    map.on("styleimagemissing", async (e) => {
-      const id = e?.id || "";
-      if (!id.startsWith("amen_") || map.hasImage(id)) return;
-      try {
-        const img = await loadImageAsync(map, `/map/markers/${id.replace(/^amen_/, "")}.png`);
-        map.addImage(id, img, { pixelRatio: 2 });
-        map.triggerRepaint();
-      } catch {
-        if (AMENITY_ICON_DEFAULT_URL && !map.hasImage(AMENITY_ICON_DEFAULT_ID)) {
-          try {
-            const defImg = await loadImageAsync(map, AMENITY_ICON_DEFAULT_URL);
-            map.addImage(AMENITY_ICON_DEFAULT_ID, defImg, { pixelRatio: 2 });
-            map.triggerRepaint();
-          } catch {}
-        }
-      }
-    });
-  };
-
-  function showHoverPopupReact(map, lngLat, jsx) {
-    if (!hoverPopupRef.current) {
-      hoverReactContainerRef.current = document.createElement("div");
-      hoverPopupRef.current = new mapboxgl.Popup({
-        closeButton: false,
-        closeOnClick: false,
-        closeOnMove: false,
-        offset: [0, -12],
-        className: "map-hover-popup",
-        maxWidth: "380px",
-      })
-        .setLngLat(lngLat)
-        .setDOMContent(hoverReactContainerRef.current)
-        .addTo(map);
-      hoverReactRootRef.current = ReactDOM.createRoot(hoverReactContainerRef.current);
-    } else {
-      hoverPopupRef.current.setLngLat(lngLat);
-    }
-    hoverReactRootRef.current.render(jsx);
-  }
-  function clearHoverPopupReact() {
-    try {
-      if (hoverReactRootRef.current) hoverReactRootRef.current.render(null);
-    } catch {}
-    if (hoverPopupRef.current) {
-      hoverPopupRef.current.remove();
-      hoverPopupRef.current = null;
-    }
-    hoverReactRootRef.current = null;
-    hoverReactContainerRef.current = null;
-  }
-
-  /* popup css once */
-  useEffect(() => {
-    if (popupCssInjectedRef.current) return;
-    const id = "map-hover-popup-style";
-    if (document.getElementById(id)) {
-      popupCssInjectedRef.current = true;
-      return;
-    }
-    const style = document.createElement("style");
-    style.id = id;
-    style.innerHTML = `
-      .map-hover-popup .mapboxgl-popup-content {
-        background: #0b1220; color: #e2e8f0;
-        border: 1px solid rgba(148,163,184,0.3);
-        border-radius: 10px; padding: 10px 12px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-        max-width:none;
-      }
-      .mapboxgl-popup { z-index: 1000; }
-      .map-hover-popup .mapboxgl-popup-tip { border-top-color: #0b1220 !important; border-bottom-color: #0b1220 !important; }
-
-      .card { display:grid; gap:8px; }
-      .title { font-weight:700; color:#fff; font-size:13px; }
-      .chips { display:flex; gap:6px; flex-wrap:wrap; }
-      .chip { padding:2px 6px; border-radius:999px; font-size:11px; line-height:16px; display:inline-flex; align-items:center; gap:6px; background:rgba(148,163,184,.15); border:1px solid rgba(148,163,184,.3); color:#cbd5e1; }
-      .chip-amen { background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.35); color:#bbf7d0; }
-      .chip-flood{ background:rgba(56,189,248,.15); border:1px solid rgba(56,189,248,.35); color:#bae6fd; }
-      .kv { color:#cbd5e1; font-size:11px }
-    `;
-    document.head.appendChild(style);
-    popupCssInjectedRef.current = true;
-  }, []);
-
-  // Simple HTML hover popup for points/lines
-  const showHoverPopup = (map, lngLat, html) => {
-    if (!hoverPopupRef.current) {
-      hoverPopupRef.current = new mapboxgl.Popup({
-        closeButton: false,
-        closeOnClick: false,
-        closeOnMove: false,
-        offset: [0, -12],
-        className: "map-hover-popup",
-        maxWidth: "380px",
-      });
-    }
-    hoverPopupRef.current.setLngLat(lngLat).setHTML(html).addTo(map);
-  };
-  const clearHoverPopup = () => {
-    if (hoverPopupRef.current) {
-      hoverPopupRef.current.remove();
-      hoverPopupRef.current = null;
-    }
-  };
-  const showClickPopup = (map, lngLat, html) => {
-    if (!popupRef.current) {
-      popupRef.current = new mapboxgl.Popup({
-        closeButton: true,
-        closeOnClick: true,
-        offset: [0, -12],
-        className: "map-hover-popup",
-        maxWidth: "380px",
-      });
-    }
-    popupRef.current.setLngLat(lngLat).setHTML(html).addTo(map);
-  };
-
-  /* --------- map init ---------- */
+  /* === init map once === */
   useEffect(() => {
     if (mapRef.current) return;
-    if (!mapboxgl.supported()) {
-      setError("webgl is not supported in this browser or device.");
-      return;
-    }
+    if (!mapboxgl.supported()) return;
 
     const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: MAPBOX_STYLE,
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
+      container: containerRef.current,
+      style: mapbox_style,
+      center: default_center,
+      zoom: default_zoom,
       attributionControl: true,
     });
-    mapRef.current = map;
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
+    mapRef.current = map;
 
-    const clearSpiderfy = () => {
-      try {
-        if (map.getLayer(FLOOD_SPIDER_POINTS_LAYER_ID)) map.removeLayer(FLOOD_SPIDER_POINTS_LAYER_ID);
-        if (map.getLayer(FLOOD_SPIDER_EDGES_LAYER_ID)) map.removeLayer(FLOOD_SPIDER_EDGES_LAYER_ID);
-        if (map.getSource(FLOOD_SPIDER_SOURCE_ID)) map.removeSource(FLOOD_SPIDER_SOURCE_ID);
-        if (map.getSource(FLOOD_SPIDER_EDGES_SOURCE_ID)) map.removeSource(FLOOD_SPIDER_EDGES_SOURCE_ID);
-      } catch {}
-      spiderActiveRef.current = false;
-    };
+    map.on("load", () => {
+      loadedRef.current = true;
 
-    const handleBackgroundClick = (event) => {
-      if (spiderActiveRef.current) {
-        clearSpiderfy();
-        return;
+      // sources
+      map.addSource(PA_SRC, { type: "geojson", data: planningFC, generateId: true });
+      if (subzoneFC.features.length) map.addSource(SZ_SRC, { type: "geojson", data: subzoneFC, generateId: true });
+      if (floodFC.features.length)   map.addSource(FLOODS_SRC, { type: "geojson", data: floodFC });
+      if (roadFC.features.length)    map.addSource(ROAD_SRC, { type: "geojson", data: roadFC, generateId: true });
+      if (amenitiesFC.features.length) map.addSource(AMENITIES_SRC, { type: "geojson", data: amenitiesFC });
+
+      // choropleth (pa + outline)
+      map.addLayer({ id: PA_FILL, type: "fill", source: PA_SRC, paint: { "fill-color": PA_DEFAULT, "fill-opacity": 0.8 }, layout: { visibility: "visible" } });
+      map.addLayer({ id: PA_OUTLINE, type: "line", source: PA_SRC, paint: { "line-color": "#1f2937", "line-width": 1.1, "line-opacity": 0.6 }, layout: { visibility: "visible" } });
+
+      const { expr } = buildChoropleth(paFloodsCount, "PLN_AREA_N");
+      map.setPaintProperty(PA_FILL, "fill-color", expr);
+
+      // subzones (hidden until pa selected)
+      if (subzoneFC.features.length) {
+        map.addLayer({ id: SZ_FILL, type: "fill", source: SZ_SRC, layout: { visibility: "none" }, paint: { "fill-color": SZ_DEFAULT, "fill-opacity": 0.55 } });
+        map.addLayer({ id: SZ_OUTLINE, type: "line", source: SZ_SRC, layout: { visibility: "none" }, paint: { "line-color": "#1d4ed8", "line-width": 0.8, "line-opacity": 0.7 } });
       }
-      const features = map.queryRenderedFeatures(event.point, {
-        layers: [PLANNING_FILL_LAYER_ID, SUBZONE_FILL_LAYER_ID],
+
+      // kde (heatmap) for floods
+      if (floodFC.features.length) {
+        map.addLayer({
+          id: FLOOD_HEAT,
+          type: "heatmap",
+          source: FLOODS_SRC,
+          maxzoom: 15,
+          layout: { visibility: "none" },
+          paint: {
+            "heatmap-intensity": kdeIntensity,
+            "heatmap-radius": [
+              "interpolate", ["linear"], ["zoom"],
+              8, Math.max(5, kdeRadius * 0.6),
+              12, kdeRadius,
+              15, Math.min(80, kdeRadius * 1.6)
+            ],
+            "heatmap-opacity": 0.65,
+            "heatmap-color": KDE_GRAD,
+            "heatmap-weight": 1
+          }
+        });
+      }
+
+      // flood points (toggle)
+      if (floodFC.features.length) {
+        map.addLayer({
+          id: FLOOD_POINTS,
+          type: "circle",
+          source: FLOODS_SRC,
+          layout: { visibility: "none" },
+          paint: {
+            "circle-radius": 4,
+            "circle-color": "#ef4444",
+            "circle-stroke-color": "#111827",
+            "circle-stroke-width": 1,
+            "circle-opacity": 0.9
+          }
+        });
+      }
+
+      // amenity markers
+      if (amenitiesFC.features.length) {
+        map.addLayer({
+          id: AMENITY_POINTS,
+          type: "circle",
+          source: AMENITIES_SRC,
+          layout: { visibility: "none" },
+          paint: {
+            "circle-radius": 3.5,
+            "circle-color": "#10b981",
+            "circle-stroke-color": "#064e3b",
+            "circle-stroke-width": 0.8,
+            "circle-opacity": 0.9
+          }
+        });
+      }
+
+      // roads (only show for selected pa)
+      if (roadFC.features.length) {
+        map.addLayer({
+          id: ROAD_LINE,
+          type: "line",
+          source: ROAD_SRC,
+          layout: { visibility: "none" },
+          paint: {
+            "line-color": "#fb923c",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 14, 1.6],
+            "line-opacity": 0.95
+          }
+        });
+      }
+
+      // bubbles
+      map.addSource(PA_CENTROIDS_SRC, { type: "geojson", data: paBubbleFC });
+      map.addLayer({
+        id: PA_BUBBLE_CIRCLES, type: "circle", source: PA_CENTROIDS_SRC,
+        paint: { "circle-radius": 12, "circle-color": "rgba(15,23,42,0.95)", "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.25 }
       });
-      if (!features.length) {
-        onPlanningAreaToggle?.(null);
-        setViewMode("planning");
-        setActiveSubzoneName(null);
-        setShowAmenities(false);
-        clearSpiderfy();
-      }
-    };
+      map.addLayer({
+        id: PA_BUBBLE_LABELS, type: "symbol", source: PA_CENTROIDS_SRC,
+        layout: { "text-field": ["to-string", ["get", "bubble_value"]], "text-size": 11, "text-allow-overlap": true, "text-font": ["Open Sans Bold","Arial Unicode MS Bold"] },
+        paint: { "text-color": "#ffffff" }
+      });
 
-    const handleLoad = async () => {
-      try {
-        if (!planningData || !subzoneData || !roadData || !amenityData || !floodData) {
-          setError("datasets not ready yet.");
-          return;
-        }
+      map.addSource(SZ_CENTROIDS_SRC, { type: "geojson", data: szBubbleFC });
+      map.addLayer({
+        id: SZ_BUBBLE_CIRCLES, type: "circle", source: SZ_CENTROIDS_SRC, layout: { visibility: "none" },
+        paint: { "circle-radius": 11, "circle-color": "rgba(30,58,138,0.95)", "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.0 }
+      });
+      map.addLayer({
+        id: SZ_BUBBLE_LABELS, type: "symbol", source: SZ_CENTROIDS_SRC, layout: { visibility: "none",
+          "text-field": ["to-string", ["get", "bubble_value"]], "text-size": 10, "text-allow-overlap": true, "text-font": ["Open Sans Bold","Arial Unicode MS Bold"] },
+        paint: { "text-color": "#ffffff" }
+      });
 
-        /* collect PA & SZ maps FIRST */
-        const paNames = [];
-        const featureMap = {};
-        const paNameToId = {};
-        const paIdToName = {};
-        for (const feature of planningData.features ?? []) {
-          const name = S(feature?.properties?.PLN_AREA_N);
-          if (!name) continue;
-          paNames.push(name);
-          featureMap[name] = feature;
-          const paId = feature?.properties?.PA_ID;
-          if (paId != null) {
-            paNameToId[name] = S(paId);
-            paIdToName[S(paId)] = name;
-          }
-        }
-        planningAreaFeatureRef.current = featureMap;
-        planningAreaIdRef.current = paNameToId;
-        paIdToNameRef.current = paIdToName;
-        paNamesRef.current = paNames;
-        if (paNames.length) onPlanningAreasLoaded?.(paNames);
+      // popups
+      paPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: "dark-popup", anchor: "bottom", maxWidth: "360px" });
+      szPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: "dark-popup", anchor: "bottom", maxWidth: "360px" });
 
-        const szNameToId = {};
-        const szIdToName = {};
-        for (const f of subzoneData.features ?? []) {
-          const nm = S(f?.properties?.SUBZONE_N);
-          const id = f?.properties?.SZ_ID;
-          if (!nm || id == null) continue;
-          szNameToId[nm] = S(id);
-          szIdToName[S(id)] = nm;
-        }
-        subzoneNameToIdRef.current = szNameToId;
-        szIdToNameRef.current = szIdToName;
+      const fmtNum = (n) => (n == null || Number.isNaN(+n) ? "–" : (+n).toLocaleString());
+      const fmtFloat = (n, d = 2) => (n == null || Number.isNaN(+n) ? "–" : (+n).toFixed(d));
 
-        /* amenity aggregates */
-        const { byPA, bySZ } = aggregateAmenityStats(amenityData);
-        amenityStatsByPARef.current = byPA;
-        amenityStatsBySZRef.current = bySZ;
-        amenityStatsByPAAllRef.current = byPA;
-        amenityStatsBySZAllRef.current = bySZ;
+      const PA_HTML = (p) => {
+        const raw = toS(getProp(p, PA_NAME_KEYS));
+        const name = toTitle(raw);
+        const area  = p.area != null ? +p.area : (p.area_km2 != null ? +p.area_km2 : null);
+        const pop   = p.population != null ? +p.population : null;
 
-        /* subzone -> PA map (name-based for UI scoping) */
-        const szToPA = new Map();
-        for (const f of subzoneData.features ?? []) {
-          const sz = S(f?.properties?.SUBZONE_N);
-          const pa = S(f?.properties?.PLN_AREA_N);
-          if (!sz || !pa) continue;
-          if (!szToPA.has(sz)) szToPA.set(sz, new Set());
-          szToPA.get(sz).add(pa);
-        }
-        subzoneToPARef.current = szToPA;
+        const floods = +paFloodsCount[raw] || 0;
+        const densF  = +paFloodsDensity[raw] || 0;
+        const amen   = +paAmenCount[raw] || 0;
+        const densA  = +paAmenDensity[raw] || 0;
 
-        /* sources */
-        map.addSource(PLANNING_SOURCE_ID, { type: "geojson", data: planningData, generateId: true });
-        map.addSource(SUBZONE_SOURCE_ID, { type: "geojson", data: subzoneData, generateId: true });
-        map.addSource(ROAD_SOURCE_ID, { type: "geojson", data: roadData, generateId: true });
-        map.addSource(AMENITY_SOURCE_ID, { type: "geojson", data: amenityData, generateId: true });
+        const rFC = paRankFloodsCount.ranks[raw] || "–";
+        const rFD = paRankFloodsDensity.ranks[raw] || "–";
+        const rAC = paRankAmenCount.ranks[raw] || "–";
+        const rAD = paRankAmenDensity.ranks[raw] || "–";
+        const tot = paRankFloodsCount.total || 0;
 
-        // planning-level PA bubbles source (empty for now; we will set data in effects)
-        map.addSource(PA_FLOOD_SOURCE_ID, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        return `
+<div style="min-width:260px;max-width:340px;background:#0b1220;color:#e5e7eb;border-radius:12px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.5);">
+  <div style="font-weight:800;letter-spacing:.2px;font-size:14px;margin-bottom:6px;">planning area: ${name}</div>
+  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">planning area — numbers</div>
+  <ul style="list-style:none;padding:0;margin:0 0 8px 0;font-size:12px;line-height:1.35;">
+    <li>area: <b>${fmtFloat(area, 2)}</b> km²</li>
+    <li>population: <b>${fmtNum(pop)}</b></li>
+    <li>no. of floods: <b>${fmtNum(floods)}</b> | rank <b>#${rFC}</b> / ${tot}</li>
+    <li>no. of amenities: <b>${fmtNum(amen)}</b> | rank <b>#${rAC}</b> / ${tot}</li>
+  </ul>
+  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">planning area — statistics</div>
+  <ul style="list-style:none;padding:0;margin:0;font-size:12px;line-height:1.35;">
+    <li>flood density: <b>${fmtFloat(densF)}</b> / km² | rank <b>#${rFD}</b></li>
+    <li>amenities density: <b>${fmtFloat(densA)}</b> / km² | rank <b>#${rAD}</b></li>
+  </ul>
+</div>`;
+      };
 
-        // stacked flood source (inside selected PA)
-        map.addSource(FLOOD_STACKED_SOURCE_ID, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      const SZ_HTML = (p) => {
+        const rawSZ = toS(getProp(p, SZ_NAME_KEYS));
+        const rawPA = toS(getProp(p, PA_NAME_KEYS));
+        const szName = toTitle(rawSZ);
+        const paName = toTitle(rawPA);
+        const area   = p.area != null ? +p.area : (p.area_km2 != null ? +p.area_km2 : null);
 
-        /* derive icon catalogs */
-        const derivedFloodTypes =
-          floodTypes && floodTypes.length
-            ? floodTypes
-            : Array.from(
-                new Set(
-                  (floodData.features ?? [])
-                    .map((f) => (f.properties?.event ?? f.properties?.flood_type ?? "").toString().trim())
-                    .filter(Boolean)
-                )
-              ).sort();
+        const floods = +szFloodsCount[rawSZ] || 0;
+        const densF  = +szFloodsDensity[rawSZ] || 0;
+        const amen   = +szAmenCount[rawSZ] || 0;
+        const densA  = +szAmenDensity[rawSZ] || 0;
 
-        await loadFloodIcons(map, derivedFloodTypes);
+        const gFC = szRankFloodsCount.ranks[rawSZ] || "–";
+        const gFD = szRankFloodsDensity.ranks[rawSZ] || "–";
+        const gAC = szRankAmenCount.ranks[rawSZ] || "–";
+        const gAD = szRankAmenDensity.ranks[rawSZ] || "–";
+        const gTot = szRankFloodsCount.total || 0;
 
-        /* base layers */
-        map.addLayer({
-          id: PLANNING_FILL_LAYER_ID,
-          type: "fill",
-          source: PLANNING_SOURCE_ID,
-          paint: { "fill-color": DEFAULT_PLANNING_COLOR, "fill-opacity": 0.75 },
-        });
-        map.addLayer({
-          id: PLANNING_OUTLINE_LAYER_ID,
-          type: "line",
-          source: PLANNING_SOURCE_ID,
-          paint: { "line-color": "#1d4ed8", "line-width": 1.25, "line-opacity": 0.4 },
-        });
-        map.addLayer({
-          id: PLANNING_HIGHLIGHT_LAYER_ID,
-          type: "line",
-          source: PLANNING_SOURCE_ID,
-          paint: { "line-color": "#f97316", "line-width": 3, "line-opacity": 0.9 },
-          filter: ["==", ["get", "PLN_AREA_N"], "__none__"],
-        });
+        const within = perPA_SZ_Ranks[rawPA] || {};
+        const wFC = within.floodsCount?.ranks?.[rawSZ] || "–";
+        const wFD = within.floodsDensity?.ranks?.[rawSZ] || "–";
+        const wAC = within.amenCount?.ranks?.[rawSZ] || "–";
+        const wAD = within.amenDensity?.ranks?.[rawSZ] || "–";
+        const wTot = within.floodsCount?.total || 0;
 
-        map.addLayer({
-          id: SUBZONE_FILL_LAYER_ID,
-          type: "fill",
-          source: SUBZONE_SOURCE_ID,
-          layout: { visibility: "none" },
-          paint: { "fill-color": DEFAULT_SUBZONE_COLOR, "fill-opacity": 0.55 },
-        });
-        map.addLayer({
-          id: SUBZONE_OUTLINE_LAYER_ID,
-          type: "line",
-          source: SUBZONE_SOURCE_ID,
-          layout: { visibility: "none" },
-          paint: { "line-color": "#1d4ed8", "line-width": 0.8, "line-opacity": 0.7 },
-        });
-        map.addLayer({
-          id: SUBZONE_HIGHLIGHT_LAYER_ID,
-          type: "line",
-          source: SUBZONE_SOURCE_ID,
-          layout: { visibility: "none" },
-          paint: { "line-color": "#fbbf24", "line-width": 3, "line-opacity": 0.9 },
-          filter: EMPTY_SUBZONE_HIGHLIGHT,
-        });
+        return `
+<div style="min-width:260px;max-width:360px;background:#0b1220;color:#e5e7eb;border-radius:12px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.5);">
+  <div style="font-weight:800;letter-spacing:.2px;font-size:14px;margin-bottom:2px;">subzone: ${szName}</div>
+  <div style="font-size:12px;opacity:.85;margin-bottom:8px;">planning area: ${paName}</div>
+  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">subzone — numbers</div>
+  <ul style="list-style:none;padding:0;margin:0 0 8px 0;font-size:12px;line-height:1.35;">
+    <li>area: <b>${fmtFloat(area, 2)}</b> km²</li>
+    <li>no. of floods: <b>${fmtNum(floods)}</b> | global <b>#${gFC}</b> / ${gTot} | within pa <b>#${wFC}</b> / ${wTot}</li>
+    <li>no. of amenities: <b>${fmtNum(amen)}</b> | global <b>#${gAC}</b> / ${gTot} | within pa <b>#${wAC}</b> / ${wTot}</li>
+  </ul>
+  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">subzone — statistics</div>
+  <ul style="list-style:none;padding:0;margin:0;font-size:12px;line-height:1.35;">
+    <li>flood density: <b>${fmtFloat(densF)}</b> / km² | global <b>#${gFD}</b> | within pa <b>#${wFD}</b></li>
+    <li>amenities density: <b>${fmtFloat(densA)}</b> / km² | global <b>#${gAD}</b> | within pa <b>#${wAD}</b></li>
+  </ul>
+</div>`;
+      };
 
-        map.addLayer({
-          id: ROAD_LAYER_ID,
-          type: "line",
-          source: ROAD_SOURCE_ID,
-          layout: { visibility: "none" },
-          paint: { "line-color": "#f97316", "line-width": DEFAULT_ROAD_WIDTH, "line-opacity": 0.95 },
-          filter: EMPTY_PA_FILTER,
-        });
+      // hover handlers
+      map.on("mousemove", PA_FILL, (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        paPopupRef.current.setLngLat(e.lngLat).setHTML(PA_HTML(feature.properties || {})).addTo(map);
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", PA_FILL, () => {
+        paPopupRef.current?.remove();
+        map.getCanvas().style.cursor = "";
+      });
 
-        /* amenities icons */
-        const derivedAmenityCats =
-          amenityTypes && amenityTypes.length
-            ? amenityTypes
-            : Array.from(
-                new Set(
-                  (amenityData.features ?? [])
-                    .map((f) => (f.properties?.amenity_category ?? "").toString().trim())
-                    .filter(Boolean)
-                )
-              ).sort();
-        await loadAmenityIcons(map, derivedAmenityCats);
+      map.on("mousemove", SZ_FILL, (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        szPopupRef.current.setLngLat(e.lngLat).setHTML(SZ_HTML(feature.properties || {})).addTo(map);
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", SZ_FILL, () => {
+        szPopupRef.current?.remove();
+        map.getCanvas().style.cursor = "";
+      });
 
-        map.addLayer({
-          id: AMENITY_ICON_LAYER_ID,
-          type: "symbol",
-          source: AMENITY_SOURCE_ID,
-          layout: {
-            visibility: "none",
-            "icon-image":
-              derivedAmenityCats.length > 0
-                ? [
-                    "match",
-                    ["to-string", ["get", "amenity_category"]],
-                    ...derivedAmenityCats.flatMap((c) => [c, amenityIconId(c)]),
-                    AMENITY_ICON_DEFAULT_ID,
-                  ]
-                : AMENITY_ICON_DEFAULT_ID,
-            "icon-allow-overlap": true,
-            "icon-ignore-placement": true,
-            "icon-anchor": "bottom",
-            "icon-size": 0.05,
-          },
-        });
-
-        /* ===== planning-level PA bubbles (circles + count text) ===== */
-        map.addLayer({
-          id: PA_FLOOD_BUBBLE_LAYER_ID,
-          type: "circle",
-          source: PA_FLOOD_SOURCE_ID,
-          layout: { visibility: "visible" },
-          paint: {
-            "circle-color": [
-              "step",
-              ["get", "count"],
-              "#86efac", 10,
-              "#22c55e", 50,
-              "#16a34a", 100,
-              "#15803d"
-            ],
-            "circle-radius": [
-              "step",
-              ["get", "count"],
-              10, 10,
-              14, 50,
-              18, 100,
-              22
-            ],
-            "circle-stroke-color": "#0b1220",
-            "circle-stroke-width": 2,
-            "circle-opacity": 0.88,
-          },
-        });
-        map.addLayer({
-          id: PA_FLOOD_COUNT_LAYER_ID,
-          type: "symbol",
-          source: PA_FLOOD_SOURCE_ID,
-          layout: {
-            "text-field": ["to-string", ["get", "count"]],
-            "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-            "text-size": 12,
-            "text-allow-overlap": true,
-          },
-          paint: { "text-color": "#ffffff" },
-        });
-
-        /* ===== inside-PA stacked flood layers (count>1 bubble + singles) ===== */
-        // hidden by default (only visible in subzone view)
-        map.addLayer({
-          id: FLOOD_STACK_BUBBLE_LAYER_ID,
-          type: "circle",
-          source: FLOOD_STACKED_SOURCE_ID,
-          layout: { visibility: "none" },
-          filter: [">", ["get", "count"], 1],
-          paint: {
-            "circle-color": ["step", ["get", "count"], "#38bdf8", 5, "#0ea5e9", 10, "#0284c7"],
-            "circle-radius": ["step", ["get", "count"], 12, 5, 16, 10, 20],
-            "circle-stroke-color": "#0b1220",
-            "circle-stroke-width": 2,
-            "circle-opacity": 0.9,
-          },
-        });
-        map.addLayer({
-          id: FLOOD_STACK_COUNT_LAYER_ID,
-          type: "symbol",
-          source: FLOOD_STACKED_SOURCE_ID,
-          layout: {
-            visibility: "none",
-            "text-field": ["to-string", ["get", "count"]],
-            "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-            "text-size": 12,
-            "text-allow-overlap": true,
-          },
-          filter: [">", ["get", "count"], 1],
-          paint: { "text-color": "#ffffff" },
-        });
-
-        map.addLayer({
-          id: FLOOD_SINGLE_LAYER_ID,
-          type: "symbol",
-          source: FLOOD_STACKED_SOURCE_ID,
-          layout: {
-            visibility: "none",
-            "icon-image": buildFloodIconExpression(derivedFloodTypes),
-            "icon-size": 0.1,
-            "icon-allow-overlap": true,
-            "icon-ignore-placement": true,
-            "icon-anchor": "bottom",
-          },
-          filter: ["==", ["get", "count"], 1],
-        });
-
-        /* cursors */
-        map.on("mouseenter", PLANNING_FILL_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", PLANNING_FILL_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", SUBZONE_FILL_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", SUBZONE_FILL_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", AMENITY_ICON_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", AMENITY_ICON_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", ROAD_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", ROAD_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", PA_FLOOD_BUBBLE_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", PA_FLOOD_BUBBLE_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", FLOOD_STACK_BUBBLE_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", FLOOD_STACK_BUBBLE_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", FLOOD_SINGLE_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", FLOOD_SINGLE_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-
-        /* clicks on polygons */
-        map.on("click", PLANNING_FILL_LAYER_ID, (event) => {
-          if (spiderActiveRef.current) { clearSpiderfy(); return; }
-          const feature = event.features?.[0];
-          const name = S(feature?.properties?.PLN_AREA_N);
-          if (!name) return;
-
-          const fullFeature = planningAreaFeatureRef.current[name] || feature;
-          const bounds = computeFeatureBounds(fullFeature.geometry);
-          if (bounds) map.fitBounds(bounds, { padding: 48, duration: 800, maxZoom: 13 });
-
-          onPlanningAreaToggle?.(name);
-          setViewMode("subzone");
-          setActiveSubzoneName(null);
-          setShowAmenities(true);
-          clearSpiderfy();
-        });
-
-        map.on("click", SUBZONE_FILL_LAYER_ID, (event) => {
-          if (spiderActiveRef.current) { clearSpiderfy(); return; }
-          const feature = event.features?.[0];
-          if (!feature) return;
-          const properties = feature?.properties ? { ...feature.properties } : null;
-          if (!properties) return;
-          const payload = {
-            properties,
-            lngLat: [event.lngLat.lng, event.lngLat.lat],
-            id: properties.SZ_ID ?? feature?.id ?? null,
-          };
-          map.flyTo({
-            center: event.lngLat,
-            zoom: Math.max(map.getZoom(), 12),
-            essential: true,
-            speed: 0.9,
-            curve: 1.2,
-          });
-          onSubzoneSelect?.(payload);
-          setActiveSubzoneName(S(properties.SUBZONE_N));
-          setShowAmenities(true);
-          clearSpiderfy();
-        });
-
-        // Planning-level bubble click acts like clicking the PA polygon
-        map.on("click", PA_FLOOD_BUBBLE_LAYER_ID, (e) => {
-          if (spiderActiveRef.current) return;
-          const f = e.features?.[0];
-          const paName = S(f?.properties?.PLN_AREA_N);
-          if (!paName) return;
-          onPlanningAreaToggle?.(paName);
-          setViewMode("subzone");
-          setActiveSubzoneName(null);
-          setShowAmenities(true);
-
-          // fit to PA
-          const fullFeature = planningAreaFeatureRef.current[paName];
-          const bounds = fullFeature ? computeFeatureBounds(fullFeature.geometry) : null;
-          if (bounds) map.fitBounds(bounds, { padding: 48, duration: 800, maxZoom: 13 });
-        });
-
-        map.on("click", handleBackgroundClick);
-
-        /* ===== HOVERS (React popups for polygons) ===== */
-        map.on("mousemove", PLANNING_FILL_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-
-          const id = f.id;
-          if (hoveredPlanningIdRef.current !== null && hoveredPlanningIdRef.current !== id) {
-            map.setFeatureState({ source: PLANNING_SOURCE_ID, id: hoveredPlanningIdRef.current }, { hover: false });
-          }
-          hoveredPlanningIdRef.current = id;
-          map.setFeatureState({ source: PLANNING_SOURCE_ID, id }, { hover: true });
-
-          const paId = S(f.properties?.PA_ID);
-          const areaName = paIdToNameRef.current?.[paId] || S(f.properties?.PLN_AREA_N);
-
-          const floodOverall = floodCatsByPAOverallRef.current?.[paId] || { total: 0, by_category: {} };
-          const amenOverall = amenityStatsByPAAllRef.current?.[areaName] || { total: 0, by_category: {} };
-
-          const rows = Object.entries(floodByPaOverallRef.current || {}).map(([k, v]) => ({
-            id: k,
-            v: Number(v || 0),
-          }));
-          rows.sort((a, b) => b.v - a.v);
-          const floodOf = rows.length || 1;
-          const floodRank = Math.max(1, rows.findIndex((x) => x.id === paId) + 1);
-
-          const amenTotalsByName = Object.fromEntries(
-            Object.entries(amenityStatsByPAAllRef.current || {}).map(([k, obj]) => [k, Number(obj?.total || 0)])
-          );
-          const amenRows = (paNamesRef.current || []).map((k) => ({ k, v: Number(amenTotalsByName[k] || 0) }));
-          amenRows.sort((a, b) => b.v - a.v);
-          const amenOf = amenRows.length || 1;
-          const amenRank = Math.max(1, amenRows.findIndex((x) => x.k === areaName) + 1);
-
-          const header = [
-            { label: "PLANNING AREA", value: (areaName || "unknown").toUpperCase() },
-            { label: "Flood rank", value: `#${floodRank} of ${floodOf}` },
-            { label: "Amenities rank", value: `#${amenRank} of ${amenOf}` },
-          ];
-
-          showHoverPopupReact(
-            map,
-            e.lngLat,
-            <PopupContent
-              header={header}
-              floods={{ total: floodOverall.total, byCategory: floodOverall.by_category }}
-              amenities={{ total: amenOverall.total, byCategory: amenOverall.by_category }}
-              mode="planning"
-            />
-          );
-        });
-
-        map.on("mouseleave", PLANNING_FILL_LAYER_ID, () => {
-          if (hoveredPlanningIdRef.current !== null) {
-            map.setFeatureState({ source: PLANNING_SOURCE_ID, id: hoveredPlanningIdRef.current }, { hover: false });
-            hoveredPlanningIdRef.current = null;
-          }
-          clearHoverPopupReact();
-        });
-
-        // SUBZONE HOVER (React)
-        map.on("mousemove", SUBZONE_FILL_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-
-          const id = f.id;
-          if (hoveredSubzoneIdRef.current !== null && hoveredSubzoneIdRef.current !== id) {
-            map.setFeatureState({ source: SUBZONE_SOURCE_ID, id: hoveredSubzoneIdRef.current }, { hover: false });
-          }
-          hoveredSubzoneIdRef.current = id;
-          map.setFeatureState({ source: SUBZONE_SOURCE_ID, id }, { hover: true });
-
-          const props = f.properties || {};
-          const szName = S(props.SUBZONE_N);
-          const paName = S(props.PLN_AREA_N);
-          const szId = S(props.SZ_ID);
-
-          const floodSZOverall = floodCatsBySZOverallRef.current?.[szId] || { total: 0, by_category: {} };
-          const amenSZOverall = amenityStatsBySZAllRef.current?.[szName] || { total: 0, by_category: {} };
-
-          const getSubzoneFloodRankWithinPA = (targetSzId, pa) => {
-            const rows = [];
-            for (const [anySzId, v] of Object.entries(floodBySzRef.current || {})) {
-              const name = szIdToNameRef.current?.[anySzId];
-              const set = subzoneToPARef.current.get(name || "");
-              if (set && set.has(pa)) rows.push({ anySzId, v: Number(v || 0) });
-            }
-            rows.sort((a, b) => b.v - a.v);
-            const szOf = rows.length || 1;
-            const idx = rows.findIndex((x) => x.anySzId === targetSzId);
-            return { szRank: idx >= 0 ? idx + 1 : szOf, szOf };
-          };
-          const getSubzoneAmenityRankWithinPA = (targetSzName, pa) => {
-            const rows = [];
-            for (const [name, obj] of Object.entries(amenityStatsBySZAllRef.current || {})) {
-              const set = subzoneToPARef.current.get(name);
-              if (set && set.has(pa)) rows.push({ name, v: Number(obj?.total || 0) });
-            }
-            rows.sort((a, b) => b.v - a.v);
-            const szOf = rows.length || 1;
-            const idx = rows.findIndex((x) => x.name === targetSzName);
-            return { szRank: idx >= 0 ? idx + 1 : szOf, szOf };
-          };
-
-          const { szRank: floodRankInPA, szOf: floodOfInPA } = getSubzoneFloodRankWithinPA(szId, paName);
-          const { szRank: amenRankInPA, szOf: amenOfInPA } = getSubzoneAmenityRankWithinPA(szName, paName);
-
-          const allSZFlood = floodBySzRef.current || {};
-          const floodGlobalRows = Object.entries(allSZFlood)
-            .map(([k, v]) => ({ k, v: Number(v || 0) }))
-            .sort((a, b) => b.v - a.v);
-          const floodGlobalOf = floodGlobalRows.length || 1;
-          const floodGlobalRank = Math.max(1, floodGlobalRows.findIndex((x) => x.k === szId) + 1);
-
-          const allSZAmen = amenityStatsBySZAllRef.current || {};
-          const amenGlobalRows = Object.entries(allSZAmen)
-            .map(([k, obj]) => ({ k, v: Number(obj?.total || 0) }))
-            .sort((a, b) => b.v - a.v);
-          const amenGlobalOf = amenGlobalRows.length || 1;
-          const amenGlobalRank = Math.max(1, amenGlobalRows.findIndex((x) => x.k === szName) + 1);
-
-          const header = [
-            { label: "SUBZONE", value: (szName || "unknown").toUpperCase() },
-            { label: "planning area", value: paName || "-" },
-            { label: "Flood rank (within PA)", value: `#${floodRankInPA} of ${floodOfInPA}` },
-            { label: "Flood rank (all subzones)", value: `#${floodGlobalRank} of ${floodGlobalOf}` },
-            { label: "Amenities rank (within PA)", value: `#${amenRankInPA} of ${amenOfInPA}` },
-            { label: "Amenities rank (all subzones)", value: `#${amenGlobalRank} of ${amenGlobalOf}` },
-          ];
-
-          showHoverPopupReact(
-            map,
-            e.lngLat,
-            <PopupContent
-              header={header}
-              floods={{ total: floodSZOverall.total, byCategory: floodSZOverall.by_category }}
-              amenities={{ total: amenSZOverall.total, byCategory: amenSZOverall.by_category }}
-              mode="subzone"
-            />
-          );
-        });
-
-        map.on("mouseleave", SUBZONE_FILL_LAYER_ID, () => {
-          if (hoveredSubzoneIdRef.current !== null) {
-            map.setFeatureState({ source: SUBZONE_SOURCE_ID, id: hoveredSubzoneIdRef.current }, { hover: false });
-            hoveredSubzoneIdRef.current = null;
-          }
-          clearHoverPopupReact();
-        });
-
-        // Amenity hover (HTML)
-        map.on("mousemove", AMENITY_ICON_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          const html = buildNiceAmenityHtml(f.properties || {});
-          showHoverPopup(map, e.lngLat, html);
-        });
-        map.on("mouseleave", AMENITY_ICON_LAYER_ID, clearHoverPopup);
-
-        // Road hover (HTML)
-        map.on("mousemove", ROAD_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          const html = buildRoadHoverHtml(
-            f.properties || {},
-            roadAmenityCountRef.current,
-            roadFloodCountRef.current
-          );
-          showHoverPopup(map, e.lngLat, html);
-        });
-        map.on("mouseleave", ROAD_LAYER_ID, clearHoverPopup);
-
-        // singles hover (HTML) in PA view
-        map.on("mousemove", FLOOD_SINGLE_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          const html = buildNiceFloodHtml(f.properties || {});
-          showHoverPopup(map, e.lngLat, html);
-        });
-        map.on("mouseleave", FLOOD_SINGLE_LAYER_ID, clearHoverPopup);
-
-        // ======== PA-inside bubble click → spiderfy
-        map.on("click", FLOOD_STACK_BUBBLE_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          e.originalEvent?.stopPropagation?.();
-          e.originalEvent && (e.originalEvent.cancelBubble = true);
-
-          // find group by stack_key
-          const stackKey = S(f.properties?.stack_key);
-          const group = floodStackMapRef.current.get(stackKey);
-          if (!group || (group.members || []).length <= 1) return;
-
-          // build spider sources
-          const centerLngLat = { lng: group.center[0], lat: group.center[1] };
-          const centerPx = map.project(centerLngLat);
-          const n = group.members.length;
-          const radius = 36;
-          const angleStep = (2 * Math.PI) / n;
-          const points = [];
-          const edges = [];
-          for (let i = 0; i < n; i++) {
-            const a = i * angleStep;
-            const ptPx = { x: centerPx.x + radius * Math.cos(a), y: centerPx.y + radius * Math.sin(a) };
-            const ptLngLat = map.unproject(ptPx);
-            points.push({
-              type: "Feature",
-              geometry: { type: "Point", coordinates: [ptLngLat.lng, ptLngLat.lat] },
-              properties: { ...group.members[i].properties, __spider__: true, __idx__: i },
-            });
-            edges.push({
-              type: "Feature",
-              geometry: { type: "LineString", coordinates: [[centerLngLat.lng, centerLngLat.lat], [ptLngLat.lng, ptLngLat.lat]] },
-              properties: { __edge__: true },
-            });
-          }
-
-          if (!map.getSource(FLOOD_SPIDER_SOURCE_ID)) {
-            map.addSource(FLOOD_SPIDER_SOURCE_ID, { type: "geojson", data: { type: "FeatureCollection", features: points } });
-          } else {
-            map.getSource(FLOOD_SPIDER_SOURCE_ID).setData({ type: "FeatureCollection", features: points });
-          }
-          if (!map.getSource(FLOOD_SPIDER_EDGES_SOURCE_ID)) {
-            map.addSource(FLOOD_SPIDER_EDGES_SOURCE_ID, { type: "geojson", data: { type: "FeatureCollection", features: edges } });
-          } else {
-            map.getSource(FLOOD_SPIDER_EDGES_SOURCE_ID).setData({ type: "FeatureCollection", features: edges });
-          }
-
-          if (!map.getLayer(FLOOD_SPIDER_EDGES_LAYER_ID)) {
-            map.addLayer({
-              id: FLOOD_SPIDER_EDGES_LAYER_ID,
-              type: "line",
-              source: FLOOD_SPIDER_EDGES_SOURCE_ID,
-              paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6 },
-            });
-          }
-          if (!map.getLayer(FLOOD_SPIDER_POINTS_LAYER_ID)) {
-            map.addLayer({
-              id: FLOOD_SPIDER_POINTS_LAYER_ID,
-              type: "symbol",
-              source: FLOOD_SPIDER_SOURCE_ID,
-              layout: {
-                "icon-image": buildFloodIconExpression(floodTypes?.length ? floodTypes : []),
-                "icon-size": 0.1,
-                "icon-allow-overlap": true,
-                "icon-ignore-placement": true,
-                "icon-anchor": "bottom",
-              },
-            });
-          }
-
-          spiderActiveRef.current = true;
-          map.once("movestart", () => { clearSpiderfy(); });
-        });
-
-        // Spider point click -> detail popup
-        map.on("click", FLOOD_SPIDER_POINTS_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          const html = buildNiceFloodHtml(f.properties || {});
-          showClickPopup(map, e.lngLat, html);
-          e.originalEvent?.stopPropagation?.();
-          e.originalEvent && (e.originalEvent.cancelBubble = true);
-        });
-
-        setError(null);
-        hasLoadedRef.current = true;
-      } catch (err) {
-        console.error(err);
-        setError("unable to initialise map.");
-      }
-    };
-
-    map.on("load", handleLoad);
-    map.on("error", (evt) => {
-      console.error("mapbox gl error:", evt?.error);
-      setError("the map failed to load. check your token or network connection.");
+      // click: drill into pa
+      map.on("click", PA_FILL, (e) => {
+        const f = e.features?.[0];
+        const paName = toS(getProp(f?.properties, PA_NAME_KEYS));
+        if (!paName) return;
+        onPlanningAreaToggle?.(paName);
+        const b = computeBounds(f.geometry);
+        if (b) map.fitBounds(b, { padding: 48, duration: 700, maxZoom: 13 });
+      });
     });
 
+    map.on("error", (ev) => console.warn("[map error]", ev?.error || ev));
+
     return () => {
-      map.off("load", handleLoad);
-      map.off("click", handleBackgroundClick);
-      try {
-        if (hoveredPlanningIdRef.current !== null)
-          map.setFeatureState({ source: PLANNING_SOURCE_ID, id: hoveredPlanningIdRef.current }, { hover: false });
-        if (hoveredSubzoneIdRef.current !== null)
-          map.setFeatureState({ source: SUBZONE_SOURCE_ID, id: hoveredSubzoneIdRef.current }, { hover: false });
-      } catch {}
-      clearHoverPopupReact();
-      clearHoverPopup();
-      if (popupRef.current) {
-        popupRef.current.remove();
-        popupRef.current = null;
-      }
-      hasLoadedRef.current = false;
-      try { if (map && map.remove) map.remove(); } catch {}
+      try { paPopupRef.current?.remove(); } catch {}
+      try { szPopupRef.current?.remove(); } catch {}
+      try { map.remove(); } catch {}
       mapRef.current = null;
+      loadedRef.current = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
+  
+  /* keep sources current */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    map.getSource(PA_SRC)?.setData(planningFC);
+    if (map.getSource(SZ_SRC)) map.getSource(SZ_SRC)?.setData(subzoneFC);
+    if (map.getSource(FLOODS_SRC)) map.getSource(FLOODS_SRC)?.setData(floodFC);
+    if (map.getSource(ROAD_SRC)) map.getSource(ROAD_SRC)?.setData(roadFC);
+    if (map.getSource(AMENITIES_SRC)) map.getSource(AMENITIES_SRC)?.setData(amenitiesFC);
+  }, [planningFC, subzoneFC, floodFC, roadFC, amenitiesFC]);
+
+  /* paints + visibility updates */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+
+    const hasPA = (selectedPlanningAreas || []).length > 0;
+    const hasSZ = (selectedSubzones || []).length > 0;
+
+    const paFilter = matchFilter("PLN_AREA_N", selectedPlanningAreas);
+    const szFilter = matchFilter("SUBZONE_N", selectedSubzones);
+
+    const valueMapPA = metric === "flood_density"   ? paFloodsDensity
+                      : metric === "amenity_count"  ? paAmenCount
+                      : metric === "amenity_density"? paAmenDensity
+                      : paFloodsCount;
+
+    const valueMapSZ = metric === "flood_density"   ? szFloodsDensity
+                      : metric === "amenity_count"  ? szAmenCount
+                      : metric === "amenity_density"? szAmenDensity
+                      : szFloodsCount;
+
+    // choropleth visibility
+    const paVis = showChoropleth ? "visible" : "none";
+    if (map.getLayer(PA_FILL)) {
+      const { expr } = buildChoropleth(valueMapPA, "PLN_AREA_N");
+      map.setLayoutProperty(PA_FILL, "visibility", paVis);
+      map.setPaintProperty(PA_FILL, "fill-color", expr);
+      map.setFilter(PA_FILL, hasPA ? paFilter : ["all"]);
+    }
+    if (map.getLayer(PA_OUTLINE)) {
+      map.setLayoutProperty(PA_OUTLINE, "visibility", paVis);
+      map.setFilter(PA_OUTLINE, hasPA ? paFilter : ["all"]);
+    }
+
+    const szVis = hasPA && showChoropleth ? "visible" : "none";
+    if (map.getLayer(SZ_FILL)) {
+      map.setLayoutProperty(SZ_FILL, "visibility", szVis);
+      // ⬇️ apply BOTH PA and SZ filters so deselected subzones disappear
+      map.setFilter(SZ_FILL, hasPA ? (hasSZ ? ["all", paFilter, szFilter] : paFilter) : ["all"]);
+      const { expr } = buildChoropleth(valueMapSZ, "SUBZONE_N");
+      map.setPaintProperty(SZ_FILL, "fill-color", expr);
+    }
+    if (map.getLayer(SZ_OUTLINE)) {
+      map.setLayoutProperty(SZ_OUTLINE, "visibility", szVis);
+      map.setFilter(SZ_OUTLINE, hasPA ? (hasSZ ? ["all", paFilter, szFilter] : paFilter) : ["all"]);
+    }
+
+    // --- bubbles ---
+    const paBubbleVis = showChoropleth ? (hasPA ? "none" : "visible") : "none";
+    const szBubbleVis = showChoropleth ? (hasPA ? "visible" : "none") : "none";
+
+    if (map.getSource(PA_CENTROIDS_SRC)) map.getSource(PA_CENTROIDS_SRC).setData(paBubbleFC);
+    if (map.getSource(SZ_CENTROIDS_SRC)) map.getSource(SZ_CENTROIDS_SRC).setData(szBubbleFC);
+
+    if (map.getLayer(PA_BUBBLE_CIRCLES)) map.setLayoutProperty(PA_BUBBLE_CIRCLES, "visibility", paBubbleVis);
+    if (map.getLayer(PA_BUBBLE_LABELS))  map.setLayoutProperty(PA_BUBBLE_LABELS,  "visibility", paBubbleVis);
+
+    if (map.getLayer(SZ_BUBBLE_CIRCLES)) {
+      map.setLayoutProperty(SZ_BUBBLE_CIRCLES, "visibility", szBubbleVis);
+      const paList = (selectedPlanningAreas || []).map(toS).filter(Boolean);
+      const base = paList.length ? ["in", ["get", "pa_name"], ["literal", paList]] : ["all"];
+      // also respect selected subzones
+      const szList = (selectedSubzones || []).map(toS).filter(Boolean);
+      const szOnly = szList.length ? ["in", ["get", "name"], ["literal", szList]] : ["all"];
+      map.setFilter(SZ_BUBBLE_CIRCLES, ["all", base, szOnly]);
+    }
+    if (map.getLayer(SZ_BUBBLE_LABELS)) {
+      map.setLayoutProperty(SZ_BUBBLE_LABELS, "visibility", szBubbleVis);
+      const paList = (selectedPlanningAreas || []).map(toS).filter(Boolean);
+      const base = paList.length ? ["in", ["get", "pa_name"], ["literal", paList]] : ["all"];
+      const szList = (selectedSubzones || []).map(toS).filter(Boolean);
+      const szOnly = szList.length ? ["in", ["get", "name"], ["literal", szList]] : ["all"];
+      map.setFilter(SZ_BUBBLE_LABELS, ["all", base, szOnly]);
+    }
+
+    // point layers (still PA-based)
+    const list = (selectedPlanningAreas || []).map(toS).filter(Boolean);
+    const floodFilter = hasPA ? anyKeyEqualsFilter(FLOOD_PA_NAME_KEYS, list) : ["boolean", true];
+    const amenFilter  = hasPA ? anyKeyEqualsFilter(AMEN_PA_NAME_KEYS,  list) : ["boolean", true];
+    const roadFilter  = hasPA ? anyKeyEqualsFilter(ROAD_PA_NAME_KEYS,  list) : ["boolean", false];
+
+    if (map.getLayer(FLOOD_POINTS)) {
+      map.setLayoutProperty(FLOOD_POINTS, "visibility", showFloodMarkers ? "visible" : "none");
+      map.setFilter(FLOOD_POINTS, floodFilter);
+    }
+    if (map.getLayer(AMENITY_POINTS)) {
+      map.setLayoutProperty(AMENITY_POINTS, "visibility", showAmenityMarkers ? "visible" : "none");
+      map.setFilter(AMENITY_POINTS, amenFilter);
+    }
+    if (map.getLayer(FLOOD_HEAT)) {
+      map.setLayoutProperty(FLOOD_HEAT, "visibility", showKDE ? "visible" : "none");
+      map.setPaintProperty(FLOOD_HEAT, "heatmap-intensity", kdeIntensity);
+      map.setPaintProperty(FLOOD_HEAT, "heatmap-radius", [
+        "interpolate", ["linear"], ["zoom"],
+        8, Math.max(5, kdeRadius * 0.6),
+        12, kdeRadius,
+        15, Math.min(80, kdeRadius * 1.6)
+      ]);
+      map.setFilter(FLOOD_HEAT, floodFilter);
+    }
+
+    // roads: only when a PA is selected
+    if (map.getLayer(ROAD_LINE)) {
+      map.setLayoutProperty(ROAD_LINE, "visibility", hasPA ? "visible" : "none");
+      map.setFilter(ROAD_LINE, hasPA ? roadFilter : ["all", ["==", ["literal", 1], 0]]);
+    }
+
+    // reset view if nothing selected
+    if (!hasPA) {
+      map.easeTo({ center: default_center, zoom: default_zoom, duration: 600 });
+    }
   }, [
-    planningData,
-    subzoneData,
-    roadData,
-    amenityData,
-    floodData,
-    amenityTypes,
-    floodTypes,
-    onPlanningAreaToggle,
-    onPlanningAreasLoaded,
-    onSubzoneSelect,
+    metric,
+    showChoropleth,
+    showFloodMarkers,
+    showAmenityMarkers,
+    showKDE,
+    kdeRadius,
+    kdeIntensity,
+    selectedPlanningAreas,
+    selectedSubzones,
+    paFloodsCount, paFloodsDensity, paAmenCount, paAmenDensity,
+    szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity,
+    paBubbleFC, szBubbleFC,
   ]);
+
+  /* external subzone select → zoom */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !selectedSubzone) return;
+    const b = computeBounds(selectedSubzone.geometry || null);
+    if (b) map.fitBounds(b, { padding: 48, duration: 700, maxZoom: 14 });
+  }, [selectedSubzone]);
 
   /* resize */
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !hasLoadedRef.current) return;
+    if (!map || !loadedRef.current) return;
     try { map.resize(); } catch {}
   }, [resizeSignal]);
 
-  /* amenity aggregates update when filters change (still name-keyed) */
-  useEffect(() => {
-    if (!amenityData) return;
-    const categorySet = new Set(amenityCategoryFilter);
-    const typeSet = new Set(amenityTypeFilter);
-    const features =
-      (amenityData.features || []).filter((feature) => {
-        const props = feature?.properties || {};
-        if (categorySet.size) {
-          const category = S(props?.amenity_category);
-          if (!categorySet.has(category)) return false;
-        }
-        if (typeSet.size) {
-          const type = S(props?.amenity_type);
-          if (!typeSet.has(type)) return false;
-        }
-        return true;
-      }) || [];
-    const filtered = { type: "FeatureCollection", features };
-    const { byPA, bySZ } = aggregateAmenityStats(filtered);
-    amenityStatsByPARef.current = byPA;
-    amenityStatsBySZRef.current = bySZ;
-  }, [amenityData, amenityCategoryFilter, amenityTypeFilter]);
+  /* legend values (choropleth) — now respects selected subzones */
+  const ticks = useMemo(
+    () => legendBreaks(Object.values(legendValueMap).reduce((a,b)=>Math.max(a,+b||0),1)),
+    [legendValueMap]
+  );
+  const legendItems = CHORO_RAMP.map((c, i) => {
+    const a = ticks[i] ?? 0;
+    const b = ticks[i + 1] ?? ticks[ticks.length - 1];
+    const label = i === CHORO_RAMP.length - 1 ? `≥ ${formatTick(a)}${metric.endsWith("_density") ? " / km²" : ""}` : `${formatTick(a)}–${formatTick(b)}${metric.endsWith("_density") ? " / km²" : ""}`;
+    return { c, label };
+  });
 
-  /* flood aggregates + planning PA bubbles + inside-PA stacks on filters/selection change */
-  useEffect(() => {
-    if (!floodData || !planningData) return;
-
-    // Build filtered flood features (respect global filters: type/date + optional selected PAs for inside-PA view)
-    const planningSet = new Set((selectedPlanningAreas || []).map(S));
-    const typeSet = new Set(floodTypeFilterLowerList);
-    const fromDateRaw = floodDateFrom ? new Date(floodDateFrom) : null;
-    const toDateRaw = floodDateTo ? new Date(floodDateTo) : null;
-    const fromDate = fromDateRaw && !Number.isNaN(fromDateRaw.getTime()) ? fromDateRaw : null;
-    const toDate = toDateRaw && !Number.isNaN(toDateRaw.getTime()) ? toDateRaw : null;
-
-    // For aggregates we filter by type/date only; for "inside PA" we also scope by selected PAs
-    const featuresFilteredByTypeDate = (floodData.features || []).filter((feature) => {
-      const props = feature?.properties || {};
-      if (typeSet.size) {
-        const type = getFloodType(props);
-        if (!typeSet.has(type)) return false;
-      }
-      if ((fromDate || toDate) && !isWithinDateRange(getEventDate(props), fromDate, toDate)) return false;
-      return true;
-    });
-
-    const filteredFcTypeDate = { type: "FeatureCollection", features: featuresFilteredByTypeDate };
-
-    // recompute aggregates (by ID) for PA/SZ counts
-    const { by_pa_id, by_sz_id } = computeFloodCountsById(
-      filteredFcTypeDate,
-      planningAreaIdRef.current,
-      subzoneNameToIdRef.current
-    );
-    floodByPaRef.current = by_pa_id; // used for planning-level bubbles
-    floodBySzRef.current = by_sz_id;
-
-    const { byPaId, bySzId } = computeFloodBreakdownsById(
-      filteredFcTypeDate,
-      planningAreaIdRef.current,
-      subzoneNameToIdRef.current
-    );
-    floodCatsByPARef.current = byPaId;
-    floodCatsBySZRef.current = bySzId;
-
-    // ===== PA bubbles: one point per PA polygon center with 'count'
-    const paBubbleFeatures = [];
-    for (const f of (planningData.features || [])) {
-      const props = f.properties || {};
-      const paId = S(props.PA_ID);
-      const paName = S(props.PLN_AREA_N);
-      const count = Number(by_pa_id?.[paId] || 0);
-      const b = computeFeatureBounds(f.geometry);
-      const c = boundsCenter(b);
-      if (!c) continue;
-      paBubbleFeatures.push({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: c },
-        properties: { PA_ID: paId, PLN_AREA_N: paName, count },
-      });
-    }
-    const paBubbleFc = { type: "FeatureCollection", features: paBubbleFeatures };
-
-    const map = mapRef.current;
-    if (map && hasLoadedRef.current) {
-      const paSrc = map.getSource(PA_FLOOD_SOURCE_ID);
-      if (paSrc && paSrc.setData) paSrc.setData(paBubbleFc);
-    }
-
-    // ===== Inside-PA stacked data (only if a PA is selected)
-    const featuresScopedToPA = (floodData.features || []).filter((feature) => {
-      const props = feature?.properties || {};
-      // scope by PA name only if selection exists
-      if (planningSet.size) {
-        const paName = S(
-          props.planning_area ?? props.PLN_AREA_N ?? props.planning ?? props.start_planning_area ?? props.end_planning_area
-        );
-        if (!planningSet.has(paName)) return false;
-      }
-      // and always respect type/date filters
-      if (typeSet.size) {
-        const type = getFloodType(props);
-        if (!typeSet.has(type)) return false;
-      }
-      if ((fromDate || toDate) && !isWithinDateRange(getEventDate(props), fromDate, toDate)) return false;
-      return true;
-    });
-    const filteredInsidePAFc = { type: "FeatureCollection", features: featuresScopedToPA };
-
-    const { stackedFc, stackMap } = buildStackedFromFiltered(filteredInsidePAFc);
-    floodStackMapRef.current = stackMap;
-
-    if (map && hasLoadedRef.current) {
-      const src = map.getSource(FLOOD_STACKED_SOURCE_ID);
-      if (src && src.setData) src.setData(stackedFc);
-      // clear spiderfy when membership changes
-      try {
-        if (map.getLayer(FLOOD_SPIDER_POINTS_LAYER_ID)) map.removeLayer(FLOOD_SPIDER_POINTS_LAYER_ID);
-        if (map.getLayer(FLOOD_SPIDER_EDGES_LAYER_ID)) map.removeLayer(FLOOD_SPIDER_EDGES_LAYER_ID);
-        if (map.getSource(FLOOD_SPIDER_SOURCE_ID)) map.removeSource(FLOOD_SPIDER_SOURCE_ID);
-        if (map.getSource(FLOOD_SPIDER_EDGES_SOURCE_ID)) map.removeSource(FLOOD_SPIDER_EDGES_SOURCE_ID);
-      } catch {}
-      spiderActiveRef.current = false;
-    }
-
-    // visible count (for UI footer)
-    setVisibleFloodCount(featuresScopedToPA.length || featuresFilteredByTypeDate.length);
-  }, [
-    floodData,
-    planningData,
-    selectedPlanningAreas,
-    floodTypeFilterLowerList,
-    floodDateFrom,
-    floodDateTo,
-  ]);
-
-  /* layer visibility + other toggles */
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !hasLoadedRef.current) return;
-    if (!map.getLayer(SUBZONE_FILL_LAYER_ID) || !map.getLayer(ROAD_LAYER_ID) || !map.getLayer(PLANNING_HIGHLIGHT_LAYER_ID)) {
-      return;
-    }
-
-    const hasSelectionLocal = selectedPlanningAreas?.length > 0;
-
-    // Subzones & highlight: selection is by PA NAME
-    const subzoneFilterExpr = buildMatchFilter("PLN_AREA_N", selectedPlanningAreas);
-    map.setFilter(SUBZONE_FILL_LAYER_ID, subzoneFilterExpr);
-    map.setFilter(SUBZONE_OUTLINE_LAYER_ID, subzoneFilterExpr);
-    map.setFilter(PLANNING_HIGHLIGHT_LAYER_ID, hasSelectionLocal ? subzoneFilterExpr : ["==", ["get", "PLN_AREA_N"], "__none__"]);
-
-    // Roads: filter by PA_ID list
-    const paIds = (selectedPlanningAreas || []).map((name) => planningAreaIdRef.current[name]).filter(Boolean);
-    const roadPAFilter = buildMatchFilter("PA_ID", paIds);
-    map.setFilter(ROAD_LAYER_ID, roadPAFilter);
-    map.setLayoutProperty(ROAD_LAYER_ID, "visibility", hasSelectionLocal && paIds.length > 0 ? "visible" : "none");
-
-    // Subzone visibility (when drilled in)
-    const subzoneVisible = viewMode === "subzone" && hasSelectionLocal ? "visible" : "none";
-    map.setLayoutProperty(SUBZONE_FILL_LAYER_ID, "visibility", subzoneVisible);
-    map.setLayoutProperty(SUBZONE_OUTLINE_LAYER_ID, "visibility", subzoneVisible);
-    map.setLayoutProperty(SUBZONE_HIGHLIGHT_LAYER_ID, "visibility", subzoneVisible);
-    if (map.getLayer(SZ_HOVER_OUTLINE_ID)) {
-      map.setLayoutProperty(SZ_HOVER_OUTLINE_ID, "visibility", subzoneVisible);
-    }
-
-    // PA bubbles visible only in planning mode
-    const planningBubblesVisible = viewMode === "planning" ? "visible" : "none";
-    [PA_FLOOD_BUBBLE_LAYER_ID, PA_FLOOD_COUNT_LAYER_ID].forEach((id) => {
-      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", planningBubblesVisible);
-    });
-
-    // Inside-PA flood markers/stack visible only in subzone mode
-    const insidePAVisible = viewMode === "subzone" && hasSelectionLocal && showFloods ? "visible" : "none";
-    [FLOOD_STACK_BUBBLE_LAYER_ID, FLOOD_STACK_COUNT_LAYER_ID, FLOOD_SINGLE_LAYER_ID].forEach((id) => {
-      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", insidePAVisible);
-    });
-
-    // AMENITY MARKERS
-    if (map.getLayer(AMENITY_ICON_LAYER_ID)) {
-      const subzoneName = S(selectedSubzone?.properties?.SUBZONE_N) || (activeSubzoneName ?? "");
-      const amenityClauses = ["all"];
-
-      if (hasSelectionLocal) {
-        amenityClauses.push(buildMatchFilter("planning_area", selectedPlanningAreas));
-      }
-      if (subzoneName) {
-        amenityClauses.push(["==", ["to-string", ["coalesce", ["get", "subzone"], ""]], subzoneName]);
-      }
-      if (amenityCategoryFilter.length) {
-        amenityClauses.push([
-          "in",
-          ["to-string", ["coalesce", ["get", "amenity_category"], ""]],
-          ["literal", amenityCategoryFilter],
-        ]);
-      }
-      if (amenityTypeFilter.length) {
-        amenityClauses.push([
-          "in",
-          ["to-string", ["coalesce", ["get", "amenity_type"], ""]],
-          ["literal", amenityTypeFilter],
-        ]);
-      }
-      if (displayAmenityCategoriesNorm.length) {
-        amenityClauses.push([
-          "in",
-          ["to-string", ["coalesce", ["get", "amenity_category"], ""]],
-          ["literal", displayAmenityCategoriesNorm],
-        ]);
-      }
-
-      map.setFilter(AMENITY_ICON_LAYER_ID, amenityClauses);
-      map.setLayoutProperty(
-        AMENITY_ICON_LAYER_ID,
-        "visibility",
-        showAmenities && displayAmenityCategoriesNorm.length ? "visible" : "none"
-      );
-    }
-
-    if (!hasSelectionLocal && lastHadSelectionRef.current) {
-      setViewMode("planning");
-      setShowAmenities(false);
-      setActiveSubzoneName(null);
-      clearHoverPopupReact();
-      clearHoverPopup();
-      map.easeTo({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM, duration: 800 });
-    }
-    lastHadSelectionRef.current = hasSelectionLocal;
-
-    if (hasSelectionLocal) {
-      let combinedBounds = null;
-      for (const areaName of selectedPlanningAreas) {
-        const feature = planningAreaFeatureRef.current[areaName];
-        if (!feature) continue;
-        const bounds = computeFeatureBounds(feature.geometry);
-        combinedBounds = mergeBounds(combinedBounds, bounds);
-      }
-      if (combinedBounds) map.fitBounds(combinedBounds, { padding: 48, duration: 800, maxZoom: 13 });
-    }
-  }, [
-    selectedPlanningAreas,
-    selectedSubzone,
-    activeSubzoneName,
-    viewMode,
-    showAmenities,
-    showFloods,
-    displayAmenityCategoriesNorm,
-  ]);
-
-  /* choropleths & road width */
-  const getPlanningColoring = () => {
-    if (colorMetric === "amenities") {
-      const mapm = amenityStatsByPARef.current || {};
-      const countMap = Object.fromEntries(Object.entries(mapm).map(([k, v]) => [k, v.total || 0]));
-      const maxCount = Math.max(1, ...Object.values(countMap), 1);
-      return { countMap, maxCount, keyProp: "PLN_AREA_N" };
-    }
-    const countMap = floodByPaRef.current || {};
-    const vals = Object.values(countMap || {});
-    const maxCount = vals.length ? Math.max(...vals, 1) : 1;
-    return { countMap, maxCount, keyProp: "PA_ID" };
-  };
-
-  const getSubzoneColoring = () => {
-    if (colorMetric === "amenities") {
-      const base = Object.fromEntries(
-        Object.entries(amenityStatsBySZRef.current || {}).map(([k, v]) => [k, v.total || 0])
-      );
-      const vals = Object.values(base);
-      return { countMap: base, maxCount: vals.length ? Math.max(...vals, 1) : 1, keyProp: "SUBZONE_N" };
-    }
-    const base_map = floodBySzRef.current || {};
-    const vals = Object.values(base_map);
-    return { countMap: base_map, maxCount: vals.length ? Math.max(...vals, 1) : 1, keyProp: "SZ_ID" };
-  };
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !hasLoadedRef.current || !map.getLayer(PLANNING_FILL_LAYER_ID)) return;
-
-    // planning choropleth
-    const { countMap: paCounts, maxCount: paMax, keyProp: paKey } = getPlanningColoring();
-    const planningExpr = buildChoroplethExpression(
-      paKey,
-      paCounts,
-      paMax,
-      PLANNING_COLORS,
-      DEFAULT_PLANNING_COLOR
-    );
-    map.setPaintProperty(PLANNING_FILL_LAYER_ID, "fill-color", [
-      "case",
-      ["boolean", ["feature-state", "hover"], false],
-      HOVER_FILL_COLOR,
-      planningExpr,
-    ]);
-    map.setPaintProperty(
-      PLANNING_FILL_LAYER_ID,
-      "fill-opacity",
-      viewMode === "subzone" ? 0.15 : ["case", ["boolean", ["feature-state", "hover"], false], 0.95, 0.75]
-    );
-
-    // subzone choropleth
-    if (map.getLayer(SUBZONE_FILL_LAYER_ID)) {
-      if (viewMode === "subzone" && selectedPlanningAreas.length > 0) {
-        const { countMap: szCounts, maxCount: szMax, keyProp: szKey } = getSubzoneColoring();
-        const subzoneExpr = buildChoroplethExpression(szKey, szCounts, szMax, SUBZONE_COLORS, DEFAULT_SUBZONE_COLOR);
-        map.setPaintProperty(SUBZONE_FILL_LAYER_ID, "fill-color", [
-          "case",
-          ["boolean", ["feature-state", "hover"], false],
-          HOVER_FILL_COLOR,
-          subzoneExpr,
-        ]);
-        map.setPaintProperty(SUBZONE_FILL_LAYER_ID, "fill-opacity", [
-          "case",
-          ["boolean", ["feature-state", "hover"], false],
-          0.9,
-          0.6,
-        ]);
-      } else {
-        map.setPaintProperty(SUBZONE_FILL_LAYER_ID, "fill-color", DEFAULT_SUBZONE_COLOR);
-        map.setPaintProperty(SUBZONE_FILL_LAYER_ID, "fill-opacity", 0.0);
-      }
-    }
-
-    // roads width
-    if (map.getLayer(ROAD_LAYER_ID)) {
-      const weightMap = roadWeightMapRef.current && Object.keys(roadWeightMapRef.current).length
-        ? roadWeightMapRef.current
-        : (floodStats.roadCountMap ?? {});
-      const maxW = roadWeightMaxRef.current || floodStats.maxRoadCount || 1;
-      const roadWidthExpression =
-        selectedPlanningAreas.length > 0
-          ? buildLineWidthExpression(
-              ["coalesce", ["get", "RN_ID"], ["get", "RD_NAME"]],
-              weightMap,
-              maxW,
-              2,
-              8,
-              DEFAULT_ROAD_WIDTH
-            )
-          : DEFAULT_ROAD_WIDTH;
-      map.setPaintProperty(ROAD_LAYER_ID, "line-width", roadWidthExpression);
-    }
-  }, [
-    selectedPlanningAreas,
-    viewMode,
-    colorMetric,
-    floodStats,
-  ]);
-
-  /* legend */
-  const legendTitle =
-    viewMode === "subzone"
-      ? colorMetric === "amenities"
-        ? "subzone amenities (count)"
-        : "subzone flood choropleth"
-      : colorMetric === "amenities"
-      ? "planning area amenities (count)"
-      : "planning area flood choropleth";
-
-  const legendMax = (() => {
-    if (viewMode === "subzone") {
-      const { maxCount } = getSubzoneColoring();
-      return maxCount || 0;
-    }
-    const { maxCount } = getPlanningColoring();
-    return maxCount || 0;
-  })();
+  const hasSelection = hasPASelection;
 
   return (
-    <div className="relative w-full h:[95dvh] h-[95dvh]">
-      <div ref={mapContainerRef} className="absolute inset-0 map-container" />
+    <div className="relative w-full h-[95dvh]">
+      <div ref={containerRef} className="absolute inset-0 map-container" />
 
-      {/* collapse/expand fab */}
-      <button
-        type="button"
-        onClick={() => setPanelOpen((v) => !v)}
-        className="absolute right-3 top-3 sm:right-4 sm:top-4 z-10 rounded-full bg-slate-900/90 border border-white/10 px-3 py-1.5 text-xs text-slate-200 shadow-lg hover:bg-slate-800"
-        aria-label={panelOpen ? "collapse controls" : "expand controls"}
-      >
-        {panelOpen ? "hide controls" : "show controls"}
-      </button>
+      {/* settings (top-right) */}
+      <div className="absolute right-3 top-3 z-10 rounded-lg bg-slate-900/90 border border-white/10 p-2 text-xs text-slate-200 min-w-[280px]">
+        <div className="font-semibold mb-1">settings</div>
+        <div className="grid grid-cols-1 gap-2">
+          <label className="flex items-center justify-between gap-2">
+            <span className="opacity-90">metric</span>
+            <select value={metric} onChange={(e) => setMetric(e.target.value)} className="bg-white/90 text-slate-900 rounded px-2 py-1">
+              <option value="flood_count">flood count</option>
+              <option value="flood_density">flood density</option>
+              <option value="amenity_count">amenity count</option>
+              <option value="amenity_density">amenity density</option>
+            </select>
+          </label>
 
-      {/* small built-in controls */}
-      {panelOpen && (
-        <div className="pointer-events-none absolute right-3 top-12 sm:right-4 sm:top-14 flex flex-col items-end gap-3">
-          <div className="pointer-events-auto rounded-xl bg-slate-900/90 border border-white/10 shadow-lg p-3 text-xs text-slate-200 w-[300px]">
-            <div className="font-semibold text-slate-100 mb-2">display</div>
+          <label className="flex items-center justify-between gap-2">
+            <span className="opacity-90">show choropleth</span>
+            <input type="checkbox" checked={showChoropleth} onChange={(e) => setShowChoropleth(e.target.checked)} className="accent-white" />
+          </label>
 
-            <label className="block mb-2">
-              <span className="text-slate-300">color by</span>
-              <select
-                className="mt-1 w-full rounded bg-slate-800 border border-slate-600 p-1.5"
-                value={colorMetric}
-                onChange={(e) => setColorMetric(e.target.value)}
-              >
-                <option value="floods">flood events</option>
-                <option value="amenities">amenities (count)</option>
-              </select>
+          <label className="flex items-center justify-between gap-2">
+            <span className="opacity-90">show flood markers</span>
+            <input type="checkbox" checked={showFloodMarkers} onChange={(e) => setShowFloodMarkers(e.target.checked)} className="accent-white" />
+          </label>
+
+          <label className="flex items-center justify-between gap-2">
+            <span className="opacity-90">show amenity markers</span>
+            <input type="checkbox" checked={showAmenityMarkers} onChange={(e) => setShowAmenityMarkers(e.target.checked)} className="accent-white" />
+          </label>
+
+          <div className="h-px bg-white/10 my-1" />
+
+          <label className="flex items-center justify-between gap-2">
+            <span className="opacity-90">show kde (flood heat)</span>
+            <input type="checkbox" checked={showKDE} onChange={(e) => setShowKDE(e.target.checked)} className="accent-white" />
+          </label>
+
+          <div className={`grid gap-1 ${showKDE ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+            <label className="flex items-center justify-between gap-2">
+              <span className="opacity-90">radius</span>
+              <input type="range" min={6} max={70} value={kdeRadius} onChange={(e) => setKdeRadius(+e.target.value)} className="w-36" />
+              <span className="tabular-nums">{kdeRadius}px</span>
             </label>
-
-            <label className="inline-flex items-center gap-2 mt-1">
-              <input type="checkbox" checked={showFloods} onChange={(e) => setShowFloods(e.target.checked)} />
-              <span>show flood markers</span>
+            <label className="flex items-center justify-between gap-2">
+              <span className="opacity-90">intensity</span>
+              <input type="range" step={0.05} min={0.1} max={2} value={kdeIntensity} onChange={(e) => setKdeIntensity(+e.target.value)} className="w-36" />
+              <span className="tabular-nums">{kdeIntensity.toFixed(2)}</span>
             </label>
-
-            {showFloods ? (
-              <div className="mt-2">
-                <div className="mb-1 text-[11px] text-slate-300">flood types (from “event”)</div>
-                <div className="flex gap-2 mb-2">
-                  <button
-                    className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[11px]"
-                    onClick={handleFloodTypesSelectAll}
-                    type="button"
-                  >
-                    select all
-                  </button>
-                  <button
-                    className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[11px]"
-                    onClick={handleFloodTypesClear}
-                    type="button"
-                  >
-                    clear
-                  </button>
-                </div>
-                <div className="max-h-40 overflow-auto pr-1 space-y-1">
-                  {floodTypes.map((t) => {
-                    const normalized = S(t);
-                    const checked = displayFloodTypes.includes(normalized);
-                    return (
-                      <label key={t} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => handleFloodTypeDisplayToggle(t, e.target.checked)}
-                        />
-                        <span className="truncate">{t}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-                {displayFloodTypes.length === 0 && (
-                  <div className="mt-1 text-[11px] text-amber-300/80">none selected — markers hidden</div>
-                )}
-              </div>
-            ) : null}
-
-            <label className="inline-flex items-center gap-2 mt-3">
-              <input type="checkbox" checked={showAmenities} onChange={(e) => setShowAmenities(e.target.checked)} />
-              <span>Show amenities</span>
-            </label>
-
-            {showAmenities ? (
-              <div className="mt-2">
-                <div className="mb-1 text-[11px] text-slate-300">amenity categories</div>
-                <div className="flex gap-2 mb-2">
-                  <button
-                    className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[11px]"
-                    onClick={() => setDisplayAmenityCategories(availableAmenityCategories)}
-                    type="button"
-                    disabled={!availableAmenityCategories.length}
-                  >
-                    select all
-                  </button>
-                  <button
-                    className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[11px]"
-                    onClick={() => setDisplayAmenityCategories([])}
-                    type="button"
-                    disabled={!displayAmenityCategories.length}
-                  >
-                    clear
-                  </button>
-                </div>
-
-                <div className="max-h-40 overflow-auto pr-1 space-y-1">
-                  {availableAmenityCategories.map((cat) => {
-                    const normalized = S(cat);
-                    const checked = displayAmenityCategories.includes(normalized);
-                    return (
-                      <label key={cat} className="flex items-center gap-2 text-[11px]">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            const shouldEnable = e.target.checked;
-                            setDisplayAmenityCategories((prev) => {
-                              const next = new Set(prev);
-                              if (shouldEnable) next.add(cat);
-                              else next.delete(cat);
-                              return Array.from(next);
-                            });
-                          }}
-                        />
-                        <span className="truncate">{cat}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                {!availableAmenityCategories.length && (
-                  <div className="mt-1 text-[11px] text-amber-300/80">
-                    No amenity categories in the selected scope/filters.
-                  </div>
-                )}
-                {availableAmenityCategories.length > 0 && displayAmenityCategories.length === 0 && (
-                  <div className="mt-1 text-[11px] text-amber-300/80">none selected — markers hidden</div>
-                )}
-              </div>
-            ) : null}
-
-            {viewMode === "planning" && (
-              <div className="mt-2 text:[11px] text-slate-400">
-                click a planning area (or its green bubble) to drill into floods.
-              </div>
-            )}
-
-            <div className="mt-3 text-[11px] text-slate-300">
-              visible floods: <span className="font-semibold text-slate-100">{visibleFloodCount}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* legend */}
-      <div className="pointer-events-none absolute left-3 bottom-3 sm:left-4 sm:bottom-4">
-        <div className="pointer-events-auto rounded-xl bg-slate-900/90 border border-white/10 shadow-lg p-3 text-xs text-slate-200 min-w-[220px]">
-          <div className="font-semibold text-slate-100">{legendTitle}</div>
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex h-2 flex-1 overflow-hidden rounded">
-              {(viewMode === "subzone" ? SUBZONE_COLORS : PLANNING_COLORS).map((c, i) => (
-                <span key={i} style={{ backgroundColor: c }} className="h-full flex-1" />
-              ))}
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-slate-300">0</span>
-              <span className="text-slate-500">/</span>
-              <span className="text-slate-100 font-semibold">{legendMax}</span>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center gap-2">
-            <span className="inline-block h-3 w-3 rounded-full border border-white" style={{ backgroundColor: "#22c55e" }} />
-            <span className="text-slate-300">PA flood count</span>
-          </div>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="inline-block h-3 w-3 rounded-full border border-white" style={{ backgroundColor: "#38bdf8" }} />
-            <span className="text-slate-300">flood event (inside PA view)</span>
           </div>
         </div>
       </div>
 
-      {error && (
-        <div className="absolute inset-0 grid place-items-center bg-slate-900/70 p-6 text-white">
-          <div className="w-full max-w-sm rounded-xl bg-slate-900/90 p-5 text-center shadow-xl">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-200">map unavailable</p>
-            <p className="mt-2 text-sm text-slate-100">{error}</p>
+      {/* choropleth legend (bottom-left) */}
+      {showChoropleth && (
+        <div className="absolute left-3 bottom-3 z-10 rounded-lg bg-slate-900/90 border border-white/10 px-3 py-2 text-xs text-slate-200">
+          <div className="font-semibold">
+            {hasSelection
+              ? (metric.includes("amenity") ? "amenities (subzone choropleth)" : "floods (subzone choropleth)")
+              : (metric.includes("amenity") ? "amenities (planning area choropleth)" : "floods (planning area choropleth)")}
+          </div>
+          <div className="mt-2 flex flex-col gap-2">
+            {legendItems.map((it, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: it.c }} />
+                <span className="tabular-nums">{it.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-[10px] text-slate-400">
+            filtered to selected planning areas{subzoneFC.features?.length ? (hasSZSelection ? " / subzones" : "") : ""}
           </div>
         </div>
       )}
+
+      {/* heatmap legend (bottom-right) – only when kde is on */}
+      {showKDE && (
+        <div className="absolute right-3 bottom-3 z-10 rounded-lg bg-slate-900/90 border border-white/10 p-3 text-xs text-slate-200 w-[220px]">
+          <div className="font-semibold mb-2">flood kde (heatmap)</div>
+          <div className="w-full h-3 rounded overflow-hidden" style={{
+            background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, #fee2e2 20%, #fecaca 40%, #fca5a5 60%, #ef4444 80%, #991b1b 100%)"
+          }} />
+          <div className="flex justify-between mt-1 text-[10px]">
+            <span>low</span><span>high</span>
+          </div>
+          <div className="mt-2 text-[10px] text-slate-400">
+            radius {kdeRadius}px · intensity {kdeIntensity.toFixed(2)}
+          </div>
+        </div>
+      )}
+
+      {/* remove popup chrome */}
+      <style>{`
+        .mapboxgl-popup.dark-popup .mapboxgl-popup-content { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+        .mapboxgl-popup.dark-popup .mapboxgl-popup-tip { display: none !important; }
+      `}</style>
     </div>
   );
 }
-
-export default SingaporeHistoricalFloodMap;

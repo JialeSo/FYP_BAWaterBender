@@ -10,9 +10,7 @@ export default function RoadCentrality() {
         table to sort and filter.
       </p>
 
-      <section className="min-h-[28rem] flex-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <Centrality />
-      </section>
+      <Centrality />
     </div>
   );
 }
