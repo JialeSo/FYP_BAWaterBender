@@ -10,5 +10,12 @@
 
   "env": {
     "PYTHONPATH": "."
-  }
+  },
+
+  "crons": [
+    {
+      "path": "/api/weather-alerts/cron/recent-messages",
+      "schedule": "* * * * *"
+    }
+  ]
 }

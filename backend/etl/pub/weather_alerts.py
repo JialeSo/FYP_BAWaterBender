@@ -106,6 +106,170 @@ class WeatherAlerts:
         except Exception as e:
             logger.error(f"Error extracting messages: {e}")
 
+    async def extract_recent_messages(
+        self, hours: int = 24, webhook_url: Optional[str] = None
+    ) -> list[Dict]:
+        """
+        Extract messages from the last N hours.
+        Perfect for cron jobs to periodically fetch new messages.
+
+        Args:
+            hours: Number of hours to look back (default: 24)
+            webhook_url: Optional webhook URL to forward messages to
+
+        Returns:
+            List of message dictionaries
+        """
+        messages = []
+
+        if not self.client.is_connected():
+            await self.client.connect()
+
+        if not await self.client.is_user_authorized():
+            if self.phone:
+                await self.client.start(phone=self.phone)
+            else:
+                logger.error("Phone number not provided for authorization")
+                return messages
+
+        try:
+            from datetime import timedelta, timezone
+
+            # Calculate the time threshold (timezone-aware)
+            time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
+            logger.info(
+                f"🔍 Fetching messages from {self.channel_username} "
+                f"since {time_threshold.isoformat()}"
+            )
+
+            # Iterate through messages until we hit the time threshold
+            async for message in self.client.iter_messages(
+                self.channel_username, limit=None
+            ):
+                # Stop if message is older than threshold
+                if message.date < time_threshold:
+                    break
+
+                if message.text:
+                    message_data = {
+                        "id": message.id,
+                        "text": message.text,
+                        "created_at": message.date.isoformat(),
+                        "sender_id": message.sender_id,
+                    }
+                    messages.append(message_data)
+
+                    # Optionally forward to webhook
+                    if webhook_url:
+                        try:
+                            async with httpx.AsyncClient(timeout=10) as client:
+                                response = await client.post(
+                                    webhook_url, json=message_data
+                                )
+                                response.raise_for_status()
+                                logger.info(
+                                    f"✅ Forwarded message {message.id} " f"to webhook"
+                                )
+                        except Exception as e:
+                            logger.error(
+                                f"❌ Failed to forward message {message.id}: " f"{e}"
+                            )
+
+            logger.info(
+                f"✅ Extracted {len(messages)} messages from last {hours} hours"
+            )
+            return messages
+
+        except Exception as e:
+            logger.error(f"❌ Error extracting recent messages: {e}")
+            return messages
+        # No finally block - keep connection alive for singleton
+
+    async def extract_and_save_recent_messages(self, hours: int = 24) -> list[Dict]:
+        """
+        Extract messages from the last N hours and save them to database.
+        Designed for cron jobs - handles full lifecycle including DB writes.
+
+        Args:
+            hours: Number of hours to look back (default: 24)
+
+        Returns:
+            List of processed message dictionaries
+        """
+        messages = []
+
+        if not self.client.is_connected():
+            await self.client.connect()
+
+        if not await self.client.is_user_authorized():
+            if self.phone:
+                await self.client.start(phone=self.phone)
+            else:
+                logger.error("Phone number not provided for authorization")
+                return messages
+
+        try:
+            from datetime import timedelta, timezone
+            from etl.pub.weather_alerts_pipeline import (
+                WeatherAlertsPipeline,
+            )
+
+            # Calculate the time threshold (timezone-aware)
+            time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
+            logger.info(
+                f"🔍 Fetching messages from {self.channel_username} "
+                f"since {time_threshold.isoformat()}"
+            )
+
+            # Initialize pipeline for processing
+            config = {
+                "continue_on_error": True,
+                "weather_processing": {},
+                "location_geocoding": {},
+                "database_write": {},
+            }
+            pipeline = WeatherAlertsPipeline(
+                config=config, db_table="PUB_weather_alerts"
+            )
+
+            # Iterate through messages until we hit the time threshold
+            raw_messages = []
+            async for message in self.client.iter_messages(
+                self.channel_username, limit=None
+            ):
+                # Stop if message is older than threshold
+                if message.date < time_threshold:
+                    break
+
+                if message.text:
+                    message_data = {
+                        "id": message.id,
+                        "text": message.text,
+                        "created_at": message.date.isoformat(),
+                        "sender_id": message.sender_id,
+                    }
+                    raw_messages.append(message_data)
+
+            logger.info(f"📥 Extracted {len(raw_messages)} messages from Telegram")
+
+            # Process all messages through the pipeline
+            if raw_messages:
+                logger.info("🔄 Processing messages through pipeline...")
+                result = await pipeline.process_weather_alerts(raw_messages)
+                messages = raw_messages
+                logger.info(
+                    f"✅ Successfully processed and saved " f"{len(messages)} messages"
+                )
+            else:
+                logger.info("ℹ️  No new messages found in the time range")
+
+            return messages
+
+        except Exception as e:
+            logger.error(f"❌ Error in extract_and_save_recent_messages: {e}")
+            return messages
+        # No finally block - keep connection alive for singleton
+
     async def start_live_monitoring(self):
         """Monitor channel for new messages"""
         url = SERVER_URL or "http://localhost:8000"
