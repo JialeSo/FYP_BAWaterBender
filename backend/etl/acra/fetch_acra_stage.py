@@ -12,36 +12,8 @@ from backend.etl.common.pipeline_stage import PipelineStage
 logger = logging.getLogger(__name__)
 
 
-# Default ACRA dataset IDs (A-Z and Others from data.gov.sg)
-DEFAULT_ACRA_DATASET_IDS = [
-    "d_8575e84912df3c28995b8e6e0e05205a",
-    "d_3a3807c023c61ddfba947dc069eb53f2",
-    "d_c0650f23e94c42e7a20921f4c5b75c24",
-    "d_acbc938ec77af18f94cecc4a7c9ec720",
-    "d_124a9bd407c7a25f8335b93b86e50fdd",
-    "d_4526d47d6714d3b052eed4a30b8b1ed6",
-    "d_b58303c68e9cf0d2ae93b73ffdbfbfa1",
-    "d_fa2ed456cf2b8597bb7e064b08fc3c7c",
-    "d_85518d970b8178975850457f60f1e738",
-    "d_478f45a9c541cbe679ca55d1cd2b970b",
-    "d_5573b0db0575db32190a2ad27919a7aa",
-    "d_a2141adf93ec2a3c2ec2837b78d6d46e",
-    "d_9af9317c646a1c881bb5591c91817cc6",
-    "d_67e99e6eabc4aad9b5d48663b579746a",
-    "d_5c4ef48b025fdfbc80056401f06e3df9",
-    "d_300ddc8da4e8f7bdc1bfc62d0d99e2e7",
-    "d_181005ca270b45408b4cdfc954980ca2",
-    "d_4130f1d9d365d9f1633536e959f62bb7",
-    "d_2b8c54b2a490d2fa36b925289e5d9572",
-    "d_df7d2d661c0c11a7c367c9ee4bf896c1",
-    "d_72f37e5c5d192951ddc5513c2b134482",
-    "d_0cc5f52a1f298b916f317800251057f3",
-    "d_e97e8e7fc55b85a38babf66b0fa46b73",
-    "d_af2042c77ffaf0db5d75561ce9ef5688",
-    "d_1cd970d8351b42be4a308d628a6dd9d3",
-    "d_31af23fdb79119ed185c256f03cb5773",
-    "d_4e3db8955fdcda6f9944097bef3d2724",
-]
+# ACRA Collection ID on data.gov.sg
+ACRA_COLLECTION_ID = 2
 
 # Target columns to extract
 TARGET_COLUMNS = ["uen", "entity_name", "street_name", "building_name", "postal_code"]
@@ -58,10 +30,11 @@ ALLOWED_STATUSES = {
 class FetchACRAStage(PipelineStage):
     """Fetch ACRA datasets and consolidate to CSV + records."""
 
-    def __init__(self, dataset_ids: Optional[List[str]] = None):
+    def __init__(self, dataset_ids: Optional[List[str]] = None, collection_id: int = ACRA_COLLECTION_ID):
         super().__init__("Fetch ACRA (data.gov.sg)")
-        self.dataset_ids = dataset_ids or DEFAULT_ACRA_DATASET_IDS
+        self.collection_id = collection_id
         self.session = self._get_session()
+        self.dataset_ids = dataset_ids or self._fetch_dataset_ids_from_collection()
 
     def _get_session(self) -> requests.Session:
         s = requests.Session()
@@ -72,6 +45,36 @@ class FetchACRAStage(PipelineStage):
             headers["x-api-key"] = api_key
         s.headers.update(headers)
         return s
+
+    def _fetch_dataset_ids_from_collection(self) -> List[str]:
+        """Fetch all dataset IDs from the ACRA collection metadata."""
+        try:
+            url = f"https://api-production.data.gov.sg/v2/public/api/collections/{self.collection_id}/metadata?withDatasetMetadata=true"
+            logger.info(f"Fetching collection metadata from data.gov.sg (collection_id={self.collection_id})")
+
+            response = self.session.get(url, timeout=30)
+            response.raise_for_status()
+
+            data = response.json()
+
+            # Extract dataset IDs from childDatasets in collectionMetadata
+            dataset_ids = []
+            if "data" in data and "collectionMetadata" in data["data"]:
+                collection_data = data["data"]["collectionMetadata"]
+                if "childDatasets" in collection_data:
+                    dataset_ids = collection_data["childDatasets"]
+
+            logger.info(f"Found {len(dataset_ids)} datasets in collection {self.collection_id}")
+
+            if not dataset_ids:
+                logger.warning("No dataset IDs found in collection metadata!")
+
+            return dataset_ids
+
+        except Exception as e:
+            logger.error(f"Failed to fetch collection metadata: {e}")
+            logger.warning("Falling back to empty dataset list")
+            return []
 
     def _download_dataset(self, dataset_id: str) -> Optional[pd.DataFrame]:
         headers = {"Content-Type": "application/json"}
