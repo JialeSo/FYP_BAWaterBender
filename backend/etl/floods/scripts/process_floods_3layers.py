@@ -325,6 +325,12 @@ def process_floods_data(
     # Final deduplication to ensure no duplicates (spatial joins can create duplicates)
     df = df.drop_duplicates(subset=['id'], keep='first')
 
+    # Exclude subsided events from the exported CSV to match upload rules
+    try:
+        df = df[df['event'].astype(str).str.strip().str.lower() != 'flood_subsided']
+    except Exception:
+        pass
+
     # Save to CSV
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_csv, index=False)

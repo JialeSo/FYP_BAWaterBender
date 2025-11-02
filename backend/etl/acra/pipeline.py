@@ -518,7 +518,7 @@ def build_acra_pipeline(
                 sleep_between_requests=0.75,
             ),  # Lookup first, then OneMap API
             CheckGeocodeCompletenessStage(max_missing_pairs=10_000),  # Gate DB write
-            DatabaseWriteStage(table_name, config={"on_conflict": "uen", "batch_size": 500}),
+            DatabaseWriteStage(table_name, config={"on_conflict": "uen", "batch_size": 100}),
         ]
     )
 

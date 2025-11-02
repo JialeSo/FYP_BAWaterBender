@@ -21,6 +21,63 @@ logger = logging.getLogger(__name__)
 # PIPELINE STAGES
 # ============================================================================
 
+class FilterIslandPAAmenitiesStage(PipelineStage):
+    """Filter out amenities in island planning areas (PA IDs: 24, 27, 31).
+
+    Accepts a pandas DataFrame or list[dict] and removes rows/records where
+    `pa_id` is in the excluded set. Mirrors the floods filter stage behavior
+    but for a single `pa_id` field.
+    """
+
+    def __init__(self, excluded_pa_ids: Optional[List[int]] = None):
+        super().__init__("Filter Island PA Amenities")
+        self.excluded = set(excluded_pa_ids or [24, 27, 31])
+
+    async def process(self, data: Any) -> Any:
+        if data is None:
+            return data
+
+        try:
+            import pandas as _pd
+            if isinstance(data, _pd.DataFrame):
+                df: _pd.DataFrame = data.copy()
+                if "pa_id" not in df.columns:
+                    logger.warning("FilterIslandPAAmenitiesStage: 'pa_id' not in DataFrame; skipping filter")
+                    return data
+                before = len(df)
+                df = df[~df["pa_id"].isin(self.excluded)].copy()
+                after = len(df)
+                logger.info(
+                    f"Filtered island PAs {sorted(self.excluded)}: removed {before-after} of {before} rows"
+                )
+                return df
+        except Exception:
+            # Fall back to record-wise filtering below
+            pass
+
+        # Handle list[dict] or other iterable of records
+        try:
+            records = data
+            if not isinstance(records, list):
+                records = [records]
+
+            def _is_excluded(rec: Dict[str, Any]) -> bool:
+                try:
+                    pid = int(rec.get("pa_id") or 0)
+                except Exception:
+                    pid = 0
+                return pid in self.excluded
+
+            before = len(records)
+            filtered = [r for r in records if not _is_excluded(r)]
+            after = len(filtered)
+            logger.info(
+                f"Filtered island PAs {sorted(self.excluded)}: removed {before-after} of {before} rows"
+            )
+            return filtered
+        except Exception:
+            return data
+
 class FetchAndConsolidateStage(PipelineStage):
     """Fetch and consolidate all amenities data.
 
@@ -358,6 +415,9 @@ class AmenitiesPipeline(Pipeline):
         three_layers_config = self.config.get("three_layers", {})
         three_layers_stage = AmenitiesThreeLayersStage(config=three_layers_config)
         stages.append(three_layers_stage)
+
+        # Stage 2.5: Filter out island PAs (24, 27, 31) before DB write
+        stages.append(FilterIslandPAAmenitiesStage())
 
         # Stage 3: Database Write
         db_config = self.config.get("database_write", {})

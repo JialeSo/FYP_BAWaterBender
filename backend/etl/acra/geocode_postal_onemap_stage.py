@@ -11,6 +11,7 @@ import requests
 from backend.etl.common.pipeline_stage import PipelineStage
 from backend.common.db import DatabaseConnection
 from backend.etl.onemap.onemap_extended import OneMapClient
+from backend.etl.common.spatial_geocoding import add_three_layer_geocoding, get_default_geojson_paths
 
 
 logger = logging.getLogger(__name__)
@@ -314,5 +315,120 @@ class GeocodePostalOneMapStage(PipelineStage):
             logger.warning(f"Failed to write updated CSV: {e}")
 
         logger.info("OneMap geocoding summary: CSV=%s, API=%s, Miss=%s", csv_hits, api_hits, misses)
+
+        # ===== Three-Layer Spatial Geocoding =====
+        # Add pa_id, sz_id, rn_id using spatial joins
+        logger.info("=" * 80)
+        logger.info("Starting three-layer spatial geocoding (pa_id, sz_id, rn_id)...")
+        logger.info("=" * 80)
+
+        try:
+            # Get default GeoJSON paths
+            geojson_paths = get_default_geojson_paths()
+
+            # Apply spatial geocoding to add pa_id, sz_id, rn_id
+            df_out = add_three_layer_geocoding(
+                df_out,
+                lat_col="latitude",
+                lon_col="longitude",
+                planning_geojson=geojson_paths['planning_geojson'],
+                subzone_geojson=geojson_paths['subzone_geojson'],
+                road_network_geojson=geojson_paths['road_network_geojson'],
+            )
+
+            logger.info("=" * 80)
+            logger.info("Three-layer geocoding complete!")
+            logger.info(f"  • pa_id populated: {df_out['pa_id'].notna().sum():,} / {len(df_out):,}")
+            logger.info(f"  • sz_id populated: {df_out['sz_id'].notna().sum():,} / {len(df_out):,}")
+            logger.info(f"  • rn_id populated: {df_out['rn_id'].notna().sum():,} / {len(df_out):,}")
+            logger.info("=" * 80)
+
+            # Filter out excluded planning areas (24, 27, 31)
+            excluded_pa_ids = [24, 27, 31]
+            before_filter = len(df_out)
+            df_out = df_out[~df_out['pa_id'].isin(excluded_pa_ids)]
+            filtered_count = before_filter - len(df_out)
+
+            if filtered_count > 0:
+                logger.info(f"Filtered out {filtered_count:,} records with excluded pa_id (24, 27, 31)")
+                logger.info(f"Remaining records: {len(df_out):,}")
+            else:
+                logger.info("No records matched excluded planning areas (24, 27, 31)")
+
+            # Drop road_name if it exists (not in ACRA schema)
+            if 'road_name' in df_out.columns:
+                df_out = df_out.drop(columns=['road_name'])
+
+            # Write updated CSV with three-layer data
+            out_path = self.out_dir / self.out_csv
+            df_out.to_csv(out_path, index=False)
+            logger.info(f"Updated CSV with three-layer geocoding → {out_path}")
+
+        except Exception as e:
+            logger.error(f"Three-layer spatial geocoding failed: {e}", exc_info=True)
+            logger.warning("Continuing without three-layer geocoding (pa_id, sz_id, rn_id will be null)")
+
+        # Deduplicate by UEN (spatial joins can create multiple rows per company)
+        logger.info("=" * 80)
+        logger.info("Deduplicating records by UEN...")
+        before_dedup = len(df_out)
+        df_out = df_out.drop_duplicates(subset=['uen'], keep='first')
+        after_dedup = len(df_out)
+        duplicates_removed = before_dedup - after_dedup
+        logger.info(f"Removed {duplicates_removed:,} duplicate UEN records")
+        logger.info(f"Final record count: {after_dedup:,} unique companies")
+        logger.info("=" * 80)
+
+        # Lowercase all text fields for consistency
+        text_columns = ['amenity_name', 'street_name', 'building_name', 'planning_area', 'subzone']
+        for col in text_columns:
+            if col in df_out.columns:
+                df_out[col] = df_out[col].astype(str).str.lower().str.strip()
+                # Replace 'nan' string with empty string
+                df_out[col] = df_out[col].replace('nan', '')
+        logger.info("Lowercased all text fields")
+
+        # Drop road_name if it exists (not in ACRA schema)
+        if 'road_name' in df_out.columns:
+            df_out = df_out.drop(columns=['road_name'])
+
+        # Define final column order matching database schema
+        ordered = [
+            "id",
+            "uen",
+            "amenity_name",
+            "street_name",
+            "building_name",
+            "postal_code",
+            "latitude",
+            "longitude",
+            "pa_id",
+            "sz_id",
+            "rn_id",
+            "planning_area",
+            "subzone",
+        ]
+
+        # Add sequential ID column as the FIRST column
+        # Use DataFrame constructor to ensure id is first
+        id_values = list(range(1, len(df_out) + 1))
+
+        # Build new dataframe with id first, then other columns in order
+        new_data = {'id': id_values}
+        for col in ordered[1:]:  # Skip 'id' since we already added it
+            if col in df_out.columns:
+                new_data[col] = df_out[col].values
+
+        df_out = pd.DataFrame(new_data)
+        logger.info(f"Added sequential ID column (1 to {len(df_out):,}) as first column")
+
+        # Update CSV with deduplicated data
+        try:
+            out_path = self.out_dir / self.out_csv
+            df_out.to_csv(out_path, index=False)
+            logger.info(f"Updated CSV with deduplicated data → {out_path}")
+        except Exception as e:
+            logger.warning(f"Failed to write deduplicated CSV: {e}")
+
         # Return as list of dicts to the next stage
         return df_out.to_dict("records")

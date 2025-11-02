@@ -116,10 +116,11 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
         # All data in backend/etl/data
         etl_data_dir = Path(__file__).resolve().parents[1] / "data"
 
+        # Persist final CSV alongside other flood data for consistency
         self.output_csv = Path(
             self.config.get(
                 "output_csv",
-                etl_data_dir / "floods_3layers.csv"
+                etl_data_dir / "floods" / "floods_3layers.csv"
             )
         )
 
@@ -291,6 +292,21 @@ class SanitizeFloodsForDBStage(PipelineStage):
             # Remove noisy columns
             r.pop("created_at", None)
 
+            # Normalize event_date to ISO YYYY-MM-DD for Postgres DATE
+            if "event_date" in r and r["event_date"] not in (None, ""):
+                try:
+                    import pandas as _pd
+                    # Try parsing with dayfirst to handle formats like 20/3/2014
+                    dt = _pd.to_datetime(str(r["event_date"]).strip(), dayfirst=True, errors="coerce")
+                    if _pd.notna(dt):
+                        r["event_date"] = dt.date().isoformat()
+                    else:
+                        # As fallback, try without dayfirst
+                        dt2 = _pd.to_datetime(str(r["event_date"]).strip(), dayfirst=False, errors="coerce")
+                        r["event_date"] = dt2.date().isoformat() if _pd.notna(dt2) else None
+                except Exception:
+                    r["event_date"] = None
+
             # Build geom if missing
             if r.get("geom") in (None, "", {}):
                 lat = None
@@ -336,6 +352,79 @@ class SanitizeFloodsForDBStage(PipelineStage):
 
         return out
 
+
+class FilterIslandPAStage(PipelineStage):
+    """Filter out floods in island planning areas (PA IDs: 24, 27, 31)."""
+
+    def __init__(self, excluded_pa_ids: Optional[List[int]] = None):
+        super().__init__("Filter Island PA Floods")
+        self.excluded = set(excluded_pa_ids or [24, 27, 31])
+
+    async def process(self, data: Any) -> Any:
+        if not data:
+            return data
+
+        try:
+            import pandas as _pd
+            if hasattr(data, "to_dict") and isinstance(data, _pd.DataFrame):
+                records = data.to_dict(orient="records")
+            else:
+                records = data
+        except Exception:
+            records = data
+
+        if not isinstance(records, list):
+            records = [records]
+
+        before = len(records)
+        def _is_excluded(rec: Dict[str, Any]) -> bool:
+            try:
+                spa = int(rec.get("start_pa_id") or 0)
+            except Exception:
+                spa = 0
+            try:
+                epa = int(rec.get("end_pa_id") or 0)
+            except Exception:
+                epa = 0
+            return (spa in self.excluded) or (epa in self.excluded)
+
+        filtered = [r for r in records if not _is_excluded(r)]
+        after = len(filtered)
+        logger.info(f"Filtered island PAs {sorted(self.excluded)}: removed {before-after} of {before} rows")
+        return filtered
+
+
+class FilterSubsidedStage(PipelineStage):
+    """Exclude 'flood_subsided' events from upload."""
+
+    def __init__(self):
+        super().__init__("Filter Subsided Flood Events")
+
+    async def process(self, data: Any) -> Any:
+        if not data:
+            return data
+
+        try:
+            import pandas as _pd
+            if hasattr(data, "to_dict") and isinstance(data, _pd.DataFrame):
+                records = data.to_dict(orient="records")
+            else:
+                records = data
+        except Exception:
+            records = data
+
+        if not isinstance(records, list):
+            records = [records]
+
+        before = len(records)
+        def _is_subsided(rec: Dict[str, Any]) -> bool:
+            val = (rec.get("event") or "").strip().lower()
+            return val == "flood_subsided"
+
+        filtered = [r for r in records if not _is_subsided(r)]
+        after = len(filtered)
+        logger.info(f"Filtered 'flood_subsided': removed {before-after} of {before} rows")
+        return filtered
 
 class FloodsUpsertStage(PipelineStage):
     """Floods-specific DB write using upsert on (id)."""
@@ -383,6 +472,31 @@ class FloodsUpsertStage(PipelineStage):
 
         return data
 
+
+class CleanupRemoteFloodsStage(PipelineStage):
+    """Delete disallowed rows from remote table before upsert.
+
+    Removes any existing rows with event == 'flood_subsided' and optionally
+    rows in island PAs, so legacy data doesn't persist.
+    """
+
+    def __init__(self, table_name: str, remove_island_pas: bool = True):
+        super().__init__("Cleanup Remote Floods")
+        self.table_name = table_name
+        self.remove_island_pas = remove_island_pas
+        self.db = DatabaseConnection()
+
+    async def process(self, data: Any) -> Any:
+        try:
+            client = self.db._get_connection()
+            client.table(self.table_name).delete().eq("event", "flood_subsided").execute()
+            if self.remove_island_pas:
+                excluded = [24, 27, 31]
+                client.table(self.table_name).delete().in_("start_pa_id", excluded).execute()
+                client.table(self.table_name).delete().in_("end_pa_id", excluded).execute()
+        except Exception:
+            pass
+        return data
 
 # ============================================================================
 # FLOODS PIPELINE
@@ -452,7 +566,16 @@ class FloodsPipeline(Pipeline):
         sanitize_stage = SanitizeFloodsForDBStage()
         stages.append(sanitize_stage)
 
-        # Stage 3: Database Upsert (floods-specific behavior)
+        # Stage 3: Drop island planning areas
+        stages.append(FilterIslandPAStage())
+
+        # Stage 4: Drop subsided events
+        stages.append(FilterSubsidedStage())
+
+        # Stage 5: Ensure remote table has no disallowed legacy rows
+        stages.append(CleanupRemoteFloodsStage(self.db_table, remove_island_pas=True))
+
+        # Stage 6: Database Upsert (floods-specific behavior)
         db_config = self.config.get("database_write", {})
         db_stage = FloodsUpsertStage(table_name=self.db_table, config=db_config)
         stages.append(db_stage)
