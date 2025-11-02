@@ -1,6 +1,8 @@
 import logging
 import math
 from typing import Any, Dict, List, Optional
+import asyncio
+import random
 
 from .pipeline_stage import PipelineStage
 from backend.common.db import DatabaseConnection
@@ -19,7 +21,8 @@ class DatabaseWriteStage(PipelineStage):
     def __init__(self, table_name: str, config: Optional[Dict[str, Any]] = None):
         super().__init__(f"Database Write ({table_name})", config)
         self.table_name = table_name
-        self.batch_size = self.config.get("batch_size", 1000)
+        # Default to a moderate batch size to avoid HTTP2 resets/timeouts
+        self.batch_size = self.config.get("batch_size", 300)
         self.on_conflict = self.config.get("on_conflict", None)
         # Optional list of column names to drop from records before writing
         self.drop_columns = set(self.config.get("drop_columns", []) or [])
@@ -118,6 +121,41 @@ class DatabaseWriteStage(PipelineStage):
             safe.append(new_rec)
         return safe
 
+    async def _write_with_retries(self, batch: List[Dict], *, max_retries: int = 5) -> None:
+        """Write a single batch with retries and exponential backoff.
+
+        Falls back to splitting the batch into smaller chunks if repeated failures occur.
+        """
+        attempt = 0
+        while attempt <= max_retries:
+            try:
+                # Prefer upsert when on_conflict is configured
+                if self.on_conflict and hasattr(self.db, "upsert"):
+                    self.db.upsert(table=self.table_name, data=batch, on_conflict=self.on_conflict)
+                elif hasattr(self.db, "insert"):
+                    self.db.insert(table=self.table_name, data=batch)
+                else:
+                    raise Exception("Database connection does not support insert/upsert")
+                return
+            except Exception as e:
+                attempt += 1
+                # After several attempts, try splitting the batch to reduce payload size
+                if attempt > max_retries:
+                    # Final fallback: split and try smaller chunks if possible
+                    if len(batch) > 100:
+                        mid = len(batch) // 2
+                        logger.warning(
+                            f"Batch write still failing; splitting into {mid} + {len(batch) - mid} and retrying"
+                        )
+                        await self._write_with_retries(batch[:mid], max_retries=max_retries)
+                        await self._write_with_retries(batch[mid:], max_retries=max_retries)
+                        return
+                    raise e
+                # Exponential backoff with jitter
+                sleep_s = (0.5 * (2 ** (attempt - 1))) + random.uniform(0, 0.25)
+                logger.warning(f"Batch write attempt {attempt}/{max_retries} failed: {e}; retrying in {sleep_s:.2f}s")
+                await asyncio.sleep(sleep_s)
+
     async def _write_batches(self, records: List[Dict]) -> None:
         total_records = len(records)
         for i in range(0, total_records, self.batch_size):
@@ -130,13 +168,8 @@ class DatabaseWriteStage(PipelineStage):
                 batch = self._sanitize_records(batch)
                 if not self.db:
                     raise Exception("Database connection not available")
-                # Prefer upsert when on_conflict is configured
-                if self.on_conflict and hasattr(self.db, "upsert"):
-                    self.db.upsert(table=self.table_name, data=batch, on_conflict=self.on_conflict)
-                elif hasattr(self.db, "insert"):
-                    self.db.insert(table=self.table_name, data=batch)
-                else:
-                    raise Exception("Database connection does not support insert/upsert")
+                # Write with retries/backoff and fallback split
+                await self._write_with_retries(batch)
             except Exception as e:
                 msg = f"Failed to write batch {batch_num}/{total_batches}"
                 logger.error(f"{msg}: {e}")

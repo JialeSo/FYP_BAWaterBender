@@ -230,9 +230,9 @@ class TransformACRAStage(PipelineStage):
             # Extract fields
             uen = row.get("uen", "").strip()
             # Accept either entity_name (raw ACRA) or amenity_name (previously processed CSV)
-            entity_name = (row.get("entity_name") or row.get("amenity_name") or "").strip()
-            street_name = row.get("street_name", "").strip()
-            building_name = row.get("building_name", "").strip()
+            entity_name = (row.get("entity_name") or row.get("amenity_name") or "").strip().lower()
+            street_name = (row.get("street_name") or "").strip().lower()
+            building_name = (row.get("building_name") or "").strip().lower()
             postal_code = row.get("postal_code", "").strip()
 
             # Skip if missing required fields (require uen and a valid postal)
@@ -446,11 +446,12 @@ class PostalCodeGeocodeStage(PipelineStage):
                         no_match += 1
 
             # Preserve only required columns for database
+            # Ensure lowercase consistency before persisting
             new_row = {
                 "uen": row.get("uen"),
-                "amenity_name": row.get("amenity_name"),
-                "street_name": row.get("street_name"),
-                "building_name": row.get("building_name"),
+                "amenity_name": (row.get("amenity_name") or "").strip().lower(),
+                "street_name": (row.get("street_name") or "").strip().lower(),
+                "building_name": (row.get("building_name") or "").strip().lower(),
                 "postal_code": row.get("postal_code"),
                 "latitude": lat,
                 "longitude": lon,

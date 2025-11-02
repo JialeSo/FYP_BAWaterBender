@@ -355,6 +355,12 @@ class RoadMatcherPipeline:
         existing_cols = [col for col in required_output_cols if col in matched_df.columns]
         final_df = matched_df[existing_cols].copy()
 
+        # Normalize amenity_name to lowercase as final convention
+        if 'amenity_name' in final_df.columns:
+            final_df['amenity_name'] = (
+                final_df['amenity_name'].astype(str).str.strip().str.lower()
+            )
+
         # Rename postal_code to postalcode (without underscore) for final output
         if 'postal_code' in final_df.columns:
             final_df = final_df.rename(columns={'postal_code': 'postalcode'})

@@ -1090,11 +1090,8 @@ class AmenityClassifier:
         output_dir: Path
     ) -> pd.DataFrame:
         """Create all lookup tables and map IDs."""
-        # Collapse detailed categories into 5 high-level groups and REPLACE amenity_category
-        grouped = df["amenity_category"].map(self.CATEGORY_TO_GROUP).fillna("Commerce_&_Leisure")
-        df["amenity_category"] = grouped
-
-        # Create category lookup (now for 5 groups) with importance scores
+        # Preserve detailed categories (10-category scheme) for lookup generation
+        # Create category lookup with importance scores for detailed categories
         self.category_lookup = self._create_category_importance_lookup(
             df,
             output_dir / "amenity_category_lookup.csv"
