@@ -22,9 +22,7 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 # ==========================================
 # CORS Configuration
 # ==========================================
-ALLOWED_ORIGINS = [
-    s.strip() for s in os.getenv("ALLOWED_ORIGINS", "").split(",") if s.strip()
-]
+ALLOWED_ORIGINS = "*"
 
 # ==========================================
 # External Services Configuration
