@@ -1,0 +1,1 @@
+text,event_date,location,event,cleaned_location,start_loc,end_loc,start_lat,start_lng,start_postal_code,end_lat,end_lng,end_postal_code,parent_road,start_planning_area,start_subzone,start_street_name,end_planning_area,end_subzone,end_street_name,start_planning_area_id,start_subzone_id,start_street_id,end_planning_area_id,end_subzone_id,end_street_id
