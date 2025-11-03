@@ -70,6 +70,11 @@ class FetchPlanningAreasSubzonesStage(PipelineStage):
         logger.info("Fetching Planning Areas and Subzones from OneMap...")
 
         try:
+            # Add scripts directory to sys.path so onemap_utils can be imported
+            scripts_dir = str(self.scripts_dir)
+            if scripts_dir not in sys.path:
+                sys.path.insert(0, scripts_dir)
+
             # Import and run the main function from the script
             import importlib.util
             spec = importlib.util.spec_from_file_location(
@@ -160,7 +165,7 @@ class AmenitiesPipelineStage(PipelineStage):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__("Amenities Pipeline", config)
-        self.table_name = self.config.get("table_name", "amenities")
+        self.table_name = self.config.get("table_name", "amenity_3layers")
         self.pipeline_config = self.config.get("pipeline_config", {})
 
     async def process(self, data: Any) -> Any:
@@ -200,7 +205,7 @@ class FloodsPipelineStage(PipelineStage):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__("Floods Pipeline", config)
-        self.table_name = self.config.get("table_name", "floods")
+        self.table_name = self.config.get("table_name", "flood_3layers")
         self.pipeline_config = self.config.get("pipeline_config", {})
 
     async def process(self, data: Any) -> Any:

@@ -16,6 +16,10 @@ from shapely.geometry import Point
 import warnings
 
 from backend.etl.amenities.core.naming import infer_amenity_name
+from backend.etl.common.spatial_geocoding import (
+    add_three_layer_geocoding,
+    get_default_geojson_paths,
+)
 
 # Suppress GeoPandas CRS warnings
 warnings.filterwarnings('ignore', message='.*geographic CRS.*')
@@ -81,78 +85,22 @@ def geocode_amenities(
     else:
         print("Skipping subzone join (file missing)")
 
-    # Spatial join with planning areas (BULK operation - fast!)
-    if planning_gdf is not None:
-        print("Joining with planning areas...")
-        amenities_gdf = gpd.sjoin(
-            amenities_gdf,
-            planning_gdf[['PLN_AREA_N', 'PA_ID', 'geometry']],
-            how='left',
-            predicate='within'
-        )
-        amenities_gdf = amenities_gdf.rename(columns={
-            'PLN_AREA_N': 'planning_area',
-            'PA_ID': 'pa_id'
-        })
-        if 'index_right' in amenities_gdf.columns:
-            amenities_gdf = amenities_gdf.drop(columns=['index_right'])
+    # Three-layer spatial geocoding via common utility (prefer defaults if paths not provided)
+    if not planning_geojson or not subzone_geojson:
+        defaults = get_default_geojson_paths()
+        planning_geojson = planning_geojson or defaults['planning_geojson']
+        subzone_geojson = subzone_geojson or defaults['subzone_geojson']
+        road_network_geojson = road_network_geojson or defaults['road_network_geojson']
 
-    # Spatial join with subzones (BULK operation - fast!)
-    if subzone_gdf is not None:
-        print("Joining with subzones...")
-        amenities_gdf = gpd.sjoin(
-            amenities_gdf,
-            subzone_gdf[['SUBZONE_N', 'SZ_ID', 'geometry']],
-            how='left',
-            predicate='within'
-        )
-        amenities_gdf = amenities_gdf.rename(columns={
-            'SUBZONE_N': 'subzone',
-            'SZ_ID': 'sz_id'
-        })
-        if 'index_right' in amenities_gdf.columns:
-            amenities_gdf = amenities_gdf.drop(columns=['index_right'])
-
-    # Join with road network to find nearest road
-    if road_network_geojson and Path(road_network_geojson).exists():
-        print("Finding nearest roads...")
-        roads_gdf = gpd.read_file(road_network_geojson).to_crs("EPSG:4326")
-        print(f"  Loaded {len(roads_gdf):,} road segments")
-
-        # Use sjoin_nearest to find closest road for each amenity
-        # Note: OSM network uses 'RN_ID' and 'name' fields
-        road_cols = ['geometry']
-        if 'name' in roads_gdf.columns:
-            road_cols.insert(0, 'name')
-        if 'RN_ID' in roads_gdf.columns:
-            road_cols.insert(0, 'RN_ID')
-
-        amenities_gdf = gpd.sjoin_nearest(
-            amenities_gdf,
-            roads_gdf[road_cols],
-            how='left',
-            max_distance=0.01,  # ~1km max distance
-            distance_col='road_distance'
-        )
-
-        # Keep only first match per amenity (remove duplicates from equidistant roads)
-        amenities_gdf = amenities_gdf.drop_duplicates(subset=['amenity_id'], keep='first')
-
-        # Rename and clean up for OSM network
-        if 'name' in amenities_gdf.columns:
-            # Use road network road name if amenity road_name is missing
-            amenities_gdf['road_name'] = amenities_gdf['road_name'].fillna(
-                amenities_gdf['name']
-            )
-            amenities_gdf = amenities_gdf.drop(columns=['name'])
-
-        if 'RN_ID' in amenities_gdf.columns:
-            # Keep RN_ID for now (will be processed in step 3)
-            amenities_gdf = amenities_gdf.rename(columns={'RN_ID': 'street_id'})
-
-        # Drop index_right from spatial join
-        if 'index_right' in amenities_gdf.columns:
-            amenities_gdf = amenities_gdf.drop(columns=['index_right'])
+    print("Running three-layer spatial geocoding (planning area, subzone, road)...")
+    amenities_gdf = add_three_layer_geocoding(
+        amenities_gdf,
+        lat_col='lat',
+        lon_col='lon',
+        planning_geojson=Path(planning_geojson) if planning_geojson else None,
+        subzone_geojson=Path(subzone_geojson) if subzone_geojson else None,
+        road_network_geojson=Path(road_network_geojson) if road_network_geojson else None,
+    )
 
     # NOTE: Bus stops do not use postal codes. They have BusStopCode (5-digit identifier)
     # which should NOT be padded to create fake postal codes. Bus stops already get their

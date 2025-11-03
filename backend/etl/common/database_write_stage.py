@@ -3,6 +3,8 @@ import math
 from typing import Any, Dict, List, Optional
 import asyncio
 import random
+import os
+from pathlib import Path
 
 from .pipeline_stage import PipelineStage
 from backend.common.db import DatabaseConnection
@@ -27,20 +29,30 @@ class DatabaseWriteStage(PipelineStage):
         # Optional list of column names to drop from records before writing
         self.drop_columns = set(self.config.get("drop_columns", []) or [])
 
+        # Dry-run support: skip actual DB writes when enabled
+        env_dry = os.getenv("ETL_DRY_RUN", "0").lower() in {"1", "true", "yes"}
+        self.dry_run: bool = bool(self.config.get("dry_run", env_dry))
+        # Optional: where to dump CSV results when dry-run is enabled
+        self.dry_run_output: Optional[str] = self.config.get("dry_run_output") or os.getenv("ETL_DRY_RUN_OUTPUT")
+
+        # Only initialize DB connection when not in dry-run mode
         self.db = self.config.get("db_connection", None)
-        if self.db is None:
-            self.db = DatabaseConnection()
+        if not self.dry_run:
+            if self.db is None:
+                self.db = DatabaseConnection()
 
     def validate_config(self) -> bool:
         if not self.table_name:
             raise ValueError("table_name is required")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be positive")
-        try:
-            if self.db and hasattr(self.db, "_get_connection"):
-                self.db._get_connection()
-        except Exception as e:
-            raise ValueError(f"Database connection failed: {e}")
+        # In dry-run mode, do not require a live DB connection
+        if not self.dry_run:
+            try:
+                if self.db and hasattr(self.db, "_get_connection"):
+                    self.db._get_connection()
+            except Exception as e:
+                raise ValueError(f"Database connection failed: {e}")
         return True
 
     async def process(self, data: Any) -> Any:
@@ -51,6 +63,28 @@ class DatabaseWriteStage(PipelineStage):
         if not records:
             logger.warning("No records to write to database")
             return data
+        if self.dry_run:
+            logger.info(f"[DRY-RUN] Skipping DB write for table '{self.table_name}' ({len(records)} records)")
+            # Optionally dump to CSV for inspection
+            try:
+                if self.dry_run_output:
+                    out_dir = Path(self.dry_run_output)
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    out_path = out_dir / f"{self.table_name}.csv"
+                    try:
+                        import pandas as _pd  # type: ignore
+                        _pd.DataFrame(records).to_csv(out_path, index=False)
+                    except Exception:
+                        # Fallback to a simple newline-delimited JSON dump
+                        import json
+                        with open(out_path.with_suffix('.ndjson'), 'w', encoding='utf-8') as f:
+                            for r in records:
+                                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+                    logger.info(f"[DRY-RUN] Wrote output to {out_path} (or .ndjson)")
+            except Exception as e:
+                logger.warning(f"[DRY-RUN] Failed to persist dry-run output: {e}")
+            return data
+
         logger.info(f"Writing {len(records)} records to table '{self.table_name}'")
         try:
             await self._write_batches(records)

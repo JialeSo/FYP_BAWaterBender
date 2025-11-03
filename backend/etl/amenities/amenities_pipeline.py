@@ -371,7 +371,7 @@ class AmenitiesPipeline(Pipeline):
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
-        db_table: str = "amenities",
+        db_table: str = "amenity_3layers",
     ):
         """Initialize the amenities pipeline.
 
@@ -463,7 +463,7 @@ class AmenitiesPipeline(Pipeline):
 
 
 def build_amenities_pipeline(
-    table_name: str = "amenities",
+    table_name: str = "amenity_3layers",
     config: Optional[Dict[str, Any]] = None,
 ) -> AmenitiesPipeline:
     """Build and return an amenities pipeline.
@@ -479,7 +479,7 @@ def build_amenities_pipeline(
 
 
 async def run_amenities_pipeline(
-    table_name: str = "amenities",
+    table_name: str = "amenity_3layers",
     config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Run the amenities pipeline once.

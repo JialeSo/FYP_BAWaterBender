@@ -14,33 +14,14 @@ PROJECT_ROOT = THIS_DIR.parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.etl.onemap.onemap_extended import get_token
+from backend.etl.onemap.onemap_extended import OneMapClient
 
 
-def geocode_postal_one_map(postal: str, token: str) -> Optional[tuple[float, float]]:
-    """Geocode via OneMap elastic search (token-only) for a postal code."""
-    url = "https://www.onemap.gov.sg/api/common/elastic/search"
-    params = {
-        "searchVal": postal,
-        "returnGeom": "Y",
-        "getAddrDetails": "Y",
-        "pageNum": 1,
-    }
-    headers = {"Authorization": token}
-    r = requests.get(url, params=params, headers=headers, timeout=20)
-    if r.status_code == 401:
-        token = get_token()
-        headers = {"Authorization": token}
-        r = requests.get(url, params=params, headers=headers, timeout=20)
-    r.raise_for_status()
-    js = r.json() or {}
-    results = js.get("results") or js.get("SearchResults") or []
-    if results:
-        first = results[0]
-        lat = first.get("LATITUDE") or first.get("lat") or first.get("LAT")
-        lon = first.get("LONGITUDE") or first.get("lon") or first.get("LNG")
-        if lat and lon:
-            return float(lat), float(lon)
+def geocode_postal_one_map(client: OneMapClient, postal: str) -> Optional[tuple[float, float]]:
+    """Geocode via OneMap client (elastic preferred, fallback to public)."""
+    lat, lon = client.search_postal(postal)
+    if lat is not None and lon is not None:
+        return lat, lon
     return None
 
 
@@ -67,7 +48,7 @@ def main():
         print("No unmatched rows to geocode.")
         return 0
 
-    token = get_token()
+    client = OneMapClient()
 
     geocoded_rows = []
     calls = 0
@@ -78,7 +59,7 @@ def main():
         latlng = None
         if postal and len(postal) == 6 and postal.isdigit():
             try:
-                latlng = geocode_postal_one_map(postal, token)
+                latlng = geocode_postal_one_map(client, postal)
                 calls += 1
             except Exception as e:
                 latlng = None

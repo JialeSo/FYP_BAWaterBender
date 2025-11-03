@@ -517,7 +517,7 @@ class FloodsPipeline(Pipeline):
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
-        db_table: str = "floods",
+        db_table: str = "flood_3layers",
     ):
         """Initialize the floods pipeline.
 
@@ -606,7 +606,7 @@ class FloodsPipeline(Pipeline):
 
 
 def build_floods_pipeline(
-    table_name: str = "floods",
+    table_name: str = "flood_3layers",
     config: Optional[Dict[str, Any]] = None,
 ) -> FloodsPipeline:
     """Build and return a floods pipeline.
@@ -622,7 +622,7 @@ def build_floods_pipeline(
 
 
 async def run_floods_pipeline(
-    table_name: str = "floods",
+    table_name: str = "flood_3layers",
     config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Run the floods pipeline once.

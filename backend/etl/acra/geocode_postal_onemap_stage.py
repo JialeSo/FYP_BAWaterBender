@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
-import requests
 
 from backend.etl.common.pipeline_stage import PipelineStage
 from backend.common.db import DatabaseConnection
 from backend.etl.onemap.onemap_extended import OneMapClient
 from backend.etl.common.spatial_geocoding import add_three_layer_geocoding, get_default_geojson_paths
+from backend.etl.common.postal_code_utils import load_postal_codes_lookup
 
 
 logger = logging.getLogger(__name__)
@@ -44,79 +44,23 @@ class GeocodePostalOneMapStage(PipelineStage):
         self.postal_ref_csv = postal_ref_csv or (
             Path(__file__).resolve().parents[1] / "data" / "onemap" / "onemap_postal_codes.csv"
         )
-        self.postal_lookup = self._load_postal_codes(self.postal_ref_csv)
+        self.postal_lookup = load_postal_codes_lookup(self.postal_ref_csv)
         # Shared OneMap client (token caching + helpers)
         self.client = OneMapClient()
         self._db: Optional[DatabaseConnection] = None
 
     # Token management and headers handled by OneMapClient
 
-    def _load_postal_codes(self, csv_path: Path) -> Dict[str, Tuple[float, float]]:
-        lookup: Dict[str, Tuple[float, float]] = {}
-        try:
-            if not csv_path.exists():
-                logger.warning(f"Postal reference not found: {csv_path}")
-                return lookup
-            df = pd.read_csv(csv_path, dtype=str)
-            df.columns = [c.strip().lower() for c in df.columns]
-            if {"postal", "latitude", "longitude"}.issubset(df.columns):
-                for _, row in df.iterrows():
-                    postal = str(row["postal"]).strip().zfill(6)
-                    try:
-                        lat = float(row["latitude"]) if pd.notna(row["latitude"]) else None
-                        lon = float(row["longitude"]) if pd.notna(row["longitude"]) else None
-                        if lat is not None and lon is not None and len(postal) == 6:
-                            lookup[postal] = (lat, lon)
-                    except Exception:
-                        continue
-                logger.info(f"Loaded {len(lookup):,} postal entries from {csv_path}")
-            else:
-                logger.warning("Postal reference missing required columns: postal, latitude, longitude")
-        except Exception as e:
-            logger.warning(f"Failed loading postal reference: {e}")
-        return lookup
+    # Removed legacy local postal loader in favor of common utility
 
     def _onemap_search_postal(self, postal: str) -> Tuple[Optional[float], Optional[float]]:
-        """Query OneMap commonapi/search to geocode a postal code.
-
-        Tries public endpoint without Authorization first. If no results,
-        retries once with Authorization token (some deployments prefer it).
-        """
+        """Query OneMap (elastic preferred, fallback to public) for a postal code."""
         try:
-            url = "https://www.onemap.gov.sg/api/public/commonapi/search"
-            params = {
-                "searchVal": postal,
-                "returnGeom": "Y",
-                "getAddrDetails": "Y",
-                "pageNum": 1,
-            }
-            # Try public without token (with browser-like headers to avoid 403)
-            try:
-                r = self.client.get_public(url, params=params)
-                r.raise_for_status()
-                js = r.json() or {}
-                results = js.get("results") or js.get("SearchResults") or []
-                if results:
-                    first = results[0]
-                    lat = first.get("LATITUDE") or first.get("lat") or first.get("LAT")
-                    lon = first.get("LONGITUDE") or first.get("lon") or first.get("LNG")
-                    return (float(lat), float(lon)) if lat and lon else (None, None)
-            except Exception:
-                pass
-
-            # Fallback: with token header via client
-            r = self.client.get_auth(url, params=params)
-            r.raise_for_status()
-            js = r.json() or {}
-            results = js.get("results") or js.get("SearchResults") or []
-            if results:
-                first = results[0]
-                lat = first.get("LATITUDE") or first.get("lat") or first.get("LAT")
-                lon = first.get("LONGITUDE") or first.get("lon") or first.get("LNG")
-            return (float(lat), float(lon)) if lat and lon else (None, None)
+            lat, lon = self.client.search_postal(postal)
+            return (lat, lon)
         except Exception as e:
             logger.debug(f"OneMap search failed for {postal}: {e}")
-        return None, None
+            return None, None
 
     def _onemap_elastic_search_postal(self, postal: str) -> Tuple[Optional[float], Optional[float]]:
         """Query OneMap elastic search (token-only) to geocode a postal code.

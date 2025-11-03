@@ -123,6 +123,51 @@ class OneMapClient:
             return (float(lat), float(lon)) if lat and lon else (None, None)
         return (None, None)
 
+    def search_public_postal(self, postal: str) -> tuple[float | None, float | None]:
+        """Public commonapi search for a postal code -> (lat, lon).
+
+        Tries without auth first, then retries once with auth headers.
+        """
+        url = "https://www.onemap.gov.sg/api/public/commonapi/search"
+        params = {"searchVal": postal, "returnGeom": "Y", "getAddrDetails": "Y", "pageNum": 1}
+
+        # Try public call without auth
+        try:
+            r = self.get_public(url, params=params)
+            r.raise_for_status()
+            js = r.json() or {}
+            results = js.get("results") or js.get("SearchResults") or []
+            if results:
+                first = results[0]
+                lat = first.get("LATITUDE") or first.get("lat") or first.get("LAT")
+                lon = first.get("LONGITUDE") or first.get("lon") or first.get("LNG")
+                return (float(lat), float(lon)) if lat and lon else (None, None)
+        except Exception:
+            pass
+
+        # Fallback with auth
+        r = self.get_auth(url, params=params)
+        r.raise_for_status()
+        js = r.json() or {}
+        results = js.get("results") or js.get("SearchResults") or []
+        if results:
+            first = results[0]
+            lat = first.get("LATITUDE") or first.get("lat") or first.get("LAT")
+            lon = first.get("LONGITUDE") or first.get("lon") or first.get("LNG")
+            return (float(lat), float(lon)) if lat and lon else (None, None)
+        return (None, None)
+
+    def search_postal(self, postal: str) -> tuple[float | None, float | None]:
+        """Best-effort postal search.
+
+        Prefer elastic search (token-only). If it fails or returns nothing,
+        fallback to the public commonapi search.
+        """
+        lat, lon = self.search_elastic_postal(postal)
+        if lat is not None and lon is not None:
+            return lat, lon
+        return self.search_public_postal(postal)
+
 
 if __name__ == "__main__":
     # Demo: get token payload and fetch themes

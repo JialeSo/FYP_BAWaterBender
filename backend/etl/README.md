@@ -89,7 +89,7 @@
   - `backend/etl/acra/pipeline.py`
   - Entrypoint: `backend/etl/acra/run_acra_pipeline.py`
 - Purpose
-  - Monthly pipeline to fetch ACRA business datasets, normalize, geocode via OneMap, validate completeness, and upsert into `acra_companies`.
+  - Pipeline to fetch ACRA business datasets, normalize, geocode via OneMap, validate completeness, and upsert into `acra_companies`.
 - Stages
   - `FetchACRAStage` — Downloads curated datasets from data.gov.sg open-download API, filters by allowed statuses, selects target columns.
   - `TransformACRAStage` — Normalizes fields, enforces 6-digit postals, maps `entity_name` to `amenity_name` for schema alignment.
