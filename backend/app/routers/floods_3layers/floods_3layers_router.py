@@ -7,7 +7,7 @@ from common.db import db
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/floods-3layers", tags=["floods-3layers"])
+router = APIRouter(prefix="/flood-3layers", tags=["flood-3layers"])
 
 # helper functions 
 def validate_date(date_str):
@@ -115,7 +115,7 @@ def to_geojson(data):
 @router.get("/")
 async def get_all_flood_data():     
     try:
-        result = db.table("floods_3layers").select("*").execute()
+        result = db.table("flood_3layers").select("*").execute()
         
         return handle_response(result)
         
@@ -131,7 +131,7 @@ async def get_floods_by_planning_area(planning_area: str):
         filter_query = f"start_planning_area.eq.{planning_area},end_planning_area.eq.{planning_area}"
 
         # Query floods by planning area
-        result = db.table("floods_3layers").select("*").or_(filter_query).execute()
+        result = db.table("flood_3layers").select("*").or_(filter_query).execute()
         
         if not result.data:
             raise HTTPException(
@@ -155,7 +155,7 @@ async def get_floods_by_subzone(subzone: str):
         filter_query = f"start_subzone.eq.{subzone},end_subzone.eq.{subzone}"
         
         # Query floods by subzone
-        result = db.table("floods_3layers").select("*").or_(filter_query).execute()
+        result = db.table("flood_3layers").select("*").or_(filter_query).execute()
         
         if not result.data:
             raise HTTPException(
@@ -188,15 +188,15 @@ async def get_floods_in_time_period(start: str = None, end: str = None):
                 raise HTTPException(status_code=400, detail="Start date cannot be after end date.")
             # else return data between start and end date (inclusive)
             else: 
-                result = db.table("floods_3layers").select("*").gte("event_date", start).lte("event_date", end).execute()
+                result = db.table("flood_3layers").select("*").gte("event_date", start).lte("event_date", end).execute()
         
         # scenario 2: if end date not filled, return all data after start date
         elif start and not end: 
-            result = db.table("floods_3layers").select("*").gte("event_date", start).execute()
+            result = db.table("flood_3layers").select("*").gte("event_date", start).execute()
 
         # scenario 3: if start date not filled, return all data before end date
         elif end and not start: 
-            result = db.table("floods_3layers").select("*").lte("event_date", end).execute()
+            result = db.table("flood_3layers").select("*").lte("event_date", end).execute()
 
         # scenario 4: if neither start nor end date filled, raise error
         else:
@@ -220,7 +220,7 @@ async def get_floods_by_postal_code(postal_code: str):
 
     try:
         filter_query = f"start_postal_code.eq.{postal_code},end_postal_code.eq.{postal_code}"
-        result = db.table("floods_3layers").select("*").or_(filter_query).execute()
+        result = db.table("flood_3layers").select("*").or_(filter_query).execute()
 
         if not result.data:
             raise HTTPException(
@@ -241,7 +241,7 @@ async def get_floods_by_street_name(street_name: str):
     street_name = clean_string(street_name)
     try:
         filter_query = f"start_street_name.eq.{street_name},end_street_name.eq.{street_name}"
-        result = db.table("floods_3layers").select("*").or_(filter_query).execute()
+        result = db.table("flood_3layers").select("*").or_(filter_query).execute()
 
         if not result.data:
             raise HTTPException(
@@ -261,7 +261,7 @@ async def get_floods_by_street_name(street_name: str):
 @router.get("/geojson/")
 async def get_floods_geojson():     
     try:
-        result = db.table("floods_3layers").select("*").execute()
+        result = db.table("flood_3layers").select("*").execute()
         
         if not result.data:
             raise HTTPException(
