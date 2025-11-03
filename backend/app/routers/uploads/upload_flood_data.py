@@ -145,38 +145,3 @@ async def upload_flood_data(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Error processing upload: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-@router.get("/template")
-async def get_flood_template():
-    """Download an empty CSV template with required columns"""
-    try:
-        from fastapi.responses import StreamingResponse
-        
-        # Create CSV content in memory
-        output = StringIO()
-        writer = csv.writer(output)
-        
-        # Write headers
-        headers = list(REQUIRED_COLUMNS.keys()) + list(OPTIONAL_COLUMNS.keys())
-        writer.writerow(headers)
-        
-        # Add example row
-        example_row = [
-            "Flash flood at Orchard Road",  # text
-            "2024-01-01",                  # event_date
-            "ORCHARD ROAD",                # location
-            "FLOOD",                       # event
-        ] + [''] * len(OPTIONAL_COLUMNS)   # empty optional columns
-        writer.writerow(example_row)
-        
-        # Get CSV content
-        output.seek(0)
-        
-        return StreamingResponse(
-            iter([output.getvalue()]),
-            media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=flood_data_template.csv"}
-        )
-    
-    except Exception as e:
-        logger.error(f"Error creating template: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to create template")
