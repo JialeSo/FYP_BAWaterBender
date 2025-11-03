@@ -8,16 +8,10 @@
       "schedule": "* * * * *"
     }
   ],
-  "builds": [
+  "rewrites": [
     {
-      "src": "app.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "app/(.*)",
-      "dest": "/app/app.py"
+      "source": "/app/(.*)",
+      "destination": "/app/app.py"
     }
   ]
 }
