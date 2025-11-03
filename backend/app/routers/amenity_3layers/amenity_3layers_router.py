@@ -96,7 +96,7 @@ def to_geojson(data):
 @router.get("/")
 async def get_all_amenities():
     selected_columns = [
-        "amenity_id",
+        "id",
         "amenity_type",
         "amenity_name",
         "postal_code", 
