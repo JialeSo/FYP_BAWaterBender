@@ -99,12 +99,12 @@ async def get_all_amenities():
         "id",
         "amenity_type",
         "amenity_name",
-        "postal_code", 
+        "postalcode", 
         "lon", 
         "lat",
-        "amenity_planning_area_id",
-        "amenity_subzone_id",
-        "road_name"
+        "pa_id",
+        "sz_id",
+        "rn_id"
     ]
 
     try:
@@ -237,15 +237,15 @@ async def get_amenities_by_postal_code(postal_code: str):
 @router.get("/geojson")
 async def get_all_amenities_geojson():
     selected_columns = [
-        "amenity_id",
+        "id",
         "amenity_type",
         "amenity_name",
-        "postal_code", 
+        "postalcode", 
         "lon", 
         "lat",
-        "amenity_planning_area_id",
-        "amenity_subzone_id",
-        "road_name"
+        "pa_id",
+        "sz_id",
+        "rn_id"
     ]
 
     try:
