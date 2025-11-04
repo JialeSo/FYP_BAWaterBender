@@ -1,4 +1,4 @@
-// src/components/floodevents.jsx
+﻿// src/components/floodevents.jsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -6,6 +6,28 @@ import { useMapData } from "@/context/mapdatacontext";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import * as turf from "@turf/turf";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, } from "@/components/ui/accordion";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, } from "@/components/ui/collapsible";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronsUpDown, MapPin, X } from "lucide-react";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
@@ -13,10 +35,251 @@ const page_size = 20;
 
 /* ===== utils ===== */
 const to_num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : NaN; };
-const fmt = (v, d = 6) => (Number.isFinite(+v) ? (+v).toFixed(d) : "—");
+const fmt = (v, d = 6) => (Number.isFinite(+v) ? (+v).toFixed(d) : "N/A");
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const to_title_case = (value) => {
+  if (value == null) return "";
+  return String(value)
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((word) => {
+      if (!word) return "";
+      const upper = word.toUpperCase();
+      if (word === upper && /^[A-Z0-9]+$/.test(word)) return upper;
+      const lower = word.toLowerCase();
+      if (lower.length <= 2) return lower.toUpperCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+};
+const format_option_label = (value, fallback) => {
+  if (!value || value === "all") return fallback || "All";
+  return to_title_case(value);
+};
 const date_in_range = (dt, from, to) => { if (!dt) return true; if (from && dt < from) return false; if (to && dt > to) return false; return true; };
 const dist_m = (lng1, lat1, lng2, lat2) => turf.distance([lng1, lat1], [lng2, lat2], { units: "kilometers" }) * 1000;
+
+const createMetricFilterState = () => ({
+  inner: { min: "", max: "" },
+  total: { min: "", max: "" },
+  centrality: { min: "", max: "" },
+  impactInner: { min: "", max: "" },
+  impactOuter: { min: "", max: "" },
+  impactTotal: { min: "", max: "" },
+});
+
+const METRIC_FILTER_CONFIG = [
+  {
+    key: "inner",
+    label: "Amenity Inner Count",
+    description: "Total amenities captured within the inner catchment radius.",
+    step: 1,
+  },
+  {
+    key: "total",
+    label: "Total Amenity Count",
+    description: "Combined amenities from both the inner and outer catchments.",
+    step: 1,
+  },
+  {
+    key: "centrality",
+    label: "Road Centrality Index",
+    description: "Blended centrality score (60% betweenness, 40% closeness).",
+    step: 0.01,
+  },
+  {
+    key: "impactInner",
+    label: "Impact (Inner)",
+    description: "Weighted amenity impact contributed by the inner catchment.",
+    step: 0.1,
+  },
+  {
+    key: "impactOuter",
+    label: "Impact (Outer)",
+    description: "Weighted amenity impact contributed by the outer catchment.",
+    step: 0.1,
+  },
+  {
+    key: "impactTotal",
+    label: "Impact (Total)",
+    description: "Total weighted amenity impact used in the index calculation.",
+    step: 0.1,
+  },
+];
+
+const METRIC_SUMMARY_ROWS = [
+  {
+    metric: "Amenity Inner Count",
+    meaning: "Amenities mapped inside the inner distance ring for each flood.",
+    insight: "Higher values indicate more immediate amenity exposure and increase the calculated impact through the inner weight.",
+  },
+  {
+    metric: "Total Amenity Count",
+    meaning: "Combined amenities from the inner and outer rings (inner + outer).",
+    insight: "Acts as an upper bound on potential exposure; large totals can still yield moderate impact if outer amenities dominate with a lower weight.",
+  },
+  {
+    metric: "Road Centrality Index",
+    meaning: "Weighted blend of network betweenness (60%) and closeness (40%), normalised between 0 and 1.",
+    insight: "Measures how critical nearby roads are for connectivity; higher centrality amplifies the flood index when combined with amenity impact.",
+  },
+  {
+    metric: "Calculated Impact",
+    meaning: "Amenity score derived from inner and outer counts with their respective weights (impact = inner_count * inner_weight + outer_count * outer_weight).",
+    insight: "Feeds into the flood index alongside centrality (index = w_centrality * centrality + w_amenity * amenity score), so both amenity counts and road importance drive the final score.",
+  },
+];
+
+const RANKING_METRICS = [
+  { key: "flood_index", label: "Flood Index", precision: 3 },
+  { key: "impact_total", label: "Impact Total", precision: 2 },
+  { key: "ring_total", label: "Total Amenities", precision: 0 },
+  { key: "centrality", label: "Centrality", precision: 3 },
+];
+
+function MultiSelectFilter({ id, label, options = [], values = [], onChange, placeholder = "All" }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const normalized = useMemo(() => {
+    return options
+      .map((opt) => {
+        const value = String(opt ?? "").trim();
+        if (!value) return null;
+        return { value, label: format_option_label(value, value) };
+      })
+      .filter(Boolean);
+  }, [options]);
+
+  const labelMap = useMemo(() => {
+    const map = new Map();
+    for (const opt of normalized) map.set(opt.value, opt.label);
+    return map;
+  }, [normalized]);
+
+  const selectedValues = useMemo(
+    () => values.map((v) => String(v ?? "").trim()).filter(Boolean),
+    [values]
+  );
+  const selectedSet = useMemo(() => new Set(selectedValues), [selectedValues]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return normalized;
+    return normalized.filter(
+      (opt) =>
+        opt.label.toLowerCase().includes(q) || opt.value.toLowerCase().includes(q)
+    );
+  }, [normalized, search]);
+
+  const orderedFromSet = (set) =>
+    normalized.map((opt) => opt.value).filter((value) => set.has(value));
+
+  const toggle = (raw) => {
+    const value = String(raw ?? "").trim();
+    if (!value) return;
+    const nextSet = new Set(selectedValues);
+    if (nextSet.has(value)) nextSet.delete(value);
+    else nextSet.add(value);
+    onChange?.(orderedFromSet(nextSet));
+  };
+
+  const displayLabel = selectedValues.length
+    ? (selectedValues.length <= 2
+        ? selectedValues.map((v) => labelMap.get(v) ?? v).join(", ")
+        : `${selectedValues.length} selected`)
+    : placeholder;
+
+  return (
+    <div className="space-y-1.5">
+      {label ? <Label htmlFor={id}>{label}</Label> : null}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            id={id}
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+          >
+            <span className="truncate text-left">{displayLabel}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          side="bottom"
+          className="z-50 w-[320px] p-0"
+        >
+          <Command>
+            <CommandInput
+              placeholder={`Search ${label?.toLowerCase() ?? "options"}`}
+              value={search}
+              onValueChange={setSearch}
+            />
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandList className="max-h-64 overflow-y-auto">
+              <CommandGroup>
+                <CommandItem
+                  value="__all__"
+                  onSelect={() => {
+                    onChange?.([]);
+                    setSearch("");
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Checkbox
+                    checked={selectedValues.length === 0}
+                    readOnly
+                    className="h-4 w-4"
+                  />
+                  <span className="truncate">All (no filter)</span>
+                </CommandItem>
+                <div className="my-1 h-px bg-border/60" />
+                {filtered.map((opt) => {
+                  const active = selectedSet.has(opt.value);
+                  return (
+                    <CommandItem
+                      key={opt.value}
+                      value={opt.value}
+                      onSelect={() => toggle(opt.value)}
+                      className="flex items-center gap-2"
+                    >
+                      <Checkbox checked={active} readOnly className="h-4 w-4" />
+                      <span className="truncate">{opt.label}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {selectedValues.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selectedValues.map((value) => {
+            const labelText = labelMap.get(value) ?? format_option_label(value, value);
+            return (
+              <button
+                type="button"
+                key={value}
+                onClick={() => toggle(value)}
+                aria-label={`Remove ${labelText}`}
+                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+              >
+                <span className="truncate">{labelText}</span>
+                <X className="h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function await_style(map) {
   return new Promise((resolve) => {
@@ -68,40 +331,28 @@ function build_flood_detail(p) {
 }
 
 function popup_html(p = {}) {
-  const safe = (x) => (x ?? "—");
-  const typ = (p.event || "").replace("_", " ");
-  const road = p.start_road || p.parent_road || "—";
+  const safe = (x) => (x ?? "N/A");
+  const typ = to_title_case((p.event || "").replace(/_/g, " "));
+  const road = p.start_road || p.parent_road || "N/A";
   return `
     <div>
-      <div class="text-xs uppercase opacity-70">flood</div>
-      <div><b>id:</b> ${safe(p.id)}</div>
-      <div><b>date:</b> ${safe(p.event_date)}</div>
-      <div><b>type:</b> ${safe(typ)}</div>
-      <div><b>road:</b> ${safe(road)}</div>
+      <div class="text-xs uppercase opacity-70">Flood</div>
+      <div><b>ID:</b> ${safe(p.id)}</div>
+      <div><b>Date:</b> ${safe(p.event_date)}</div>
+      <div><b>Type:</b> ${safe(typ)}</div>
+      <div><b>Road:</b> ${safe(road)}</div>
       <div class="mt-1 text-xs opacity-70">
-        start: ${fmt(p.start_lat)}, ${fmt(p.start_lng)}
+        Start: ${fmt(p.start_lat)}, ${fmt(p.start_lng)}
       </div>
       <div class="mt-1 text-xs opacity-70">
-        pred a: ${fmt(p.end100_a_lat)}, ${fmt(p.end100_a_lng)}<br/>
-        pred b: ${fmt(p.end100_b_lat)}, ${fmt(p.end100_b_lng)}<br/>
-        end: ${fmt(p.end_lat)}, ${fmt(p.end_lng)}
+        Pred A: ${fmt(p.end100_a_lat)}, ${fmt(p.end100_a_lng)}<br/>
+        Pred B: ${fmt(p.end100_b_lat)}, ${fmt(p.end100_b_lng)}<br/>
+        End: ${fmt(p.end_lat)}, ${fmt(p.end_lng)}
       </div>
     </div>
   `;
 }
 
-/* ===== tiny accordion (capitalized to be a component) ===== */
-function Accordion({ title, default_open = false, children, right = null }) {
-  return (
-    <details className="rounded-xl border bg-card open:shadow-sm" open={default_open}>
-      <summary className="flex items-center justify-between gap-2 cursor-pointer select-none px-3 py-2 text-sm">
-        <span className="font-medium">{title}</span>
-        <span className="text-muted-foreground">{right}</span>
-      </summary>
-      <div className="border-t px-3 py-3">{children}</div>
-    </details>
-  );
-}
 
 /* ===== weights & scoring ===== */
 const default_weight_by_category = {
@@ -128,6 +379,20 @@ function meters_to_deg(lat, meters) {
   const deg_lng = meters / (111320 * Math.cos(lat * Math.PI / 180) || 1);
   return { deg_lat, deg_lng };
 }
+
+
+function clear_selected_rings() {
+  const map = map_ref.current;
+  try {
+    map.setLayoutProperty("rings-selected-inner-fill", "visibility", "none");
+    map.setLayoutProperty("rings-selected-outer-fill", "visibility", "none");
+    map.setLayoutProperty("rings-selected-inner-line", "visibility", "none");
+    map.setLayoutProperty("rings-selected-outer-line", "visibility", "none");
+    map.getSource("rings-selected-inner")?.setData({ type:"FeatureCollection", features: [] });
+    map.getSource("rings-selected-outer")?.setData({ type:"FeatureCollection", features: [] });
+  } catch {}
+}
+
 
 function roads_within_rings(road_fc, center, r_in, r_out) {
   if (!road_fc?.features?.length || !center) return { inner: [], outer: [] };
@@ -190,24 +455,21 @@ export default function floodevents() {
     amenity_fc_raw: amenity_fc,
     road_fc_enriched: road_fc,
     category_lookup,
+    lookups,
   } = useMapData();
 
   const map_ref = useRef(null);
   const container_ref = useRef(null);
   const popup_ref = useRef(null);
 
-  const [mode, set_mode] = useState("distance");
   const [r_inner, set_r_inner] = useState(200);
   const [r_outer, set_r_outer] = useState(500);
-  const [iso_profile, set_iso_profile] = useState("driving");
-  const [iso_inner_min, set_iso_inner_min] = useState(5);
-  const [iso_outer_min, set_iso_outer_min] = useState(10);
   const [q, set_q] = useState("");
   const [event_type, set_event_type] = useState("all");
   const [from_str, set_from_str] = useState("");
   const [to_str, set_to_str] = useState("");
-  const [pa_filter, set_pa_filter] = useState("all");
-  const [sz_filter, set_sz_filter] = useState("all");
+  const [pa_filter, set_pa_filter] = useState([]);
+  const [metric_filters, set_metric_filters] = useState(createMetricFilterState);
   const from_date = useMemo(() => (from_str ? new Date(from_str) : null), [from_str]);
   const to_date = useMemo(() => (to_str ? new Date(to_str) : null), [to_str]);
   const [selected, set_selected] = useState(null);
@@ -219,11 +481,33 @@ export default function floodevents() {
   const [sort_key, set_sort_key] = useState("dt_desc");
   const [page, set_page] = useState(1);
   const [visible_cols, set_visible_cols] = useState({
-    id: true, event_date: true, event: true, planning_area: true, subzone: true, location: true, parent_road: true,
+    id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
     ring_inner: true, ring_outer: true, ring_total: true,
     impact_inner: true, impact_outer: true, impact_total: true, centrality: true, flood_index: true,
     start_postal_code: false, start_lat: false, start_lng: false,
   });
+
+  const set_metric_range = (key, field, value) => {
+    set_metric_filters((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], [field]: value },
+    }));
+    set_page(1);
+  };
+
+  const reset_metric_filters = () => {
+    set_metric_filters(createMetricFilterState());
+  };
+
+  const reset_all_filters = () => {
+    set_q("");
+    set_event_type("all");
+    set_pa_filter([]);
+    set_from_str("");
+    set_to_str("");
+    reset_metric_filters();
+    set_page(1);
+  };
 
   const categories = useMemo(() => {
     const items = Object.values(category_lookup?.by_id || {});
@@ -369,9 +653,34 @@ export default function floodevents() {
     return out;
   }, [floods_fc, amenity_list, r_inner, r_outer, cat_weights, inner_mult, outer_mult, roads_by_id, centrality_scale, w_centrality, w_amenity]);
 
+  function paint_selected_rings(center, r_in, r_out) {
+  const map = map_ref.current;
+  if (!map || !center) return;
+  const inner = turf.circle(center, r_in,  { steps: 128, units: "meters" });
+  const outer = turf.circle(center, r_out, { steps: 128, units: "meters" });
+  try {
+    map.getSource("rings-selected-inner")?.setData(inner);
+    map.getSource("rings-selected-outer")?.setData(outer);
+    map.setLayoutProperty("rings-selected-inner-fill", "visibility", "visible");
+    map.setLayoutProperty("rings-selected-outer-fill", "visibility", "visible");
+    map.setLayoutProperty("rings-selected-inner-line", "visibility", "visible");
+    map.setLayoutProperty("rings-selected-outer-line", "visibility", "visible");
+  } catch {}
+}
+
   /* rows & filters */
   const rows = useMemo(() => {
     const fc = floods_fc || { type: "featurecollection", features: [] };
+    const planning_by_id = lookups?.planning?.by_id || {};
+    const pickName = (...candidates) => {
+      for (const candidate of candidates) {
+        if (!candidate) continue;
+        const str = String(candidate).trim();
+        if (str) return str;
+      }
+      return "";
+    };
+
     const arr = (fc.features || []).map((f) => {
       const p = f.properties || {};
       const id = String(p.id ?? f.id ?? "");
@@ -380,14 +689,18 @@ export default function floodevents() {
       const event = p.event || "";
       const location = p.location || "";
       const parent_road = p.parent_road || "";
-      const planning_area = p.start_planning_area || "";
-      const subzone = p.start_subzone || "";
+      const planning_area = pickName(
+        p.start_planning_area,
+        planning_by_id[p.start_pa_id]?.name,
+        planning_by_id[p.origin_pa_id]?.name,
+        planning_by_id[p.end_pa_id]?.name
+      );
       const start_postal_code = p.start_postal_code || "";
       const start_lat = to_num(p.start_lat);
       const start_lng = to_num(p.start_lng);
       const dt = p.event_date_iso ? new Date(p.event_date_iso) : (p.event_date ? new Date(p.event_date) : null);
       return {
-        id, event_date, event, dt, location, parent_road, planning_area, subzone,
+        id, event_date, event, dt, location, parent_road, planning_area,
         start_postal_code, start_lat, start_lng,
         ring_inner: stats?.counts.inner ?? 0,
         ring_outer: stats?.counts.outer ?? 0,
@@ -401,35 +714,78 @@ export default function floodevents() {
       };
     });
 
+    const planning_areas = Array.from(new Set(arr.map(r => r.planning_area).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b));
+
     Object.defineProperty(arr, "_options", {
       value: {
         event_types: ["all", ...Array.from(new Set(arr.map(r => r.event).filter(Boolean))).sort()],
-        planning_areas: ["all", ...Array.from(new Set(arr.map(r => r.planning_area).filter(Boolean))).sort()],
-        subzones: ["all", ...Array.from(new Set(arr.map(r => r.subzone).filter(Boolean))).sort()],
+        planning_areas,
       },
       enumerable: false,
     });
 
     return arr;
-  }, [floods_fc, stats_by_flood_distance]);
+  }, [floods_fc, stats_by_flood_distance, lookups]);
 
   const event_type_options = rows._options?.event_types || ["all"];
-  const pa_options = rows._options?.planning_areas || ["all"];
-  const sz_options = rows._options?.subzones || ["all"];
+  const pa_options = rows._options?.planning_areas || [];
+
+  useEffect(() => {
+    if (!pa_filter.length) return;
+    const allowed = new Set(pa_options);
+    if (pa_filter.every((value) => allowed.has(value))) return;
+    set_pa_filter(pa_filter.filter((value) => allowed.has(value)));
+  }, [pa_options, pa_filter]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return rows.filter((r) =>
-      (event_type === "all" || r.event === event_type) &&
-      date_in_range(r.dt, from_date, to_date) &&
-      (pa_filter === "all" || r.planning_area === pa_filter) &&
-      (sz_filter === "all" || r.subzone === sz_filter) &&
-      (!needle ||
-        r.id.toLowerCase().includes(needle) ||
-        (r.location || "").toLowerCase().includes(needle) ||
-        (r.parent_road || "").toLowerCase().includes(needle))
-    );
-  }, [rows, q, event_type, from_date, to_date, pa_filter, sz_filter]);
+    const pa_selected = new Set(pa_filter);
+    const has_pa_filter = pa_selected.size > 0;
+    const parseBound = (raw) => {
+      if (typeof raw !== "string") return null;
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+      const num = Number(trimmed);
+      return Number.isFinite(num) ? num : null;
+    };
+    const passesRange = (value, range) => {
+      if (!range) return true;
+      const min = parseBound(range.min);
+      const max = parseBound(range.max);
+      if (min != null && value < min) return false;
+      if (max != null && value > max) return false;
+      return true;
+    };
+
+    return rows.filter((r) => {
+      if (event_type !== "all" && r.event !== event_type) return false;
+      if (!date_in_range(r.dt, from_date, to_date)) return false;
+      if (has_pa_filter && !pa_selected.has(r.planning_area)) return false;
+      if (!passesRange(r.ring_inner, metric_filters.inner)) return false;
+      if (!passesRange(r.ring_total, metric_filters.total)) return false;
+      if (!passesRange(r.centrality, metric_filters.centrality)) return false;
+      if (!passesRange(r.impact_inner, metric_filters.impactInner)) return false;
+      if (!passesRange(r.impact_outer, metric_filters.impactOuter)) return false;
+      if (!passesRange(r.impact_total, metric_filters.impactTotal)) return false;
+      if (!needle) return true;
+      const haystacks = [
+        r.id,
+        r.location || "",
+        r.parent_road || "",
+        r.planning_area || "",
+      ];
+      return haystacks.some((txt) => String(txt).toLowerCase().includes(needle));
+    });
+  }, [rows, q, event_type, from_date, to_date, pa_filter, metric_filters]);
+
+  const has_active_metric_filters = useMemo(() => {
+    return Object.values(metric_filters).some((range) => {
+      const minActive = typeof range?.min === "string" && range.min.trim() !== "";
+      const maxActive = typeof range?.max === "string" && range.max.trim() !== "";
+      return minActive || maxActive;
+    });
+  }, [metric_filters]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -618,17 +974,18 @@ export default function floodevents() {
       });
 
       /* rings (per page or per selection) */
-      map.addSource("rings-page-inner", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addSource("rings-page-outer", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "rings-page-outer-fill", type: "fill", source: "rings-page-outer",
-        paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.06 }, layout: { visibility: "none" } });
-      map.addLayer({ id: "rings-page-inner-fill", type: "fill", source: "rings-page-inner",
-        paint: { "fill-color": "#22c55e", "fill-opacity": 0.08 }, layout: { visibility: "none" } });
-      map.addLayer({ id: "rings-page-outer-line", type: "line", source: "rings-page-outer",
-        paint: { "line-color": "#0ea5e9", "line-width": 1, "line-opacity": 0.6 }, layout: { visibility: "none" } });
-      map.addLayer({ id: "rings-page-inner-line", type: "line", source: "rings-page-inner",
-        paint: { "line-color": "#22c55e", "line-width": 1, "line-opacity": 0.7 }, layout: { visibility: "none" } });
+      map.addSource("rings-selected-inner", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("rings-selected-outer", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
 
+      map.addLayer({ id: "rings-selected-outer-fill", type: "fill", source: "rings-selected-outer",
+        paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.10 }, layout: { visibility: "none" } });
+      map.addLayer({ id: "rings-selected-inner-fill", type: "fill", source: "rings-selected-inner",
+        paint: { "fill-color": "#22c55e", "fill-opacity": 0.12 }, layout: { visibility: "none" } });
+
+      map.addLayer({ id: "rings-selected-outer-line", type: "line", source: "rings-selected-outer",
+        paint: { "line-color": "#0ea5e9", "line-width": 1.2, "line-opacity": 0.9 }, layout: { visibility: "none" } });
+      map.addLayer({ id: "rings-selected-inner-line", type: "line", source: "rings-selected-inner",
+        paint: { "line-color": "#22c55e", "line-width": 1.2, "line-opacity": 0.95 }, layout: { visibility: "none" } });
       /* amenities */
       map.addSource("amenities-nearby", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({
@@ -740,10 +1097,20 @@ export default function floodevents() {
     if (target) focus_select(target);
   }, [floods_fc, stats_by_flood_distance]);
 
+ 
   useEffect(() => {
     if (!selected) return;
     focus_select(selected);
-  }, [r_inner, r_outer, cat_weights, inner_mult, outer_mult, w_centrality, w_amenity]);
+  }, [cat_weights, inner_mult, outer_mult, w_centrality, w_amenity]);
+
+  // While editing radius, just repaint the selected rings so they never flicker off
+  useEffect(() => {
+    const center = selected_stats?.center;
+    if (!center) return;
+    const rin  = Math.max(0, Math.min(r_inner, r_outer));
+    const rout = Math.max(rin, r_outer);
+    paint_selected_rings(center, rin, rout);
+  }, [r_inner, r_outer, selected_stats?.center]);
 
   useEffect(() => {
     const map = map_ref.current;
@@ -758,7 +1125,7 @@ export default function floodevents() {
       } catch {}
     };
 
-    if (!show_page_rings || mode !== "distance") {
+    if (!show_page_rings) {
       set_vis("none");
       try {
         map.getSource("rings-page-inner")?.setData({ type: "FeatureCollection", features: [] });
@@ -789,7 +1156,7 @@ export default function floodevents() {
       map.getSource("rings-page-outer")?.setData({ type: "FeatureCollection", features: outer_feats });
       set_vis("visible");
     } catch {}
-  }, [show_page_rings, paged, r_inner, r_outer, stats_by_flood_distance, mode]);
+  }, [show_page_rings, paged, r_inner, r_outer, stats_by_flood_distance]);
 
   function show_popup(lnglat, html) {
     hide_popup();
@@ -844,17 +1211,21 @@ export default function floodevents() {
     } catch {}
 
     /* rings for this selection */
+    /* rings for this selection — independent of page rings */
     const r_in = Math.max(0, Math.min(r_inner, r_outer));
     const r_out = Math.max(r_in, r_outer);
     const inner = turf.circle(center, r_in,  { steps: 128, units: "meters" });
     const outer = turf.circle(center, r_out, { steps: 128, units: "meters" });
+
+    
     try {
-      map.getSource("rings-page-inner")?.setData(inner);
-      map.getSource("rings-page-outer")?.setData(outer);
-      map.setLayoutProperty("rings-page-inner-fill", "visibility", "visible");
-      map.setLayoutProperty("rings-page-outer-fill", "visibility", "visible");
-      map.setLayoutProperty("rings-page-inner-line", "visibility", "visible");
-      map.setLayoutProperty("rings-page-outer-line", "visibility", "visible");
+      map.getSource("rings-selected-inner")?.setData(inner);
+      map.getSource("rings-selected-outer")?.setData(outer);
+
+      map.setLayoutProperty("rings-selected-inner-fill", "visibility", "visible");
+      map.setLayoutProperty("rings-selected-outer-fill", "visibility", "visible");
+      map.setLayoutProperty("rings-selected-inner-line", "visibility", "visible");
+      map.setLayoutProperty("rings-selected-outer-line", "visibility", "visible");
     } catch {}
 
     /* amenities near */
@@ -916,13 +1287,16 @@ export default function floodevents() {
     const flood_index = (w_centrality * centrality_score) + (w_amenity * amenity_score);
 
     set_selected_stats({
-      mode: "distance",
       center,
       counts: { inner: inner_count, outer: outer_count, total: inner_count + outer_count },
       impact: { inner: +impact_inner.toFixed(2), outer: +impact_outer.toFixed(2), total: +impact_total.toFixed(2) },
       centrality: { bnorm, cnorm, centrality_score: +centrality_score.toFixed(3) },
       scores: { amenity_score: +amenity_score.toFixed(3), flood_index: +flood_index.toFixed(3) },
     });
+
+    const rin = Math.max(0, Math.min(r_inner, r_outer));
+    const rout = Math.max(rin, r_outer);
+    paint_selected_rings(center, rin, rout);
 
     try { map.flyTo({ center, zoom: 15, essential: true }); } catch {}
   }
@@ -957,6 +1331,7 @@ export default function floodevents() {
         map.getSource("roads-nearby-outer")?.setData({ type: "FeatureCollection", features: [] });
       } catch {}
     }
+    clear_selected_rings();
   }
 
   function export_csv() {
@@ -979,24 +1354,23 @@ export default function floodevents() {
   }
 
   const columns = [
-    { key: "id", label: "id", type: "string" },
-    { key: "event_date", label: "date", type: "string" },
-    { key: "event", label: "type", type: "string", render: (v)=>v?.replace("_"," ") },
-    { key: "planning_area", label: "planning area", type: "string" },
-    { key: "subzone", label: "subzone", type: "string" },
-    { key: "location", label: "location", type: "string" },
-    { key: "parent_road", label: "road", type: "string" },
-    { key: "ring_inner", label: "≤inner count", type: "number" },
-    { key: "ring_outer", label: "outer band count", type: "number" },
-    { key: "ring_total", label: "≤outer total", type: "number" },
-    { key: "impact_inner", label: "impact inner", type: "number" },
-    { key: "impact_outer",  label: "impact outer", type: "number" },
-    { key: "impact_total",  label: "impact total", type: "number" },
-    { key: "centrality",    label: "road centrality", type: "number" },
-    { key: "flood_index",   label: "flood index", type: "number" },
-    { key: "start_postal_code", label: "postal", type: "string", optional: true },
-    { key: "start_lat", label: "start lat", type: "number", optional: true },
-    { key: "start_lng", label: "start lng", type: "number", optional: true },
+    { key: "id", label: "ID", type: "string" },
+    { key: "event_date", label: "Event Date", type: "string" },
+    { key: "event", label: "Event Type", type: "string", render: (v)=>v?.replace("_"," ") },
+    { key: "planning_area", label: "Planning Area", type: "string" },
+    { key: "location", label: "Location", type: "string" },
+    { key: "parent_road", label: "Road", type: "string" },
+    { key: "ring_inner", label: "Inner Count", type: "number" },
+    { key: "ring_outer", label: "Outer Count", type: "number" },
+    { key: "ring_total", label: "Total Count", type: "number" },
+    { key: "impact_inner", label: "Impact (Inner)", type: "number" },
+    { key: "impact_outer",  label: "Impact (Outer)", type: "number" },
+    { key: "impact_total",  label: "Impact Total", type: "number" },
+    { key: "centrality",    label: "Road Centrality", type: "number" },
+    { key: "flood_index",   label: "Flood Index", type: "number" },
+    { key: "start_postal_code", label: "Postal Code", type: "string", optional: true },
+    { key: "start_lat", label: "Start Latitude", type: "number", optional: true },
+    { key: "start_lng", label: "Start Longitude", type: "number", optional: true },
   ];
 
   const sort_icon = (key) => {
@@ -1018,181 +1392,211 @@ export default function floodevents() {
   /* ===== ui header with accordions ===== */
   return (
     <div className="mx-auto flex w-full flex-col gap-5 p-6">
-      <header className="space-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight">flood events dashboard</h1>
-        <p className="text-muted-foreground">
-          weighted amenity impact × road centrality → flood index. click a row or map point to focus. press <kbd>esc</kbd> to clear.
-        </p>
 
-        <div className="space-y-3">
-          <Accordion title="filters" default_open>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
-              <div className="md:col-span-4 flex gap-2">
-                <input
-                  value={q}
-                  onChange={(e)=>{ set_q(e.target.value); set_page(1); }}
-                  placeholder="search id / location / road…"
-                  className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring"
-                />
-              </div>
-
-              <select value={event_type} onChange={(e)=>{ set_event_type(e.target.value); set_page(1); }} className="md:col-span-2 rounded-lg border bg-background px-3 py-2 text-sm">
-                {event_type_options.map((t)=>(<option key={t} value={t}>{t==="all"?"all types":t.replace("_"," ")}</option>))}
-              </select>
-              <select value={pa_filter} onChange={(e)=>{ set_pa_filter(e.target.value); set_page(1); }} className="md:col-span-3 rounded-lg border bg-background px-3 py-2 text-sm">
-                {pa_options.map((n)=>(<option key={n} value={n}>{n==="all"?"all planning areas":n}</option>))}
-              </select>
-              <select value={sz_filter} onChange={(e)=>{ set_sz_filter(e.target.value); set_page(1); }} className="md:col-span-3 rounded-lg border bg-background px-3 py-2 text-sm">
-                {sz_options.map((n)=>(<option key={n} value={n}>{n==="all"?"all subzones":n}</option>))}
-              </select>
-
-              <input type="date" value={from_str} onChange={(e)=>{ set_from_str(e.target.value); set_page(1); }} className="md:col-span-2 rounded-lg border bg-background px-3 py-2 text-sm" />
-              <input type="date" value={to_str} onChange={(e)=>{ set_to_str(e.target.value); set_page(1); }} className="md:col-span-2 rounded-lg border bg-background px-3 py-2 text-sm" />
-
-              <div className="md:col-span-12 flex items-center justify-between">
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={show_page_rings && mode==="distance"} onChange={(e)=>set_show_page_rings(e.target.checked)} disabled={mode!=="distance"} />
-                  <span>show rings for visible page (distance mode)</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <button onClick={()=>{ set_q(""); set_event_type("all"); set_pa_filter("all"); set_sz_filter("all"); set_from_str(""); set_to_str(""); set_page(1); }} className="rounded-lg border px-3 py-2 text-sm hover:bg-muted">clear</button>
-                  <button onClick={()=>set_page((p)=>clamp(p-1,1,total_pages))} className="rounded-lg border px-2 py-1 text-sm hover:bg-muted">prev</button>
-                  <button onClick={()=>set_page((p)=>clamp(p+1,1,total_pages))} className="rounded-lg border px-2 py-1 text-sm hover:bg-muted">next</button>
-                  <button onClick={export_csv} className="rounded-lg border px-2 py-1 text-sm hover:bg-muted">export csv</button>
-                </div>
-              </div>
-            </div>
-          </Accordion>
-
-          <Accordion title="settings" default_open>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-              <Accordion title="mode" default_open>
-                <div className="flex items-center gap-2 text-sm">
-                  <label className={`rounded-lg border px-2 py-1 cursor-pointer ${mode==="distance"?"bg-muted":""}`}>
-                    <input type="radio" name="mode" className="mr-2" checked={mode==="distance"} onChange={()=>set_mode("distance")} />
-                    distance rings
-                  </label>
-                  <label className={`rounded-lg border px-2 py-1 cursor-pointer ${mode==="isochrone"?"bg-muted":""}`}>
-                    <input type="radio" name="mode" className="mr-2" checked={mode==="isochrone"} onChange={()=>set_mode("isochrone")} />
-                    travel-time isochrone
-                  </label>
-                </div>
-
-                {mode==="isochrone" && (
-                  <div className="mt-3 space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="w-24">profile</span>
-                      <select value={iso_profile} onChange={(e)=>set_iso_profile(e.target.value)} className="rounded border px-2 py-1">
-                        <option value="driving">driving</option>
-                        <option value="walking">walking</option>
-                        <option value="cycling">cycling</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-24">inner (min)</span>
-                      <input type="number" min={1} value={iso_inner_min} onChange={(e)=>set_iso_inner_min(clamp(+e.target.value||1,1,120))} className="w-24 rounded border px-2 py-1" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-24">outer (min)</span>
-                      <input type="number" min={1} value={iso_outer_min} onChange={(e)=>set_iso_outer_min(clamp(+e.target.value||1,1,240))} className="w-24 rounded border px-2 py-1" />
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">note: local isochrone coming later; ui kept for continuity.</div>
-                  </div>
-                )}
-              </Accordion>
-
-              <Accordion title="rings (meters)" default_open>
-                <div className="flex items-center gap-2 text-sm">
-                  <label className="w-20">inner</label>
-                  <input type="number" min={0} value={r_inner} onChange={(e)=>set_r_inner(clamp(+e.target.value||0,0,5000))} className="w-24 rounded border px-2 py-1" />
-                </div>
-                <div className="flex items-center gap-2 text-sm mt-2">
-                  <label className="w-20">outer</label>
-                  <input type="number" min={0} value={r_outer} onChange={(e)=>set_r_outer(clamp(+e.target.value||0,0,10000))} className="w-24 rounded border px-2 py-1" />
-                </div>
-                <div className="text-[11px] text-muted-foreground mt-1">outer is clamped ≥ inner</div>
-              </Accordion>
-
-              <Accordion title="ring multipliers" default_open>
-                <div className="flex items-center gap-2 text-sm">
-                  <label className="w-24">inner</label>
-                  <input type="number" step="0.1" value={inner_mult} onChange={(e)=>set_inner_mult(clamp(+e.target.value||0,0,10))} className="w-24 rounded border px-2 py-1"/>
-                </div>
-                <div className="flex items-center gap-2 text-sm mt-2">
-                  <label className="w-24">outer</label>
-                  <input type="number" step="0.1" value={outer_mult} onChange={(e)=>set_outer_mult(clamp(+e.target.value||0,0,10))} className="w-24 rounded border px-2 py-1"/>
-                </div>
-              </Accordion>
-
-              <Accordion
-                title="index blend"
-                right={<span className="text-xs">centrality {w_centrality.toFixed(2)} · amenity {w_amenity.toFixed(2)}</span>}
-                default_open
-              >
-                <div className="space-y-2">
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={w_centrality}
-                    onChange={(e)=>{ const v = clamp(+e.target.value||0,0,1); set_w_centrality(v); set_w_amenity(+(1-v).toFixed(2)); }}
-                    className="w-full"
-                  />
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>amenity-heavy</span>
-                    <span>centrality-heavy</span>
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-lg border p-3 text-xs leading-relaxed bg-muted/40">
-                  <div className="font-medium mb-1">how flood index is calculated (current)</div>
-                  <div><b>flood index</b> = w<sub>centrality</sub> · <i>centrality score</i> + w<sub>amenity</sub> · <i>amenity score</i></div>
-                  <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li><i>centrality score</i> = 0.6 · b<sub>norm</sub> + 0.4 · c<sub>norm</sub>, where b<sub>norm</sub>, c<sub>norm</sub> are the selected road’s betweenness / closeness normalized to [0,1] across all roads.</li>
-                    <li><i>amenity score</i> = 1 − exp(− <i>impact total</i> / 10). this saturates as impact grows (diminishing returns).</li>
-                    <li><i>impact total</i> = inner_mult · Σ(weight(category) for amenities ≤ inner m) + outer_mult · Σ(weight(category) for inner&lt;distance≤outer).</li>
-                  </ul>
-                  <div className="mt-2 text-[11px] text-muted-foreground">
-                    tip: move the slider to shift importance between network centrality vs nearby amenity density.
-                  </div>
-                </div>
-              </Accordion>
-            </div>
-
-            <Accordion title="amenity category weights" default_open>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                {categories.length ? categories.map((c)=> {
-                  const name = c.amenity_category;
-                  return (
-                    <label key={c.id} className="flex items-center gap-2">
-                      <span className="capitalize w-44 truncate">{name}</span>
-                      <input
-                        type="number" step="0.1"
-                        value={cat_weights[name] ?? 1}
-                        onChange={(e)=>setCatWeights(s=>({...s, [name]: +e.target.value || 0}))}
-                        className="w-20 rounded border px-2 py-1"
-                      />
-                    </label>
-                  );
-                }) : (
-                  Object.keys(default_weight_by_category).map((name)=>(
-                    <label key={name} className="flex items-center gap-2">
-                      <span className="capitalize w-44 truncate">{name}</span>
-                      <input
-                        type="number" step="0.1"
-                        value={cat_weights[name] ?? 1}
-                        onChange={(e)=>setCatWeights(s=>({...s, [name]: +e.target.value || 0}))}
-                        className="w-20 rounded border px-2 py-1"
-                      />
-                    </label>
-                  ))
-                )}
-              </div>
-            </Accordion>
-          </Accordion>
+      <header className="space-y-5">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">Flood Events Dashboard</h1>
+          <p className="text-sm text-muted-foreground md:text-base">
+            Weighted amenity impact x road centrality = flood index. Click a row or map point to focus. Press{" "}
+            <kbd className="rounded-md border px-1.5 py-0.5 text-xs uppercase">Esc</kbd> to clear.
+          </p>
         </div>
+
+        <Accordion
+          type="single"
+          collapsible
+          defaultValue="analysis"
+          className="space-y-4"
+        >
+          <AccordionItem
+            value="analysis"
+            className="overflow-hidden rounded-xl border bg-card shadow-sm"
+          >
+            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+              Analysis & Amenity Settings
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+              <div className="grid gap-4 lg:grid-cols-3">
+                <Card className="border bg-background/80 shadow-none">
+                  <CardHeader>
+                    <CardTitle className="text-base">Distance Rings</CardTitle>
+                    <CardDescription>
+                      Define inner and outer radii for each flood catchment.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="inner-radius">Inner radius (m)</Label>
+                      <Input
+                        id="inner-radius"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step="10"
+                        value={r_inner}
+                        onChange={(e) => {
+                          const next = clamp(+e.target.value || 0, 0, 5000);
+                          set_r_inner(next);
+                          if (next > r_outer) set_r_outer(next);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="outer-radius">Outer radius (m)</Label>
+                      <Input
+                        id="outer-radius"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step="10"
+                        value={r_outer}
+                        onChange={(e) => {
+                          const next = clamp(+e.target.value || 0, 0, 10000);
+                          set_r_outer(next);
+                          if (next < r_inner) set_r_inner(next);
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      The outer radius cannot be smaller than the inner radius.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border bg-background/80 shadow-none">
+                  <CardHeader>
+                    <CardTitle className="text-base">Amenity Impact</CardTitle>
+                    <CardDescription>
+                      Adjust how strongly inner and outer rings contribute.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="inner-mult">Inner band weight</Label>
+                      <Input
+                        id="inner-mult"
+                        type="number"
+                        inputMode="decimal"
+                        step="0.1"
+                        min={0}
+                        value={inner_mult}
+                        onChange={(e) =>
+                          set_inner_mult(clamp(+e.target.value || 0, 0, 10))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="outer-mult">Outer band weight</Label>
+                      <Input
+                        id="outer-mult"
+                        type="number"
+                        inputMode="decimal"
+                        step="0.1"
+                        min={0}
+                        value={outer_mult}
+                        onChange={(e) =>
+                          set_outer_mult(clamp(+e.target.value || 0, 0, 10))
+                        }
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Inner amenities usually drive most impact. Keep the outer weight lower to avoid over-emphasising distant amenities.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border bg-background/80 shadow-none">
+                  <CardHeader>
+                    <CardTitle className="text-base">Flood Index Blend</CardTitle>
+                    <CardDescription>
+                      Balance network centrality against amenity density.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Slider
+                        value={[Math.round(w_centrality * 100)]}
+                        min={0}
+                        max={100}
+                        step={5}
+                        onValueChange={(value) => {
+                          const next = clamp((value?.[0] ?? 0) / 100, 0, 1);
+                          const centralityWeight = Number(next.toFixed(2));
+                          const amenityWeight = Number((1 - centralityWeight).toFixed(2));
+                          set_w_centrality(centralityWeight);
+                          set_w_amenity(amenityWeight);
+                        }}
+                      />
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Amenity heavy</span>
+                        <span>Centrality heavy</span>
+                      </div>
+                      <div className="text-xs font-medium">
+                        Centrality {w_centrality.toFixed(2)} | Amenity {w_amenity.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed">
+                      <div className="mb-2 font-semibold uppercase tracking-wide text-muted-foreground">
+                        Current Formula
+                      </div>
+                      <p>
+                        Flood index = w<sub>centrality</sub> * centrality score + w<sub>amenity</sub> * amenity score.
+                      </p>
+                      <ul className="mt-2 list-disc space-y-1 pl-4">
+                        <li>
+                          Centrality score = 0.6 * betweenness + 0.4 * closeness (both normalised to 0-1 for the selected road).
+                        </li>
+                        <li>
+                          Amenity score = 1 - exp(-impact total / 10), so impact growth has diminishing returns.
+                        </li>
+                        <li>
+                          Impact total = inner_mult * sum(inner amenities) + outer_mult * sum(outer amenities).
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="border bg-background/80 shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-base">Amenity Category Weights</CardTitle>
+                  <CardDescription>
+                    Tune category multipliers that feed into the impact calculation.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                    {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => (
+                      <div
+                        key={name}
+                        className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2"
+                      >
+                        <span className="text-sm font-medium">{to_title_case(name)}</span>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.1"
+                          min={0}
+                          value={cat_weights[name] ?? 1}
+                          onChange={(e) =>
+                            setCatWeights((prev) => ({
+                              ...prev,
+                              [name]: clamp(+e.target.value || 0, 0, 10),
+                            }))
+                          }
+                          className="h-9 w-20"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </header>
+
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 relative rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden">
@@ -1283,63 +1687,270 @@ export default function floodevents() {
           )}
         </div>
       </div>
+      <section className="rounded-3xl border border-border bg-card shadow-sm">
+        <div className="px-6 py-5 space-y-6">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Filters</h2>
+              <p className="text-sm text-muted-foreground">
+                Use the ranges below to focus the flood list on amenity density, impact and road centrality.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" onClick={reset_metric_filters} disabled={!has_active_metric_filters}>
+                Clear metric ranges
+              </Button>
+            </div>
+          </div>
 
-      <section className="rounded-3xl border border-border bg-card shadow-sm overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              {columns.filter(c=>visible_cols[c.key]).map((c)=>{
-                const k = c.key === "event_date" ? "dt" : c.key;
-                return (
-                  <th key={c.key} className="px-4 py-2">
-                    <button onClick={()=>toggle_sort(k)} className="inline-flex items-center gap-1">
-                      <span>{c.label}</span>
-                      <span className="opacity-70">{sort_icon(k)}</span>
-                    </button>
-                  </th>
-                );
-              })}
-              <th className="px-4 py-2">action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.map((r) => {
-              const active = String(selected ?? "") === String(r.id);
-              return (
-                <tr
-                  key={r.id}
-                  onClick={() => set_selected(prev => {
-                    const next = String(prev) === String(r.id) ? null : r.id;
-                    if (next) focus_select(next); else clear_selection();
-                    return next;
-                  })}
-                  className={`cursor-pointer hover:bg-muted/60 ${active ? "bg-muted/80 font-medium" : ""}`}
-                >
-                  {columns.filter(c=>visible_cols[c.key]).map((c)=>(
-                    <td key={c.key} className="px-4 py-2">
-                      {c.render ? c.render(r[c.key]) : (r[c.key] ?? "—")}
-                    </td>
+          <div className="grid gap-4 md:grid-cols-12">
+            <div className="space-y-1.5 md:col-span-4">
+              <Label htmlFor="flood-search">Search</Label>
+              <Input
+                id="flood-search"
+                value={q}
+                onChange={(e) => {
+                  set_q(e.target.value);
+                  set_page(1);
+                }}
+                placeholder="Search by ID, location or road"
+              />
+            </div>
+
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="event-type">Event Type</Label>
+              <Select
+                value={event_type}
+                onValueChange={(value) => {
+                  set_event_type(value);
+                  set_page(1);
+                }}
+              >
+                <SelectTrigger id="event-type" className="w-full">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  {event_type_options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {format_option_label(option, "All Types")}
+                    </SelectItem>
                   ))}
-                  <td className="px-4 py-2">
-                    <button
-                      onClick={(e)=>{ e.stopPropagation(); set_selected(prev => {
-                        const next = String(prev) === String(r.id) ? null : r.id;
-                        if (next) focus_select(next); else clear_selection();
-                        return next;
-                      }); }}
-                      className="rounded-lg border px-2 py-1 text-xs hover:bg-muted"
-                    >
-                      {active ? "hide" : "view on map"}
-                    </button>
-                  </td>
-                </tr>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-3">
+              <MultiSelectFilter
+                id="planning-area"
+                label="Planning Area"
+                options={pa_options}
+                values={pa_filter}
+                onChange={(next) => {
+                  set_pa_filter(next);
+                  set_page(1);
+                }}
+                placeholder="All Planning Areas"
+              />
+            </div>
+
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="from-date">From Date</Label>
+              <Input
+                id="from-date"
+                type="date"
+                value={from_str}
+                onChange={(e) => {
+                  set_from_str(e.target.value);
+                  set_page(1);
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="to-date">To Date</Label>
+              <Input
+                id="to-date"
+                type="date"
+                value={to_str}
+                onChange={(e) => {
+                  set_to_str(e.target.value);
+                  set_page(1);
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+            {METRIC_FILTER_CONFIG.map((metric) => {
+              const range = metric_filters[metric.key] || { min: "", max: "" };
+              const step = metric.step ?? 1;
+              const inputMode = step < 1 ? "decimal" : "numeric";
+              return (
+                <div key={metric.key} className="space-y-2">
+                  <Label>{metric.label}</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      inputMode={inputMode}
+                      step={step}
+                      min="0"
+                      value={range.min}
+                      onChange={(e) => set_metric_range(metric.key, "min", e.target.value)}
+                      placeholder="Min"
+                    />
+                    <Input
+                      type="number"
+                      inputMode={inputMode}
+                      step={step}
+                      min="0"
+                      value={range.max}
+                      onChange={(e) => set_metric_range(metric.key, "max", e.target.value)}
+                      placeholder="Max"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{metric.description}</p>
+                </div>
               );
             })}
-            {paged.length === 0 && (
-              <tr><td colSpan={columns.filter(c=>visible_cols[c.key]).length+1} className="px-4 py-6 text-center text-muted-foreground">no rows match your filters.</td></tr>
-            )}
-          </tbody>
-        </table>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="show-page-rings"
+                checked={Boolean(show_page_rings)}
+                onCheckedChange={(checked) => set_show_page_rings(checked)}
+              />
+              <Label htmlFor="show-page-rings" className="text-sm text-muted-foreground">
+                Show rings for visible page
+              </Label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-border bg-card shadow-sm">
+        <div className="overflow-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                {columns.filter(c=>visible_cols[c.key]).map((c)=>{
+                  const k = c.key === "event_date" ? "dt" : c.key;
+                  return (
+                    <th key={c.key} className="px-4 py-3">
+                      <button onClick={()=>toggle_sort(k)} className="inline-flex items-center gap-1">
+                        <span>{c.label}</span>
+                        <span className="opacity-70">{sort_icon(k)}</span>
+                      </button>
+                    </th>
+                  );
+                })}
+                <th className="px-4 py-3">action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r) => {
+                const active = String(selected ?? "") === String(r.id);
+                return (
+                  <tr
+                    key={r.id}
+                    onClick={() => set_selected(prev => {
+                      const next = String(prev) === String(r.id) ? null : r.id;
+                      if (next) focus_select(next); else clear_selection();
+                      return next;
+                    })}
+                    className={`cursor-pointer hover:bg-muted/60 ${active ? "bg-muted/80 font-medium" : ""}`}
+                  >
+                    {columns.filter(c=>visible_cols[c.key]).map((c)=>(
+                      <td key={c.key} className="px-4 py-2">
+                        {c.render ? c.render(r[c.key]) : (r[c.key] ?? "N/A")}
+                      </td>
+                    ))}
+                    <td className="px-4 py-2">
+                      <button
+                        onClick={(e)=>{ e.stopPropagation(); set_selected(prev => {
+                          const next = String(prev) === String(r.id) ? null : r.id;
+                          if (next) focus_select(next); else clear_selection();
+                          return next;
+                        }); }}
+                        className="rounded-lg border px-2 py-1 text-xs hover:bg-muted"
+                      >
+                        {active ? "hide" : "view on map"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {paged.length === 0 && (
+                <tr>
+                  <td colSpan={columns.filter(c=>visible_cols[c.key]).length+1} className="px-4 py-6 text-center text-muted-foreground">
+                    no rows match your filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t px-6 py-4 md:flex-row md:items-center md:justify-between">
+          <span className="text-sm text-muted-foreground">
+            Page {page_safe} of {total_pages}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" onClick={reset_all_filters}>
+              Reset Filters
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => set_page((p) => clamp(p - 1, 1, total_pages))}
+              disabled={page_safe <= 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => set_page((p) => clamp(p + 1, 1, total_pages))}
+              disabled={page_safe >= total_pages}
+            >
+              Next
+            </Button>
+            <Button variant="secondary" onClick={export_csv}>
+              Export CSV
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-border bg-card shadow-sm">
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Metric Reference</h2>
+            <p className="text-sm text-muted-foreground">
+              Quick definitions to help interpret the amenity and centrality metrics that drive the flood index.
+            </p>
+          </div>
+
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2">Metric</th>
+                  <th className="px-4 py-2">What it represents</th>
+                  <th className="px-4 py-2">How to interpret it</th>
+                </tr>
+              </thead>
+              <tbody>
+                {METRIC_SUMMARY_ROWS.map((row) => (
+                  <tr key={row.metric} className="border-t">
+                    <td className="px-4 py-3 font-medium">{row.metric}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.meaning}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.insight}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <style>{`

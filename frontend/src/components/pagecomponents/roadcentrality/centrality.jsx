@@ -1,7 +1,7 @@
 // src/pages/centrality.jsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { computeBounds } from "@/lib/geo";
@@ -9,23 +9,24 @@ import { useMapData } from "@/context/MapDataContext";
 
 /* shadcn ui */
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, ChevronsUpDown, X, Download } from "lucide-react";
 
-/* ===== map + page config (dark) ===== */
+/* ===== config ===== */
 const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
-const MAPBOX_STYLE = "mapbox://styles/mapbox/dark-v11";
+const MAPBOX_STYLE = "mapbox://styles/mapbox/light-v11";
 const MAP_DEFAULT_CENTER = [103.8198, 1.3521];
 const MAP_DEFAULT_ZOOM = 11;
-
 const PAGE_SIZE = 40;
 const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 
@@ -34,22 +35,32 @@ if (typeof mapboxgl.setTelemetryEnabled === "function") mapboxgl.setTelemetryEna
 
 /* ===== helpers ===== */
 const nznum = (v) => (Number.isFinite(+v) ? +v : 0);
-const fmtPct = (x) => (Number.isFinite(x) ? `${(x * 100).toFixed(1)}%` : "—");
-const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const strip_count_suffix = (s) => String(s).replace(/\s*\(\s*\d[\d,]*\s*\)\s*$/, "").trim();
-const to_caps_underscore = (s) => String(s || "")
-  .replace(/[\s\-]+/g, "_")
-  .replace(/[^\w]+/g, "_")
-  .replace(/__+/g, "_")
-  .replace(/^_+|_+$/g, "")
-  .toUpperCase();
+const to_title_case = (value) => {
+  if (value == null) return "";
+  return String(value)
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((word) => {
+      if (!word) return "";
+      const upper = word.toUpperCase();
+      if (word === upper && /^[A-Z0-9]+$/.test(word)) return upper;
+      const lower = word.toLowerCase();
+      if (lower.length <= 2) return lower.toUpperCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+};
 
 function format_number(val, digits = 1) {
   const n = typeof val === "number" ? val : Number(val);
   if (!Number.isFinite(n)) return null;
   return n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
+
 function format_cell(value, column) {
   if (column?.format) {
     const out = column.format(value);
@@ -62,6 +73,7 @@ function format_cell(value, column) {
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
+
 function make_percentiler(values) {
   const arr = values.filter((x) => Number.isFinite(+x)).map(Number).sort((a, b) => a - b);
   if (!arr.length) return () => 0;
@@ -89,257 +101,21 @@ const get_road_type  = (props = {}) =>
 /* ===== map paint ===== */
 const COLOR_SCORE = [
   "interpolate", ["linear"], ["coalesce", ["to-number", ["get", "score"]], 0],
-  0, "#0b1220",
-  20, "#15375a",
-  40, "#18597b",
-  70, "#1d8f85",
-  90, "#23d3a0",
+  0, "#dbeafe",
+  20, "#93c5fd",
+  40, "#60a5fa",
+  70, "#3b82f6",
+  90, "#1d4ed8",
 ];
 const WIDTH_EXPR = [
   "interpolate", ["linear"], ["coalesce", ["to-number", ["get", "betweenness_norm"]], 0],
   0, 1, 0.05, 1.5, 0.1, 2.5, 0.3, 4, 0.6, 6, 1, 8,
 ];
 
-/* ===== 100% stacked bar ===== */
-function StackedBar100({ parts, title }) {
-  const entries = Object.entries(parts || {});
-  const totalRaw = entries.reduce((a, [,v]) => a + (v||0), 0);
-  const total = totalRaw > 0 ? totalRaw : 0;
-  const norm = total > 0 ? entries.map(([k,v]) => [k, (v||0)/total]) : entries.map(([k]) => [k, 0]);
-
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-sm font-semibold text-slate-100">{title}</div>
-        <div className={`text-xs ${Math.abs(total - 1) < 1e-6 ? "text-slate-400" : "text-amber-400"}`}>
-          total = {(total * 100).toFixed(1)}%
-        </div>
-      </div>
-      <div className="w-full h-6 rounded-md overflow-hidden border border-slate-800 bg-slate-950 flex">
-        {norm.map(([label, share], i) => {
-          const hue = (i * 47) % 360;
-          return (
-            <div
-              key={label}
-              className="h-full relative"
-              style={{ width: `${share * 100}%`, background: `hsl(${hue} 85% 55%)` }}
-              title={`${label}: ${(share * 100).toFixed(1)}%`}
-            >
-              {share > 0.08 && (
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-white/90">
-                  {to_caps_underscore(label)} · {(share * 100).toFixed(1)}%
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {total > 1.001 && (
-        <div className="mt-1 text-[11px] text-amber-400">heads up: total &gt; 100% (free mode)</div>
-      )}
-    </div>
-  );
-}
-
-/* ===== row editor ===== */
-function WeightsRowEditor({
-  keysOrdered = [],
-  values = {},
-  onChange,
-  label = "weights",
-  normaliseMode = true,
-  onToggleNormalise,
-  showScoringToggle = false,
-  scoringNormalised = true,
-  onToggleScoringNormalised,
-}) {
-  const activeKeys = keysOrdered;
-
-  const makeRecommendation = useCallback((lockKey = null) => {
-    const cur = activeKeys.map((k) => [k, Math.max(0, values[k] ?? 0)]);
-    const sum = cur.reduce((a, [,v]) => a + v, 0);
-    if (activeKeys.length === 0) return {};
-    if (Math.abs(sum - 1) < 1e-9) return Object.fromEntries(cur);
-
-    const others = cur.filter(([k]) => k !== lockKey);
-    const sumOthers = others.reduce((a, [,v]) => a + v, 0);
-    const next = Object.fromEntries(cur);
-    if (lockKey && sumOthers > 1e-12) {
-      const remain = Math.max(0, 1 - (values[lockKey] ?? 0));
-      for (const [k, v] of others) {
-        const w = v / sumOthers;
-        next[k] = remain * w;
-      }
-      return next;
-    }
-    if (sum > 1e-12) {
-      for (const [k, v] of cur) next[k] = v / sum;
-      return next;
-    }
-    const eq = 1 / activeKeys.length;
-    return Object.fromEntries(activeKeys.map((k) => [k, eq]));
-  }, [activeKeys, values]);
-
-  const total = useMemo(() => activeKeys.reduce((a, k) => a + Math.max(0, values[k] ?? 0), 0), [activeKeys, values]);
-  const recommendation = useMemo(() => makeRecommendation(), [makeRecommendation]);
-
-  const setValue = (k, nextPctStr) => {
-    let nextPct = Number(nextPctStr);
-    if (!Number.isFinite(nextPct)) nextPct = 0;
-    nextPct = clamp(nextPct, 0, 100);
-    const nextVal = nextPct / 100;
-
-    if (!normaliseMode) {
-      onChange?.({ ...values, [k]: nextVal });
-      return;
-    }
-    const others = activeKeys.filter((x) => x !== k);
-    const remain = Math.max(0, 1 - nextVal);
-    const sumOthers = others.reduce((a, x) => a + (values[x] ?? 0), 0);
-    const next = { ...values, [k]: nextVal };
-    if (others.length && sumOthers > 1e-12) {
-      for (const x of others) next[x] = remain * ((values[x] ?? 0) / sumOthers);
-    } else if (others.length) {
-      const split = remain / others.length;
-      for (const x of others) next[x] = split;
-    }
-    onChange?.(next);
-  };
-
-  const normaliseNow = () => onChange?.(makeRecommendation(null));
-  const applyRecommendation = (lockKey = null) => onChange?.(makeRecommendation(lockKey));
-
-  const handleToggleNormalise = (checked) => {
-    onToggleNormalise?.(!!checked);
-    if (checked) onChange?.(makeRecommendation(null));
-  };
-
-  const parts = Object.fromEntries(activeKeys.map((k) => [k, Math.max(0, values[k] ?? 0)]));
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-semibold text-slate-100">{label}</div>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-xs text-slate-300">
-            <input
-              type="checkbox"
-              checked={!!normaliseMode}
-              onChange={(e) => handleToggleNormalise(e.target.checked)}
-              className="accent-sky-500"
-            />
-            normalise to 100%
-          </label>
-          {showScoringToggle && (
-            <label className="flex items-center gap-2 text-xs text-slate-300">
-              <input
-                type="checkbox"
-                checked={!!scoringNormalised}
-                onChange={(e) => onToggleScoringNormalised?.(e.target.checked)}
-                className="accent-sky-500"
-              />
-              normalise for scoring
-            </label>
-          )}
-        </div>
-      </div>
-
-      <StackedBar100 parts={parts} title="stacked weights" />
-
-      {!normaliseMode && (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-7 border-slate-700 text-slate-200" onClick={normaliseNow}>
-            normalise now
-          </Button>
-          <span className="text-xs text-slate-500">free mode — totals can be ≠ 100%. snap when needed.</span>
-        </div>
-      )}
-
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {activeKeys.map((k, i) => {
-          const hue = (i * 47) % 360;
-          const share = Math.max(0, (values[k] ?? 0));
-          const pct = (share * 100).toFixed(1);
-          return (
-            <div key={k} className="rounded-md border border-slate-800 p-2 bg-slate-950">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 rounded-sm" style={{ background: `hsl(${hue} 85% 55%)` }} />
-                  <span className="text-xs text-slate-100">{to_caps_underscore(k)}</span>
-                </div>
-                <div className="text-xs text-slate-400">{pct}%</div>
-              </div>
-
-              <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-2">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={pct}
-                  onChange={(e) => setValue(k, e.target.value)}
-                  className="w-full"
-                />
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={pct}
-                    onChange={(e) => setValue(k, e.target.value)}
-                    className="w-20 rounded-md border border-slate-800 bg-slate-950 px-2 py-1 text-xs text-slate-100"
-                  />
-                  <span className="text-xs text-slate-500">%</span>
-                </div>
-              </div>
-
-              <div className="mt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-[11px] text-slate-300"
-                  onClick={() => {
-                    if (!normaliseMode) {
-                      onChange?.({ ...values, [k]: 1 });
-                    } else {
-                      const next = Object.fromEntries(activeKeys.map((x) => [x, x === k ? 1 : 0]));
-                      onChange?.(next);
-                    }
-                  }}
-                >
-                  set 100%
-                </Button>
-              </div>
-
-              {!normaliseMode && Math.abs(total - 1) > 1e-6 && (
-                <div className="mt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 border-slate-700 text-slate-200"
-                    onClick={() => applyRecommendation(k)}
-                    title="apply recommendation while keeping this factor unchanged"
-                  >
-                    apply suggestion (lock this)
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* =============================================================================
-   map (dark)
-   ========================================================================== */
+/* ===== map component ===== */
 function CentralityMap({ data }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
-  const hoverFeatureIdRef = useRef(null);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN || mapRef.current || !containerRef.current) return;
@@ -359,7 +135,7 @@ function CentralityMap({ data }) {
 
     const ensure_base = () => {
       if (!map.getSource("road-network")) {
-        map.addSource("road-network", { type: "geojson", data: EMPTY_COLLECTION, generateId: true });
+        map.addSource("road-network", { type: "geojson", data: EMPTY_COLLECTION });
       }
       if (!map.getLayer("roads")) {
         map.addLayer({
@@ -368,16 +144,6 @@ function CentralityMap({ data }) {
           source: "road-network",
           layout: { visibility: "visible", "line-cap": "round", "line-join": "round" },
           paint: { "line-color": COLOR_SCORE, "line-width": WIDTH_EXPR, "line-opacity": 0.95 },
-        });
-      }
-      if (!map.getLayer("roads-hover")) {
-        map.addLayer({
-          id: "roads-hover",
-          type: "line",
-          source: "road-network",
-          filter: ["boolean", ["feature-state", "hover"], false],
-          layout: { visibility: "visible", "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#38bdf8", "line-width": 8, "line-opacity": 0.9 },
         });
       }
     };
@@ -405,20 +171,8 @@ function CentralityMap({ data }) {
       const on_move = (e) => {
         const f = e.features?.[0];
         if (!f) {
-          if (hoverFeatureIdRef.current != null) {
-            map.setFeatureState({ source: "road-network", id: hoverFeatureIdRef.current }, { hover: false });
-            hoverFeatureIdRef.current = null;
-          }
           hide_popup();
           return;
-        }
-        const fid = f.id;
-        if (fid !== hoverFeatureIdRef.current) {
-          if (hoverFeatureIdRef.current != null) {
-            map.setFeatureState({ source: "road-network", id: hoverFeatureIdRef.current }, { hover: false });
-          }
-          hoverFeatureIdRef.current = fid;
-          map.setFeatureState({ source: "road-network", id: fid }, { hover: true });
         }
 
         const p = f.properties || {};
@@ -440,10 +194,6 @@ function CentralityMap({ data }) {
       };
 
       const on_leave = () => {
-        if (hoverFeatureIdRef.current != null) {
-          map.setFeatureState({ source: "road-network", id: hoverFeatureIdRef.current }, { hover: false });
-          hoverFeatureIdRef.current = null;
-        }
         hide_popup();
       };
 
@@ -482,25 +232,29 @@ function CentralityMap({ data }) {
   return (
     <div className="relative h-[60vh] min-h-[26rem] w-full rounded-2xl overflow-hidden bg-slate-950">
       <div ref={containerRef} className="absolute inset-0 min-h-[560px]" />
-      {/* legend (dark) */}
-      <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-md bg-slate-900/90 border border-slate-800 p-3 text-xs text-slate-300">
-        <p className="font-semibold text-slate-100">legend</p>
-        <div className="mt-2">
-          <p>colour = importance score</p>
-          <div className="mt-1 h-2 rounded" style={{ background: "linear-gradient(to right, #0b1220, #15375a, #18597b, #1d8f85, #23d3a0)" }} />
-          <div className="mt-1 flex justify-between text-slate-500"><span>low</span><span>high</span></div>
-        </div>
-        <div className="mt-2">
-          <p>thickness = betweenness</p>
-          <div className="mt-1 flex items-center gap-2"><span className="inline-block h-[2px] w-10 bg-slate-600" /><span>low</span></div>
-          <div className="mt-1 flex items-center gap-2"><span className="inline-block h-[6px] w-10 bg-slate-200" /><span>high</span></div>
+      {/* legend */}
+      <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-xl bg-card/95 backdrop-blur-sm border p-3 text-xs shadow-lg">
+        <p className="font-semibold mb-2">Legend</p>
+        <div className="space-y-2">
+          <div>
+            <p className="text-muted-foreground mb-1">Colour = Importance Score</p>
+            <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1d4ed8)" }} />
+            <div className="mt-1 flex justify-between text-muted-foreground text-[10px]"><span>low</span><span>high</span></div>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-1">Thickness = Betweenness</p>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2"><span className="inline-block h-[2px] w-10 bg-muted-foreground" /><span className="text-muted-foreground text-[10px]">low</span></div>
+              <div className="flex items-center gap-2"><span className="inline-block h-[6px] w-10 bg-foreground" /><span className="text-muted-foreground text-[10px]">high</span></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------- multiselect (dark) ---------- */
+/* ===== multiselect ===== */
 function MultiSelectCombobox({
   label,
   options = [],
@@ -525,48 +279,42 @@ function MultiSelectCombobox({
     return normalizedOptions.filter((o) => o.toLowerCase().includes(q));
   }, [normalizedOptions, search]);
 
-  const toggle = useCallback((val) => {
+  const toggle = (val) => {
     const v = val.trim();
     const exists = selectedValues.includes(v);
     const next = exists ? selectedValues.filter((x) => x !== v) : [...selectedValues, v];
     onChange?.(next);
-  }, [onChange, selectedValues]);
+  };
 
   const clearAll = () => onChange?.([]);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        {label && <span className="text-xs font-semibold uppercase tracking-wide text-slate-200">{label}</span>}
-        {showClear && (
-          <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs text-slate-300" onClick={clearAll} disabled={!selectedValues.length}>
-            clear
-          </Button>
-        )}
-      </div>
+    <div className="space-y-1.5">
+      {label && (
+        <div className="flex items-center justify-between">
+          <Label>{label}</Label>
+          {showClear && selectedValues.length > 0 && (
+            <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs" onClick={clearAll}>
+              clear
+            </Button>
+          )}
+        </div>
+      )}
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between border-slate-700 text-slate-200">
+          <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
             <span className="truncate text-left">{selectedValues.length ? `${selectedValues.length} selected` : placeholder}</span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
 
-        <PopoverContent
-          align="start"
-          className={`z-50 ${popoverWidthClass} p-0 bg-slate-950 text-white border border-slate-800 rounded-lg overflow-hidden max-h-[70vh]`}
-        >
+        <PopoverContent align="start" className={`z-50 ${popoverWidthClass} p-0`}>
           <Command>
-            <CommandInput
-              placeholder={searchPlaceholder}
-              value={search}
-              onValueChange={setSearch}
-              className="h-9 text-xs text-white bg-slate-900 placeholder:text-slate-500"
-            />
+            <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
             <CommandEmpty>{emptyText}</CommandEmpty>
 
-            <ScrollArea className="max-h-[62vh] overflow-y-auto">
+            <ScrollArea className="max-h-[60vh]">
               <CommandList>
                 <CommandGroup>
                   {filteredOptions.map((opt) => {
@@ -576,7 +324,7 @@ function MultiSelectCombobox({
                         key={opt}
                         value={opt}
                         onSelect={() => toggle(opt)}
-                        className="flex items-center justify-between gap-2 cursor-pointer"
+                        className="flex items-center justify-between gap-2"
                       >
                         <span className="truncate">{opt}</span>
                         <Check className={active ? "h-4 w-4" : "h-4 w-4 opacity-0"} />
@@ -593,17 +341,16 @@ function MultiSelectCombobox({
       {!!selectedValues.length && (
         <div className="flex flex-wrap gap-2">
           {selectedValues.map((v) => (
-            <Badge key={v} variant="secondary" className="flex items-center gap-1 bg-slate-800 text-slate-100">
+            <button
+              type="button"
+              key={v}
+              onClick={() => toggle(v)}
+              aria-label={`Remove ${v}`}
+              className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+            >
               <span className="truncate max-w-[160px]">{v}</span>
-              <button
-                type="button"
-                className="rounded-full p-0.5 hover:bg-white/10"
-                onClick={() => toggle(v)}
-                aria-label={`remove ${v}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
+              <X className="h-3 w-3" />
+            </button>
           ))}
         </div>
       )}
@@ -611,27 +358,27 @@ function MultiSelectCombobox({
   );
 }
 
-/* ===== base column defs (labels are caps_with_underscores) ===== */
+/* ===== base column defs ===== */
 const BASE_COLUMNS = [
-  { key: "RN_ID", label: "RN_ID", type: "number" },
-  { key: "name", label: "NAME", type: "string" },
-  { key: "PLN_AREA_N", label: "PLANNING_AREA", type: "string" },
-  { key: "SUBZONE_N", label: "SUBZONE", type: "string" },
-  { key: "road_type", label: "ROAD_TYPE", type: "string" },
-  { key: "betweenness_norm", label: "BETWEENNESS_NORM", type: "number" },
-  { key: "closeness_norm", label: "CLOSENESS_NORM", type: "number" },
-  { key: "_pb", label: "PB_PERCENTILE", type: "number", format: (v) => format_number(v, 1) },
-  { key: "_pc", label: "PC_PERCENTILE", type: "number", format: (v) => format_number(v, 1) },
-  { key: "_pa", label: "AMENITIES_COMPONENT", type: "number", format: (v) => format_number(v, 2) },
-  { key: "_pf", label: "FLOODS_COMPONENT", type: "number", format: (v) => format_number(v, 2) },
-  { key: "amenity_count_total", label: "AMENITY_COUNT_TOTAL", type: "number" },
-  { key: "flood_count_total", label: "FLOOD_COUNT_TOTAL", type: "number" },
-  { key: "importance", label: "IMPORTANCE", type: "number", format: (v) => format_number(v, 2) },
-  { key: "sla_priority", label: "SLA_PRIORITY", type: "number", format: (v) => format_number(v, 2) },
-  { key: "score", label: "SCORE", type: "number", format: (v) => format_number(v, 2) },
+  { key: "RN_ID", label: "RN ID", type: "number" },
+  { key: "name", label: "Name", type: "string" },
+  { key: "PLN_AREA_N", label: "Planning Area", type: "string" },
+  { key: "SUBZONE_N", label: "Subzone", type: "string" },
+  { key: "road_type", label: "Road Type", type: "string" },
+  { key: "betweenness_norm", label: "Betweenness", type: "number", format: (v) => format_number(v, 4) },
+  { key: "closeness_norm", label: "Closeness", type: "number", format: (v) => format_number(v, 4) },
+  { key: "betweenness_percentile", label: "Betweenness %ile", type: "number", format: (v) => format_number(v, 1) },
+  { key: "closeness_percentile", label: "Closeness %ile", type: "number", format: (v) => format_number(v, 1) },
+  { key: "amenity_score", label: "Amenity Score", type: "number", format: (v) => format_number(v, 2) },
+  { key: "flood_score", label: "Flood Score", type: "number", format: (v) => format_number(v, 2) },
+  { key: "amenity_count_total", label: "Amenity Count", type: "number" },
+  { key: "flood_count_total", label: "Flood Count", type: "number" },
+  { key: "importance", label: "Importance", type: "number", format: (v) => format_number(v, 2) },
+  { key: "sla_priority", label: "SLA Priority", type: "number", format: (v) => format_number(v, 2) },
+  { key: "score", label: "Score", type: "number", format: (v) => format_number(v, 2) },
 ];
 
-/* ===== table (dark) with column chooser, sorting, export, local filter ===== */
+/* ===== table ===== */
 function CentralityTable({
   rows,
   totalRows,
@@ -694,8 +441,8 @@ function CentralityTable({
   }, [filteredRows, sortKey, sortDir]);
 
   const pageRows = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return sortedRows.slice(start, start + PAGE_SIZE);
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return sortedRows.slice(startIndex, startIndex + PAGE_SIZE);
   }, [sortedRows, currentPage]);
 
   const toggleSort = (key) => {
@@ -707,13 +454,10 @@ function CentralityTable({
     }
   };
 
-  const allColumnLabels = useMemo(
-    () => allColumnDefs.map((c) => c.key),
-    [allColumnDefs]
-  );
+  const allColumnLabels = useMemo(() => allColumnDefs.map((c) => c.key), [allColumnDefs]);
 
   const export_csv = () => {
-    const header = visibleColumns.map((c) => c.label || to_caps_underscore(c.key));
+    const header = visibleColumns.map((c) => c.label || to_title_case(c.key));
     const lines = [header.join(",")];
 
     for (const f of sortedRows) {
@@ -736,7 +480,7 @@ function CentralityTable({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "centrality_table_export.csv";
+    a.download = "centrality_export.csv";
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -750,44 +494,37 @@ function CentralityTable({
       {/* toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-300">
+          <span className="text-sm text-muted-foreground">
             showing {start.toLocaleString()} to {end.toLocaleString()} of {totalRows.toLocaleString()} segments
           </span>
-          {totalRows > PAGE_SIZE && (
-            <div className="ml-2 flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-8 border-slate-700 text-slate-200" onClick={() => onPageChange(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>prev</Button>
-              <span className="text-xs text-slate-400">page {currentPage} / {totalPages}</span>
-              <Button variant="outline" size="sm" className="h-8 border-slate-700 text-slate-200" onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}>next</Button>
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-2">
           {/* column chooser */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="border-slate-700 text-slate-200">choose columns</Button>
+              <Button variant="outline" size="sm">choose columns</Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="z-50 w-[360px] p-0 bg-slate-950 border border-slate-800">
-              <div className="p-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-200">columns</span>
+            <PopoverContent align="end" className="w-[360px] max-h-[80vh] p-0">
+              <div className="p-2 flex flex-col max-h-[80vh]">
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <span className="text-xs font-semibold uppercase tracking-wide">columns</span>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedCols(allColumnLabels)}>all</Button>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedCols([])}>none</Button>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedCols(defaultKeys)}>reset</Button>
                   </div>
                 </div>
-                <ScrollArea className="max-h-[50vh] pr-2">
-                  <div className="space-y-1">
+                <div className="overflow-y-auto flex-1 min-h-0 pr-2">
+                  <div className="space-y-1 pb-2">
                     {allColumnDefs.map((c) => {
                       const active = selectedCols.includes(c.key);
                       return (
-                        <label key={c.key} className="flex items-center justify-between rounded px-2 py-1 hover:bg-slate-900">
-                          <span className="text-sm text-slate-200 truncate">{c.label || to_caps_underscore(c.key)}</span>
+                        <label key={c.key} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted cursor-pointer">
+                          <span className="text-sm truncate mr-2">{c.label || to_title_case(c.key)}</span>
                           <input
                             type="checkbox"
-                            className="accent-sky-500"
+                            className="accent-primary shrink-0"
                             checked={active}
                             onChange={() => {
                               setSelectedCols((prev) => active ? prev.filter((k) => k !== c.key) : [...prev, c.key]);
@@ -797,17 +534,17 @@ function CentralityTable({
                       );
                     })}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
             </PopoverContent>
           </Popover>
 
-          {/* table search (local-only; does not affect top list) */}
-          <input
+          {/* table search */}
+          <Input
             value={tableQ}
             onChange={(e) => setTableQ(e.target.value)}
-            placeholder="filter table (local)…"
-            className="w-56 rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+            placeholder="filter table…"
+            className="w-56"
           />
 
           {/* export */}
@@ -818,40 +555,63 @@ function CentralityTable({
         </div>
       </div>
 
+      {/* pagination top */}
+      {totalRows > PAGE_SIZE && (
+        <div className="flex items-center justify-between">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))} 
+            disabled={currentPage === 1}
+          >
+            previous
+          </Button>
+          <span className="text-xs text-muted-foreground">page {currentPage} / {totalPages}</span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))} 
+            disabled={currentPage === totalPages}
+          >
+            next
+          </Button>
+        </div>
+      )}
+
       {/* table */}
-      <div className="overflow-auto rounded-2xl bg-slate-950 border border-slate-800">
-        <table className="min-w-full divide-y divide-slate-800 text-sm">
-          <thead className="bg-slate-900">
+      <div className="overflow-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               {visibleColumns.map((col) => {
                 const isSort = col.key === sortKey;
                 return (
                   <th
                     key={col.key}
-                    className="px-4 py-3 text-left font-semibold uppercase tracking-wide text-slate-200 cursor-pointer select-none"
+                    className="px-4 py-3 cursor-pointer select-none"
                     onClick={() => toggleSort(col.key)}
                     title="click to sort"
                   >
                     <div className="flex items-center gap-2">
-                      <span>{col.label || to_caps_underscore(col.key)}</span>
-                      {isSort && <span className="text-xs text-slate-400">{sortDir === "desc" ? "▼" : "▲"}</span>}
+                      <span>{col.label || to_title_case(col.key)}</span>
+                      {isSort && <span className="text-xs">{sortDir === "desc" ? "↓" : "↑"}</span>}
                     </div>
                   </th>
                 );
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={visibleColumns.length} className="px-4 py-6 text-center text-slate-500">no segments.</td></tr>
+              <tr><td colSpan={visibleColumns.length} className="px-4 py-6 text-center text-muted-foreground">no segments.</td></tr>
             ) : (
               pageRows.map((f, i) => {
                 const p = f?.properties ?? {};
                 const key = p.RN_ID ?? p.osmid ?? i;
                 return (
-                  <tr key={key} className="odd:bg-slate-950 even:bg-slate-900">
+                  <tr key={key} className="border-t hover:bg-muted/60">
                     {visibleColumns.map((col) => (
-                      <td key={col.key} className="px-4 py-2 align-top text-slate-100">
+                      <td key={col.key} className="px-4 py-2">
                         {format_cell(p[col.key], col)}
                       </td>
                     ))}
@@ -862,36 +622,34 @@ function CentralityTable({
           </tbody>
         </table>
       </div>
+
+      {/* pagination bottom */}
+      {totalRows > PAGE_SIZE && (
+        <div className="flex items-center justify-between border-t pt-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))} 
+            disabled={currentPage === 1}
+          >
+            previous
+          </Button>
+          <span className="text-xs text-muted-foreground">page {currentPage} / {totalPages}</span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))} 
+            disabled={currentPage === totalPages}
+          >
+            next
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ===== example preview ===== */
-function ExampleWeightsPreview({ wImpUsed, wSlaUsed, example, amenityKeys, floodKeys, impMode, slaMode }) {
-  const { pb, pc, pa, pf } = example;
-  const dot = (w) => (w.pb*pb + w.pc*pc + w.pa*pa + w.pf*pf);
-  const imp = dot(wImpUsed);
-  const sla = dot(wSlaUsed);
-  const fmt = (x) => (Number.isFinite(x) ? (Math.round(x * 100) / 100).toFixed(2) : "—");
-
-  return (
-    <div className="rounded-xl border border-slate-800 p-3 text-sm bg-slate-950">
-      <div className="font-semibold mb-2 text-slate-100">example (how your weights combine)</div>
-      <div className="grid gap-1 text-slate-300">
-        <div className="text-xs uppercase tracking-wide text-slate-500 mt-1">component scores</div>
-        <div>PB: <b>{fmt(pb)}</b> · PC: <b>{fmt(pc)}</b> · PA: <b>{fmt(pa)}</b> · PF: <b>{fmt(pf)}</b></div>
-
-        <div className="text-xs uppercase tracking-wide text-slate-500 mt-3">importance weights ({impMode ? "normalised" : "raw"})</div>
-        <div>PB: <b>{fmt(wImpUsed.pb)}</b> · PC: <b>{fmt(wImpUsed.pc)}</b> · PA: <b>{fmt(wImpUsed.pa)}</b> · PF: <b>{fmt(wImpUsed.pf)}</b></div>
-
-        <div className="text-xs uppercase tracking-wide text-slate-500 mt-2">sla weights ({slaMode ? "normalised" : "raw"})</div>
-        <div>PB: <b>{fmt(wSlaUsed.pb)}</b> · PC: <b>{fmt(wSlaUsed.pc)}</b> · PA: <b>{fmt(wSlaUsed.pa)}</b> · PF: <b>{fmt(wSlaUsed.pf)}</b></div>
-      </div>
-    </div>
-  );
-}
-
-/* ===== page ===== */
+/* ===== main component ===== */
 export default function Centrality() {
   const {
     road_fc_enriched: roadFC,
@@ -958,11 +716,11 @@ export default function Centrality() {
   }, [floodsFC]);
 
   const amenityOptionsDisplay = useMemo(
-    () => Object.keys(amenityCounts).sort((a, b) => a.localeCompare(b)).map((c) => `${to_caps_underscore(c)} (${(amenityCounts[c] || 0).toLocaleString()})`),
+    () => Object.keys(amenityCounts).sort((a, b) => a.localeCompare(b)).map((c) => `${to_title_case(c)} (${(amenityCounts[c] || 0).toLocaleString()})`),
     [amenityCounts]
   );
   const floodOptionsDisplay = useMemo(
-    () => Object.keys(floodCounts).sort((a, b) => a.localeCompare(b)).map((t) => `${to_caps_underscore(t)} (${(floodCounts[t] || 0).toLocaleString()})`),
+    () => Object.keys(floodCounts).sort((a, b) => a.localeCompare(b)).map((t) => `${to_title_case(t)} (${(floodCounts[t] || 0).toLocaleString()})`),
     [floodCounts]
   );
 
@@ -977,7 +735,7 @@ export default function Centrality() {
 
   const [q, setQ] = useState("");
 
-  /* ===== dynamic keys ===== */
+  /* ===== multiplier-based weights ===== */
   const amenityCategoryKeys = useMemo(
     () => Object.keys(amenityCounts).sort((a, b) => a.localeCompare(b)),
     [amenityCounts]
@@ -987,50 +745,73 @@ export default function Centrality() {
     [floodCounts]
   );
 
-  const visibleAmenityKeys = useMemo(
-    () => (amenitySelectedRawSet.size ? Array.from(amenitySelectedRawSet) : amenityCategoryKeys),
-    [amenitySelectedRawSet, amenityCategoryKeys]
-  );
-  const visibleFloodKeys = useMemo(
-    () => (floodSelectedRawSet.size ? Array.from(floodSelectedRawSet) : floodTypeKeys),
-    [floodSelectedRawSet, floodTypeKeys]
-  );
+  // Default multipliers and per-category toggles
+  const default_amenity_weights = useMemo(() => {
+    const w = {};
+    for (const k of amenityCategoryKeys) w[k] = 1.0;
+    return w;
+  }, [amenityCategoryKeys]);
+  const default_amenity_enabled = useMemo(() => {
+    const e = {};
+    for (const k of amenityCategoryKeys) e[k] = true;
+    return e;
+  }, [amenityCategoryKeys]);
 
-  /* ===== amenity/flood weights + mode toggles ===== */
-  const makeEqualFractions = (keys) => {
-    const n = Math.max(1, keys.length);
-    const v = 1 / n;
-    return Object.fromEntries(keys.map((k) => [k, v]));
-  };
+  const default_flood_weights = useMemo(() => {
+    const w = {};
+    for (const k of floodTypeKeys) w[k] = 1.0;
+    return w;
+  }, [floodTypeKeys]);
+  const default_flood_enabled = useMemo(() => {
+    const e = {};
+    for (const k of floodTypeKeys) e[k] = true;
+    return e;
+  }, [floodTypeKeys]);
 
-  const [amenityVals, setAmenityVals] = useState({});
-  const [floodVals, setFloodVals] = useState({});
-  const [amenityNormalise, setAmenityNormalise] = useState(true);
-  const [floodNormalise, setFloodNormalise] = useState(true);
+  const [amenityWeights, setAmenityWeights] = useState(default_amenity_weights);
+  const [amenityEnabled, setAmenityEnabled] = useState(default_amenity_enabled);
+  const [floodWeights, setFloodWeights] = useState(default_flood_weights);
+  const [floodEnabled, setFloodEnabled] = useState(default_flood_enabled);
+
+  // Component toggles + weights
+  const [useCompBetweenness, setUseCompBetweenness] = useState(true);
+  const [useCompCloseness, setUseCompCloseness] = useState(true);
+  const [useCompAmenity, setUseCompAmenity] = useState(true);
+  const [useCompFlood, setUseCompFlood] = useState(true);
+
+  const [w_betweenness, set_w_betweenness] = useState(0.4);
+  const [w_closeness, set_w_closeness] = useState(0.3);
+  const [w_amenity, set_w_amenity] = useState(0.2);
+  const [w_flood, set_w_flood] = useState(0.1);
+
+  /* ===== sync weights/toggles when categories change ===== */
+  useEffect(() => {
+    setAmenityWeights((prev) => {
+      const next = { ...prev };
+      for (const k of amenityCategoryKeys) if (!(k in next)) next[k] = 1.0;
+      return next;
+    });
+    setAmenityEnabled((prev) => {
+      const next = { ...prev };
+      for (const k of amenityCategoryKeys) if (!(k in next)) next[k] = true;
+      return next;
+    });
+  }, [amenityCategoryKeys]);
 
   useEffect(() => {
-    setAmenityVals((prev) => {
-      if (!visibleAmenityKeys.length) return {};
-      if (!amenityNormalise) return Object.fromEntries(visibleAmenityKeys.map((k) => [k, prev[k] ?? 0]));
-      let sum = 0; for (const k of visibleAmenityKeys) sum += prev[k] ?? 0;
-      if (sum > 1e-9) return Object.fromEntries(visibleAmenityKeys.map((k) => [k, (prev[k] ?? 0) / sum]));
-      return makeEqualFractions(visibleAmenityKeys);
+    setFloodWeights((prev) => {
+      const next = { ...prev };
+      for (const k of floodTypeKeys) if (!(k in next)) next[k] = 1.0;
+      return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleAmenityKeys.join("|"), amenityNormalise]);
-
-  useEffect(() => {
-    setFloodVals((prev) => {
-      if (!visibleFloodKeys.length) return {};
-      if (!floodNormalise) return Object.fromEntries(visibleFloodKeys.map((k) => [k, prev[k] ?? 0]));
-      let sum = 0; for (const k of visibleFloodKeys) sum += prev[k] ?? 0;
-      if (sum > 1e-9) return Object.fromEntries(visibleFloodKeys.map((k) => [k, (prev[k] ?? 0) / sum]));
-      return makeEqualFractions(visibleFloodKeys);
+    setFloodEnabled((prev) => {
+      const next = { ...prev };
+      for (const k of floodTypeKeys) if (!(k in next)) next[k] = true;
+      return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleFloodKeys.join("|"), floodNormalise]);
+  }, [floodTypeKeys]);
 
-  /* ===== amenity/flood components ===== */
+  /* ===== amenity/flood components (by road) ===== */
   const amenityCategoryCountByRoad = useMemo(() => {
     const m = new Map();
     const byId = categoryLookup?.by_id || {};
@@ -1060,30 +841,34 @@ export default function Centrality() {
     return m;
   }, [floodsFC]);
 
-  function computeAmenityComponent(rn) {
+  function computeAmenityScore(rn) {
+    if (!useCompAmenity) return 0;
     const row = amenityCategoryCountByRoad.get(rn);
     if (!row) return 0;
     let weighted = 0;
-    for (const cat of Object.keys(amenityVals)) {
-      const c = row.get(cat) || 0;
-      const w = amenityVals[cat] || 0;
-      weighted += c * w;
+    for (const [cat, count] of row.entries()) {
+      if (!amenityEnabled[cat]) continue; // category toggled off
+      const w = amenityWeights[cat] ?? 1.0;
+      weighted += count * w;
     }
+    // Example rule-of-thumb scaling
     return Math.min(100, 20 * Math.log10(1 + weighted));
   }
-  function computeFloodComponent(rn) {
+
+  function computeFloodScore(rn) {
+    if (!useCompFlood) return 0;
     const row = floodTypeCountByRoad.get(rn);
     if (!row) return 0;
     let weighted = 0;
-    for (const t of Object.keys(floodVals)) {
-      const c = row.get(t) || 0;
-      const w = floodVals[t] || 0;
-      weighted += c * w;
+    for (const [type, count] of row.entries()) {
+      if (!floodEnabled[type]) continue; // type toggled off
+      const w = floodWeights[type] ?? 1.0;
+      weighted += count * w;
     }
     return Math.min(100, 25 * Math.log10(1 + weighted));
   }
 
-  /* ===== filters (map/top list) ===== */
+  /* ===== filters ===== */
   const features = useMemo(() => roadFC?.features ?? [], [roadFC]);
 
   const filtered = useMemo(() => {
@@ -1119,24 +904,38 @@ export default function Centrality() {
   const pBet = useMemo(() => make_percentiler(features.map((f) => +f?.properties?.betweenness_norm)), [features]);
   const pClo = useMemo(() => make_percentiler(features.map((f) => +f?.properties?.closeness_norm)), [features]);
 
-  /* ===== enrich ===== */
-  const enriched = useMemo(() => {
+  /* ===== enrich & score ===== */
+  const scored = useMemo(() => {
     return filtered.map((f) => {
       if (!f) return null;
       const p = f.properties ?? {};
       const rn = p.RN_ID == null ? null : Number(p.RN_ID);
       const bet = nznum(p.betweenness_norm);
       const clo = nznum(p.closeness_norm);
-      const pb = pBet(bet);
-      const pc = pClo(clo);
-      const pa = rn != null ? computeAmenityComponent(rn) : 0;
-      const pf = rn != null ? computeFloodComponent(rn) : 0;
+      const bet_percentile = pBet(bet);
+      const clo_percentile = pClo(clo);
 
-      // totals for extra columns
+      const amenity_score = rn != null ? computeAmenityScore(rn) : 0;
+      const flood_score = rn != null ? computeFloodScore(rn) : 0;
+
       const amenRow = amenityCategoryCountByRoad.get(rn) || new Map();
       const floodRow = floodTypeCountByRoad.get(rn) || new Map();
       const amenTot = Array.from(amenRow.values()).reduce((a, v) => a + v, 0);
       const floodTot = Array.from(floodRow.values()).reduce((a, v) => a + v, 0);
+
+      // Components 0-100 (bet/clo already 0-1)
+      const bet_norm = useCompBetweenness ? bet * 100 : 0;
+      const clo_norm = useCompCloseness ? clo * 100 : 0;
+
+      const importance = (
+        (useCompBetweenness ? w_betweenness : 0) * bet_norm +
+        (useCompCloseness ? w_closeness : 0) * clo_norm +
+        (useCompAmenity ? w_amenity : 0) * amenity_score +
+        (useCompFlood ? w_flood : 0) * flood_score
+      );
+
+      const sla_priority = importance;
+      const score = importance;
 
       return {
         ...f,
@@ -1145,46 +944,28 @@ export default function Centrality() {
           road_type: get_road_type(p),
           betweenness_norm: bet,
           closeness_norm: clo,
-          _pb: pb, _pc: pc, _pa: pa, _pf: pf,
+          betweenness_percentile: bet_percentile,
+          closeness_percentile: clo_percentile,
+          amenity_score,
+          flood_score,
           amenity_count_total: amenTot,
           flood_count_total: floodTot,
+          importance: Math.round(importance * 100) / 100,
+          sla_priority: Math.round(sla_priority * 100) / 100,
+          score: Math.round(score * 100) / 100,
         },
       };
     }).filter(Boolean);
-  }, [filtered, pBet, pClo, amenityVals, floodVals, amenityCategoryCountByRoad, floodTypeCountByRoad]);
+  }, [
+    filtered, pBet, pClo,
+    amenityWeights, floodWeights,
+    amenityEnabled, floodEnabled,
+    useCompAmenity, useCompFlood, useCompBetweenness, useCompCloseness,
+    w_betweenness, w_closeness, w_amenity, w_flood,
+    amenityCategoryCountByRoad, floodTypeCountByRoad
+  ]);
 
-  /* ===== importance & sla weights ===== */
-  const [wImpRaw, setWImpRaw] = useState({ pb: 0.4, pc: 0.3, pa: 0.2, pf: 0.1 });
-  const [wSlaRaw, setWSlaRaw] = useState({ pb: 0.4, pc: 0.3, pa: 0.2, pf: 0.1 });
-  const [impNormalise, setImpNormalise] = useState(true);
-  const [slaNormalise, setSlaNormalise] = useState(true);
-  const [impScoringNormalised, setImpScoringNormalised] = useState(true);
-  const [slaScoringNormalised, setSlaScoringNormalised] = useState(true);
-
-  const normaliseSelected = (obj) => {
-    const keys = ["pb","pc","pa","pf"];
-    const sum = keys.reduce((a, k) => a + Math.max(0, +obj[k] || 0), 0);
-    if (sum <= 1e-12) return Object.fromEntries(keys.map((k) => [k, 0]));
-    const out = {};
-    for (const k of keys) out[k] = Math.max(0, +obj[k] || 0) / sum;
-    return out;
-  };
-
-  const wImpUsed = useMemo(() => (impScoringNormalised ? normaliseSelected(wImpRaw) : wImpRaw), [wImpRaw, impScoringNormalised]);
-  const wSlaUsed = useMemo(() => (slaScoringNormalised ? normaliseSelected(wSlaRaw) : wSlaRaw), [wSlaRaw, slaScoringNormalised]);
-
-  /* ===== scoring + paging ===== */
-  const scored = useMemo(() => {
-    const dot = (w, p) => (w.pb*(p._pb||0) + w.pc*(p._pc||0) + w.pa*(p._pa||0) + w.pf*(p._pf||0));
-    return enriched.map((e) => {
-      const p = e.properties;
-      const importance = Math.round(dot(wImpUsed, p) * 100) / 100;
-      const sla_priority = Math.round(dot(wSlaUsed, p) * 100) / 100;
-      const score = importance;
-      return { ...e, properties: { ...p, importance, sla_priority, score } };
-    });
-  }, [enriched, wImpUsed, wSlaUsed]);
-
+  /* ===== paging ===== */
   const [currentPage, setCurrentPage] = useState(1);
   const sortedByScore = useMemo(() => {
     const arr = [...scored];
@@ -1192,26 +973,18 @@ export default function Centrality() {
     return arr;
   }, [scored]);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedByScore.length / PAGE_SIZE)), [sortedByScore.length]);
-  const pageRows = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return sortedByScore.slice(start, start + PAGE_SIZE);
-  }, [sortedByScore, currentPage]);
 
-  // table columns available = base + any discovered props (caps labels)
   const allColumnDefs = useMemo(() => {
     const keys = new Set(BASE_COLUMNS.map((c) => c.key));
-    // include any extra discovered props for flexibility
     for (const f of scored) {
       const p = f?.properties || {};
       Object.keys(p).forEach((k) => keys.add(k));
     }
-    // assemble defs
     const map = Object.fromEntries(BASE_COLUMNS.map((c) => [c.key, c]));
     const defs = Array.from(keys).map((k) => {
       if (map[k]) return map[k];
-      return { key: k, label: to_caps_underscore(k), type: (typeof scored?.[0]?.properties?.[k] === "number" ? "number" : "string") };
+      return { key: k, label: to_title_case(k), type: (typeof scored?.[0]?.properties?.[k] === "number" ? "number" : "string") };
     });
-    // prefer stable ordering (by provided base, then alpha)
     const baseOrder = new Map(BASE_COLUMNS.map((c, i) => [c.key, i]));
     defs.sort((a, b) => {
       const ia = baseOrder.has(a.key) ? baseOrder.get(a.key) : 1e9;
@@ -1233,284 +1006,582 @@ export default function Centrality() {
     q,
     amenitySelectedLabels.join("|"),
     floodSelectedLabels.join("|"),
+    JSON.stringify(amenityEnabled),
+    JSON.stringify(floodEnabled),
   ]);
 
-  const example = useMemo(() => {
-    const p = sortedByScore[0]?.properties;
-    if (!p) return { pb: 50, pc: 50, pa: 20, pf: 10 };
-    return { pb: p._pb ?? 0, pc: p._pc ?? 0, pa: p._pa ?? 0, pf: p._pf ?? 0 };
-  }, [sortedByScore]);
+  /* ===== example calculation ===== */
+  const exampleSegment = useMemo(() => {
+    const topRoad = sortedByScore[0];
+    if (!topRoad) return null;
 
-  /* ===== ui (dark) ===== */
+    const p = topRoad.properties;
+    const rn = p.RN_ID;
+
+    // Amenity breakdown (respect per-category toggle)
+    const amenRow = amenityCategoryCountByRoad.get(rn) || new Map();
+    const amenityBreakdown = [];
+    for (const [cat, count] of amenRow.entries()) {
+      const enabled = !!amenityEnabled[cat];
+      const weight = amenityWeights[cat] ?? 1.0;
+      const weighted = enabled ? count * weight : 0;
+      amenityBreakdown.push({ category: cat, count, weight, enabled, weighted });
+    }
+    amenityBreakdown.sort((a, b) => b.weighted - a.weighted);
+
+    // Flood breakdown (respect per-type toggle)
+    const floodRow = floodTypeCountByRoad.get(rn) || new Map();
+    const floodBreakdown = [];
+    for (const [type, count] of floodRow.entries()) {
+      const enabled = !!floodEnabled[type];
+      const weight = floodWeights[type] ?? 1.0;
+      const weighted = enabled ? count * weight : 0;
+      floodBreakdown.push({ type, count, weight, enabled, weighted });
+    }
+    floodBreakdown.sort((a, b) => b.weighted - a.weighted);
+
+    return {
+      name: p.name || "Example Road",
+      betweenness: p.betweenness_norm,
+      closeness: p.closeness_norm,
+      amenity_score: p.amenity_score,
+      flood_score: p.flood_score,
+      importance: p.importance,
+      amenityBreakdown,
+      floodBreakdown,
+    };
+  }, [
+    sortedByScore, amenityCategoryCountByRoad, floodTypeCountByRoad,
+    amenityWeights, floodWeights, amenityEnabled, floodEnabled
+  ]);
+
+  /* ===== ui ===== */
   return (
-    <div className="space-y-6 py-4 bg-slate-900 text-slate-100">
-      {/* settings (same as before, omitted for brevity changes) */}
-      <section className="rounded-2xl bg-slate-950 border border-slate-800 p-3 md:p-4">
-        <Accordion type="multiple" className="w-full">
-          <AccordionItem value="settings" className="border-b-0">
-            <AccordionTrigger className="text-sm uppercase text-slate-100">settings</AccordionTrigger>
-            <AccordionContent className="pt-2">
-              {/* road filter */}
-              <div className="rounded-xl border border-slate-800 p-3 md:p-4 bg-slate-950 mb-4">
-                <Accordion type="multiple">
-                  <AccordionItem value="road-filter" className="border-b-0">
-                    <AccordionTrigger className="text-sm uppercase text-slate-100">road filter</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                        <MultiSelectCombobox
-                          label="planning area"
-                          options={planningOptions}
-                          selected={planningSelected}
-                          onChange={setPlanningSelected}
-                          placeholder="select planning areas"
-                          searchPlaceholder="search planning areas…"
-                          emptyText="no planning area found."
-                          popoverWidthClass="w-[360px]"
-                          showClear
-                        />
+    <div className="mx-auto flex w-full flex-col gap-5 p-6">
+      {/* header */}
+      <header className="space-y-5">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">Road Network Centrality</h1>
+          <p className="text-sm text-muted-foreground md:text-base">
+            Analyse road importance using weighted components. Each section below is its own accordion. Use per-category toggles to include/exclude categories while setting weights.
+          </p>
+        </div>
 
-                        {/* subzone */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-200">subzone</Label>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs text-slate-300" onClick={() => setSubzonesSelected([])} disabled={!subzonesSelected.length}>clear</Button>
+        {/* each subsection is its own accordion */}
+        <Accordion type="multiple" className="space-y-4">
+          {/* Road Filters */}
+          <AccordionItem value="filters" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+              Road Filters
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+              <Card className="border bg-background/80 shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-base">Filter by Area, Subzone, Road Type, Search</CardTitle>
+                  <CardDescription>Filter the road network by location, type, or search term.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <MultiSelectCombobox
+                      label="Planning Area"
+                      options={planningOptions}
+                      selected={planningSelected}
+                      onChange={setPlanningSelected}
+                      placeholder="Select planning areas"
+                      searchPlaceholder="Search planning areas…"
+                      popoverWidthClass="w-[360px]"
+                    />
+
+                    {/* subzone */}
+                    <div className="space-y-1.5">
+                      <Label>Subzone</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button type="button" variant="outline" className="w-full justify-between">
+                            <span className="truncate text-left">
+                              {subzonesSelected.length ? `${subzonesSelected.length} selected` : "Select subzones"}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[360px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search by subzone or planning area" />
+                            <CommandEmpty>No subzone found.</CommandEmpty>
+                            <CommandList>
+                              <CommandGroup>
+                                <ScrollArea className="max-h-64">
+                                  {(subzoneOptionsRaw || [])
+                                    .filter((z) => {
+                                      if (!planningSelected.length) return true;
+                                      return z.planningArea && planningSelected.includes(z.planningArea);
+                                    })
+                                    .map((o) => {
+                                      const active = subzonesSelected.includes(o.name);
+                                      const value = `${o.name} ${o.planningArea}`;
+                                      return (
+                                        <CommandItem
+                                          key={`${o.planningArea}::${o.name}`}
+                                          value={value}
+                                          onSelect={() => {
+                                            const exists = active;
+                                            setSubzonesSelected((prev) =>
+                                              exists ? prev.filter((x) => x !== o.name) : [...prev, o.name]
+                                            );
+                                          }}
+                                          className="flex items-center justify-between gap-2"
+                                        >
+                                          <div className="min-w-0">
+                                            <div className="truncate">{o.name}</div>
+                                            <div className="text-xs text-muted-foreground truncate">{o.planningArea}</div>
+                                          </div>
+                                          <Check className={active ? "h-4 w-4" : "h-4 w-4 opacity-0"} />
+                                        </CommandItem>
+                                      );
+                                    })}
+                                </ScrollArea>
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+
+                      {!!subzonesSelected.length && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {subzonesSelected.map((v) => (
+                            <button
+                              type="button"
+                              key={v}
+                              onClick={() => setSubzonesSelected((prev) => prev.filter((x) => x !== v))}
+                              aria-label={`Remove ${v}`}
+                              className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+                            >
+                              <span className="truncate max-w-[160px]">{v}</span>
+                              <X className="h-3 w-3" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <MultiSelectCombobox
+                      label="Road Type"
+                      options={roadTypeOptions}
+                      selected={roadTypesSelected}
+                      onChange={setRoadTypesSelected}
+                      placeholder="Select road types"
+                      searchPlaceholder="Search road types…"
+                      popoverWidthClass="w-[360px]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="road-search">Search</Label>
+                    <Input
+                      id="road-search"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Name, RN ID, area…"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Amenity Categories */}
+          <AccordionItem value="amenities" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+              Amenity Categories (toggle per-category)
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+              <Card className="border bg-background/80 shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-base">Per-Category Toggles & Multipliers</CardTitle>
+                  <CardDescription>
+                    Example: if a road has 5 amenities (e.g., 2 hospitals, 3 schools), the weighted total is (2×hospital weight) + (3×school weight). Disabled categories contribute 0.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Example accordion */}
+                  {exampleSegment && (
+                    <Accordion type="single" collapsible className="rounded-xl border bg-muted/40">
+                      <AccordionItem value="example" className="border-0">
+                        <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
+                          Example: {exampleSegment.name}
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4">
+                          <div className="space-y-4 text-sm">
+                            {exampleSegment.amenityBreakdown && exampleSegment.amenityBreakdown.length > 0 ? (
+                              <>
+                                <div>
+                                  <div className="font-semibold mb-2">Amenities on this road:</div>
+                                  <div className="space-y-2">
+                                    {exampleSegment.amenityBreakdown.map(({ category, count, weight, enabled, weighted }) => (
+                                      <div key={category} className="rounded-lg border bg-background px-3 py-2 text-xs">
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-medium">{to_title_case(category)}</span>
+                                          <span className="text-muted-foreground">
+                                            {count} × {weight.toFixed(1)} × {enabled ? "on" : "off"} = <b>{weighted.toFixed(1)}</b>
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border bg-muted/40 p-3">
+                                  <div className="font-semibold mb-2">Calculation:</div>
+                                  <div className="text-xs space-y-1 font-mono">
+                                    <div>
+                                      Total weighted = {
+                                        exampleSegment.amenityBreakdown
+                                          .map(b => b.weighted)
+                                          .reduce((a, v) => a + v, 0).toFixed(1)
+                                      }
+                                    </div>
+                                    <div>Amenity score = min(100, 20 × log₁₀(1 + total weighted))</div>
+                                    <div className="mt-1">= <b>{exampleSegment.amenity_score.toFixed(2)}</b></div>
+                                  </div>
+                                  <div className="mt-2 text-xs text-muted-foreground">
+                                    This score feeds into the final importance via the component weight below.
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-xs text-muted-foreground">No amenities on this road segment.</div>
+                            )}
                           </div>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button type="button" variant="outline" className="w-full justify-between border-slate-700 text-slate-200">
-                                <span className="truncate text-left">
-                                  {subzonesSelected.length ? `${subzonesSelected.length} selected` : "select subzones"}
-                                </span>
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="z-50 w-[360px] p-0 bg-slate-950 border border-slate-800" align="start">
-                              <Command>
-                                <CommandInput placeholder="search by subzone or planning area" />
-                                <CommandEmpty>no subzone found.</CommandEmpty>
-                                <CommandList>
-                                  <CommandGroup>
-                                    <ScrollArea className="max-h-64">
-                                      {(subzoneOptionsRaw || [])
-                                        .filter((z) => {
-                                          if (!planningSelected.length) return true;
-                                          return z.planningArea && planningSelected.includes(z.planningArea);
-                                        })
-                                        .map((o) => {
-                                          const active = subzonesSelected.includes(o.name);
-                                          const value = `${o.name} ${o.planningArea}`;
-                                          return (
-                                            <CommandItem
-                                              key={`${o.planningArea}::${o.name}`}
-                                              value={value}
-                                              onSelect={() => {
-                                                const exists = active;
-                                                setSubzonesSelected((prev) =>
-                                                  exists ? prev.filter((x) => x !== o.name) : [...prev, o.name]
-                                                );
-                                              }}
-                                              className="flex items-center justify-between gap-2"
-                                            >
-                                              <div className="min-w-0">
-                                                <div className="truncate">{o.name}</div>
-                                                <div className="text-xs text-slate-500 truncate">{o.planningArea}</div>
-                                              </div>
-                                              <Check className={active ? "h-4 w-4" : "h-4 w-4 opacity-0"} />
-                                            </CommandItem>
-                                          );
-                                        })}
-                                    </ScrollArea>
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
 
-                          {!!subzonesSelected.length && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {subzonesSelected.map((v) => (
-                                <Badge key={v} variant="secondary" className="flex items-center gap-1 bg-slate-800 text-slate-100">
-                                  <span className="truncate max-w-[160px]">{v}</span>
-                                  <button type="button" className="rounded-full p-0.5 hover:bg-white/10" onClick={() => setSubzonesSelected((prev) => prev.filter((x) => x !== v))}>
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </Badge>
-                              ))}
+                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                    {amenityCategoryKeys.map((cat) => {
+                      const val = amenityWeights[cat] ?? 1.0;
+                      const enabled = !!amenityEnabled[cat];
+                      return (
+                        <div key={cat} className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{to_title_case(cat)}</span>
+                            <span className="text-xs text-muted-foreground">{amenityCounts[cat] || 0} total</span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                id={`amen-${cat}`}
+                                checked={enabled}
+                                onCheckedChange={(ck) => setAmenityEnabled((prev) => ({ ...prev, [cat]: !!ck }))}
+                              />
+                              <Label htmlFor={`amen-${cat}`} className="text-xs cursor-pointer">enable</Label>
                             </div>
-                          )}
-                        </div>
 
-                        <MultiSelectCombobox
-                          label="type of roads"
-                          options={roadTypeOptions}
-                          selected={roadTypesSelected}
-                          onChange={setRoadTypesSelected}
-                          placeholder="select road types"
-                          searchPlaceholder="search road types…"
-                          emptyText="no road type found."
-                          popoverWidthClass="w-[360px]"
-                          showClear
-                        />
-                      </div>
-
-                      {/* search */}
-                      <div className="mt-6 space-y-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-200">search</span>
-                        <input
-                          value={q}
-                          onChange={(e) => setQ(e.target.value)}
-                          placeholder="name / rn id / area…"
-                          className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-                        />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-
-              {/* amenities weights */}
-              <div className="rounded-xl border border-slate-800 p-3 md:p-4 bg-slate-950 mb-4">
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="amenities" className="border-b-0">
-                    <AccordionTrigger className="text-sm uppercase text-slate-100">amenities</AccordionTrigger>
-                    <AccordionContent>
-                      <MultiSelectCombobox
-                        label="categories"
-                        options={amenityOptionsDisplay}
-                        selected={amenitySelectedLabels}
-                        onChange={setAmenitySelectedLabels}
-                        placeholder="select amenity categories"
-                        searchPlaceholder="search amenity categories…"
-                        emptyText="no category found."
-                        popoverWidthClass="w-[420px]"
-                        showClear
-                      />
-
-                      <div className="mt-4">
-                        <WeightsRowEditor
-                          keysOrdered={visibleAmenityKeys}
-                          values={amenityVals}
-                          onChange={setAmenityVals}
-                          label="amenity category weights"
-                          normaliseMode={amenityNormalise}
-                          onToggleNormalise={(v) => setAmenityNormalise(!!v)}
-                        />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-
-              {/* floods weights */}
-              <div className="rounded-xl border border-slate-800 p-3 md:p-4 bg-slate-950 mb-4">
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="floods" className="border-b-0">
-                    <AccordionTrigger className="text-sm uppercase text-slate-100">floods</AccordionTrigger>
-                    <AccordionContent>
-                      <MultiSelectCombobox
-                        label="event types"
-                        options={floodOptionsDisplay}
-                        selected={floodSelectedLabels}
-                        onChange={setFloodSelectedLabels}
-                        placeholder="select flood types"
-                        searchPlaceholder="search flood types…"
-                        emptyText="no type found."
-                        popoverWidthClass="w-[420px]"
-                        showClear
-                      />
-
-                      <div className="mt-4">
-                        <WeightsRowEditor
-                          keysOrdered={visibleFloodKeys}
-                          values={floodVals}
-                          onChange={setFloodVals}
-                          label="flood type weights"
-                          normaliseMode={floodNormalise}
-                          onToggleNormalise={(v) => setFloodNormalise(!!v)}
-                        />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-
-              {/* importance & sla weights */}
-              <div className="rounded-2xl border border-slate-800 p-3 md:p-4 bg-slate-950">
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="weights" className="border-b-0">
-                    <AccordionTrigger className="text-sm uppercase text-slate-100">importance & sla weights</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                        {/* left: importance */}
-                        <div className="xl:col-span-7 space-y-4 rounded-xl border border-slate-800 p-3 md:p-4 bg-slate-950">
-                          <div className="text-sm font-semibold text-slate-100">importance (custom blend)</div>
-                          <p className="text-xs text-slate-500 -mt-1">slider + type-in. free mode shows suggested fix; normalised mode autoscale.</p>
-
-                          <WeightsRowEditor
-                            keysOrdered={["pb","pc","pa","pf"]}
-                            values={wImpRaw}
-                            onChange={setWImpRaw}
-                            label="importance weights"
-                            normaliseMode={impNormalise}
-                            onToggleNormalise={(v) => setImpNormalise(!!v)}
-                            showScoringToggle
-                            scoringNormalised={impScoringNormalised}
-                            onToggleScoringNormalised={(v) => setImpScoringNormalised(!!v)}
-                          />
-                        </div>
-
-                        {/* right: sla & example */}
-                        <div className="xl:col-span-5 space-y-4">
-                          <div className="rounded-xl border border-slate-800 p-3 md:p-4 bg-slate-950">
-                            <div className="text-sm font-semibold text-slate-100">sla (custom blend)</div>
-                            <p className="text-xs text-slate-500 -mt-1">independent weights; same behaviour.</p>
-
-                            <WeightsRowEditor
-                              keysOrdered={["pb","pc","pa","pf"]}
-                              values={wSlaRaw}
-                              onChange={setWSlaRaw}
-                              label="sla weights"
-                              normaliseMode={slaNormalise}
-                              onToggleNormalise={(v) => setSlaNormalise(!!v)}
-                              showScoringToggle
-                              scoringNormalised={slaScoringNormalised}
-                              onToggleScoringNormalised={(v) => setSlaScoringNormalised(!!v)}
+                            <Input
+                              type="number"
+                              min="1"
+                              max="10"
+                              step="0.1"
+                              value={val}
+                              onChange={(e) => {
+                                const next = clamp(+e.target.value || 1, 1, 10);
+                                setAmenityWeights((prev) => ({ ...prev, [cat]: next }));
+                              }}
+                              disabled={!enabled}
+                              className="h-9 w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
 
-                          <ExampleWeightsPreview
-                            wImpUsed={impScoringNormalised ? normaliseSelected(wImpRaw) : wImpRaw}
-                            wSlaUsed={slaScoringNormalised ? normaliseSelected(wSlaRaw) : wSlaRaw}
-                            example={example}
-                          />
+          {/* Flood Event Types */}
+          <AccordionItem value="floods" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+              Flood Event Types (toggle per-type)
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+              <Card className="border bg-background/80 shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-base">Per-Type Toggles & Multipliers</CardTitle>
+                  <CardDescription>
+                    Example: if a road has 4 flood events (1 drain overflow, 3 ponding), the weighted total is (1×drain weight) + (3×ponding weight). Disabled types contribute 0.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Example accordion */}
+                  {exampleSegment && (
+                    <Accordion type="single" collapsible className="rounded-xl border bg-muted/40">
+                      <AccordionItem value="example" className="border-0">
+                        <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
+                          Example: {exampleSegment.name}
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4">
+                          <div className="space-y-4 text-sm">
+                            {exampleSegment.floodBreakdown && exampleSegment.floodBreakdown.length > 0 ? (
+                              <>
+                                <div>
+                                  <div className="font-semibold mb-2">Flood events on this road:</div>
+                                  <div className="space-y-2">
+                                    {exampleSegment.floodBreakdown.map(({ type, count, weight, enabled, weighted }) => (
+                                      <div key={type} className="rounded-lg border bg-background px-3 py-2 text-xs">
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-medium">{to_title_case(type)}</span>
+                                          <span className="text-muted-foreground">
+                                            {count} × {weight.toFixed(1)} × {enabled ? "on" : "off"} = <b>{weighted.toFixed(1)}</b>
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
 
-                          <div className="flex justify-end">
-                            <Button
-                              variant="outline" size="sm" className="border-slate-700 text-slate-200"
-                              onClick={() => {
-                                setPlanningSelected([]); setSubzonesSelected([]); setRoadTypesSelected([]);
-                                setAmenitySelectedLabels([]); setFloodSelectedLabels([]); setQ("");
-                                setWImpRaw({ pb: 0.4, pc: 0.3, pa: 0.2, pf: 0.1 });
-                                setWSlaRaw({ pb: 0.4, pc: 0.3, pa: 0.2, pf: 0.1 });
-                                setAmenityVals({}); setFloodVals({});
-                                setAmenityNormalise(true); setFloodNormalise(true);
-                                setImpNormalise(true); setSlaNormalise(true);
-                                setImpScoringNormalised(true); setSlaScoringNormalised(true);
+                                <div className="rounded-lg border bg-muted/40 p-3">
+                                  <div className="font-semibold mb-2">Calculation:</div>
+                                  <div className="text-xs space-y-1 font-mono">
+                                    <div>
+                                      Total weighted = {
+                                        exampleSegment.floodBreakdown
+                                          .map(b => b.weighted)
+                                          .reduce((a, v) => a + v, 0).toFixed(1)
+                                      }
+                                    </div>
+                                    <div>Flood score = min(100, 25 × log₁₀(1 + total weighted))</div>
+                                    <div className="mt-1">= <b>{exampleSegment.flood_score.toFixed(2)}</b></div>
+                                  </div>
+                                  <div className="mt-2 text-xs text-muted-foreground">
+                                    This score feeds into the final importance via the component weight below.
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-xs text-muted-foreground">No flood events on this road segment.</div>
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
+
+                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                    {floodTypeKeys.map((type) => {
+                      const val = floodWeights[type] ?? 1.0;
+                      const enabled = !!floodEnabled[type];
+                      return (
+                        <div key={type} className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{to_title_case(type)}</span>
+                            <span className="text-xs text-muted-foreground">{floodCounts[type] || 0} events</span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                id={`flood-${type}`}
+                                checked={enabled}
+                                onCheckedChange={(ck) => setFloodEnabled((prev) => ({ ...prev, [type]: !!ck }))}
+                              />
+                              <Label htmlFor={`flood-${type}`} className="text-xs cursor-pointer">enable</Label>
+                            </div>
+
+                            <Input
+                              type="number"
+                              min="1"
+                              max="10"
+                              step="0.1"
+                              value={val}
+                              onChange={(e) => {
+                                const next = clamp(+e.target.value || 1, 1, 10);
+                                setFloodWeights((prev) => ({ ...prev, [type]: next }));
                               }}
-                            >
-                              reset all
-                            </Button>
+                              disabled={!enabled}
+                              className="h-9 w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Component Weights */}
+          <AccordionItem value="weights" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+              Component Weights (toggle components)
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6 pt-2 space-y-6">
+              <Card className="border bg-background/80 shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-base">Adjust Component Contribution</CardTitle>
+                  <CardDescription>Turn components on/off and set their weights. Components off contribute 0.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {/* betweenness */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Betweenness Centrality</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Switch id="comp-bet" checked={useCompBetweenness} onCheckedChange={setUseCompBetweenness} />
+                            <Label htmlFor="comp-bet" className="text-xs cursor-pointer">enable</Label>
+                          </div>
+                          <span className="text-sm font-semibold">{w_betweenness.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[w_betweenness * 100]}
+                        min={0} max={100} step={1}
+                        onValueChange={(v) => set_w_betweenness((v[0] || 0) / 100)}
+                        disabled={!useCompBetweenness}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        How often this road lies on shortest paths between other roads.
+                      </p>
+                    </div>
+
+                    {/* closeness */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Closeness Centrality</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Switch id="comp-clo" checked={useCompCloseness} onCheckedChange={setUseCompCloseness} />
+                            <Label htmlFor="comp-clo" className="text-xs cursor-pointer">enable</Label>
+                          </div>
+                          <span className="text-sm font-semibold">{w_closeness.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[w_closeness * 100]}
+                        min={0} max={100} step={1}
+                        onValueChange={(v) => set_w_closeness((v[0] || 0) / 100)}
+                        disabled={!useCompCloseness}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        How quickly this road can reach all other roads in the network.
+                      </p>
+                    </div>
+
+                    {/* amenities */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Amenity Impact</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Switch id="comp-amen" checked={useCompAmenity} onCheckedChange={setUseCompAmenity} />
+                            <Label htmlFor="comp-amen" className="text-xs cursor-pointer">enable</Label>
+                          </div>
+                          <span className="text-sm font-semibold">{w_amenity.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[w_amenity * 100]}
+                        min={0} max={100} step={1}
+                        onValueChange={(v) => set_w_amenity((v[0] || 0) / 100)}
+                        disabled={!useCompAmenity}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Density of nearby amenities weighted by per-category multipliers.
+                      </p>
+                    </div>
+
+                    {/* floods */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Flood History</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Switch id="comp-flood" checked={useCompFlood} onCheckedChange={setUseCompFlood} />
+                            <Label htmlFor="comp-flood" className="text-xs cursor-pointer">enable</Label>
+                          </div>
+                          <span className="text-sm font-semibold">{w_flood.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[w_flood * 100]}
+                        min={0} max={100} step={1}
+                        onValueChange={(v) => set_w_flood((v[0] || 0) / 100)}
+                        disabled={!useCompFlood}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Number of flood events weighted by per-type multipliers.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* example calculation */}
+                  {exampleSegment && (
+                    <div className="rounded-xl border bg-muted/40 p-4">
+                      <div className="font-semibold mb-3">Flat Example: {exampleSegment.name}</div>
+                      <div className="grid gap-3 text-sm">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground">Betweenness (0-100):</div>
+                          <div className="font-mono">{(exampleSegment.betweenness * 100).toFixed(2)} × {useCompBetweenness ? w_betweenness.toFixed(2) : "0.00"}</div>
+                          <div className="text-muted-foreground">Closeness (0-100):</div>
+                          <div className="font-mono">{(exampleSegment.closeness * 100).toFixed(2)} × {useCompCloseness ? w_closeness.toFixed(2) : "0.00"}</div>
+                          <div className="text-muted-foreground">Amenity Score:</div>
+                          <div className="font-mono">{exampleSegment.amenity_score.toFixed(2)} × {useCompAmenity ? w_amenity.toFixed(2) : "0.00"}</div>
+                          <div className="text-muted-foreground">Flood Score:</div>
+                          <div className="font-mono">{exampleSegment.flood_score.toFixed(2)} × {useCompFlood ? w_flood.toFixed(2) : "0.00"}</div>
+                        </div>
+                        <div className="border-t pt-2 font-mono text-xs">
+                          <div className="mb-1">Sum:</div>
+                          <div className="text-muted-foreground">
+                            = {(useCompBetweenness ? w_betweenness : 0).toFixed(2)} × {(exampleSegment.betweenness * 100).toFixed(2)}
+                            + {(useCompCloseness ? w_closeness : 0).toFixed(2)} × {(exampleSegment.closeness * 100).toFixed(2)}
+                            + {(useCompAmenity ? w_amenity : 0).toFixed(2)} × {exampleSegment.amenity_score.toFixed(2)}
+                            + {(useCompFlood ? w_flood : 0).toFixed(2)} × {exampleSegment.flood_score.toFixed(2)}
+                          </div>
+                          <div className="mt-1 font-semibold">
+                            = {exampleSegment.importance.toFixed(2)}
                           </div>
                         </div>
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setPlanningSelected([]); setSubzonesSelected([]); setRoadTypesSelected([]);
+                        setAmenitySelectedLabels([]); setFloodSelectedLabels([]); setQ("");
+
+                        setAmenityWeights(default_amenity_weights);
+                        setAmenityEnabled(default_amenity_enabled);
+                        setFloodWeights(default_flood_weights);
+                        setFloodEnabled(default_flood_enabled);
+
+                        setUseCompBetweenness(true);
+                        setUseCompCloseness(true);
+                        setUseCompAmenity(true);
+                        setUseCompFlood(true);
+
+                        set_w_betweenness(0.4);
+                        set_w_closeness(0.3);
+                        set_w_amenity(0.2);
+                        set_w_flood(0.1);
+                      }}
+                    >
+                      Reset All Settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      </section>
+      </header>
 
       {/* map + top list */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -1518,46 +1589,64 @@ export default function Centrality() {
           <CentralityMap data={mapData} />
         </div>
 
-        {/* top ranked (independent of bottom table filter) */}
-        <aside className="h-[60vh] min-h-[26rem] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 p-4 flex flex-col">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-100">importance (custom) · top 20</h2>
+        {/* top ranked */}
+        <aside className="h-[60vh] min-h-[26rem] rounded-3xl overflow-hidden border bg-card shadow-sm p-4 flex flex-col">
+          <div className="mb-3">
+            <h2 className="text-base font-semibold">Top 20 by Importance</h2>
+            <p className="text-xs text-muted-foreground mt-1">Highest-scoring road segments based on current weights</p>
           </div>
-          <div className="flex-1 overflow-auto pr-1">
-            {sortedByScore.slice(0, 20).map((f, i) => {
-              const p = f.properties || {};
-              return (
-                <div key={p.RN_ID ?? i} className="mb-2 rounded-md border border-slate-800 p-2 bg-slate-950">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="font-semibold text-slate-100 truncate">{p.name || "unnamed segment"}</div>
-                    <div className="text-slate-400">#{i + 1}</div>
+          <ScrollArea className="flex-1">
+            <div className="space-y-2 pr-2">
+              {sortedByScore.slice(0, 20).map((f, i) => {
+                const p = f.properties || {};
+                return (
+                  <div key={p.RN_ID ?? i} className="rounded-xl border p-3 bg-muted/30">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="font-semibold truncate">{p.name || "Unnamed Segment"}</div>
+                      <div className="text-muted-foreground">#{i + 1}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                      <div><span className="font-medium">Area:</span> {p.PLN_AREA_N || "—"}</div>
+                      <div><span className="font-medium">RN ID:</span> {p.RN_ID ?? "—"}</div>
+                      <div><span className="font-medium">Importance:</span> <b className="text-foreground">{format_number(p.importance, 2) ?? "—"}</b></div>
+                      <div><span className="font-medium">SLA:</span> <b className="text-foreground">{format_number(p.sla_priority, 2) ?? "—"}</b></div>
+                      <div><span className="font-medium">Amenities:</span> {p.amenity_count_total ?? "—"}</div>
+                      <div><span className="font-medium">Floods:</span> {p.flood_count_total ?? "—"}</div>
+                    </div>
                   </div>
-                  <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-300">
-                    <div><span className="text-slate-500">PLANNING_AREA:</span> {p.PLN_AREA_N || "—"}</div>
-                    <div><span className="text-slate-500">RN_ID:</span> {p.RN_ID ?? "—"}</div>
-                    <div><span className="text-slate-500">IMPORTANCE:</span> <b className="text-slate-100">{format_number(p.importance, 2) ?? "—"}</b></div>
-                    <div><span className="text-slate-500">SLA:</span> <b className="text-slate-100">{format_number(p.sla_priority, 2) ?? "—"}</b></div>
-                    <div><span className="text-slate-500">AMENITY_COUNT_TOTAL:</span> {p.amenity_count_total ?? "—"}</div>
-                    <div><span className="text-slate-500">FLOOD_COUNT_TOTAL:</span> {p.flood_count_total ?? "—"}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
         </aside>
       </div>
 
       {/* table */}
-      <section className="rounded-2xl bg-slate-950 border border-slate-800 p-4">
+      <section className="rounded-3xl border bg-card shadow-sm p-6">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">All Segments</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Complete list of road segments with sortable columns and export capability
+          </p>
+        </div>
         <CentralityTable
           rows={sortedByScore}
           totalRows={sortedByScore.length}
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
-          allColumnDefs={BASE_COLUMNS}
+          allColumnDefs={allColumnDefs}
         />
       </section>
+
+      {/* custom popup styles */}
+      <style>{`
+        .centrality-popup .mapboxgl-popup-content {
+          border-radius: 12px;
+          padding: 12px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+      `}</style>
     </div>
   );
 }
