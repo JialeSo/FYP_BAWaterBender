@@ -56,9 +56,13 @@ class WeatherAlerts:
 
         # Retrieve tele credentials first
         logger.info("🔄 Retrieving Telegram credentials from storage...")
+
+        # Use /tmp directory for session file in serverless environments
+        # This is writable in environments like Vercel
+        session_path = os.path.join("/tmp", "session")
         self.get_credentials_from_storage()
 
-        self.client = TelegramClient("session", int(api_id), api_hash)
+        self.client = TelegramClient(session_path, int(api_id), api_hash)
 
         logger.info(f"Using channel: {self.channel_username}")
 
@@ -437,12 +441,9 @@ class WeatherAlerts:
             )
 
             if response:
-                # Get the path to the backend directory
-                # (2 levels up from current file)
-                backend_dir = os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), "..", "..")
-                )
-                session_file_path = os.path.join(backend_dir, "session.session")
+                # Use /tmp directory for session file in serverless environments
+                # (read-only filesystem except /tmp in Vercel, AWS Lambda, etc.)
+                session_file_path = os.path.join("/tmp", "session.session")
 
                 # Write the downloaded content to session.session
                 with open(session_file_path, "wb") as f:
