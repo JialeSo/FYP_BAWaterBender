@@ -81,9 +81,6 @@ README*
 .dockerignore
 Dockerfile*
 
-# Vercel
-vercel.json
-
 # Old datasets (keep current data but exclude legacy)
 etl/data/old_datasets/
 
