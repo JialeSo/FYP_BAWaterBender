@@ -72,8 +72,9 @@ class WeatherAlerts:
                 logger.info("✅ Using cached session file from /tmp")
 
             # Create client in the current event loop context
+            # Note: api_id is int, api_hash is string (hexadecimal)
             self._client = TelegramClient(
-                self._session_path, int(self.api_id), int(self.api_hash)
+                self._session_path, int(self.api_id), self.api_hash
             )
             logger.info("✅ TelegramClient initialized")
 
