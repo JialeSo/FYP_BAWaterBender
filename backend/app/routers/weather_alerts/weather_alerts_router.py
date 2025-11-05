@@ -42,7 +42,7 @@ async def weather_alerts_webhook(request: Request):
         )
 
 
-@router.get("/cron/recent-messages", response_model=CronResponse)
+@router.get("/cron/recent-messages", response_model=WeatherAlertProcessResponse)
 async def fetch_weather_alerts_cron(
     hours: int = 24,
 ):
