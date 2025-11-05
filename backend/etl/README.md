@@ -1,14 +1,52 @@
 **ETL Overview**
-- Centralized ETL for ACRA companies, public amenities, and floods.
-- Pipelines use reusable stages from `backend/etl/common` and write to Supabase.
-- Data inputs/outputs live under `backend/etl/data` to keep artifacts versioned and visible.
+- Centralised ETL for ACRA companies, public amenities, and floods.
+- Reusable stages under `backend/etl/common`; final writes go to Supabase.
+- All raw/intermediate/final artefacts live under `backend/etl/data` for auditability.
 
-**Prerequisites**
+**TL;DR**
+- Initialisation
+  - Load env vars (Supabase, OneMap, optional Data.gov.sg/LocationIQ)
+  - Validate reference files (planning, subzone, road network, postal lookup)
+- Data Ingestion
+  - Load/fetch raw data (ACRA from Data.gov.sg, amenities from GeoJSON/OneMap themes, floods from Supabase + CSV)
+- Standardisation
+  - Clean and normalise fields (postal codes, names, formats, required columns)
+  - Enforce consistent schema across datasets
+- Geocoding & Spatial Enrichment
+  - Postal→lat/lng via local CSV first; fallback to OneMap API
+  - Spatial join to Planning Area and Subzone layers
+  - Nearest-road snapping to road network GeoJSON
+- Domain-specific Logic
+  - ACRA: consolidate 27 datasets; enforce geocode completeness
+  - Amenities: classify categories and assign priority; produce 3-layer output
+  - Floods: merge PUB alerts (from Supabase) with historical SG data (from CSV); compute start/end PA/SZ/RN IDs; sanitise geometry
+- Output Generation
+  - Write CSV/GeoJSON artefacts into `backend/etl/data`, preserving raw and enriched versions
+- Database Upsert
+  - Batched upsert into Supabase (GeoJSON/geom) with retries; conflicts on primary IDs
+- Validation
+  - Row counts, null checks (lat/lng, PA/SZ/RN), spot‑checks of coordinates; final CSVs logged and saved
+
+In short: fetch → clean → geocode → spatial match → classify (where needed) → batch upsert to Supabase with auditable CSV outputs.
+
+**Scope**
+- ACRA corporate registry data
+- Public amenities (HDX/OneMap Themes/OSM‑OneMap matched JSON)
+- Flood events (PUB weather alerts from Supabase + historical SG dataset)
+
+**System Requirements**
 - Python 3.11+
-- Virtualenv and project deps installed: `pip install -r backend/requirements.txt`
-- Supabase credentials with service role for upserts.
-- OneMap credentials for tokened endpoints.
-- Optional: Data.gov.sg API key and LocationIQ key for certain fallbacks.
+- Install deps: `pip install -r backend/requirements.txt`
+
+**Required Environment Variables**
+- Supabase
+  - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — DB access + upserts
+- OneMap (choose one pair)
+  - `ONEMAP_EMAIL`, `ONEMAP_EMAIL_PASSWORD`
+  - or `ONE_MAP_USER`, `ONE_MAP_PASS`
+- Optional
+  - `DATA_GOV_API_KEY` — improves Data.gov.sg ACRA fetch stability
+  - `LOCATIONIQ_KEY` — optional geocode fallback
 
 **Environment**
 - Required
@@ -51,13 +89,13 @@
    - To upload/refresh road network in DB or storage, consult `backend/etl/data/scripts/road_network_geojson_upload.py` (manual helper).
 3) Postal Codes Lookup
    - Ensure `backend/etl/data/onemap/onemap_postal_codes.csv` exists and is recent; ACRA and amenities geocoding use it for instant matches.
-4) Floods Source CSV
-   - Place your canonical floods CSV at `backend/etl/data/floods/PUB_and_huiying_flood.csv` (default path used by pipeline).
+4) Floods Historical Source CSV
+   - Place historical SG flood data at `backend/etl/data/floods/SG_postal_codes_resolved.csv` (pipeline fetches PUB alerts from Supabase automatically).
 
-**Data Layout**
+**Repository Layout**
 - `backend/etl/data/`
   - `amenities/` — intermediate and final amenities CSVs
-  - `floods/` — source floods CSV(s)
+  - `floods/` — floods source CSVs (`SG_postal_codes_resolved.csv` for historical data, `PUB_and_huiying_flood.csv` for merged output)
   - `geojson/` — planning_area and subzone reference layers
   - `geojson_layers/` — other GIS layers used by scripts
   - `onemap/` — `onemap_postal_codes.csv` lookup
@@ -67,7 +105,7 @@
     - `amenities_3layers.csv`
     - `floods_3layers.csv`
 
-**Common Module**
+**Shared ETL Framework (`backend/etl/common`)**
 - Files
   - `backend/etl/common/pipeline.py` — Orchestrates sequential stages with logging and error handling.
   - `backend/etl/common/pipeline_stage.py` — Base class; stages implement `process()`.
@@ -77,12 +115,33 @@
 - Usage
   - Pipelines assemble `PipelineStage` instances and call `Pipeline.run()`; each stage receives previous output and returns next input.
 
-**How Pipelines Run (Generic Step‑by‑Step)**
+**Execution Pattern**
 1) Stage validates config and inputs
 2) Stage processes data and returns structured output
 3) Next stage consumes output; sequence continues
 4) Final stage writes to Supabase using batched insert/upsert with retries
 5) Any unhandled exception stops the pipeline (default stop‑on‑error)
+
+**Planning Areas/Subzones Fetch**
+- Script: `backend/etl/onemap/scripts/fetch_pa_sz_onemap.py`
+- What it does
+  - Poll‑downloads Planning Areas and Subzones GeoJSON from data.gov.sg
+  - Cleans attributes, computes polygon area and optional population density
+  - Saves outputs to both backend and frontend paths:
+    - `backend/etl/data/roadnetwork/planning_area.geojson`
+    - `backend/etl/data/roadnetwork/subzone_area.geojson`
+    - `frontend/public/map/planning_area.geojson`
+    - `frontend/public/map/subzone_area.geojson`
+- Dataset IDs (override via env)
+  - `PA_DATASET_ID` (default `d_4765db0e87b9c86336792efe8a1f7a66`)
+  - `SZ_DATASET_ID` (default `d_8594ae9ff96d0c708bc2af633048edfb`)
+- Lookups used
+  - `backend/etl/data/amenities/planning_area_lookup.csv`
+  - `backend/etl/data/amenities/subzone_lookup.csv`
+  - Optional population: `backend/etl/data/onemap/respopagesexfa2025.csv`
+- Run it first
+  - `python backend/etl/onemap/scripts/fetch_pa_sz_onemap.py`
+  - Or run the master pipeline which invokes this stage automatically: `python -m backend.etl.master_pipeline`
 
 **ACRA Pipeline**
 - Code
@@ -217,38 +276,54 @@
   - `backend/etl/floods/floods_pipeline.py`
   - Entrypoint: `backend/etl/floods/run_floods_pipeline.py`
 - Purpose
-  - Load flood events from CSV and match each to Planning Areas/Subzones and the road network; upsert to `flood_3layers` with schema-safe sanitization.
+  - Merge PUB weather alerts from Supabase with historical SG flood data, match each to Planning Areas/Subzones and the road network; upsert to `flood_3layers` with schema-safe sanitization.
 - Stages
-  - `LoadFloodsStage` — Reads source-of-truth CSV, default: `data/floods/PUB_and_huiying_flood.csv`.
+  - `MergeFloodsDataStage` — Fetches PUB weather alerts from Supabase (`PUB_weather_alerts` table), joins with `geocodes` table for lat/lng and postal codes, merges with historical SG flood data from CSV (`SG_postal_codes_resolved.csv`), saves merged output to `PUB_and_huiying_flood.csv`.
   - `ProcessFloodsThreeLayersStage` — Wraps `scripts/process_floods_3layers.py` to compute start/end PA/SZ/RN IDs and writes `floods_3layers.csv`.
-  - `SanitizeFloodsForDBStage` — Drops unsupported columns, coerces types, builds `geom` from available coordinates when missing, ensures JSON-safe values.
+  - `SanitizeFloodsForDBStage` — Drops unsupported columns, coerces types, replaces NaN/inf with None for JSON safety, builds `geom` from available coordinates when missing.
+  - `FilterIslandPAStage` — Removes flood events in island planning areas (PA IDs: 24, 27, 31).
+  - `FilterSubsidedStage` — Excludes 'flood_subsided' events from upload.
+  - `CleanupRemoteFloodsStage` — Deletes disallowed rows from remote table before upsert (subsided events and island PAs).
   - `FloodsUpsertStage` — Upserts into the configured table on conflict `id`.
 - Inputs
-  - `backend/etl/data/floods/PUB_and_huiying_flood.csv`
+  - Supabase tables: `PUB_weather_alerts` (PUB weather alerts) and `geocodes` (location data)
+  - `backend/etl/data/floods/SG_postal_codes_resolved.csv` (historical SG flood data)
   - `backend/etl/data/geojson/planning_area.geojson`
   - `backend/etl/data/geojson/subzone_area.geojson`
   - `backend/etl/data/roadnetwork/road_network_final.geojson`
  - Step‑by‑Step Details
-  - Step 1: Load datasets
-    - Combine sponsor datasets (historical floods) with PUB alerts into the canonical CSV used by the pipeline. In current merged file, IDs 1–213 represent historical entries.
+  - Step 1: Merge datasets
+    - Fetch PUB weather alerts from Supabase and join with geocodes to get coordinates and postal codes for both start and end locations.
+    - Load historical SG flood data from CSV (IDs 1–214 represent historical entries from Hui Ying's dataset).
+    - Transform SG data to match PUB schema and merge datasets, sorted by event date (earliest first).
+    - Save merged data to `backend/etl/data/floods/PUB_and_huiying_flood.csv`.
   - Step 2: 3‑Layers processing
-    - For each event’s start/end (or origin) coordinates, compute `*_pa_id`, `*_sz_id`, `*_rn_id` via spatial joins and nearest road snapping.
-  - Step 3: Sanitize + Upsert
-    - Coerce IDs to ints, floats to finite values, build `geom` when missing, then upsert in batches with conflict target `id`.
+    - For each event's start/end (or origin) coordinates, compute `*_pa_id`, `*_sz_id`, `*_rn_id` via spatial joins and nearest road snapping.
+    - Matches ~302 events after filtering out entries with missing coordinates.
+  - Step 3: Sanitize, Filter & Upsert
+    - Replace NaN/inf values with None for JSON compliance.
+    - Coerce IDs to ints, floats to finite values, build `geom` when missing.
+    - Filter out island planning areas and subsided flood events.
+    - Clean remote table of disallowed legacy rows before upserting in batches with conflict target `id`.
 - Outputs
-  - `backend/etl/data/floods_3layers.csv`
+  - `backend/etl/data/floods/PUB_and_huiying_flood.csv` — merged PUB + SG historical data
+  - `backend/etl/data/floods_3layers.csv` — final processed data
   - Database table: `flood_3layers`
 - Step‑by‑Step Run
-  1) Ensure source CSV at `backend/etl/data/floods/PUB_and_huiying_flood.csv`
-  2) Ensure planning/subzone and road network reference files exist
-  3) Run pipeline:
+  1) Ensure Supabase connection is configured (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
+  2) Ensure historical SG CSV exists at `backend/etl/data/floods/SG_postal_codes_resolved.csv`
+  3) Ensure planning/subzone and road network reference files exist
+  4) Run pipeline:
      - `python backend/etl/floods/run_floods_pipeline.py`
-  4) Verify results:
-     - File: `backend/etl/data/floods_3layers.csv`
+  5) Verify results:
+     - File: `backend/etl/data/floods/PUB_and_huiying_flood.csv` (merged source data)
+     - File: `backend/etl/data/floods_3layers.csv` (processed output)
      - DB: table `flood_3layers` updated with start_* and end_* IDs
 - Maintenance Tips
-  - Validate required columns exist in the floods CSV (`id,start_lat,start_lng` minimum).
+  - Pipeline automatically fetches latest PUB data from Supabase, so no manual CSV updates needed for PUB alerts.
+  - Update `SG_postal_codes_resolved.csv` when new historical flood data is available.
   - Geospatial matches are sensitive to the quality of coordinates and boundary layers.
+  - The merge stage creates a unified dataset combining live PUB alerts with historical records.
 
 **Running Pipelines**
 - Activate your env and set variables, e.g.:
@@ -261,11 +336,22 @@
   - Amenities: `python backend/etl/amenities/run_amenities_pipeline.py`
   - Floods: `python backend/etl/floods/run_floods_pipeline.py`
 
+**Outputs Summary**
+- Amenities → file: `backend/etl/data/amenities_3layers.csv` → DB: `amenity_3layers`
+- ACRA → file: `backend/etl/acra/data/acra_all.csv` → DB: `acra_companies`
+- Floods → files: `backend/etl/data/floods/PUB_and_huiying_flood.csv` (merged source), `backend/etl/data/floods_3layers.csv` (processed) → DB: `flood_3layers`
+
+**Notes**
+- Lookup first → API fallback → update lookup
+- Controlled batching to avoid HTTP2 resets
+- Stop‑on‑error design for data integrity
+- Local GeoJSON fallback from `frontend/public/map` when backend copies are missing
+
 **Verification (Step‑by‑Step)**
 1) Files produced
    - ACRA: `acra/acra_all.csv` contains `latitude,longitude`
    - Amenities: `amenities_consolidated.geojson`, `amenities/amenities_raw.csv`, `amenities_3layers.csv`
-   - Floods: `floods_3layers.csv`
+   - Floods: `floods/PUB_and_huiying_flood.csv` (merged source), `floods_3layers.csv` (processed output)
 2) Database checks (Supabase)
    - ACRA: select a few rows by known `uen`
    - Amenities: ensure `pa_id, sz_id, rn_id` not null for majority of rows
@@ -295,14 +381,17 @@
   - Update `data/onemap/onemap_postal_codes.csv` and ensure 6‑digit postals after `TransformACRAStage`
 - Amenities classification keys missing
   - Inspect `backend/etl/amenities/classify.py`; re‑run pipeline after rule updates
-- Floods missing required columns
-  - Ensure the CSV includes at least `id,start_lat,start_lng`; clean inconsistent column headers
+- Floods missing required columns or data
+  - Ensure `SG_postal_codes_resolved.csv` includes at least `id,Date,Location,latitude,longitude,Postal_Code`; clean inconsistent column headers
+  - Verify PUB weather alerts exist in Supabase table `PUB_weather_alerts` and geocodes exist in `geocodes` table
+  - Check merge stage logs for warnings about missing PUB or geocode data
 
 **Where To Change What**
 - Geocoding policies: `backend/etl/acra/geocode_postal_onemap_stage.py` and `backend/etl/amenities/geocode.py`.
 - Classification rules: `backend/etl/amenities/classify.py`.
 - Road matching logic: `backend/etl/amenities/match_roads.py` and floods `backend/etl/floods/scripts/process_floods_3layers.py`.
-- Database schema mapping/sanitization: `backend/etl/common/database_write_stage.py` and floods’ `SanitizeFloodsForDBStage`.
+- Database schema mapping/sanitization: `backend/etl/common/database_write_stage.py` and floods' `SanitizeFloodsForDBStage`.
+- Floods data merging logic: `backend/etl/floods/floods_pipeline.py` `MergeFloodsDataStage` (PUB + SG historical data merging).
 
 **Scheduling**
 - ACRA is monthly; amenities and floods as data updates. Use your scheduler of choice (cron, GitHub Actions, etc.) to call the entrypoint scripts.

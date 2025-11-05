@@ -19,6 +19,209 @@ logger = logging.getLogger(__name__)
 # PIPELINE STAGES
 # ============================================================================
 
+class MergeFloodsDataStage(PipelineStage):
+    """Merge PUB weather alerts from Supabase with historical SG flood data.
+
+    This stage combines:
+    1. PUB weather alerts (fetched from Supabase)
+    2. SG historical flood data (Hui Ying's dataset with postal codes)
+
+    Input: None (loads from Supabase and file)
+    Output: Merged DataFrame ready for further processing
+    """
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """Initialize the merge floods data stage.
+
+        Args:
+            config: Configuration dictionary containing:
+                - sg_csv: Path to SG historical floods CSV
+                - output_csv: Path to save merged CSV
+                - pub_table: Supabase table name for PUB data
+        """
+        super().__init__("Merge Floods Data", config)
+
+        # All data in backend/etl/data
+        etl_data_dir = Path(__file__).resolve().parents[1] / "data"
+
+        self.sg_csv = Path(
+            self.config.get(
+                "sg_csv",
+                etl_data_dir / "floods" / "SG_postal_codes_resolved.csv"
+            )
+        )
+
+        self.output_csv = Path(
+            self.config.get(
+                "output_csv",
+                etl_data_dir / "floods" / "PUB_and_huiying_flood.csv"
+            )
+        )
+
+        self.pub_table = self.config.get("pub_table", "flood_3layers")
+        self.db = self.config.get("db_connection") or DatabaseConnection()
+
+    def validate_config(self) -> bool:
+        """Validate configuration parameters.
+
+        Returns:
+            True if configuration is valid
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        if not self.sg_csv.exists():
+            raise ValueError(f"SG CSV not found: {self.sg_csv}")
+
+        # Test database connection
+        self.db._get_connection()
+
+        return True
+
+    async def process(self, data: Any) -> pd.DataFrame:
+        """Merge PUB data from Supabase and SG historical flood data.
+
+        Args:
+            data: Ignored (stage loads from Supabase and file)
+
+        Returns:
+            Merged DataFrame with combined flood data
+        """
+        logger.info("Fetching PUB weather alerts from Supabase...")
+
+        # Fetch PUB weather alerts and geocodes from Supabase
+        try:
+            client = self.db._get_connection()
+
+            # Fetch PUB weather alerts
+            pub_response = client.table("PUB_weather_alerts").select("*").execute()
+            pub_records = pub_response.data
+
+            # Fetch geocodes for location data
+            geocodes_response = client.table("geocodes").select("*").execute()
+            geocodes_records = geocodes_response.data
+
+            if not pub_records:
+                logger.warning("No PUB weather alerts found in Supabase")
+                pub_df = pd.DataFrame()
+            else:
+                pub_df = pd.DataFrame(pub_records)
+                geocodes_df = pd.DataFrame(geocodes_records) if geocodes_records else pd.DataFrame()
+
+                logger.info(f"✓ Fetched {len(pub_df):,} PUB weather alerts from Supabase")
+                logger.info(f"✓ Fetched {len(geocodes_df):,} geocodes from Supabase")
+
+                # Join with geocodes to get lat/lng and postal codes
+                if not geocodes_df.empty:
+                    # Create mapping for start and end locations
+                    pub_df = pub_df.merge(
+                        geocodes_df[["id", "latitude", "longitude", "postal_code"]],
+                        left_on="start_loc_geocode_id",
+                        right_on="id",
+                        how="left",
+                        suffixes=("", "_start")
+                    ).rename(columns={
+                        "latitude": "start_lat",
+                        "longitude": "start_lng",
+                        "postal_code": "start_postal_code"
+                    })
+
+                    # Remove the extra 'id' column from the merge
+                    if "id_start" in pub_df.columns:
+                        pub_df = pub_df.drop(columns=["id_start"])
+
+                    # Merge end location data
+                    pub_df = pub_df.merge(
+                        geocodes_df[["id", "latitude", "longitude", "postal_code"]],
+                        left_on="end_loc_geocode_id",
+                        right_on="id",
+                        how="left",
+                        suffixes=("", "_end")
+                    ).rename(columns={
+                        "latitude": "end_lat",
+                        "longitude": "end_lng",
+                        "postal_code": "end_postal_code"
+                    })
+
+                    # Remove the extra 'id' column from the merge
+                    if "id_end" in pub_df.columns:
+                        pub_df = pub_df.drop(columns=["id_end"])
+
+                # Ensure postal codes are strings
+                if "start_postal_code" in pub_df.columns:
+                    pub_df["start_postal_code"] = pub_df["start_postal_code"].astype(str)
+                if "end_postal_code" in pub_df.columns:
+                    pub_df["end_postal_code"] = pub_df["end_postal_code"].astype(str)
+
+                # Convert created_at to event_date (date only)
+                if "created_at" in pub_df.columns:
+                    pub_df["event_date"] = pd.to_datetime(
+                        pub_df["created_at"],
+                        errors="coerce"
+                    ).dt.date
+
+                # Map location fields
+                if "start_loc" in pub_df.columns:
+                    pub_df["location"] = pub_df["start_loc"]
+
+        except Exception as e:
+            logger.error(f"Failed to fetch PUB data from Supabase: {e}")
+            raise
+
+        # Load SG dataset, ensure Postal_Code is string
+        logger.info(f"Loading SG historical data from {self.sg_csv}")
+        sg_df = pd.read_csv(self.sg_csv, dtype={"Postal_Code": str})
+
+        # Convert SG["Date"] to datetime.date
+        sg_df["event_date"] = pd.to_datetime(
+            sg_df["Date"],
+            dayfirst=True,
+            errors="coerce"
+        ).dt.date
+
+        logger.info(f"✓ Loaded {len(sg_df):,} SG historical flood events")
+
+        # Create a dataframe with PUB's schema
+        sg_to_pub = pd.DataFrame({
+            "id": sg_df["id"],
+            "created_at": None,
+            "text": None,
+            "event_date": sg_df["event_date"],
+            "sender_id": None,
+            "msg_id": None,
+            "location": sg_df["Location"],
+            "event": "flash_flood",
+            "start_loc": None,
+            "end_loc": None,
+            "parent_road": None,
+            "cleaned_location": None,
+            "start_lat": sg_df["latitude"],
+            "start_lng": sg_df["longitude"],
+            "start_postal_code": sg_df["Postal_Code"],
+            "end_lat": None,
+            "end_lng": None,
+            "end_postal_code": None,
+        })
+
+        # Combine SG + PUB (SG first since it has historical data)
+        if pub_df.empty:
+            merged = sg_to_pub
+        else:
+            merged = pd.concat([sg_to_pub, pub_df], ignore_index=True)
+
+        # Sort by event_date (earliest first)
+        merged = merged.sort_values("event_date", ascending=True).reset_index(drop=True)
+
+        logger.info(f"✓ Merged {len(merged):,} total flood events")
+
+        # Save result
+        self.output_csv.parent.mkdir(parents=True, exist_ok=True)
+        merged.to_csv(self.output_csv, index=False)
+        logger.info(f"✓ Saved merged dataset to {self.output_csv}")
+
+        return merged
+
+
 class LoadFloodsStage(PipelineStage):
     """Load floods data from CSV file.
 
@@ -276,6 +479,7 @@ class SanitizeFloodsForDBStage(PipelineStage):
 
     async def process(self, data: Any) -> Any:
         import pandas as pd  # local import to keep module light
+        import numpy as np
 
         if data is None:
             return []
@@ -283,6 +487,9 @@ class SanitizeFloodsForDBStage(PipelineStage):
             return data
 
         df: pd.DataFrame = data.copy()
+
+        # Replace all NaN values with None before converting to dict
+        df = df.replace({np.nan: None, np.inf: None, -np.inf: None})
 
         # Convert to records then sanitize each record
         records = df.to_dict(orient="records")
@@ -507,11 +714,13 @@ class FloodsPipeline(Pipeline):
     """Complete pipeline for processing floods data.
 
     This pipeline processes floods data through these stages:
-    1. Load Floods - Load from floods.csv
+    1. Merge Floods Data - Combine PUB data (from Supabase) with SG historical data (from CSV)
     2. Three Layers Processing - Match to PA/SZ/RN
-    3. Database Write - Upload to Supabase
+    3. Sanitize Data - Clean and format for database
+    4. Filter Data - Remove island PAs and subsided events
+    5. Database Write - Upsert to Supabase
 
-    The pipeline handles the complete flow from CSV file to database.
+    The pipeline handles the complete flow from data sources to database.
     """
 
     def __init__(
@@ -523,7 +732,7 @@ class FloodsPipeline(Pipeline):
 
         Args:
             config: Configuration dictionary containing:
-                - load_floods: Config for load floods stage
+                - merge_floods: Config for merge floods stage
                 - three_layers: Config for three layers stage
                 - database_write: Config for database write stage
                 - continue_on_error: Whether to continue on stage errors
@@ -552,10 +761,10 @@ class FloodsPipeline(Pipeline):
         """
         stages = []
 
-        # Stage 1: Load Floods
-        load_config = self.config.get("load_floods", {})
-        load_stage = LoadFloodsStage(config=load_config)
-        stages.append(load_stage)
+        # Stage 1: Merge Floods Data (PUB from Supabase + SG from CSV)
+        merge_config = self.config.get("merge_floods", {})
+        merge_stage = MergeFloodsDataStage(config=merge_config)
+        stages.append(merge_stage)
 
         # Stage 2: Three Layers Processing
         three_layers_config = self.config.get("three_layers", {})
