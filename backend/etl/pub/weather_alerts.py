@@ -28,17 +28,17 @@ logger = logging.getLogger(__name__)
 
 class WeatherAlerts:
     def __init__(self):
-        """Initialize Telegram client and load environment variables"""
-        api_id = os.getenv("TELE_API_ID")
-        api_hash = os.getenv("TELE_API_HASH")
+        """Initialize configuration and load environment variables"""
+        self.api_id = os.getenv("TELE_API_ID")
+        self.api_hash = os.getenv("TELE_API_HASH")
         self.bot_token = os.getenv("PUB_TELE_BOT_TOKEN")
         self.channel_username = PUB_CHANNEL_USERNAME
         self.phone = os.getenv("TELE_PHONE_NO")
 
         missing_vars = []
-        if not api_id:
+        if not self.api_id:
             missing_vars.append("TELE_API_ID")
-        if not api_hash:
+        if not self.api_hash:
             missing_vars.append("TELE_API_HASH")
         if not self.channel_username:
             missing_vars.append("PUB_CHANNEL_USERNAME")
@@ -50,25 +50,34 @@ class WeatherAlerts:
                 f"Missing required environment variables: " f"{', '.join(missing_vars)}"
             )
 
-        # At this point we know api_id and api_hash are not None
-        assert api_id is not None
-        assert api_hash is not None
-
-        # Retrieve tele credentials first
-        logger.info("🔄 Retrieving Telegram credentials from storage...")
-
-        # Use /tmp directory for session file in serverless environments
-        # This is writable in environments like Vercel
-        session_path = os.path.join("/tmp", "session")
-        self.get_credentials_from_storage()
-
-        self.client = TelegramClient(session_path, int(api_id), api_hash)
+        # Defer client creation until needed in async context
+        self._client = None
+        self._session_path = os.path.join("/tmp", "session")
 
         logger.info(f"Using channel: {self.channel_username}")
-
         logger.info(
             f"WeatherAlertsETL initialized. " f"Listening on {self.channel_username}"
         )
+
+    @property
+    def client(self) -> TelegramClient:
+        """Lazy-load the TelegramClient to avoid event loop issues"""
+        if self._client is None:
+            # Check if session file exists, download if needed
+            session_file = f"{self._session_path}.session"
+            if not os.path.exists(session_file):
+                logger.info("🔄 Session file not found, " "retrieving from storage...")
+                self.get_credentials_from_storage()
+            else:
+                logger.info("✅ Using cached session file from /tmp")
+
+            # Create client in the current event loop context
+            self._client = TelegramClient(
+                self._session_path, int(self.api_id), int(self.api_hash)
+            )
+            logger.info("✅ TelegramClient initialized")
+
+        return self._client
 
     async def extract_existing_messages(self, limit: int = 100) -> None:
         """Extract existing messages from a channel"""
