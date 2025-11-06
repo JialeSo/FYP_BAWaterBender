@@ -59,9 +59,8 @@ class WeatherAlerts:
             f"WeatherAlertsETL initialized. " f"Listening on {self.channel_username}"
         )
 
-    @property
-    def client(self) -> TelegramClient:
-        """Lazy-load the TelegramClient to avoid event loop issues"""
+    async def _get_client(self) -> TelegramClient:
+        """Get or create TelegramClient in the current async context"""
         if self._client is None:
             # Check if session file exists, download if needed
             session_file = f"{self._session_path}.session"
@@ -83,18 +82,20 @@ class WeatherAlerts:
     async def extract_existing_messages(self, limit: int = 100) -> None:
         """Extract existing messages from a channel"""
         messages = []
-        if not self.client.is_connected():
-            await self.client.connect()
+        client = await self._get_client()
 
-        if not await self.client.is_user_authorized():
+        if not client.is_connected():
+            await client.connect()
+
+        if not await client.is_user_authorized():
             if self.phone:
-                self.client.start(phone=self.phone)
+                await client.start(phone=self.phone)
             else:
                 logger.error("Phone number not provided for authorization")
                 return
 
         try:
-            async for message in self.client.iter_messages(
+            async for message in client.iter_messages(
                 self.channel_username, limit=limit
             ):
                 if message.text:
@@ -135,13 +136,14 @@ class WeatherAlerts:
             List of message dictionaries
         """
         messages = []
+        client = await self._get_client()
 
-        if not self.client.is_connected():
-            await self.client.connect()
+        if not client.is_connected():
+            await client.connect()
 
-        if not await self.client.is_user_authorized():
+        if not await client.is_user_authorized():
             if self.phone:
-                await self.client.start(phone=self.phone)
+                await client.start(phone=self.phone)
             else:
                 logger.error("Phone number not provided for authorization")
                 return messages
@@ -157,7 +159,7 @@ class WeatherAlerts:
             )
 
             # Iterate through messages until we hit the time threshold
-            async for message in self.client.iter_messages(
+            async for message in client.iter_messages(
                 self.channel_username, limit=None
             ):
                 # Stop if message is older than threshold
@@ -211,13 +213,14 @@ class WeatherAlerts:
             List of processed message dictionaries
         """
         messages = []
+        client = await self._get_client()
 
-        if not self.client.is_connected():
-            await self.client.connect()
+        if not client.is_connected():
+            await client.connect()
 
-        if not await self.client.is_user_authorized():
+        if not await client.is_user_authorized():
             if self.phone:
-                await self.client.start(phone=self.phone)
+                await client.start(phone=self.phone)
             else:
                 logger.error("Phone number not provided for authorization")
                 return messages
@@ -248,7 +251,7 @@ class WeatherAlerts:
 
             # Iterate through messages until we hit the time threshold
             raw_messages = []
-            async for message in self.client.iter_messages(
+            async for message in client.iter_messages(
                 self.channel_username, limit=None
             ):
                 # Stop if message is older than threshold
@@ -289,9 +292,11 @@ class WeatherAlerts:
         url = SERVER_URL or "http://localhost:8000"
         WEBHOOK_URL = f"{url}/weather-alerts/webhook"
 
+        client = await self._get_client()
+
         try:
             # Start the client with phone parameter - this handles authentication automatically
-            await self.client.start(
+            await client.start(
                 phone=self.phone,
                 code_callback=lambda: input(
                     "Please enter the verification code you received: "
@@ -305,7 +310,7 @@ class WeatherAlerts:
             return
 
         # Set up message handler
-        @self.client.on(events.NewMessage(chats=self.channel_username))
+        @client.on(events.NewMessage(chats=self.channel_username))
         async def handler(event):
             data = {
                 "id": event.message.id,
@@ -328,7 +333,7 @@ class WeatherAlerts:
 
         logger.info(f"📡 Now monitoring {self.channel_username} for new messages...")
         # Keep the client running
-        await self.client.run_until_disconnected()
+        await client.run_until_disconnected()
 
     def _save_message(
         self,
