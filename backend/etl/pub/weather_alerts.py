@@ -54,9 +54,8 @@ class WeatherAlerts:
         self._client = None
         self._session_path = os.path.join("/tmp", "session")
 
-        logger.info(f"Using channel: {self.channel_username}")
         logger.info(
-            f"WeatherAlertsETL initialized. " f"Listening on {self.channel_username}"
+            f"Telegram Client subscribed to {self.channel_username}"
         )
 
     async def _get_client(self) -> TelegramClient:

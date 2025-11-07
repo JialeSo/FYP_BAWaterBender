@@ -2,12 +2,7 @@
   "version": 2,
   "framework": "fastapi",
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
-    {
-      "path": "/api/weather-alerts/cron/recent-messages",
-      "schedule": "0 10 * * *"
-    }
-  ],
+
   "rewrites": [
     {
       "source": "/app/(.*)",
