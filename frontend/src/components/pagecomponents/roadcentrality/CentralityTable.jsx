@@ -14,10 +14,10 @@ export function CentralityTable({
   totalPages,
   onPageChange,
   allColumnDefs,
-  defaultKeys = ["RN_ID", "name", "PLN_AREA_N", "score", "importance", "sla_priority", "flood_count_total", "amenity_count_total", "betweenness_norm", "closeness_norm"],
+  defaultKeys = ["RN_ID", "name", "PLN_AREA_N", "importance", "sla_priority", "flood_count_total", "amenity_count_total", "betweenness_norm", "closeness_norm"],
 }) {
   const [tableQ, setTableQ] = useState("");
-  const [sortKey, setSortKey] = useState("score");
+  const [sortKey, setSortKey] = useState("importance");
   const [sortDir, setSortDir] = useState("desc");
   const [selectedCols, setSelectedCols] = useState(defaultKeys);
 

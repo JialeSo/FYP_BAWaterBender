@@ -5,7 +5,7 @@ export const PAGE_SIZE = 40;
 export const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 
 export const COLOR_SCORE = [
-  "interpolate", ["linear"], ["coalesce", ["to-number", ["get", "score"]], 0],
+  "interpolate", ["linear"], ["coalesce", ["to-number", ["get", "importance"]], 0],
   0, "#dbeafe",
   20, "#93c5fd",
   40, "#60a5fa",

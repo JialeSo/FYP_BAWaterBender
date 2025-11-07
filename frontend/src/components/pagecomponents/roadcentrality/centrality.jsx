@@ -56,7 +56,6 @@ const BASE_COLUMNS = [
   { key: "flood_count_total", label: "Flood Count", type: "number" },
   { key: "importance", label: "Importance", type: "number", format: (v) => format_number(v, 2) },
   { key: "sla_priority", label: "SLA Priority", type: "number", format: (v) => format_number(v, 2) },
-  { key: "score", label: "Score", type: "number", format: (v) => format_number(v, 2) },
 ];
 
 export default function Centrality() {
@@ -414,7 +413,6 @@ export default function Centrality() {
       );
 
       const sla_priority = importance;
-      const score = importance;
 
       return {
         ...f,
@@ -431,7 +429,6 @@ export default function Centrality() {
           flood_count_total: floodTot,
           importance: Math.round(importance * 100) / 100,
           sla_priority: Math.round(sla_priority * 100) / 100,
-          score: Math.round(score * 100) / 100,
         },
       };
     }).filter(Boolean);
@@ -446,12 +443,12 @@ export default function Centrality() {
 
   /* ===== paging ===== */
   const [currentPage, setCurrentPage] = useState(1);
-  const sortedByScore = useMemo(() => {
+  const sortedByImportance = useMemo(() => {
     const arr = [...scored];
-    arr.sort((a, b) => (b.properties.score || 0) - (a.properties.score || 0));
+    arr.sort((a, b) => (b.properties.importance || 0) - (a.properties.importance || 0));
     return arr;
   }, [scored]);
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedByScore.length / PAGE_SIZE)), [sortedByScore.length]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedByImportance.length / PAGE_SIZE)), [sortedByImportance.length]);
 
   const allColumnDefs = useMemo(() => {
     const keys = new Set(BASE_COLUMNS.map((c) => c.key));
@@ -485,21 +482,21 @@ export default function Centrality() {
   const getSLATier = useCallback((importance) => {
     if (!useSLAMapping) return null;
     
-    const index = sortedByScore.findIndex(f => f.properties.importance === importance);
-    const percentile = (index / sortedByScore.length) * 100;
+    const index = sortedByImportance.findIndex(f => f.properties.importance === importance);
+    const percentile = (index / sortedByImportance.length) * 100;
     
     if (percentile < slaTop1Year) return 1;
     if (percentile < slaTop1Year + slaNext3Year) return 3;
     return 5;
-  }, [useSLAMapping, slaTop1Year, slaNext3Year, sortedByScore]);
+  }, [useSLAMapping, slaTop1Year, slaNext3Year, sortedByImportance]);
 
 
   
   // Get selected road details
   const selectedRoad = useMemo(() => {
     if (!selectedRoadId) return null;
-    return sortedByScore.find(f => f.properties.RN_ID === selectedRoadId);
-  }, [selectedRoadId, sortedByScore]);
+    return sortedByImportance.find(f => f.properties.RN_ID === selectedRoadId);
+  }, [selectedRoadId, sortedByImportance]);
 
 
   useEffect(() => {
@@ -517,7 +514,7 @@ export default function Centrality() {
 
   /* ===== example calculation ===== */
   const exampleSegment = useMemo(() => {
-    const topRoad = sortedByScore[0];
+    const topRoad = sortedByImportance[0];
     if (!topRoad) return null;
 
     const p = topRoad.properties;
@@ -556,7 +553,7 @@ export default function Centrality() {
       floodBreakdown,
     };
   }, [
-    sortedByScore, amenityCategoryCountByRoad, floodTypeCountByRoad,
+    sortedByImportance, amenityCategoryCountByRoad, floodTypeCountByRoad,
     amenityWeights, floodWeights, amenityEnabled, floodEnabled
   ]);
 
@@ -787,17 +784,20 @@ export default function Centrality() {
                             </div>
 
                             <Input
-                              type="number"
-                              min="1"
-                              max="10"
-                              step="0.1"
+                              type="text"
                               value={val}
                               onChange={(e) => {
-                                const next = clamp(+e.target.value || 1, 1, 10);
-                                setAmenityWeights((prev) => ({ ...prev, [cat]: next }));
+                                const inputVal = e.target.value;
+                                // Allow empty, digits, and decimal point
+                                if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
+                                  const numVal = inputVal === '' ? 1 : parseFloat(inputVal);
+                                  if (Number.isFinite(numVal)) {
+                                    setAmenityWeights((prev) => ({ ...prev, [cat]: numVal }));
+                                  }
+                                }
                               }}
                               disabled={!enabled}
-                              className="h-9 w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="h-9 w-24"
                             />
                           </div>
                         </div>
@@ -885,17 +885,20 @@ export default function Centrality() {
                             </div>
 
                             <Input
-                              type="number"
-                              min="1"
-                              max="10"
-                              step="0.1"
+                              type="text"
                               value={val}
                               onChange={(e) => {
-                                const next = clamp(+e.target.value || 1, 1, 10);
-                                setFloodWeights((prev) => ({ ...prev, [type]: next }));
+                                const inputVal = e.target.value;
+                                // Allow empty, digits, and decimal point
+                                if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
+                                  const numVal = inputVal === '' ? 1 : parseFloat(inputVal);
+                                  if (Number.isFinite(numVal)) {
+                                    setFloodWeights((prev) => ({ ...prev, [type]: numVal }));
+                                  }
+                                }
                               }}
                               disabled={!enabled}
-                              className="h-9 w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="h-9 w-24"
                             />
                           </div>
                         </div>
@@ -919,7 +922,7 @@ export default function Centrality() {
                   <div className="text-sm">
                     <p className="font-semibold mb-1">Note: Component Weights Don't Recalculate Centrality</p>
                     <p className="text-muted-foreground">
-                      Adjusting component weights changes how each factor contributes to the final importance score, but does <strong>not</strong> recalculate 
+                      Adjusting component weights changes how each factor contributes to the final importance, but does <strong>not</strong> recalculate 
                       betweenness or closeness centrality. These are precomputed network metrics.
                     </p>
                   </div>
@@ -1127,7 +1130,7 @@ export default function Centrality() {
       <CardHeader>
         <CardTitle className="text-base">Configure SLA Tiers by Percentile</CardTitle>
         <CardDescription>
-          Automatically assign SLA priorities based on importance score percentiles.
+          Automatically assign SLA priorities based on importance percentiles.
           Roads in the top X% get 1-year SLA, next Y% get 3-year, remainder get 5-year.
         </CardDescription>
       </CardHeader>
@@ -1139,7 +1142,7 @@ export default function Centrality() {
               Enable Percentile-Based SLA Mapping
             </Label>
             <p className="text-xs text-muted-foreground mt-1">
-              Apply automatic SLA tier assignment based on importance scores
+              Apply automatic SLA tier assignment based on importances
             </p>
           </div>
           <Switch
@@ -1165,7 +1168,7 @@ export default function Centrality() {
               disabled={!useSLAMapping}
             />
             <p className="text-xs text-muted-foreground">
-              Top {slaTop1Year}% of roads by importance score
+              Top {slaTop1Year}% of roads by importance
             </p>
           </div>
 
@@ -1202,18 +1205,18 @@ export default function Centrality() {
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span>1-Year SLA:</span>
-                <strong>{Math.round(sortedByScore.length * slaTop1Year / 100)} roads</strong>
+                <strong>{Math.round(sortedByImportance.length * slaTop1Year / 100)} roads</strong>
               </div>
               <div className="flex justify-between">
                 <span>3-Year SLA:</span>
-                <strong>{Math.round(sortedByScore.length * slaNext3Year / 100)} roads</strong>
+                <strong>{Math.round(sortedByImportance.length * slaNext3Year / 100)} roads</strong>
               </div>
               <div className="flex justify-between">
                 <span>5-Year SLA:</span>
                 <strong>
-                  {sortedByScore.length - 
-                   Math.round(sortedByScore.length * slaTop1Year / 100) - 
-                   Math.round(sortedByScore.length * slaNext3Year / 100)} roads
+                  {sortedByImportance.length - 
+                   Math.round(sortedByImportance.length * slaTop1Year / 100) - 
+                   Math.round(sortedByImportance.length * slaNext3Year / 100)} roads
                 </strong>
               </div>
             </div>
@@ -1249,8 +1252,8 @@ export default function Centrality() {
           </p>
         </div>
         <CentralityTable
-          rows={sortedByScore}
-          totalRows={sortedByScore.length}
+          rows={sortedByImportance}
+          totalRows={sortedByImportance.length}
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
