@@ -212,7 +212,7 @@ export default function Centrality() {
   const [w_flood, set_w_flood] = useState(0.1);
 
   // SLA configuration
-  const [useSLAMapping, setUseSLAMapping] = useState(false);
+  const [useSLAMapping, setUseSLAMapping] = useState(true);
   const [slaTop1Year, setSlaTop1Year] = useState(10); // Top 10%
   const [slaNext3Year, setSlaNext3Year] = useState(30); // Next 30%
 
@@ -570,8 +570,15 @@ export default function Centrality() {
           </p>
         </div>
 
-        {/* each subsection is its own accordion */}
-        <Accordion type="multiple" className="space-y-4">
+        {/* Road Centrality Configuration - Unified Parent Accordion */}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="road-centrality-config" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <AccordionTrigger className="px-6 py-4 text-lg font-bold">
+              Road Centrality Configuration
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6 pt-4">
+              {/* each subsection is its own accordion */}
+              <Accordion type="multiple" className="space-y-4">
           {/* Road Filters */}
           <AccordionItem value="filters" className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <AccordionTrigger className="px-6 py-4 text-base font-semibold">
@@ -707,7 +714,7 @@ export default function Centrality() {
           {/* Amenity Categories */}
           <AccordionItem value="amenities" className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-              Amenity Categories (toggle per-category)
+              Amenity Categories
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
               <Card className="border bg-background/80 shadow-none">
@@ -812,8 +819,7 @@ export default function Centrality() {
           {/* Flood Event Types */}
           <AccordionItem value="floods" className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-              Flood Event Types (toggle per-type)
-              
+              Flood Event Types
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
               <Card className="border bg-background/80 shadow-none">
@@ -913,7 +919,7 @@ export default function Centrality() {
           {/* Component Weights */}
           <AccordionItem value="weights" className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-              Component Weights (toggle components)
+              Component Weights
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6 pt-2 space-y-6">
               <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-4">
@@ -970,12 +976,30 @@ export default function Centrality() {
                           <span className="text-sm font-semibold">{w_betweenness.toFixed(2)}</span>
                         </div>
                       </div>
-                      <Slider
-                        value={[w_betweenness * 100]}
-                        min={0} max={100} step={1}
-                        onValueChange={(v) => set_w_betweenness((v[0] || 0) / 100)}
-                        disabled={!useCompBetweenness}
-                      />
+                      <div className="flex items-center gap-3">
+                        <Slider
+                          value={[w_betweenness * 100]}
+                          min={0} max={100} step={1}
+                          onValueChange={(v) => set_w_betweenness((v[0] || 0) / 100)}
+                          disabled={!useCompBetweenness}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="text"
+                          value={(w_betweenness * 100).toFixed(0)}
+                          onChange={(e) => {
+                            const inputVal = e.target.value;
+                            if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
+                              const numVal = inputVal === '' ? 0 : parseFloat(inputVal);
+                              if (Number.isFinite(numVal)) {
+                                set_w_betweenness(Math.max(0, Math.min(100, numVal)) / 100);
+                              }
+                            }
+                          }}
+                          disabled={!useCompBetweenness}
+                          className="h-9 w-16 text-center"
+                        />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         How often this road lies on shortest paths between other roads.
                       </p>
@@ -993,12 +1017,30 @@ export default function Centrality() {
                           <span className="text-sm font-semibold">{w_closeness.toFixed(2)}</span>
                         </div>
                       </div>
-                      <Slider
-                        value={[w_closeness * 100]}
-                        min={0} max={100} step={1}
-                        onValueChange={(v) => set_w_closeness((v[0] || 0) / 100)}
-                        disabled={!useCompCloseness}
-                      />
+                      <div className="flex items-center gap-3">
+                        <Slider
+                          value={[w_closeness * 100]}
+                          min={0} max={100} step={1}
+                          onValueChange={(v) => set_w_closeness((v[0] || 0) / 100)}
+                          disabled={!useCompCloseness}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="text"
+                          value={(w_closeness * 100).toFixed(0)}
+                          onChange={(e) => {
+                            const inputVal = e.target.value;
+                            if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
+                              const numVal = inputVal === '' ? 0 : parseFloat(inputVal);
+                              if (Number.isFinite(numVal)) {
+                                set_w_closeness(Math.max(0, Math.min(100, numVal)) / 100);
+                              }
+                            }
+                          }}
+                          disabled={!useCompCloseness}
+                          className="h-9 w-16 text-center"
+                        />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         How quickly this road can reach all other roads in the network.
                       </p>
@@ -1016,12 +1058,30 @@ export default function Centrality() {
                           <span className="text-sm font-semibold">{w_amenity.toFixed(2)}</span>
                         </div>
                       </div>
-                      <Slider
-                        value={[w_amenity * 100]}
-                        min={0} max={100} step={1}
-                        onValueChange={(v) => set_w_amenity((v[0] || 0) / 100)}
-                        disabled={!useCompAmenity}
-                      />
+                      <div className="flex items-center gap-3">
+                        <Slider
+                          value={[w_amenity * 100]}
+                          min={0} max={100} step={1}
+                          onValueChange={(v) => set_w_amenity((v[0] || 0) / 100)}
+                          disabled={!useCompAmenity}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="text"
+                          value={(w_amenity * 100).toFixed(0)}
+                          onChange={(e) => {
+                            const inputVal = e.target.value;
+                            if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
+                              const numVal = inputVal === '' ? 0 : parseFloat(inputVal);
+                              if (Number.isFinite(numVal)) {
+                                set_w_amenity(Math.max(0, Math.min(100, numVal)) / 100);
+                              }
+                            }
+                          }}
+                          disabled={!useCompAmenity}
+                          className="h-9 w-16 text-center"
+                        />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         Density of nearby amenities weighted by per-category multipliers.
                       </p>
@@ -1039,12 +1099,30 @@ export default function Centrality() {
                           <span className="text-sm font-semibold">{w_flood.toFixed(2)}</span>
                         </div>
                       </div>
-                      <Slider
-                        value={[w_flood * 100]}
-                        min={0} max={100} step={1}
-                        onValueChange={(v) => set_w_flood((v[0] || 0) / 100)}
-                        disabled={!useCompFlood}
-                      />
+                      <div className="flex items-center gap-3">
+                        <Slider
+                          value={[w_flood * 100]}
+                          min={0} max={100} step={1}
+                          onValueChange={(v) => set_w_flood((v[0] || 0) / 100)}
+                          disabled={!useCompFlood}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="text"
+                          value={(w_flood * 100).toFixed(0)}
+                          onChange={(e) => {
+                            const inputVal = e.target.value;
+                            if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
+                              const numVal = inputVal === '' ? 0 : parseFloat(inputVal);
+                              if (Number.isFinite(numVal)) {
+                                set_w_flood(Math.max(0, Math.min(100, numVal)) / 100);
+                              }
+                            }
+                          }}
+                          disabled={!useCompFlood}
+                          className="h-9 w-16 text-center"
+                        />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         Number of flood events weighted by per-type multipliers.
                       </p>
@@ -1123,7 +1201,7 @@ export default function Centrality() {
           {/* SLA Configuration */}
 <AccordionItem value="sla" className="overflow-hidden rounded-xl border bg-card shadow-sm">
   <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-    SLA Configuration (Percentile-Based)
+    SLA Configuration
   </AccordionTrigger>
   <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
     <Card className="border bg-background/80 shadow-none">
@@ -1135,23 +1213,6 @@ export default function Centrality() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Enable SLA Mapping */}
-        <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4">
-          <div>
-            <Label htmlFor="enable-sla" className="text-sm font-medium">
-              Enable Percentile-Based SLA Mapping
-            </Label>
-            <p className="text-xs text-muted-foreground mt-1">
-              Apply automatic SLA tier assignment based on importances
-            </p>
-          </div>
-          <Switch
-            id="enable-sla"
-            checked={useSLAMapping}
-            onCheckedChange={setUseSLAMapping}
-          />
-        </div>
-
         {/* Percentile Thresholds */}
         <div className="space-y-4">
           <div className="space-y-3">
@@ -1165,7 +1226,6 @@ export default function Centrality() {
               max={50}
               step={1}
               onValueChange={(v) => setSlaTop1Year(v[0])}
-              disabled={!useSLAMapping}
             />
             <p className="text-xs text-muted-foreground">
               Top {slaTop1Year}% of roads by importance
@@ -1183,7 +1243,6 @@ export default function Centrality() {
               max={80}
               step={1}
               onValueChange={(v) => setSlaNext3Year(v[0])}
-              disabled={!useSLAMapping}
             />
             <p className="text-xs text-muted-foreground">
               Next {slaNext3Year}% of roads
@@ -1226,6 +1285,9 @@ export default function Centrality() {
     </Card>
   </AccordionContent>
 </AccordionItem>
+              </Accordion>
+            </AccordionContent>
+          </AccordionItem>
         </Accordion>
       </header>
 
