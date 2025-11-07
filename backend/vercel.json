@@ -2,7 +2,7 @@
   "version": 2,
   "framework": "fastapi",
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
+  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- .",
   "rewrites": [
     {
       "source": "/app/(.*)",
