@@ -1,14 +1,12 @@
 {
   "version": 2,
   "framework": "fastapi",
-  "routes": [
-    {
-      "src": "app/(.*)",
-      "dest": "app/app.py"
-    }
-  ],
+  "$schema": "https://openapi.vercel.sh/vercel.json",
 
-  "env": {
-    "PYTHONPATH": "."
-  }
+  "rewrites": [
+    {
+      "source": "/app/(.*)",
+      "destination": "/app/app.py"
+    }
+  ]
 }
