@@ -572,16 +572,24 @@ export default function Simulation() {
 
         const delta_avg_s = (paFlood.avg_s ?? 0) - (paBase.avg_s ?? 0);
         const delta_unreachable = paFlood.unreachable - paBase.unreachable;
+        const delta_min_s = (paFlood.min_s ?? 0) - (paBase.min_s ?? 0);
+        const delta_max_s = (paFlood.max_s ?? 0) - (paBase.max_s ?? 0);
 
         deltas.push({
           pa_id: paFlood.pa_id,
           pa_name: paFlood.pa_name,
           total_nodes: paFlood.nodes,
           base_avg_s: paBase.avg_s,
+          base_min_s: paBase.min_s,
+          base_max_s: paBase.max_s,
           base_unreachable: paBase.unreachable,
           flood_avg_s: paFlood.avg_s,
+          flood_min_s: paFlood.min_s,
+          flood_max_s: paFlood.max_s,
           flood_unreachable: paFlood.unreachable,
           delta_avg_s,
+          delta_min_s,
+          delta_max_s,
           delta_unreachable,
         });
       }
@@ -647,6 +655,19 @@ export default function Simulation() {
           },
         });
 
+        // Add blocked roads layer (high-level visualization of all blocked roads)
+        map.addSource("blocked-roads", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({
+          id: "blocked-roads-line",
+          type: "line",
+          source: "blocked-roads",
+          paint: {
+            "line-color": "#ef4444",
+            "line-width": 3,
+            "line-opacity": 0.6
+          },
+        }, "roads-line"); // Insert before roads layer so detailed roads appear on top
+
         // This function will be called initially and when selectedMetric changes
         // It's defined here so we can call it both on load and on metric change
         window.updateChoroplethData = () => {
@@ -707,10 +728,16 @@ export default function Simulation() {
                 pa_name,
                 color,
                 base_avg_s: delta.base_avg_s,
+                base_min_s: delta.base_min_s,
+                base_max_s: delta.base_max_s,
                 base_unreachable: delta.base_unreachable,
                 flood_avg_s: delta.flood_avg_s,
+                flood_min_s: delta.flood_min_s,
+                flood_max_s: delta.flood_max_s,
                 flood_unreachable: delta.flood_unreachable,
                 delta_avg_s: delta.delta_avg_s,
+                delta_min_s: delta.delta_min_s,
+                delta_max_s: delta.delta_max_s,
                 delta_unreachable: delta.delta_unreachable,
                 total_intersections: delta.total_nodes,
               },
@@ -725,6 +752,52 @@ export default function Simulation() {
         // Call initially
         window.updateChoroplethData();
 
+        // Update blocked roads layer
+        const updateBlockedRoadsLayer = () => {
+          // Get blocked roads from either manual mode or scenario mode
+          let blockedRnIds = new Set();
+          if (floodInputMethod === "manual") {
+            blockedRnIds = new Set(affectedRoads.filter(r => r.selected).map(r => r.rn_id));
+          } else if (floodInputMethod === "scenario" && selectedScenario) {
+            const scenario = flood_scenarios.find(s => s.name === selectedScenario);
+            if (scenario) {
+              blockedRnIds = new Set(scenario.roads.map(r => r.rn_id));
+            }
+          }
+
+          // Build features for blocked roads
+          const blockedRoadFeatures = [];
+          const seenRnIds = new Set();
+
+          for (const edge of graph.edges) {
+            if (edge.rn_id != null && blockedRnIds.has(edge.rn_id) && !seenRnIds.has(edge.rn_id)) {
+              seenRnIds.add(edge.rn_id);
+              if (edge.coords && edge.coords.length > 0) {
+                blockedRoadFeatures.push({
+                  type: "Feature",
+                  properties: {
+                    rn_id: edge.rn_id,
+                    name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+                  },
+                  geometry: {
+                    type: "LineString",
+                    coordinates: edge.coords,
+                  },
+                });
+              }
+            }
+          }
+
+          console.log(`Blocked roads layer: ${blockedRoadFeatures.length} roads`);
+          map.getSource("blocked-roads")?.setData({
+            type: "FeatureCollection",
+            features: blockedRoadFeatures,
+          });
+        };
+
+        // Call initially to show blocked roads
+        updateBlockedRoadsLayer();
+
         // Hover tooltip
         map.on("mousemove", "choropleth-fill", (e) => {
           map.getCanvas().style.cursor = "pointer";
@@ -736,45 +809,44 @@ export default function Simulation() {
               popupRef.current.remove();
             }
 
+            // Calculate delta color based on value
+            const deltaAvgColor = props.delta_avg_s > 0 ? '#fbbf24' : '#22c55e';
+            const deltaMinColor = props.delta_min_s > 0 ? '#fbbf24' : '#22c55e';
+            const deltaMaxColor = props.delta_max_s > 0 ? '#fbbf24' : '#22c55e';
+            const deltaUnreachableColor = props.delta_unreachable > 0 ? '#ef4444' : '#22c55e';
+
             let html = `
-              <div style="background: #1f2937; color: #fff; padding: 10px; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #374151;">
+              <div style="background: #1f2937; color: #fff; padding: 10px; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #374151; min-width: 260px;">
                 <div style="font-weight: 600; margin-bottom: 6px; font-size: 13px;">${props.pa_name}</div>
                 <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">Total Intersections: ${props.total_intersections}</div>
+
+                <div style="border-top: 1px solid #374151; padding-top: 8px; margin-top: 8px;">
+                  <div style="font-size: 11px; font-weight: 600; color: #f3f4f6; margin-bottom: 6px;">Travel Time Statistics</div>
+
+                  <!-- Min Time -->
+                  <div style="font-size: 10px; margin-bottom: 4px;">
+                    <div style="color: #9ca3af;">Min Time: <span style="color: #d1d5db;">${fmtM(props.base_min_s)}</span> → <span style="color: #d1d5db;">${fmtM(props.flood_min_s)}</span> <span style="color: ${deltaMinColor}; font-weight: 600;">(${props.delta_min_s > 0 ? '+' : ''}${fmtM(props.delta_min_s)})</span></div>
+                  </div>
+
+                  <!-- Max Time -->
+                  <div style="font-size: 10px; margin-bottom: 4px;">
+                    <div style="color: #9ca3af;">Max Time: <span style="color: #d1d5db;">${fmtM(props.base_max_s)}</span> → <span style="color: #d1d5db;">${fmtM(props.flood_max_s)}</span> <span style="color: ${deltaMaxColor}; font-weight: 600;">(${props.delta_max_s > 0 ? '+' : ''}${fmtM(props.delta_max_s)})</span></div>
+                  </div>
+
+                  <!-- Avg Time -->
+                  <div style="font-size: 10px; margin-bottom: 4px;">
+                    <div style="color: #9ca3af;">Avg Time: <span style="color: #d1d5db;">${fmtM(props.base_avg_s)}</span> → <span style="color: #d1d5db;">${fmtM(props.flood_avg_s)}</span> <span style="color: ${deltaAvgColor}; font-weight: 600;">(${props.delta_avg_s > 0 ? '+' : ''}${fmtM(props.delta_avg_s)})</span></div>
+                  </div>
+
+                  <!-- Unreachable -->
+                  <div style="font-size: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #374151;">
+                    <div style="color: #9ca3af;">Unreachable: <span style="color: #d1d5db;">${props.base_unreachable}</span> → <span style="color: #d1d5db;">${props.flood_unreachable}</span> <span style="color: ${deltaUnreachableColor}; font-weight: 600;">(${props.delta_unreachable > 0 ? '+' : ''}${props.delta_unreachable})</span></div>
+                  </div>
+                </div>
+
+                <div style="font-size: 10px; color: #6b7280; margin-top: 8px; border-top: 1px solid #374151; padding-top: 6px;">Click to view roads & filter area</div>
+              </div>
             `;
-
-            if (selectedMetric === "delta_time") {
-              html += `
-                <div style="border-top: 1px solid #374151; padding-top: 6px;">
-                  <div style="font-size: 12px; font-weight: 600; color: #fbbf24; margin-bottom: 4px;">Δ Time: +${fmtM(props.delta_avg_s)}</div>
-                  <div style="font-size: 10px; color: #d1d5db;">Baseline: ${fmtM(props.base_avg_s)}</div>
-                  <div style="font-size: 10px; color: #d1d5db;">Flooded: ${fmtM(props.flood_avg_s)}</div>
-                </div>
-              `;
-            } else if (selectedMetric === "unreachable") {
-              html += `
-                <div style="border-top: 1px solid #374151; padding-top: 6px;">
-                  <div style="font-size: 12px; font-weight: 600; color: #ef4444; margin-bottom: 4px;">Δ Unreachable: +${props.delta_unreachable}</div>
-                  <div style="font-size: 10px; color: #d1d5db;">Baseline: ${props.base_unreachable}</div>
-                  <div style="font-size: 10px; color: #d1d5db;">Flooded: ${props.flood_unreachable}</div>
-                </div>
-              `;
-            } else if (selectedMetric === "baseline_time") {
-              html += `
-                <div style="border-top: 1px solid #374151; padding-top: 6px;">
-                  <div style="font-size: 12px; font-weight: 600; color: #60a5fa;">Avg Time: ${fmtM(props.base_avg_s)}</div>
-                  <div style="font-size: 10px; color: #9ca3af;">Unreachable: ${props.base_unreachable}</div>
-                </div>
-              `;
-            } else if (selectedMetric === "flooded_time") {
-              html += `
-                <div style="border-top: 1px solid #374151; padding-top: 6px;">
-                  <div style="font-size: 12px; font-weight: 600; color: #60a5fa;">Avg Time: ${fmtM(props.flood_avg_s)}</div>
-                  <div style="font-size: 10px; color: #9ca3af;">Unreachable: ${props.flood_unreachable}</div>
-                </div>
-              `;
-            }
-
-            html += `<div style="font-size: 10px; color: #6b7280; margin-top: 8px; border-top: 1px solid #374151; padding-top: 6px;">Click to view roads & filter area</div></div>`;
 
             popupRef.current = new mapboxgl.Popup({ 
               closeButton: false, 
