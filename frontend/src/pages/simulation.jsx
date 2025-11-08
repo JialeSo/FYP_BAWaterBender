@@ -269,6 +269,8 @@ export default function Simulation() {
   const [baselineStats, setBaselineStats] = useState(null);
   const [floodedStats, setFloodedStats] = useState(null);
   const [paDeltas, setPaDeltas] = useState([]);
+  const [selectedPA, setSelectedPA] = useState(null);
+  const [hoveredPA, setHoveredPA] = useState(null);
 
   // Load flood scenarios CSV
   useEffect(() => {
@@ -305,9 +307,21 @@ export default function Simulation() {
           roads,
         }));
         setFloodScenarios(scenarios);
+        console.log("Loaded scenarios:", scenarios.length, scenarios);
       })
       .catch(err => console.error("Failed to load scenarios:", err));
   }, []);
+
+  // Reset markers when going back to step 1
+  useEffect(() => {
+    if (step === 1) {
+      setFloodMarkers([]);
+      setAffectedRoads([]);
+      setRoadSearchTerm("");
+      setSelectedPA(null);
+      setHoveredPA(null);
+    }
+  }, [step]);
 
   // Initialize config map
   useEffect(() => {
@@ -522,6 +536,7 @@ export default function Simulation() {
         deltas.push({
           pa_id: paFlood.pa_id,
           pa_name: paFlood.pa_name,
+          total_nodes: paFlood.nodes,
           base_avg_s: paBase.avg_s,
           base_unreachable: paBase.unreachable,
           flood_avg_s: paFlood.avg_s,
@@ -561,7 +576,15 @@ export default function Simulation() {
           id: "choropleth-fill",
           type: "fill",
           source: "choropleth",
-          paint: { "fill-color": ["get", "color"], "fill-opacity": 0.6 },
+          paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": [
+              "case",
+              ["boolean", ["feature-state", "hover"], false],
+              0.8,
+              0.6
+            ]
+          },
         });
         map.addLayer({
           id: "choropleth-line",
@@ -580,12 +603,47 @@ export default function Simulation() {
           if (pa.geometry) {
             features.push({
               type: "Feature",
-              properties: { pa_id: pa.id, pa_name: pa.name, color },
+              id: pa.id,
+              properties: {
+                pa_id: pa.id,
+                pa_name: pa.name,
+                color,
+                avg_s: stats?.avg_s || 0,
+                nodes: stats?.nodes || 0,
+                unreachable: stats?.unreachable || 0,
+              },
               geometry: pa.geometry,
             });
           }
         }
         map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
+
+        // Add hover cursor
+        map.on("mousemove", "choropleth-fill", (e) => {
+          map.getCanvas().style.cursor = "pointer";
+          if (e.features && e.features.length > 0) {
+            const feature = e.features[0];
+            const props = feature.properties;
+
+            const html = `
+              <div class="font-semibold">${props.pa_name}</div>
+              <div class="text-sm mt-1">Avg Time: ${fmtM(props.avg_s)}</div>
+              <div class="text-sm">Total Nodes: ${props.nodes}</div>
+              <div class="text-sm">Unreachable: ${props.unreachable}</div>
+            `;
+
+            new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+              .setLngLat(e.lngLat)
+              .setHTML(html)
+              .addTo(map);
+          }
+        });
+
+        map.on("mouseleave", "choropleth-fill", () => {
+          map.getCanvas().style.cursor = "";
+          const popups = document.getElementsByClassName("mapboxgl-popup");
+          if (popups.length) popups[0].remove();
+        });
       });
     }
 
@@ -602,17 +660,49 @@ export default function Simulation() {
 
       map.on("load", () => {
         map.addSource("choropleth", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addSource("roads", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+
         map.addLayer({
           id: "choropleth-fill",
           type: "fill",
           source: "choropleth",
-          paint: { "fill-color": ["get", "color"], "fill-opacity": 0.6 },
+          paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": [
+              "case",
+              ["boolean", ["feature-state", "selected"], false],
+              0.4,
+              ["boolean", ["feature-state", "hover"], false],
+              0.8,
+              0.6
+            ]
+          },
         });
         map.addLayer({
           id: "choropleth-line",
           type: "line",
           source: "choropleth",
-          paint: { "line-color": "#000", "line-width": 1, "line-opacity": 0.3 },
+          paint: {
+            "line-color": [
+              "case",
+              ["boolean", ["feature-state", "selected"], false],
+              "#3b82f6",
+              "#000"
+            ],
+            "line-width": [
+              "case",
+              ["boolean", ["feature-state", "selected"], false],
+              3,
+              1
+            ],
+            "line-opacity": 0.6
+          },
+        });
+        map.addLayer({
+          id: "roads-line",
+          type: "line",
+          source: "roads",
+          paint: { "line-color": "#ef4444", "line-width": 3, "line-opacity": 0.8 },
         });
 
         // Add delta data
@@ -625,12 +715,140 @@ export default function Simulation() {
           if (pa.geometry) {
             features.push({
               type: "Feature",
-              properties: { pa_id: pa.id, pa_name: pa.name, color },
+              id: pa.id,
+              properties: {
+                pa_id: pa.id,
+                pa_name: pa.name,
+                color,
+                total_nodes: delta?.total_nodes || 0,
+                base_avg_s: delta?.base_avg_s || 0,
+                flood_avg_s: delta?.flood_avg_s || 0,
+                delta_avg_s: delta?.delta_avg_s || 0,
+                base_unreachable: delta?.base_unreachable || 0,
+                flood_unreachable: delta?.flood_unreachable || 0,
+                delta_unreachable: delta?.delta_unreachable || 0,
+              },
               geometry: pa.geometry,
             });
           }
         }
         map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
+
+        // Add hover popup
+        map.on("mousemove", "choropleth-fill", (e) => {
+          map.getCanvas().style.cursor = "pointer";
+          if (e.features && e.features.length > 0) {
+            const feature = e.features[0];
+            const props = feature.properties;
+
+            const html = `
+              <div class="font-semibold">${props.pa_name}</div>
+              <div class="text-xs mt-1">Total Nodes: ${props.total_nodes}</div>
+              <div class="text-xs mt-2"><strong>Baseline:</strong></div>
+              <div class="text-xs">Avg Time: ${fmtM(props.base_avg_s)}</div>
+              <div class="text-xs">Unreachable: ${props.base_unreachable}</div>
+              <div class="text-xs mt-1"><strong>Flooded:</strong></div>
+              <div class="text-xs">Avg Time: ${fmtM(props.flood_avg_s)}</div>
+              <div class="text-xs">Unreachable: ${props.flood_unreachable}</div>
+              <div class="text-xs mt-1 font-semibold text-red-600"><strong>Delta:</strong></div>
+              <div class="text-xs text-red-600">Δ Time: +${fmtM(props.delta_avg_s)}</div>
+              <div class="text-xs text-red-600">Δ Unreachable: +${props.delta_unreachable}</div>
+              <div class="text-xs mt-1 text-muted-foreground">Click to view roads</div>
+            `;
+
+            new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+              .setLngLat(e.lngLat)
+              .setHTML(html)
+              .addTo(map);
+          }
+        });
+
+        map.on("mouseleave", "choropleth-fill", () => {
+          map.getCanvas().style.cursor = "";
+          const popups = document.getElementsByClassName("mapboxgl-popup");
+          if (popups.length) popups[0].remove();
+        });
+
+        // Add click handler to show roads
+        map.on("click", "choropleth-fill", (e) => {
+          if (e.features && e.features.length > 0) {
+            const feature = e.features[0];
+            const paId = feature.properties.pa_id;
+            const paName = feature.properties.pa_name;
+
+            // Clear previous selection
+            if (selectedPA) {
+              map.removeFeatureState({ source: "choropleth", id: selectedPA.pa_id });
+            }
+
+            // Set new selection
+            map.setFeatureState({ source: "choropleth", id: paId }, { selected: true });
+            setSelectedPA({ pa_id: paId, pa_name: paName });
+
+            // Filter roads within this planning area
+            const roadsInPA = [];
+            for (const edge of graph.edges) {
+              const nodeFrom = graph.nodes.get(edge.from);
+              const nodeTo = graph.nodes.get(edge.to);
+              if (nodeFrom?.paId === paId || nodeTo?.paId === paId) {
+                if (edge.rn_id != null && edge.coords) {
+                  roadsInPA.push({
+                    type: "Feature",
+                    properties: {
+                      rn_id: edge.rn_id,
+                      name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+                      travel_time: edge.w,
+                    },
+                    geometry: { type: "LineString", coordinates: edge.coords },
+                  });
+                }
+              }
+            }
+
+            // Show roads on map
+            map.getSource("roads")?.setData({
+              type: "FeatureCollection",
+              features: roadsInPA,
+            });
+
+            // Zoom to planning area
+            if (feature.geometry) {
+              const bounds = new mapboxgl.LngLatBounds();
+              if (feature.geometry.type === "Polygon") {
+                feature.geometry.coordinates[0].forEach(coord => bounds.extend(coord));
+              } else if (feature.geometry.type === "MultiPolygon") {
+                feature.geometry.coordinates.forEach(poly => {
+                  poly[0].forEach(coord => bounds.extend(coord));
+                });
+              }
+              map.fitBounds(bounds, { padding: 50, maxZoom: 13 });
+            }
+          }
+        });
+
+        // Add road hover
+        map.on("mousemove", "roads-line", (e) => {
+          if (e.features && e.features.length > 0) {
+            const feature = e.features[0];
+            const props = feature.properties;
+
+            const html = `
+              <div class="font-semibold">${props.name}</div>
+              <div class="text-xs mt-1">RN_ID: ${props.rn_id}</div>
+              <div class="text-xs">Travel Time: ${fmtM(props.travel_time)}</div>
+            `;
+
+            new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+              .setLngLat(e.lngLat)
+              .setHTML(html)
+              .addTo(map);
+          }
+        });
+
+        map.on("mouseleave", "roads-line", () => {
+          const popups = document.getElementsByClassName("mapboxgl-popup");
+          if (popups.length) popups[0].remove();
+        });
       });
     }
 
@@ -945,8 +1163,8 @@ export default function Simulation() {
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Flooded Scenario</CardTitle>
-                  <CardDescription>Time increase (delta) due to flooding</CardDescription>
+                  <CardTitle className="text-base">Flooded Scenario - Delta Impact</CardTitle>
+                  <CardDescription>Hover to see impact, click planning area to view roads</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div ref={floodedContainerRef} style={{ height: "calc(50vh - 5rem)" }} />
@@ -973,6 +1191,7 @@ export default function Simulation() {
                     <thead className="sticky top-0 bg-muted">
                       <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
                         <th>Planning Area</th>
+                        <th>Total Nodes</th>
                         <th>Baseline Avg</th>
                         <th>Baseline Unreachable</th>
                         <th>Flooded Avg</th>
@@ -985,6 +1204,7 @@ export default function Simulation() {
                       {paDeltas.sort((a, b) => (b.delta_avg_s || 0) - (a.delta_avg_s || 0)).map((d, i) => (
                         <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
                           <td className="font-medium">{d.pa_name}</td>
+                          <td className="text-muted-foreground">{d.total_nodes}</td>
                           <td>{fmtM(d.base_avg_s)}</td>
                           <td>{d.base_unreachable}</td>
                           <td>{fmtM(d.flood_avg_s)}</td>
