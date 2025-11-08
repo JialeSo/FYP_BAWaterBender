@@ -548,13 +548,14 @@ export default function Centrality() {
   const [selectedRoadId, setSelectedRoadId] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
   const mapSectionRef = useRef(null);
+  const detailsPanelRef = useRef(null);
 
-  // Handle road selection with scroll to map
+  // Handle road selection with scroll to details panel
   const handleRoadSelect = useCallback((roadId) => {
     setSelectedRoadId(roadId);
-    // Scroll to map section smoothly
-    if (mapSectionRef.current) {
-      mapSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Scroll to details panel smoothly
+    if (detailsPanelRef.current) {
+      detailsPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, []);
 
@@ -1511,17 +1512,20 @@ export default function Centrality() {
       </header>
 
       {/* Road Details Panel (always visible) */}
-      <RoadDetailsPanel
-        road={selectedRoad}
-        onClose={() => setSelectedRoadId(null)}
-        amenityCounts={selectedRoad ? amenityCategoryCountByRoad.get(selectedRoad.properties.RN_ID) : null}
-        floodCounts={selectedRoad ? floodTypeCountByRoad.get(selectedRoad.properties.RN_ID) : null}
-        totalRoads={sortedByImportance.length}
-        roadRank={selectedRoadRank}
-        getSLACategory={getSLACategory}
-        amenityEnabled={amenityEnabled}
-        floodEnabled={floodEnabled}
-      />
+      <div ref={detailsPanelRef}>
+        <RoadDetailsPanel
+          road={selectedRoad}
+          onClose={() => setSelectedRoadId(null)}
+          amenityCounts={selectedRoad ? amenityCategoryCountByRoad.get(selectedRoad.properties.RN_ID) : null}
+          floodCounts={selectedRoad ? floodTypeCountByRoad.get(selectedRoad.properties.RN_ID) : null}
+          totalRoads={sortedByImportance.length}
+          roadRank={selectedRoadRank}
+          getSLACategory={getSLACategory}
+          amenityEnabled={amenityEnabled}
+          floodEnabled={floodEnabled}
+          allRoads={sortedByImportance}
+        />
+      </div>
         {/* Right: Map */}
         <div ref={mapSectionRef}>
           <CentralityMap

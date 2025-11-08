@@ -8,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { X } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
-export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {} }) {
+export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {}, allRoads = [] }) {
   // Show prompt if no road selected
   if (!road) {
     return (
@@ -33,19 +33,30 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
 
   const p = road.properties ?? {};
 
-  // Calculate percentile rank
-  const percentile = useMemo(() => {
-    if (!totalRoads || !roadRank) return null;
-    return Math.round((roadRank / totalRoads) * 100);
-  }, [totalRoads, roadRank]);
+  // Helper function to calculate percentile rank for any metric
+  const calculatePercentileRank = useMemo(() => (value, metric) => {
+    if (!allRoads.length || value === null || value === undefined) return null;
+    const values = allRoads.map(r => r.properties?.[metric] || 0).filter(v => v !== null && v !== undefined);
+    values.sort((a, b) => a - b);
+    const index = values.findIndex(v => v >= value);
+    if (index === -1) return 100;
+    return Math.round(((values.length - index) / values.length) * 100);
+  }, [allRoads]);
 
-  const percentileLabel = useMemo(() => {
+  // Calculate percentile ranks for all metrics
+  const importancePercentile = useMemo(() => calculatePercentileRank(p.importance, 'importance'), [p.importance, calculatePercentileRank]);
+  const betweennessPercentile = useMemo(() => calculatePercentileRank(p.betweenness_norm, 'betweenness_norm'), [p.betweenness_norm, calculatePercentileRank]);
+  const closenessPercentile = useMemo(() => calculatePercentileRank(p.closeness_norm, 'closeness_norm'), [p.closeness_norm, calculatePercentileRank]);
+  const amenityPercentile = useMemo(() => calculatePercentileRank(p.amenity_count_total, 'amenity_count_total'), [p.amenity_count_total, calculatePercentileRank]);
+  const floodPercentile = useMemo(() => calculatePercentileRank(p.flood_count_total, 'flood_count_total'), [p.flood_count_total, calculatePercentileRank]);
+
+  const getPercentileLabel = (percentile) => {
     if (!percentile) return null;
     if (percentile <= 5) return "Top 5%";
     if (percentile <= 10) return "Top 10%";
     if (percentile <= 25) return "Top 25%";
     return `Top ${percentile}%`;
-  }, [percentile]);
+  };
 
   const slaCategory = getSLACategory ? getSLACategory(p.importance) : null;
 
@@ -89,54 +100,78 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {/* 6 KPI Cards in one row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           {/* Importance */}
-          <div className="rounded-lg border-2 border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5 p-3">
-            <div className="text-[10px] font-medium text-muted-foreground uppercase mb-1">Importance</div>
-            {percentileLabel && (
+          <div className="rounded-lg border-2 border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5 p-2">
+            <div className="text-[9px] font-medium text-muted-foreground uppercase mb-0.5">Importance</div>
+            {getPercentileLabel(importancePercentile) && (
               <div className="mb-1">
-                <span className="px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
-                  {percentileLabel}
+                <span className="px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[8px] font-bold">
+                  {getPercentileLabel(importancePercentile)}
                 </span>
               </div>
             )}
-            <div className="text-xl font-bold text-primary">{format_number(p.importance, 2) ?? "—"}</div>
+            <div className="text-lg font-bold text-primary">{format_number(p.importance, 2) ?? "—"}</div>
           </div>
 
           {/* SLA Category */}
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-[10px] font-medium text-muted-foreground uppercase mb-1">SLA Category</div>
-            <div className="text-sm font-bold text-green-600 dark:text-green-400 mt-2">{p.sla_priority || "—"}</div>
+          <div className="rounded-lg border bg-muted/50 p-2">
+            <div className="text-[9px] font-medium text-muted-foreground uppercase mb-0.5">SLA Category</div>
+            <div className="text-xs font-bold text-green-600 dark:text-green-400 mt-4">{p.sla_priority || "—"}</div>
           </div>
 
           {/* Betweenness */}
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-[10px] text-muted-foreground mb-1">Betweenness</div>
-            {percentileLabel && <div className="h-3 mb-1"></div>}
-            <div className="text-xl font-bold">{format_number(p.betweenness_norm, 4) ?? "—"}</div>
+          <div className="rounded-lg border bg-muted/50 p-2">
+            <div className="text-[9px] text-muted-foreground mb-0.5">Betweenness</div>
+            {getPercentileLabel(betweennessPercentile) && (
+              <div className="mb-1">
+                <span className="px-1.5 py-0.5 rounded-full bg-muted-foreground text-background text-[8px] font-bold">
+                  {getPercentileLabel(betweennessPercentile)}
+                </span>
+              </div>
+            )}
+            <div className="text-lg font-bold">{format_number(p.betweenness_norm, 4) ?? "—"}</div>
           </div>
 
           {/* Closeness */}
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-[10px] text-muted-foreground mb-1">Closeness</div>
-            {percentileLabel && <div className="h-3 mb-1"></div>}
-            <div className="text-xl font-bold">{format_number(p.closeness_norm, 4) ?? "—"}</div>
+          <div className="rounded-lg border bg-muted/50 p-2">
+            <div className="text-[9px] text-muted-foreground mb-0.5">Closeness</div>
+            {getPercentileLabel(closenessPercentile) && (
+              <div className="mb-1">
+                <span className="px-1.5 py-0.5 rounded-full bg-muted-foreground text-background text-[8px] font-bold">
+                  {getPercentileLabel(closenessPercentile)}
+                </span>
+              </div>
+            )}
+            <div className="text-lg font-bold">{format_number(p.closeness_norm, 4) ?? "—"}</div>
           </div>
 
           {/* Amenities */}
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-[10px] text-muted-foreground mb-1">Amenities</div>
-            {percentileLabel && <div className="h-3 mb-1"></div>}
-            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{p.amenity_count_total || 0}</div>
+          <div className="rounded-lg border bg-muted/50 p-2">
+            <div className="text-[9px] text-muted-foreground mb-0.5">Amenities</div>
+            {getPercentileLabel(amenityPercentile) && (
+              <div className="mb-1">
+                <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white dark:bg-blue-400 dark:text-black text-[8px] font-bold">
+                  {getPercentileLabel(amenityPercentile)}
+                </span>
+              </div>
+            )}
+            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{p.amenity_count_total || 0}</div>
           </div>
 
           {/* Flood Events */}
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-[10px] text-muted-foreground mb-1">Flood Events</div>
-            {percentileLabel && <div className="h-3 mb-1"></div>}
-            <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{p.flood_count_total || 0}</div>
+          <div className="rounded-lg border bg-muted/50 p-2">
+            <div className="text-[9px] text-muted-foreground mb-0.5">Flood Events</div>
+            {getPercentileLabel(floodPercentile) && (
+              <div className="mb-1">
+                <span className="px-1.5 py-0.5 rounded-full bg-orange-600 text-white dark:bg-orange-400 dark:text-black text-[8px] font-bold">
+                  {getPercentileLabel(floodPercentile)}
+                </span>
+              </div>
+            )}
+            <div className="text-lg font-bold text-orange-600 dark:text-orange-400">{p.flood_count_total || 0}</div>
           </div>
         </div>
 

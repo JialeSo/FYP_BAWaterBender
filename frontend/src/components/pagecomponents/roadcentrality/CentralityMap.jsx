@@ -68,7 +68,7 @@ const createColorExpression = (metric, thresholds) => {
     "interpolate",
     ["linear"],
     ["coalesce", ["to-number", ["get", metric]], 0],
-    t0, "#f1f5f9",    // Very light (0-20% of max)
+    t0, "#dbeafe",    // Light blue (0-20% of max) - visible even at 0
     t20, "#93c5fd",   // Light blue (20-40% of max)
     t40, "#60a5fa",   // Medium blue (40-60% of max)
     t60, "#3b82f6",   // Blue (60-80% of max)
@@ -366,7 +366,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick }) 
         <div className="space-y-2">
           <div>
             <p className="text-muted-foreground mb-1">Colour = {colorLabel}</p>
-            <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #f1f5f9, #93c5fd, #60a5fa, #3b82f6, #1d4ed8, #1e40af)" }} />
+            <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1d4ed8, #1e40af)" }} />
             <div className="mt-1 flex justify-between text-muted-foreground text-[9px]">
               <span>{format_number(colorThresholds[0], 1)}</span>
               <span>{format_number(colorThresholds[5], 1)}</span>
