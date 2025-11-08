@@ -11,8 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, MapPin, AlertTriangle, Play, Download } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
+import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCircle } from "lucide-react";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
@@ -20,11 +22,10 @@ const mapbox_style = "mapbox://styles/mapbox/light-v11";
 /* ============================== helpers ============================== */
 const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
 const toNum = (v) => { const n = +v; return Number.isFinite(n) ? n : null; };
-const fmtS = (s) => (Number.isFinite(s) ? `${Math.round(s)}s` : "—");
 const fmtM = (s) => (Number.isFinite(s) ? (s / 60).toFixed(1) + "m" : "—");
 const dist2 = (a, b) => { if (!a || !b) return Number.POSITIVE_INFINITY; const dx=a[0]-b[0], dy=a[1]-b[1]; return dx*dx+dy*dy; };
 
-/* ========================= tiny priority queue ======================= */
+/* ========================= priority queue ======================= */
 class MinPQ {
   constructor() { this.a = []; }
   _swap(i, j) { [this.a[i], this.a[j]] = [this.a[j], this.a[i]]; }
@@ -42,7 +43,7 @@ class MinPQ {
   size(){ return this.a.length; }
 }
 
-/* ==================== graph builder (directed, time) ================= */
+/* ==================== graph builder ================= */
 function buildGraph(road_fc) {
   const nodes = new Map();
   const adj = new Map();
@@ -82,7 +83,7 @@ function buildGraph(road_fc) {
   return { nodes, adj, edges };
 }
 
-/* ================== snap moh_hospitals to nearest nodes ============== */
+/* ================== snap hospitals ============== */
 function snapHospitalsToNodes(amenity_fc, nodes) {
   const hospitals = [];
   const nodeArr = Array.from(nodes.values());
@@ -109,13 +110,12 @@ function snapHospitalsToNodes(amenity_fc, nodes) {
   return hospitals;
 }
 
-/* ======================== multi-source dijkstra ======================= */
+/* ======================== dijkstra ======================= */
 function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFilter) {
   const dist = new Map();
-  const srcOf = new Map();
   const pq = new MinPQ();
 
-  for (const s of hospitalNodeIds) { dist.set(s, 0); srcOf.set(s, s); pq.push(0, s); }
+  for (const s of hospitalNodeIds) { dist.set(s, 0); pq.push(0, s); }
 
   let visited = 0;
   while (pq.size()) {
@@ -130,16 +130,15 @@ function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFi
       const nd = d + e.w;
       if (nd < (dist.get(e.to) ?? Infinity)) {
         dist.set(e.to, nd);
-        srcOf.set(e.to, srcOf.get(u));
         pq.push(nd, e.to);
       }
     }
   }
   onProgress?.(visited);
-  return { dist, srcOf, visited };
+  return { dist, visited };
 }
 
-/* ==================== compute per-PA accessibility stats ============= */
+/* ==================== compute per-PA stats ============= */
 function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter }) {
   const { nodes, adj } = graph;
   const hospitals = snapHospitalsToNodes(amenity_fc_enriched, nodes);
@@ -148,7 +147,6 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter 
   const hospitalNodeIds = hospitals.map(h => h.node_id);
   const { dist } = multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFilter);
 
-  // Aggregate by planning area
   const byPA = new Map();
   for (const n of nodes.values()) {
     const paId = n.paId ?? -1;
@@ -182,12 +180,9 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter 
     pa_id: a.pa_id,
     pa_name: a.pa_name,
     nodes: a.nodes,
-    avg_s: a.nodes > 0 ? a.sum_s / a.nodes : null,
-    avg_min: a.nodes > 0 ? (a.sum_s / a.nodes) / 60 : null,
+    avg_s: a.nodes - a.unreachable > 0 ? a.sum_s / (a.nodes - a.unreachable) : null,
     min_s: Number.isFinite(a.min_s) ? a.min_s : null,
-    min_min: Number.isFinite(a.min_s) ? a.min_s / 60 : null,
     max_s: Number.isFinite(a.max_s) ? a.max_s : null,
-    max_min: Number.isFinite(a.max_s) ? a.max_s / 60 : null,
     unreachable: a.unreachable,
   }));
 
@@ -195,16 +190,27 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter 
 }
 
 /* ============================= Color scale ============================ */
-function getColorForDelta(deltaSeconds, maxDelta) {
-  if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return "#d1d5db"; // gray
-  const ratio = Math.min(1, deltaSeconds / maxDelta);
-  if (ratio < 0.25) return "#86efac"; // green-300
-  if (ratio < 0.5) return "#fde047"; // yellow-300
-  if (ratio < 0.75) return "#fb923c"; // orange-400
-  return "#ef4444"; // red-500
+function getColorForValue(value, maxValue, isBaseline = false) {
+  if (!Number.isFinite(value) || value <= 0) return "#d1d5db";
+
+  if (isBaseline) {
+    // Baseline: green (low time) to blue (high time)
+    const ratio = Math.min(1, value / maxValue);
+    if (ratio < 0.25) return "#86efac"; // green
+    if (ratio < 0.5) return "#60a5fa"; // blue-400
+    if (ratio < 0.75) return "#3b82f6"; // blue-500
+    return "#1d4ed8"; // blue-700
+  } else {
+    // Delta: green (low increase) to red (high increase)
+    const ratio = Math.min(1, value / maxValue);
+    if (ratio < 0.25) return "#86efac";
+    if (ratio < 0.5) return "#fde047";
+    if (ratio < 0.75) return "#fb923c";
+    return "#ef4444";
+  }
 }
 
-/* ============================= CSV export ============================= */
+/* ============================= CSV ============================ */
 function toCSV(arr) {
   if (!arr?.length) return "";
   const headers = Object.keys(arr[0]);
@@ -226,7 +232,7 @@ function downloadCSV(name, rows) {
 export default function Simulation() {
   const { road_fc_enriched, amenity_fc_enriched, lookups, loading, error } = useMapData();
 
-  // Build graph (lazy)
+  // Build graph
   const graph = useMemo(() => {
     if (!road_fc_enriched?.features?.length) return { nodes: new Map(), adj: new Map(), edges: [] };
     return buildGraph(road_fc_enriched);
@@ -237,177 +243,148 @@ export default function Simulation() {
     [graph, amenity_fc_enriched]
   );
 
-  // Map
-  const container_ref = useRef(null);
-  const map_ref = useRef(null);
+  // Stepper state
+  const [step, setStep] = useState(1);
+  const [floodInputMethod, setFloodInputMethod] = useState("manual"); // "manual" | "scenario"
+  const [selectedScenario, setSelectedScenario] = useState("");
+  const [floodScenarios, setFloodScenarios] = useState([]);
 
-  // UI state
-  const [initialized, setInitialized] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState(0);
-
-  // Flood markers
+  // Manual flood configuration
   const [floodMarkers, setFloodMarkers] = useState([]);
-  const [radiusMeters, setRadiusMeters] = useState(500);
-
-  // Affected roads (with selection state)
   const [affectedRoads, setAffectedRoads] = useState([]);
 
-  // Results
+  // Maps
+  const baselineMapRef = useRef(null);
+  const floodedMapRef = useRef(null);
+  const baselineContainerRef = useRef(null);
+  const floodedContainerRef = useRef(null);
+  const configMapRef = useRef(null);
+  const configContainerRef = useRef(null);
+
+  // Computation state
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [baselineStats, setBaselineStats] = useState(null);
   const [floodedStats, setFloodedStats] = useState(null);
   const [paDeltas, setPaDeltas] = useState([]);
 
-  // Initialize map
+  // Load flood scenarios CSV
   useEffect(() => {
-    if (!container_ref.current || map_ref.current) return;
+    fetch("/data/road_network_flood_scenarios.csv")
+      .then(res => res.text())
+      .then(text => {
+        const lines = text.trim().split("\n");
+        if (lines.length < 2) return;
+
+        const headers = lines[0].split(",");
+        const scenarioCol = headers.indexOf("flood_scenario");
+        const rnIdCol = headers.indexOf("RN_ID");
+        const nameCol = headers.indexOf("RD_NAME");
+
+        if (scenarioCol === -1 || rnIdCol === -1) return;
+
+        const byScenario = new Map();
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(",");
+          const scenario = cols[scenarioCol]?.trim();
+          const rn_id = toInt(cols[rnIdCol]);
+          const name = cols[nameCol]?.trim() || `Road ${rn_id}`;
+
+          if (!scenario || rn_id == null) continue;
+
+          if (!byScenario.has(scenario)) {
+            byScenario.set(scenario, []);
+          }
+          byScenario.get(scenario).push({ rn_id, name });
+        }
+
+        const scenarios = Array.from(byScenario.entries()).map(([name, roads]) => ({
+          name,
+          roads,
+        }));
+        setFloodScenarios(scenarios);
+      })
+      .catch(err => console.error("Failed to load scenarios:", err));
+  }, []);
+
+  // Initialize config map
+  useEffect(() => {
+    if (!configContainerRef.current || configMapRef.current || step !== 2 || floodInputMethod !== "manual") return;
 
     const map = new mapboxgl.Map({
-      container: container_ref.current,
+      container: configContainerRef.current,
       style: mapbox_style,
       center: [103.82, 1.35],
       zoom: 11,
       attributionControl: false,
     });
-    map_ref.current = map;
+    configMapRef.current = map;
 
     map.on("load", () => {
-      // Add sources
-      map.addSource("flood-markers", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addSource("flood-radius", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addSource("affected-roads", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addSource("planning-areas-choropleth", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
+      map.addSource("markers", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("radius", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("roads", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
 
-      // Choropleth layer
       map.addLayer({
-        id: "pa-choropleth-fill",
+        id: "radius-fill",
         type: "fill",
-        source: "planning-areas-choropleth",
-        paint: {
-          "fill-color": ["get", "color"],
-          "fill-opacity": 0.6,
-        },
+        source: "radius",
+        paint: { "fill-color": "#ef4444", "fill-opacity": 0.1 },
       });
       map.addLayer({
-        id: "pa-choropleth-line",
+        id: "radius-line",
         type: "line",
-        source: "planning-areas-choropleth",
-        paint: {
-          "line-color": "#000000",
-          "line-width": 1,
-          "line-opacity": 0.3,
-        },
+        source: "radius",
+        paint: { "line-color": "#ef4444", "line-width": 2, "line-dasharray": [2, 2] },
       });
-
-      // Affected roads layer
       map.addLayer({
-        id: "affected-roads-line",
+        id: "roads-line",
         type: "line",
-        source: "affected-roads",
-        paint: {
-          "line-color": "#ef4444",
-          "line-width": 3,
-          "line-opacity": 0.7,
-        },
-      });
-
-      // Flood radius circles
-      map.addLayer({
-        id: "flood-radius-fill",
-        type: "fill",
-        source: "flood-radius",
-        paint: {
-          "fill-color": "#ef4444",
-          "fill-opacity": 0.1,
-        },
+        source: "roads",
+        paint: { "line-color": "#ef4444", "line-width": 3, "line-opacity": 0.7 },
       });
       map.addLayer({
-        id: "flood-radius-line",
-        type: "line",
-        source: "flood-radius",
-        paint: {
-          "line-color": "#ef4444",
-          "line-width": 2,
-          "line-dasharray": [2, 2],
-          "line-opacity": 0.5,
-        },
-      });
-
-      // Flood markers
-      map.addLayer({
-        id: "flood-markers-circle",
+        id: "markers-circle",
         type: "circle",
-        source: "flood-markers",
-        paint: {
-          "circle-radius": 8,
-          "circle-color": "#ef4444",
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff",
-        },
+        source: "markers",
+        paint: { "circle-radius": 8, "circle-color": "#ef4444", "circle-stroke-width": 2, "circle-stroke-color": "#fff" },
       });
-
-      setInitialized(true);
     });
 
-    // Click to add flood marker
     map.on("click", (e) => {
       const { lng, lat } = e.lngLat;
-      const id = `flood-${Date.now()}`;
-      setFloodMarkers(prev => [...prev, { id, lng, lat }]);
+      const id = `marker-${Date.now()}`;
+      setFloodMarkers(prev => [...prev, { id, lng, lat, radius: 500 }]);
     });
 
     return () => {
-      if (map_ref.current) {
-        map_ref.current.remove();
-        map_ref.current = null;
+      if (configMapRef.current) {
+        configMapRef.current.remove();
+        configMapRef.current = null;
       }
     };
-  }, []);
+  }, [step, floodInputMethod]);
 
-  // Update flood markers on map
+  // Update config map markers
   useEffect(() => {
-    const map = map_ref.current;
-    if (!map || !initialized) return;
+    const map = configMapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
 
-    const features = floodMarkers.map(m => ({
+    const markerFeatures = floodMarkers.map(m => ({
       type: "Feature",
       properties: { id: m.id },
       geometry: { type: "Point", coordinates: [m.lng, m.lat] },
     }));
 
-    map.getSource("flood-markers")?.setData({
-      type: "FeatureCollection",
-      features,
-    });
-  }, [floodMarkers, initialized]);
-
-  // Update radius circles
-  useEffect(() => {
-    const map = map_ref.current;
-    if (!map || !initialized) return;
-
-    const features = floodMarkers.map(m => {
-      const center = [m.lng, m.lat];
-      const radiusInKm = radiusMeters / 1000;
+    const radiusFeatures = floodMarkers.map(m => {
+      const radiusInKm = m.radius / 1000;
       const points = 64;
       const coords = [];
       for (let i = 0; i <= points; i++) {
         const angle = (i / points) * 2 * Math.PI;
         const dx = radiusInKm * Math.cos(angle) / 111;
         const dy = radiusInKm * Math.sin(angle) / 111;
-        coords.push([center[0] + dx, center[1] + dy]);
+        coords.push([m.lng + dx, m.lat + dy]);
       }
       return {
         type: "Feature",
@@ -416,65 +393,58 @@ export default function Simulation() {
       };
     });
 
-    map.getSource("flood-radius")?.setData({
-      type: "FeatureCollection",
-      features,
-    });
-  }, [floodMarkers, radiusMeters, initialized]);
+    map.getSource("markers")?.setData({ type: "FeatureCollection", features: markerFeatures });
+    map.getSource("radius")?.setData({ type: "FeatureCollection", features: radiusFeatures });
+  }, [floodMarkers]);
 
   // Find affected roads
-  const findAffectedRoads = useCallback(() => {
-    if (!floodMarkers.length) {
+  useEffect(() => {
+    if (floodInputMethod !== "manual" || !floodMarkers.length) {
       setAffectedRoads([]);
       return;
     }
 
-    const radDeg = radiusMeters / 111000;
-    const rad2 = radDeg * radDeg;
-    const centers = floodMarkers.map(m => [m.lng, m.lat]);
-
     const seenRnIds = new Set();
     const roads = [];
 
-    for (const e of graph.edges) {
-      if (e.rn_id == null || seenRnIds.has(e.rn_id)) continue;
+    for (const marker of floodMarkers) {
+      const radDeg = marker.radius / 111000;
+      const rad2 = radDeg * radDeg;
+      const center = [marker.lng, marker.lat];
 
-      let affected = false;
-      if (Array.isArray(e.coords)) {
-        for (const pt of e.coords) {
-          for (const center of centers) {
+      for (const e of graph.edges) {
+        if (e.rn_id == null || seenRnIds.has(e.rn_id)) continue;
+
+        let affected = false;
+        if (Array.isArray(e.coords)) {
+          for (const pt of e.coords) {
             if (dist2(pt, center) <= rad2) {
               affected = true;
               break;
             }
           }
-          if (affected) break;
         }
-      }
 
-      if (affected) {
-        seenRnIds.add(e.rn_id);
-        const props = e.feature?.properties || {};
-        roads.push({
-          rn_id: e.rn_id,
-          name: props.name ?? props.NAME ?? `Road ${e.rn_id}`,
-          coords: e.coords,
-          selected: true,
-        });
+        if (affected) {
+          seenRnIds.add(e.rn_id);
+          const props = e.feature?.properties || {};
+          roads.push({
+            rn_id: e.rn_id,
+            name: props.name ?? props.NAME ?? `Road ${e.rn_id}`,
+            coords: e.coords,
+            selected: true,
+          });
+        }
       }
     }
 
     setAffectedRoads(roads);
-  }, [floodMarkers, radiusMeters, graph.edges]);
+  }, [floodMarkers, floodInputMethod, graph.edges]);
 
+  // Update roads on config map
   useEffect(() => {
-    findAffectedRoads();
-  }, [findAffectedRoads]);
-
-  // Update affected roads on map
-  useEffect(() => {
-    const map = map_ref.current;
-    if (!map || !initialized) return;
+    const map = configMapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
 
     const selectedRoads = affectedRoads.filter(r => r.selected);
     const features = selectedRoads.map(r => ({
@@ -483,479 +453,530 @@ export default function Simulation() {
       geometry: { type: "LineString", coordinates: r.coords },
     }));
 
-    map.getSource("affected-roads")?.setData({
-      type: "FeatureCollection",
-      features,
-    });
-  }, [affectedRoads, initialized]);
+    map.getSource("roads")?.setData({ type: "FeatureCollection", features });
+  }, [affectedRoads]);
 
   // Build edge filter
   const edgeFilter = useMemo(() => {
-    const selectedRnIds = new Set(affectedRoads.filter(r => r.selected).map(r => r.rn_id));
-    if (!selectedRnIds.size) return null;
+    let blockedRnIds = new Set();
+
+    if (floodInputMethod === "manual") {
+      blockedRnIds = new Set(affectedRoads.filter(r => r.selected).map(r => r.rn_id));
+    } else if (floodInputMethod === "scenario" && selectedScenario) {
+      const scenario = floodScenarios.find(s => s.name === selectedScenario);
+      if (scenario) {
+        blockedRnIds = new Set(scenario.roads.map(r => r.rn_id));
+      }
+    }
+
+    if (!blockedRnIds.size) return null;
 
     return (e) => {
-      if (e.rn_id != null && selectedRnIds.has(e.rn_id)) return false;
+      if (e.rn_id != null && blockedRnIds.has(e.rn_id)) return false;
       return true;
     };
-  }, [affectedRoads]);
+  }, [floodInputMethod, affectedRoads, selectedScenario, floodScenarios]);
 
-  // Compute baseline
-  const computeBaseline = useCallback(async () => {
-    if (!ready) return;
+  // Run simulation
+  const runSimulation = useCallback(async () => {
+    if (!ready || !edgeFilter) return;
     setBusy(true);
     setProgress(0);
+
     try {
-      const stats = computePerPAStats({
+      // Baseline
+      const baseline = computePerPAStats({
         graph,
         amenity_fc_enriched,
         onProgress: (v) => setProgress(v),
         edgeFilter: null,
       });
-      setBaselineStats(stats);
-    } catch (e) {
-      console.error(e);
-      alert(e?.message || "Failed to compute baseline.");
-    } finally {
-      setBusy(false);
-    }
-  }, [ready, graph, amenity_fc_enriched]);
+      setBaselineStats(baseline);
 
-  // Compute flooded scenario
-  const computeFlooded = useCallback(async () => {
-    if (!ready || !baselineStats || !edgeFilter) return;
-    setBusy(true);
-    setProgress(0);
-    try {
-      const stats = computePerPAStats({
+      // Flooded
+      setProgress(0);
+      const flooded = computePerPAStats({
         graph,
         amenity_fc_enriched,
         onProgress: (v) => setProgress(v),
         edgeFilter,
       });
-      setFloodedStats(stats);
+      setFloodedStats(flooded);
 
-      // Calculate deltas
+      // Deltas
       const baseByName = new Map();
-      for (const pa of baselineStats.paStats) {
+      for (const pa of baseline.paStats) {
         baseByName.set(pa.pa_name, pa);
       }
 
       const deltas = [];
-      for (const paFlood of stats.paStats) {
+      for (const paFlood of flooded.paStats) {
         const paBase = baseByName.get(paFlood.pa_name);
         if (!paBase) continue;
 
         const delta_avg_s = (paFlood.avg_s ?? 0) - (paBase.avg_s ?? 0);
-        const delta_max_s = (paFlood.max_s ?? 0) - (paBase.max_s ?? 0);
         const delta_unreachable = paFlood.unreachable - paBase.unreachable;
 
         deltas.push({
           pa_id: paFlood.pa_id,
           pa_name: paFlood.pa_name,
           base_avg_s: paBase.avg_s,
-          base_avg_min: paBase.avg_min,
+          base_unreachable: paBase.unreachable,
           flood_avg_s: paFlood.avg_s,
-          flood_avg_min: paFlood.avg_min,
+          flood_unreachable: paFlood.unreachable,
           delta_avg_s,
-          delta_avg_min: delta_avg_s / 60,
-          delta_max_s,
-          delta_max_min: delta_max_s / 60,
           delta_unreachable,
         });
       }
       setPaDeltas(deltas);
+      setStep(4);
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Simulation failed");
+    } finally {
+      setBusy(false);
+    }
+  }, [ready, graph, amenity_fc_enriched, edgeFilter]);
 
-      // Update choropleth
-      const map = map_ref.current;
-      if (map && initialized && lookups?.planning) {
-        const maxDelta = Math.max(...deltas.map(d => d.delta_avg_s || 0), 1);
-        const paById = new Map();
-        for (const d of deltas) {
-          paById.set(d.pa_id, d);
-        }
+  // Initialize result maps
+  useEffect(() => {
+    if (step !== 4 || !baselineStats || !floodedStats || !lookups?.planning) return;
 
+    // Baseline map
+    if (baselineContainerRef.current && !baselineMapRef.current) {
+      const map = new mapboxgl.Map({
+        container: baselineContainerRef.current,
+        style: mapbox_style,
+        center: [103.82, 1.35],
+        zoom: 10,
+        attributionControl: false,
+      });
+      baselineMapRef.current = map;
+
+      map.on("load", () => {
+        map.addSource("choropleth", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({
+          id: "choropleth-fill",
+          type: "fill",
+          source: "choropleth",
+          paint: { "fill-color": ["get", "color"], "fill-opacity": 0.6 },
+        });
+        map.addLayer({
+          id: "choropleth-line",
+          type: "line",
+          source: "choropleth",
+          paint: { "line-color": "#000", "line-width": 1, "line-opacity": 0.3 },
+        });
+
+        // Add baseline data
+        const maxTime = Math.max(...baselineStats.paStats.map(pa => pa.avg_s || 0), 1);
+        const paById = new Map(baselineStats.paStats.map(pa => [pa.pa_id, pa]));
         const features = [];
         for (const pa of Object.values(lookups.planning.by_id || {})) {
-          const delta = paById.get(pa.id);
-          const color = delta ? getColorForDelta(delta.delta_avg_s, maxDelta) : "#d1d5db";
-
+          const stats = paById.get(pa.id);
+          const color = stats ? getColorForValue(stats.avg_s, maxTime, true) : "#d1d5db";
           if (pa.geometry) {
             features.push({
               type: "Feature",
-              properties: {
-                pa_id: pa.id,
-                pa_name: pa.name,
-                delta_avg_s: delta?.delta_avg_s ?? 0,
-                color,
-              },
+              properties: { pa_id: pa.id, pa_name: pa.name, color },
               geometry: pa.geometry,
             });
           }
         }
+        map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
+      });
+    }
 
-        map.getSource("planning-areas-choropleth")?.setData({
-          type: "FeatureCollection",
-          features,
+    // Flooded map
+    if (floodedContainerRef.current && !floodedMapRef.current) {
+      const map = new mapboxgl.Map({
+        container: floodedContainerRef.current,
+        style: mapbox_style,
+        center: [103.82, 1.35],
+        zoom: 10,
+        attributionControl: false,
+      });
+      floodedMapRef.current = map;
+
+      map.on("load", () => {
+        map.addSource("choropleth", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({
+          id: "choropleth-fill",
+          type: "fill",
+          source: "choropleth",
+          paint: { "fill-color": ["get", "color"], "fill-opacity": 0.6 },
         });
-      }
-    } catch (e) {
-      console.error(e);
-      alert(e?.message || "Failed to compute flooded scenario.");
-    } finally {
-      setBusy(false);
+        map.addLayer({
+          id: "choropleth-line",
+          type: "line",
+          source: "choropleth",
+          paint: { "line-color": "#000", "line-width": 1, "line-opacity": 0.3 },
+        });
+
+        // Add delta data
+        const maxDelta = Math.max(...paDeltas.map(d => d.delta_avg_s || 0), 1);
+        const paById = new Map(paDeltas.map(d => [d.pa_id, d]));
+        const features = [];
+        for (const pa of Object.values(lookups.planning.by_id || {})) {
+          const delta = paById.get(pa.id);
+          const color = delta ? getColorForValue(delta.delta_avg_s, maxDelta, false) : "#d1d5db";
+          if (pa.geometry) {
+            features.push({
+              type: "Feature",
+              properties: { pa_id: pa.id, pa_name: pa.name, color },
+              geometry: pa.geometry,
+            });
+          }
+        }
+        map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
+      });
     }
-  }, [ready, graph, amenity_fc_enriched, baselineStats, edgeFilter, initialized, lookups]);
 
-  // Toggle road selection
-  const toggleRoadSelection = (rn_id) => {
-    setAffectedRoads(prev => prev.map(r =>
-      r.rn_id === rn_id ? { ...r, selected: !r.selected } : r
-    ));
-  };
+    return () => {
+      if (baselineMapRef.current) { baselineMapRef.current.remove(); baselineMapRef.current = null; }
+      if (floodedMapRef.current) { floodedMapRef.current.remove(); floodedMapRef.current = null; }
+    };
+  }, [step, baselineStats, floodedStats, paDeltas, lookups]);
 
-  // Select/deselect all roads
-  const selectAllRoads = (selected) => {
-    setAffectedRoads(prev => prev.map(r => ({ ...r, selected })));
-  };
+  const canProceedToStep2 = floodInputMethod === "manual" || (floodInputMethod === "scenario" && selectedScenario);
+  const canProceedToStep3 = floodInputMethod === "scenario" ? !!selectedScenario :
+    (floodMarkers.length > 0 && affectedRoads.filter(r => r.selected).length > 0);
 
-  // Remove flood marker
-  const removeMarker = (id) => {
-    setFloodMarkers(prev => prev.filter(m => m.id !== id));
-  };
-
-  // Clear all
-  const clearAll = () => {
-    setFloodMarkers([]);
-    setAffectedRoads([]);
-    setFloodedStats(null);
-    setPaDeltas([]);
-    const map = map_ref.current;
-    if (map && initialized) {
-      map.getSource("affected-roads")?.setData({ type: "FeatureCollection", features: [] });
-      map.getSource("planning-areas-choropleth")?.setData({ type: "FeatureCollection", features: [] });
-    }
-  };
-
-  if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading base data…</div>;
-  if (error) return <div className="p-4 text-sm text-red-500">{String(error)}</div>;
-
-  const selectedRoadsCount = affectedRoads.filter(r => r.selected).length;
+  if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100%" }}>
-      {/* Top Row: Map + Controls */}
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        {/* Left Sidebar */}
-        <div style={{ width: "384px", borderRight: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div className="p-6 border-b">
-            <h1 className="text-2xl font-semibold tracking-tight">Flood Simulation</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Choropleth map showing planning area impact
-            </p>
-          </div>
-
-          <ScrollArea style={{ flex: 1 }}>
-            <div className="p-6 space-y-6">
-              {/* Step 1 */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Step 1: Compute Baseline</CardTitle>
-                  <CardDescription>Calculate normal hospital accessibility</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button onClick={computeBaseline} disabled={!ready || busy} className="w-full">
-                    {busy && !baselineStats ? "Computing…" : baselineStats ? "✓ Baseline Complete" : "Compute Baseline"}
-                  </Button>
-                  {baselineStats && (
-                    <div className="mt-4 space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Planning Areas:</span>
-                        <span className="font-semibold">{baselineStats.paStats.length}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Nodes:</span>
-                        <span className="font-semibold">{baselineStats.nodesCount.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Step 2 */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Step 2: Mark Flood Locations</CardTitle>
-                  <CardDescription>Click on map to add markers</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm">Flood Radius</Label>
-                      <span className="text-sm font-semibold">{radiusMeters}m</span>
-                    </div>
-                    <Slider
-                      value={[radiusMeters]}
-                      min={100}
-                      max={2000}
-                      step={50}
-                      onValueChange={(v) => setRadiusMeters(v[0])}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Markers ({floodMarkers.length})</Label>
-                    {floodMarkers.length === 0 ? (
-                      <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                        <MapPin className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-xs text-muted-foreground">Click map to add</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-32 overflow-auto">
-                        {floodMarkers.map((m) => (
-                          <div key={m.id} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-3 w-3 text-red-500" />
-                              <div className="text-xs font-mono">{m.lng.toFixed(4)}, {m.lat.toFixed(4)}</div>
-                            </div>
-                            <Button size="sm" variant="ghost" onClick={() => removeMarker(m.id)} className="h-6 w-6 p-0">
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {floodMarkers.length > 0 && (
-                      <Button variant="outline" size="sm" onClick={clearAll} className="w-full">Clear All</Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Step 3 */}
-              {affectedRoads.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Step 3: Select Roads</CardTitle>
-                    <CardDescription>{selectedRoadsCount} of {affectedRoads.length} selected</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => selectAllRoads(true)} className="flex-1">Select All</Button>
-                      <Button variant="outline" size="sm" onClick={() => selectAllRoads(false)} className="flex-1">Clear All</Button>
-                    </div>
-                    <ScrollArea className="h-48 border rounded-md p-2">
-                      <div className="space-y-2">
-                        {affectedRoads.map((road) => (
-                          <div key={road.rn_id} className="flex items-center space-x-2">
-                            <Checkbox id={`road-${road.rn_id}`} checked={road.selected} onCheckedChange={() => toggleRoadSelection(road.rn_id)} />
-                            <label htmlFor={`road-${road.rn_id}`} className="text-xs flex-1 cursor-pointer">{road.name}</label>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Step 4 */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Step 4: Run Simulation</CardTitle>
-                  <CardDescription>Compute flood impact</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button onClick={computeFlooded} disabled={!ready || !baselineStats || selectedRoadsCount === 0 || busy} className="w-full">
-                    <Play className="h-4 w-4 mr-2" />
-                    {busy && floodedStats !== null ? "Computing…" : "Run Simulation"}
-                  </Button>
-                  {busy && (
-                    <div className="space-y-2">
-                      <div className="text-xs text-muted-foreground">Running… {progress.toLocaleString()} nodes</div>
-                      <div className="h-2 w-full overflow-hidden rounded bg-muted">
-                        <div className="h-2 bg-primary transition-all" style={{ width: "50%" }} />
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* Map */}
-        <div style={{ flex: 1, position: "relative" }}>
-          <div ref={container_ref} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
-
-          {/* Choropleth Legend */}
-          {paDeltas.length > 0 && (
-            <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 space-y-2">
-              <div className="font-semibold text-xs">Avg Time Increase</div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }} />
-                  <span className="text-xs">Low</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }} />
-                  <span className="text-xs">Medium</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }} />
-                  <span className="text-xs">High</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }} />
-                  <span className="text-xs">Severe</span>
-                </div>
+    <div className="flex flex-col h-screen">
+      {/* Header with stepper */}
+      <div className="border-b p-6">
+        <h1 className="text-2xl font-semibold mb-4">Flood Impact Simulation</h1>
+        <div className="flex items-center gap-2">
+          {[1, 2, 3, 4].map((s) => (
+            <div key={s} className="flex items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                s === step ? "bg-primary text-primary-foreground" : s < step ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+              }`}>
+                {s}
               </div>
+              {s < 4 && <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground" />}
             </div>
-          )}
-
-          {/* Map Legend */}
-          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 space-y-2 text-xs">
-            <div className="font-semibold">Map Legend</div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white" />
-              <span>Flood Location</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-0.5 bg-red-500" />
-              <span>Blocked Roads</span>
-            </div>
-          </div>
+          ))}
+        </div>
+        <div className="mt-2 text-sm text-muted-foreground">
+          {step === 1 && "Choose flood input method"}
+          {step === 2 && "Configure flood details"}
+          {step === 3 && "Review and run simulation"}
+          {step === 4 && "View results"}
         </div>
       </div>
 
-      {/* Bottom Row: Results Tables */}
-      {paDeltas.length > 0 && (
-        <div style={{ height: "40vh", borderTop: "1px solid #e5e7eb", display: "flex", flexDirection: "column" }}>
-          <Tabs defaultValue="deltas" className="flex-1 flex flex-col">
-            <div className="border-b px-6 pt-4">
-              <TabsList>
-                <TabsTrigger value="deltas">Planning Area Deltas</TabsTrigger>
-                <TabsTrigger value="baseline">Baseline Stats</TabsTrigger>
-                <TabsTrigger value="flooded">Flooded Stats</TabsTrigger>
-              </TabsList>
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-6">
+        {/* Step 1: Choose Method */}
+        {step === 1 && (
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle>How would you like to define the flood event?</CardTitle>
+              <CardDescription>Choose between predefined scenarios or manually marking locations</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup value={floodInputMethod} onValueChange={setFloodInputMethod}>
+                <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50" onClick={() => setFloodInputMethod("scenario")}>
+                  <RadioGroupItem value="scenario" id="scenario" />
+                  <div className="flex-1">
+                    <Label htmlFor="scenario" className="cursor-pointer font-semibold">Use Predefined Scenario</Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Select from historical flood scenarios (e.g., Historical_highest60mins)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50" onClick={() => setFloodInputMethod("manual")}>
+                  <RadioGroupItem value="manual" id="manual" />
+                  <div className="flex-1">
+                    <Label htmlFor="manual" className="cursor-pointer font-semibold">Manually Mark Locations</Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Click on map to add flood markers and configure radius for each
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+
+              {floodInputMethod === "scenario" && (
+                <div className="mt-4 space-y-2">
+                  <Label>Select Scenario</Label>
+                  <Select value={selectedScenario} onValueChange={setSelectedScenario}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a scenario..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {floodScenarios.map((s) => (
+                        <SelectItem key={s.name} value={s.name}>
+                          {s.name} ({s.roads.length} roads)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 mt-6">
+                <Button onClick={() => setStep(2)} disabled={!canProceedToStep2}>
+                  Next <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: Configure */}
+        {step === 2 && (
+          <div className="space-y-4">
+            {floodInputMethod === "manual" ? (
+              <div className="grid grid-cols-[400px_1fr] gap-4 h-[calc(100vh-16rem)]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Flood Markers</CardTitle>
+                    <CardDescription>Click map to add markers</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <ScrollArea className="h-[calc(100vh-24rem)]">
+                      <div className="space-y-3">
+                        {floodMarkers.map((marker, idx) => (
+                          <div key={marker.id} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-sm">Marker {idx + 1}</span>
+                              <Button size="sm" variant="ghost" onClick={() => setFloodMarkers(prev => prev.filter(m => m.id !== marker.id))}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {marker.lng.toFixed(4)}, {marker.lat.toFixed(4)}
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Radius: {marker.radius}m</Label>
+                              <Slider
+                                value={[marker.radius]}
+                                min={100}
+                                max={2000}
+                                step={50}
+                                onValueChange={(v) => {
+                                  setFloodMarkers(prev => prev.map(m => m.id === marker.id ? { ...m, radius: v[0] } : m));
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        {floodMarkers.length === 0 && (
+                          <div className="text-center text-sm text-muted-foreground py-8">
+                            Click on the map to add flood markers
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+
+                    {affectedRoads.length > 0 && (
+                      <>
+                        <Separator />
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-semibold">Affected Roads ({affectedRoads.filter(r => r.selected).length}/{affectedRoads.length})</Label>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: true })))}>All</Button>
+                              <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: false })))}>None</Button>
+                            </div>
+                          </div>
+                          <ScrollArea className="h-48 border rounded p-2">
+                            <div className="space-y-2">
+                              {affectedRoads.map((road) => (
+                                <div key={road.rn_id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`road-${road.rn_id}`}
+                                    checked={road.selected}
+                                    onCheckedChange={() => setAffectedRoads(prev => prev.map(r => r.rn_id === road.rn_id ? { ...r, selected: !r.selected } : r))}
+                                  />
+                                  <label htmlFor={`road-${road.rn_id}`} className="text-xs flex-1 cursor-pointer">{road.name}</label>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <div ref={configContainerRef} className="rounded-lg border" />
+              </div>
+            ) : (
+              <Card className="max-w-2xl mx-auto">
+                <CardHeader>
+                  <CardTitle>Scenario Configuration</CardTitle>
+                  <CardDescription>Review the selected scenario</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="font-semibold">{selectedScenario}</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {floodScenarios.find(s => s.name === selectedScenario)?.roads.length || 0} roads will be blocked
+                    </div>
+                  </div>
+
+                  <ScrollArea className="h-64 border rounded-lg p-4">
+                    <div className="space-y-2">
+                      {floodScenarios.find(s => s.name === selectedScenario)?.roads.map((road, idx) => (
+                        <div key={idx} className="text-sm border-b py-2">
+                          <div className="font-medium">{road.name}</div>
+                          <div className="text-xs text-muted-foreground">RN_ID: {road.rn_id}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="flex justify-between max-w-6xl mx-auto">
+              <Button variant="outline" onClick={() => setStep(1)}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+              <Button onClick={() => setStep(3)} disabled={!canProceedToStep3}>
+                Next <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Review & Run */}
+        {step === 3 && (
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle>Review Configuration</CardTitle>
+              <CardDescription>Confirm your flood scenario before running simulation</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="font-semibold">Input Method:</span>
+                  <span className="capitalize">{floodInputMethod}</span>
+                </div>
+                {floodInputMethod === "scenario" && (
+                  <div className="flex justify-between">
+                    <span className="font-semibold">Scenario:</span>
+                    <span>{selectedScenario}</span>
+                  </div>
+                )}
+                {floodInputMethod === "manual" && (
+                  <div className="flex justify-between">
+                    <span className="font-semibold">Flood Markers:</span>
+                    <span>{floodMarkers.length}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="font-semibold">Roads Blocked:</span>
+                  <span>{floodInputMethod === "manual" ? affectedRoads.filter(r => r.selected).length : floodScenarios.find(s => s.name === selectedScenario)?.roads.length || 0}</span>
+                </div>
+              </div>
+
+              {busy && (
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground">Computing... {progress.toLocaleString()} nodes visited</div>
+                  <div className="h-2 rounded bg-muted overflow-hidden">
+                    <div className="h-full bg-primary transition-all" style={{ width: "50%" }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between mt-6">
+                <Button variant="outline" onClick={() => setStep(2)} disabled={busy}>
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                </Button>
+                <Button onClick={runSimulation} disabled={!ready || busy}>
+                  <Play className="mr-2 h-4 w-4" /> Run Simulation
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 4: Results */}
+        {step === 4 && baselineStats && floodedStats && (
+          <div className="space-y-6">
+            {/* Side-by-side maps */}
+            <div className="grid grid-cols-2 gap-4" style={{ height: "50vh" }}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Baseline (No Flooding)</CardTitle>
+                  <CardDescription>Average time to nearest hospital</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div ref={baselineContainerRef} style={{ height: "calc(50vh - 5rem)" }} />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Flooded Scenario</CardTitle>
+                  <CardDescription>Time increase (delta) due to flooding</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div ref={floodedContainerRef} style={{ height: "calc(50vh - 5rem)" }} />
+                </CardContent>
+              </Card>
             </div>
 
-            <TabsContent value="deltas" className="flex-1 overflow-auto m-0 p-0">
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold">Planning Area Delta Comparison</h3>
-                  <Button size="sm" variant="outline" onClick={() => downloadCSV("pa_deltas.csv", paDeltas)}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Export CSV
+            {/* Results table */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Planning Area Impact Analysis</CardTitle>
+                    <CardDescription>Comparison of baseline vs flooded scenarios</CardDescription>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => downloadCSV("simulation_results.csv", paDeltas)}>
+                    <Download className="h-4 w-4 mr-2" /> Export CSV
                   </Button>
                 </div>
-                <div className="border rounded-lg overflow-auto max-h-[calc(40vh-8rem)]">
+              </CardHeader>
+              <CardContent>
+                <div className="border rounded-lg overflow-auto max-h-96">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-muted">
                       <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
                         <th>Planning Area</th>
-                        <th>Base Avg (min)</th>
-                        <th>Flood Avg (min)</th>
-                        <th>Δ Avg (min)</th>
-                        <th>Δ Max (min)</th>
+                        <th>Baseline Avg</th>
+                        <th>Baseline Unreachable</th>
+                        <th>Flooded Avg</th>
+                        <th>Flooded Unreachable</th>
+                        <th>Δ Avg Time</th>
                         <th>Δ Unreachable</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {paDeltas
-                        .sort((a, b) => (b.delta_avg_s || 0) - (a.delta_avg_s || 0))
-                        .map((d, i) => (
-                          <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
-                            <td className="font-medium">{d.pa_name}</td>
-                            <td>{fmtM(d.base_avg_s)}</td>
-                            <td>{fmtM(d.flood_avg_s)}</td>
-                            <td className={d.delta_avg_s > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_avg_s > 0 ? `+${fmtM(d.delta_avg_s)}` : fmtM(d.delta_avg_s)}</td>
-                            <td className={d.delta_max_s > 0 ? "text-red-600" : ""}>{d.delta_max_s > 0 ? `+${fmtM(d.delta_max_s)}` : fmtM(d.delta_max_s)}</td>
-                            <td>{d.delta_unreachable}</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="baseline" className="flex-1 overflow-auto m-0 p-0">
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold">Baseline Statistics (No Flooding)</h3>
-                  <Button size="sm" variant="outline" onClick={() => downloadCSV("baseline_stats.csv", baselineStats.paStats)}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Export CSV
-                  </Button>
-                </div>
-                <div className="border rounded-lg overflow-auto max-h-[calc(40vh-8rem)]">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-muted">
-                      <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
-                        <th>Planning Area</th>
-                        <th>Nodes</th>
-                        <th>Avg (min)</th>
-                        <th>Min (min)</th>
-                        <th>Max (min)</th>
-                        <th>Unreachable</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {baselineStats.paStats.map((pa, i) => (
+                      {paDeltas.sort((a, b) => (b.delta_avg_s || 0) - (a.delta_avg_s || 0)).map((d, i) => (
                         <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
-                          <td className="font-medium">{pa.pa_name}</td>
-                          <td>{pa.nodes}</td>
-                          <td>{fmtM(pa.avg_s)}</td>
-                          <td>{fmtM(pa.min_s)}</td>
-                          <td>{fmtM(pa.max_s)}</td>
-                          <td>{pa.unreachable}</td>
+                          <td className="font-medium">{d.pa_name}</td>
+                          <td>{fmtM(d.base_avg_s)}</td>
+                          <td>{d.base_unreachable}</td>
+                          <td>{fmtM(d.flood_avg_s)}</td>
+                          <td className={d.flood_unreachable > d.base_unreachable ? "text-red-600 font-semibold" : ""}>{d.flood_unreachable}</td>
+                          <td className={d.delta_avg_s > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_avg_s > 0 ? `+${fmtM(d.delta_avg_s)}` : fmtM(d.delta_avg_s)}</td>
+                          <td className={d.delta_unreachable > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_unreachable > 0 ? `+${d.delta_unreachable}` : d.delta_unreachable}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </TabsContent>
+              </CardContent>
+            </Card>
 
-            <TabsContent value="flooded" className="flex-1 overflow-auto m-0 p-0">
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold">Flooded Scenario Statistics</h3>
-                  <Button size="sm" variant="outline" onClick={() => downloadCSV("flooded_stats.csv", floodedStats.paStats)}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Export CSV
-                  </Button>
-                </div>
-                <div className="border rounded-lg overflow-auto max-h-[calc(40vh-8rem)]">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-muted">
-                      <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
-                        <th>Planning Area</th>
-                        <th>Nodes</th>
-                        <th>Avg (min)</th>
-                        <th>Min (min)</th>
-                        <th>Max (min)</th>
-                        <th>Unreachable</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {floodedStats.paStats.map((pa, i) => (
-                        <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
-                          <td className="font-medium">{pa.pa_name}</td>
-                          <td>{pa.nodes}</td>
-                          <td>{fmtM(pa.avg_s)}</td>
-                          <td>{fmtM(pa.min_s)}</td>
-                          <td>{fmtM(pa.max_s)}</td>
-                          <td>{pa.unreachable}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      )}
+            <div className="flex justify-start">
+              <Button variant="outline" onClick={() => { setStep(1); setFloodMarkers([]); setAffectedRoads([]); setBaselineStats(null); setFloodedStats(null); setPaDeltas([]); }}>
+                Start New Simulation
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
