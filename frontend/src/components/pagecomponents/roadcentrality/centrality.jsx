@@ -18,6 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, ChevronsUpDown, X, Info } from "lucide-react";
+import { NumberInput } from "@/components/NumberInput";
 import {
   PAGE_SIZE,
   PRESETS,
@@ -790,21 +791,19 @@ export default function Centrality() {
                               <Label htmlFor={`amen-${cat}`} className="text-xs cursor-pointer">enable</Label>
                             </div>
 
-                            <Input
-                              type="text"
+                            <NumberInput
                               value={val}
-                              onChange={(e) => {
-                                const inputVal = e.target.value;
-                                // Allow empty, digits, and decimal point
-                                if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
-                                  const numVal = inputVal === '' ? 1 : parseFloat(inputVal);
-                                  if (Number.isFinite(numVal)) {
-                                    setAmenityWeights((prev) => ({ ...prev, [cat]: numVal }));
-                                  }
+                              onValueChange={(numVal) => {
+                                if (numVal !== undefined) {
+                                  setAmenityWeights((prev) => ({ ...prev, [cat]: numVal }));
                                 }
                               }}
+                              min={1}
+                              max={10}
+                              stepper={0.1}
+                              decimalScale={1}
+                              fixedDecimalScale={true}
                               disabled={!enabled}
-                              className="h-9 w-24"
                             />
                           </div>
                         </div>
@@ -890,21 +889,19 @@ export default function Centrality() {
                               <Label htmlFor={`flood-${type}`} className="text-xs cursor-pointer">enable</Label>
                             </div>
 
-                            <Input
-                              type="text"
+                            <NumberInput
                               value={val}
-                              onChange={(e) => {
-                                const inputVal = e.target.value;
-                                // Allow empty, digits, and decimal point
-                                if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
-                                  const numVal = inputVal === '' ? 1 : parseFloat(inputVal);
-                                  if (Number.isFinite(numVal)) {
-                                    setFloodWeights((prev) => ({ ...prev, [type]: numVal }));
-                                  }
+                              onValueChange={(numVal) => {
+                                if (numVal !== undefined) {
+                                  setFloodWeights((prev) => ({ ...prev, [type]: numVal }));
                                 }
                               }}
+                              min={1}
+                              max={10}
+                              stepper={0.1}
+                              decimalScale={1}
+                              fixedDecimalScale={true}
                               disabled={!enabled}
-                              className="h-9 w-24"
                             />
                           </div>
                         </div>
@@ -984,20 +981,18 @@ export default function Centrality() {
                           disabled={!useCompBetweenness}
                           className="flex-1"
                         />
-                        <Input
-                          type="text"
-                          value={(w_betweenness * 100).toFixed(0)}
-                          onChange={(e) => {
-                            const inputVal = e.target.value;
-                            if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
-                              const numVal = inputVal === '' ? 0 : parseFloat(inputVal);
-                              if (Number.isFinite(numVal)) {
-                                set_w_betweenness(Math.max(0, Math.min(100, numVal)) / 100);
-                              }
+                        <NumberInput
+                          value={Math.round(w_betweenness * 100)}
+                          onValueChange={(numVal) => {
+                            if (numVal !== undefined) {
+                              set_w_betweenness(numVal / 100);
                             }
                           }}
+                          min={0}
+                          max={100}
+                          stepper={1}
+                          decimalScale={0}
                           disabled={!useCompBetweenness}
-                          className="h-9 w-16 text-center"
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -1025,20 +1020,18 @@ export default function Centrality() {
                           disabled={!useCompCloseness}
                           className="flex-1"
                         />
-                        <Input
-                          type="text"
-                          value={(w_closeness * 100).toFixed(0)}
-                          onChange={(e) => {
-                            const inputVal = e.target.value;
-                            if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
-                              const numVal = inputVal === '' ? 0 : parseFloat(inputVal);
-                              if (Number.isFinite(numVal)) {
-                                set_w_closeness(Math.max(0, Math.min(100, numVal)) / 100);
-                              }
+                        <NumberInput
+                          value={Math.round(w_closeness * 100)}
+                          onValueChange={(numVal) => {
+                            if (numVal !== undefined) {
+                              set_w_closeness(numVal / 100);
                             }
                           }}
+                          min={0}
+                          max={100}
+                          stepper={1}
+                          decimalScale={0}
                           disabled={!useCompCloseness}
-                          className="h-9 w-16 text-center"
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -1066,20 +1059,18 @@ export default function Centrality() {
                           disabled={!useCompAmenity}
                           className="flex-1"
                         />
-                        <Input
-                          type="text"
-                          value={(w_amenity * 100).toFixed(0)}
-                          onChange={(e) => {
-                            const inputVal = e.target.value;
-                            if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
-                              const numVal = inputVal === '' ? 0 : parseFloat(inputVal);
-                              if (Number.isFinite(numVal)) {
-                                set_w_amenity(Math.max(0, Math.min(100, numVal)) / 100);
-                              }
+                        <NumberInput
+                          value={Math.round(w_amenity * 100)}
+                          onValueChange={(numVal) => {
+                            if (numVal !== undefined) {
+                              set_w_amenity(numVal / 100);
                             }
                           }}
+                          min={0}
+                          max={100}
+                          stepper={1}
+                          decimalScale={0}
                           disabled={!useCompAmenity}
-                          className="h-9 w-16 text-center"
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -1107,20 +1098,18 @@ export default function Centrality() {
                           disabled={!useCompFlood}
                           className="flex-1"
                         />
-                        <Input
-                          type="text"
-                          value={(w_flood * 100).toFixed(0)}
-                          onChange={(e) => {
-                            const inputVal = e.target.value;
-                            if (inputVal === '' || /^\d*\.?\d*$/.test(inputVal)) {
-                              const numVal = inputVal === '' ? 0 : parseFloat(inputVal);
-                              if (Number.isFinite(numVal)) {
-                                set_w_flood(Math.max(0, Math.min(100, numVal)) / 100);
-                              }
+                        <NumberInput
+                          value={Math.round(w_flood * 100)}
+                          onValueChange={(numVal) => {
+                            if (numVal !== undefined) {
+                              set_w_flood(numVal / 100);
                             }
                           }}
+                          min={0}
+                          max={100}
+                          stepper={1}
+                          decimalScale={0}
                           disabled={!useCompFlood}
-                          className="h-9 w-16 text-center"
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
