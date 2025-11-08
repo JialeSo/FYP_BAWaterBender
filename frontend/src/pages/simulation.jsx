@@ -26,6 +26,7 @@ const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n 
 const toNum = (v) => { const n = +v; return Number.isFinite(n) ? n : null; };
 const fmtM = (s) => (Number.isFinite(s) ? (s / 60).toFixed(1) + "m" : "—");
 const dist2 = (a, b) => { if (!a || !b) return Number.POSITIVE_INFINITY; const dx=a[0]-b[0], dy=a[1]-b[1]; return dx*dx+dy*dy; };
+const capitalizeWords = (str) => str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
 
 /* ========================= priority queue ======================= */
 class MinPQ {
@@ -594,22 +595,23 @@ export default function Simulation() {
     }
   }, [ready, graph, amenity_fc_enriched, edgeFilter, selectedAmenityType, excludedAmenities]);
 
-  // Initialize result maps
+  // Initialize unified result map
   useEffect(() => {
     if (step !== 4 || !baselineStats || !floodedStats || !planning_fc_raw?.features?.length) return;
 
-    // Baseline map
-    if (baselineContainerRef.current && !baselineMapRef.current) {
+    // Single unified map
+    if (resultContainerRef.current && !resultMapRef.current) {
       const map = new mapboxgl.Map({
-        container: baselineContainerRef.current,
+        container: resultContainerRef.current,
         style: mapbox_style,
         center: [103.82, 1.35],
         zoom: 10,
         attributionControl: false,
       });
-      baselineMapRef.current = map;
+      resultMapRef.current = map;
 
       map.on("load", () => {
+        // Add choropleth layer for planning areas
         map.addSource("choropleth", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         map.addLayer({
           id: "choropleth-fill",
@@ -632,202 +634,137 @@ export default function Simulation() {
           paint: { "line-color": "#000", "line-width": 1, "line-opacity": 0.3 },
         });
 
-        // Add baseline data
-        const maxTime = Math.max(...baselineStats.paStats.map(pa => pa.avg_s || 0), 1);
-        const paById = new Map(baselineStats.paStats.map(pa => [pa.pa_id, pa]));
-        const features = [];
-
-        for (const f of planning_fc_raw.features) {
-          const props = f.properties || {};
-          const pa_id = toInt(props.pa_id ?? props.PA_ID);
-          const pa_name = props.pln_area_n ?? props.PLN_AREA_N ?? "(unknown)";
-
-          if (pa_id == null || !f.geometry) continue;
-
-          const stats = paById.get(pa_id);
-          const color = stats ? getColorForValue(stats.avg_s, maxTime, true) : "#d1d5db";
-
-          features.push({
-            type: "Feature",
-            id: pa_id,
-            properties: {
-              pa_id,
-              pa_name,
-              color,
-              avg_s: stats?.avg_s || 0,
-              nodes: stats?.nodes || 0,
-              unreachable: stats?.unreachable || 0,
-            },
-            geometry: f.geometry,
-          });
-        }
-
-        console.log("Baseline choropleth features:", features.length);
-        map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
-
-        // Add hover cursor
-        map.on("mousemove", "choropleth-fill", (e) => {
-          map.getCanvas().style.cursor = "pointer";
-          if (e.features && e.features.length > 0) {
-            const feature = e.features[0];
-            const props = feature.properties;
-
-            // Remove existing popup
-            if (baselinePopupRef.current) {
-              baselinePopupRef.current.remove();
-            }
-
-            const html = `
-              <div class="mapbox-popup-content dark:bg-gray-800 dark:text-white">
-                <div class="font-semibold">${props.pa_name}</div>
-                <div class="text-sm mt-1">Avg Time: ${fmtM(props.avg_s)}</div>
-                <div class="text-sm">Total Nodes: ${props.nodes}</div>
-                <div class="text-sm">Unreachable: ${props.unreachable}</div>
-              </div>
-            `;
-
-            baselinePopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: 'dark:bg-gray-800' })
-              .setLngLat(e.lngLat)
-              .setHTML(html)
-              .addTo(map);
-          }
-        });
-
-        map.on("mouseleave", "choropleth-fill", () => {
-          map.getCanvas().style.cursor = "";
-          if (baselinePopupRef.current) {
-            baselinePopupRef.current.remove();
-            baselinePopupRef.current = null;
-          }
-        });
-      });
-    }
-
-    // Flooded map
-    if (floodedContainerRef.current && !floodedMapRef.current) {
-      const map = new mapboxgl.Map({
-        container: floodedContainerRef.current,
-        style: mapbox_style,
-        center: [103.82, 1.35],
-        zoom: 10,
-        attributionControl: false,
-      });
-      floodedMapRef.current = map;
-
-      map.on("load", () => {
-        map.addSource("choropleth", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        // Add roads layer (will be populated on planning area click)
         map.addSource("roads", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-
-        map.addLayer({
-          id: "choropleth-fill",
-          type: "fill",
-          source: "choropleth",
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": [
-              "case",
-              ["boolean", ["feature-state", "selected"], false],
-              0.4,
-              ["boolean", ["feature-state", "hover"], false],
-              0.8,
-              0.6
-            ]
-          },
-        });
-        map.addLayer({
-          id: "choropleth-line",
-          type: "line",
-          source: "choropleth",
-          paint: {
-            "line-color": [
-              "case",
-              ["boolean", ["feature-state", "selected"], false],
-              "#3b82f6",
-              "#000"
-            ],
-            "line-width": [
-              "case",
-              ["boolean", ["feature-state", "selected"], false],
-              3,
-              1
-            ],
-            "line-opacity": 0.6
-          },
-        });
         map.addLayer({
           id: "roads-line",
           type: "line",
           source: "roads",
-          paint: { "line-color": "#ef4444", "line-width": 3, "line-opacity": 0.8 },
+          paint: {
+            "line-color": ["get", "color"],
+            "line-width": ["get", "width"],
+            "line-opacity": 0.8
+          },
         });
 
-        // Add delta data
-        const maxDelta = Math.max(...paDeltas.map(d => d.delta_avg_s || 0), 1);
-        const paById = new Map(paDeltas.map(d => [d.pa_id, d]));
-        const features = [];
+        // This function will be called initially and when selectedMetric changes
+        // It's defined here so we can call it both on load and on metric change
+        window.updateChoroplethData = () => {
+          const currentMetric = selectedMetric || "delta_time";
+          const features = [];
+          
+          // Build paDeltas map
+          const paByIdDelta = new Map(paDeltas.map(pa => [pa.pa_id, pa]));
+          
+          // Calculate max values for normalization based on metric
+          let maxValue = 1;
+          if (currentMetric === "delta_time") {
+            maxValue = Math.max(...paDeltas.map(pa => pa.delta_avg_s || 0), 1);
+          } else if (currentMetric === "unreachable") {
+            maxValue = Math.max(...paDeltas.map(pa => pa.delta_unreachable || 0), 1);
+          } else if (currentMetric === "baseline_time") {
+            maxValue = Math.max(...paDeltas.map(pa => pa.base_avg_s || 0), 1);
+          } else if (currentMetric === "flooded_time") {
+            maxValue = Math.max(...paDeltas.map(pa => pa.flood_avg_s || 0), 1);
+          }
 
-        for (const f of planning_fc_raw.features) {
-          const props = f.properties || {};
-          const pa_id = toInt(props.pa_id ?? props.PA_ID);
-          const pa_name = props.pln_area_n ?? props.PLN_AREA_N ?? "(unknown)";
+          for (const f of planning_fc_raw.features) {
+            const props = f.properties || {};
+            const pa_id = toInt(props.pa_id ?? props.PA_ID);
+            const pa_name = props.pln_area_n ?? props.PLN_AREA_N ?? "(unknown)";
 
-          if (pa_id == null || !f.geometry) continue;
+            if (pa_id == null || !f.geometry) continue;
 
-          const delta = paById.get(pa_id);
-          const color = delta ? getColorForValue(delta.delta_avg_s, maxDelta, false) : "#d1d5db";
+            const delta = paByIdDelta.get(pa_id);
+            if (!delta) continue;
 
-          features.push({
-            type: "Feature",
-            id: pa_id,
-            properties: {
-              pa_id,
-              pa_name,
-              color,
-              total_nodes: delta?.total_nodes || 0,
-              base_avg_s: delta?.base_avg_s || 0,
-              flood_avg_s: delta?.flood_avg_s || 0,
-              delta_avg_s: delta?.delta_avg_s || 0,
-              base_unreachable: delta?.base_unreachable || 0,
-              flood_unreachable: delta?.flood_unreachable || 0,
-              delta_unreachable: delta?.delta_unreachable || 0,
-            },
-            geometry: f.geometry,
-          });
-        }
+            let value = 0;
+            let color = "#d1d5db";
 
-        console.log("Flooded choropleth features:", features.length);
-        map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
+            if (currentMetric === "delta_time") {
+              value = delta.delta_avg_s || 0;
+              color = getColorForValue(value, maxValue, false); // Delta uses warm colors
+            } else if (currentMetric === "unreachable") {
+              value = delta.delta_unreachable || 0;
+              // Custom color scale for unreachable
+              if (value === 0) color = "#86efac";
+              else if (value <= 5) color = "#fde047";
+              else if (value <= 15) color = "#fb923c";
+              else color = "#ef4444";
+            } else if (currentMetric === "baseline_time") {
+              value = delta.base_avg_s || 0;
+              color = getColorForValue(value, maxValue, true); // Baseline uses cool colors
+            } else if (currentMetric === "flooded_time") {
+              value = delta.flood_avg_s || 0;
+              color = getColorForValue(value, maxValue, true); // Flooded uses cool colors
+            }
 
-        // Add hover popup
+            features.push({
+              type: "Feature",
+              id: pa_id,
+              properties: {
+                pa_id,
+                pa_name,
+                color,
+                base_avg_s: delta.base_avg_s,
+                base_unreachable: delta.base_unreachable,
+                flood_avg_s: delta.flood_avg_s,
+                flood_unreachable: delta.flood_unreachable,
+                delta_avg_s: delta.delta_avg_s,
+                delta_unreachable: delta.delta_unreachable,
+                total_intersections: delta.total_nodes,
+              },
+              geometry: f.geometry,
+            });
+          }
+
+          console.log(`Updated choropleth for metric: ${currentMetric}, features: ${features.length}`);
+          map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
+        };
+
+        // Call initially
+        window.updateChoroplethData();
+
+        // Hover tooltip
         map.on("mousemove", "choropleth-fill", (e) => {
           map.getCanvas().style.cursor = "pointer";
           if (e.features && e.features.length > 0) {
             const feature = e.features[0];
             const props = feature.properties;
 
-            // Remove existing popup
-            if (floodedPopupRef.current) {
-              floodedPopupRef.current.remove();
+            if (popupRef.current) {
+              popupRef.current.remove();
             }
 
-            const html = `
-              <div class="mapbox-popup-content dark:bg-gray-800 dark:text-white">
-                <div class="font-semibold">${props.pa_name}</div>
-                <div class="text-xs mt-1">Total Nodes: ${props.total_nodes}</div>
-                <div class="text-xs mt-2"><strong>Baseline:</strong></div>
-                <div class="text-xs">Avg Time: ${fmtM(props.base_avg_s)}</div>
-                <div class="text-xs">Unreachable: ${props.base_unreachable}</div>
-                <div class="text-xs mt-1"><strong>Flooded:</strong></div>
-                <div class="text-xs">Avg Time: ${fmtM(props.flood_avg_s)}</div>
-                <div class="text-xs">Unreachable: ${props.flood_unreachable}</div>
-                <div class="text-xs mt-1 font-semibold text-red-600"><strong>Delta:</strong></div>
-                <div class="text-xs text-red-600 dark:text-red-400">Δ Time: +${fmtM(props.delta_avg_s)}</div>
-                <div class="text-xs text-red-600 dark:text-red-400">Δ Unreachable: +${props.delta_unreachable}</div>
-                <div class="text-xs mt-1 text-muted-foreground dark:text-gray-400">Click to view roads</div>
-              </div>
+            let html = `
+              <div style="background: #fff; padding: 8px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="dark:bg-gray-800 dark:text-white">
+                <div style="font-weight: 600; margin-bottom: 4px;">${props.pa_name}</div>
+                <div style="font-size: 11px; color: #666;" class="dark:text-gray-300">Total Intersections: ${props.total_intersections}</div>
             `;
 
-            floodedPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: 'dark:bg-gray-800' })
+            if (selectedMetric === "delta_time") {
+              html += `
+                <div style="font-size: 11px; margin-top: 4px;"><strong>Δ Time:</strong> +${fmtM(props.delta_avg_s)}</div>
+                <div style="font-size: 11px; color: #666;" class="dark:text-gray-400">Baseline: ${fmtM(props.base_avg_s)} → Flooded: ${fmtM(props.flood_avg_s)}</div>
+              `;
+            } else if (selectedMetric === "unreachable") {
+              html += `
+                <div style="font-size: 11px; margin-top: 4px;"><strong>Δ Unreachable:</strong> +${props.delta_unreachable}</div>
+                <div style="font-size: 11px; color: #666;" class="dark:text-gray-400">Baseline: ${props.base_unreachable} → Flooded: ${props.flood_unreachable}</div>
+              `;
+            } else if (selectedMetric === "baseline_time") {
+              html += `<div style="font-size: 11px; margin-top: 4px;"><strong>Avg Time:</strong> ${fmtM(props.base_avg_s)}</div>`;
+            } else if (selectedMetric === "flooded_time") {
+              html += `<div style="font-size: 11px; margin-top: 4px;"><strong>Avg Time:</strong> ${fmtM(props.flood_avg_s)}</div>`;
+            }
+
+            html += `<div style="font-size: 10px; color: #999; margin-top: 4px;" class="dark:text-gray-500">Click to view roads</div></div>`;
+
+            popupRef.current = new mapboxgl.Popup({ 
+              closeButton: false, 
+              closeOnClick: false,
+              maxWidth: '300px'
+            })
               .setLngLat(e.lngLat)
               .setHTML(html)
               .addTo(map);
@@ -836,13 +773,13 @@ export default function Simulation() {
 
         map.on("mouseleave", "choropleth-fill", () => {
           map.getCanvas().style.cursor = "";
-          if (floodedPopupRef.current) {
-            floodedPopupRef.current.remove();
-            floodedPopupRef.current = null;
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
           }
         });
 
-        // Add click handler to show roads
+        // Click handler to show roads
         map.on("click", "choropleth-fill", (e) => {
           if (e.features && e.features.length > 0) {
             const feature = e.features[0];
@@ -858,6 +795,10 @@ export default function Simulation() {
             map.setFeatureState({ source: "choropleth", id: paId }, { selected: true });
             setSelectedPA({ pa_id: paId, pa_name: paName });
 
+            // Get amenities for calculating accessibility
+            const amenities = snapAmenitiesToNodes(amenity_fc_enriched, graph.nodes, [selectedAmenityType], excludedAmenities);
+            const amenityNodeIds = new Set(amenities.map(a => a.node_id));
+
             // Build blocked roads set
             let blockedRnIds = new Set();
             if (floodInputMethod === "manual") {
@@ -872,27 +813,40 @@ export default function Simulation() {
             // Filter roads within this planning area
             const roadsInPA = [];
             const seenRnIds = new Set();
+            
             for (const edge of graph.edges) {
               const nodeFrom = graph.nodes.get(edge.from);
               const nodeTo = graph.nodes.get(edge.to);
+              
               if (nodeFrom?.paId === paId || nodeTo?.paId === paId) {
                 if (edge.rn_id != null && edge.coords && !seenRnIds.has(edge.rn_id)) {
                   seenRnIds.add(edge.rn_id);
 
                   const isBlocked = blockedRnIds.has(edge.rn_id);
-                  // Show blocked roads if toggle is on, otherwise show available roads
-                  if ((showBlockedRoads && isBlocked) || (!showBlockedRoads && !isBlocked)) {
-                    roadsInPA.push({
-                      type: "Feature",
-                      properties: {
-                        rn_id: edge.rn_id,
-                        name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
-                        travel_time: edge.w,
-                        blocked: isBlocked,
-                      },
-                      geometry: { type: "LineString", coordinates: edge.coords },
-                    });
-                  }
+                  
+                  // Check if road is accessible (connects to amenity)
+                  const isAccessible = amenityNodeIds.has(edge.from) || amenityNodeIds.has(edge.to);
+                  
+                  // Calculate line width based on travel time (higher time = thicker line)
+                  const travelTime = edge.w || 60;
+                  const width = Math.max(2, Math.min(8, travelTime / 60));
+
+                  // Color: red if blocked/inaccessible, normal otherwise
+                  const color = isBlocked || !isAccessible ? "#ef4444" : "#3b82f6";
+
+                  roadsInPA.push({
+                    type: "Feature",
+                    properties: {
+                      rn_id: edge.rn_id,
+                      name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+                      travel_time: edge.w,
+                      blocked: isBlocked,
+                      accessible: isAccessible,
+                      color,
+                      width,
+                    },
+                    geometry: { type: "LineString", coordinates: edge.coords },
+                  });
                 }
               }
             }
@@ -918,26 +872,33 @@ export default function Simulation() {
           }
         });
 
-        // Add road hover
+        // Road hover tooltip
         map.on("mousemove", "roads-line", (e) => {
           if (e.features && e.features.length > 0) {
             const feature = e.features[0];
             const props = feature.properties;
 
-            // Remove existing popup
             if (roadPopupRef.current) {
               roadPopupRef.current.remove();
             }
 
             const html = `
-              <div class="mapbox-popup-content dark:bg-gray-800 dark:text-white">
-                <div class="font-semibold">${props.name}</div>
-                <div class="text-xs mt-1">RN_ID: ${props.rn_id}</div>
-                <div class="text-xs">Travel Time: ${fmtM(props.travel_time)}</div>
+              <div style="background: #fff; padding: 6px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="dark:bg-gray-800 dark:text-white">
+                <div style="font-weight: 600; font-size: 12px;">${props.name}</div>
+                <div style="font-size: 10px; margin-top: 2px;">RN_ID: ${props.rn_id}</div>
+                <div style="font-size: 10px;">Travel Time: ${fmtM(props.travel_time)}</div>
+                <div style="font-size: 10px; color: ${props.accessible ? '#22c55e' : '#ef4444'};">
+                  ${props.accessible ? '✓ Accessible to amenity' : '✗ Not accessible'}
+                </div>
+                ${props.blocked ? '<div style="font-size: 10px; color: #ef4444;">⚠ Blocked by flood</div>' : ''}
               </div>
             `;
 
-            roadPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: 'dark:bg-gray-800' })
+            roadPopupRef.current = new mapboxgl.Popup({ 
+              closeButton: false, 
+              closeOnClick: false,
+              maxWidth: '250px'
+            })
               .setLngLat(e.lngLat)
               .setHTML(html)
               .addTo(map);
@@ -954,65 +915,21 @@ export default function Simulation() {
     }
 
     return () => {
-      if (baselineMapRef.current) { baselineMapRef.current.remove(); baselineMapRef.current = null; }
-      if (floodedMapRef.current) { floodedMapRef.current.remove(); floodedMapRef.current = null; }
+      if (resultMapRef.current) { 
+        resultMapRef.current.remove(); 
+        resultMapRef.current = null; 
+      }
+      // Clean up the global function
+      delete window.updateChoroplethData;
     };
-  }, [step, baselineStats, floodedStats, paDeltas, planning_fc_raw, graph]);
+  }, [step, baselineStats, floodedStats, paDeltas, planning_fc_raw, graph, selectedAmenityType, excludedAmenities, amenity_fc_enriched, floodInputMethod, affectedRoads, selectedScenario, flood_scenarios]);
 
-  // Update roads when toggle changes
+  // Update choropleth when metric changes
   useEffect(() => {
-    if (!selectedPA || !floodedMapRef.current || step !== 4) return;
-
-    const map = floodedMapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-
-    const paId = selectedPA.pa_id;
-
-    // Build blocked roads set
-    let blockedRnIds = new Set();
-    if (floodInputMethod === "manual") {
-      blockedRnIds = new Set(affectedRoads.filter(r => r.selected).map(r => r.rn_id));
-    } else if (floodInputMethod === "scenario" && selectedScenario) {
-      const scenario = flood_scenarios.find(s => s.name === selectedScenario);
-      if (scenario) {
-        blockedRnIds = new Set(scenario.roads.map(r => r.rn_id));
-      }
+    if (resultMapRef.current && window.updateChoroplethData) {
+      window.updateChoroplethData();
     }
-
-    // Filter roads within this planning area
-    const roadsInPA = [];
-    const seenRnIds = new Set();
-    for (const edge of graph.edges) {
-      const nodeFrom = graph.nodes.get(edge.from);
-      const nodeTo = graph.nodes.get(edge.to);
-      if (nodeFrom?.paId === paId || nodeTo?.paId === paId) {
-        if (edge.rn_id != null && edge.coords && !seenRnIds.has(edge.rn_id)) {
-          seenRnIds.add(edge.rn_id);
-
-          const isBlocked = blockedRnIds.has(edge.rn_id);
-          // Show blocked roads if toggle is on, otherwise show available roads
-          if ((showBlockedRoads && isBlocked) || (!showBlockedRoads && !isBlocked)) {
-            roadsInPA.push({
-              type: "Feature",
-              properties: {
-                rn_id: edge.rn_id,
-                name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
-                travel_time: edge.w,
-                blocked: isBlocked,
-              },
-              geometry: { type: "LineString", coordinates: edge.coords },
-            });
-          }
-        }
-      }
-    }
-
-    // Update roads on map
-    map.getSource("roads")?.setData({
-      type: "FeatureCollection",
-      features: roadsInPA,
-    });
-  }, [showBlockedRoads, selectedPA, step, graph, floodInputMethod, affectedRoads, selectedScenario, flood_scenarios]);
+  }, [selectedMetric]);
 
   const canProceedToStep2 = floodInputMethod === "manual" || (floodInputMethod === "scenario" && selectedScenario);
   const canProceedToStep3 = floodInputMethod === "scenario" ? !!selectedScenario : floodMarkers.length > 0;
@@ -1097,7 +1014,7 @@ export default function Simulation() {
       .filter(f => f.properties?.amenity_type === selectedAmenityType)
       .map(f => ({
         id: f.properties?.amenity_id ?? f.properties?.id,
-        name: f.properties?.amenity_name ?? f.properties?.name ?? 'Unnamed',
+        name: capitalizeWords(f.properties?.amenity_name ?? f.properties?.name ?? 'Unnamed'),
         type: f.properties?.amenity_type,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
