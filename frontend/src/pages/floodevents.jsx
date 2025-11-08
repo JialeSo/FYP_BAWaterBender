@@ -375,17 +375,22 @@ const AR_IMPACT_PRESETS = {
   centrality_focused: {
     name: "Centrality Focused",
     description: "Prioritizes road network importance",
-    weights: { betweenness: 0.4, closeness: 0.4, amenity: 0.2 },
+    weights: { betweenness: 0.35, closeness: 0.35, amenity: 0.15, roads: 0.15 },
   },
   balanced: {
     name: "Balanced",
-    description: "Pure centrality analysis",
-    weights: { betweenness: 0.5, closeness: 0.5, amenity: 0.0 },
+    description: "Equal weighting across all factors",
+    weights: { betweenness: 0.25, closeness: 0.25, amenity: 0.25, roads: 0.25 },
   },
   amenity_focused: {
     name: "Amenity Focused",
     description: "Emphasizes facility exposure",
-    weights: { betweenness: 0.1, closeness: 0.1, amenity: 0.8 },
+    weights: { betweenness: 0.15, closeness: 0.15, amenity: 0.5, roads: 0.2 },
+  },
+  roads_focused: {
+    name: "Roads Focused",
+    description: "Prioritizes affected road count",
+    weights: { betweenness: 0.15, closeness: 0.15, amenity: 0.2, roads: 0.5 },
   },
 };
 
@@ -557,11 +562,14 @@ export default function floodevents() {
     return out;
   });
 
-  const [inner_mult, set_inner_mult] = useState(2.0);
-  const [outer_mult, set_outer_mult] = useState(0.5);
-  const [w_betweenness, set_w_betweenness] = useState(0.4);
-  const [w_closeness, set_w_closeness] = useState(0.4);
+  const [inner_mult, set_inner_mult] = useState(2);
+  const [outer_mult, set_outer_mult] = useState(1);
+  const [inner_enabled, set_inner_enabled] = useState(true);
+  const [outer_enabled, set_outer_enabled] = useState(true);
+  const [w_betweenness, set_w_betweenness] = useState(0.3);
+  const [w_closeness, set_w_closeness] = useState(0.3);
   const [w_amenity, set_w_amenity] = useState(0.2);
+  const [w_roads, set_w_roads] = useState(0.2);
 
   /* roads index by rn_id for centrality */
   const roads_by_id = useMemo(() => {
@@ -683,7 +691,14 @@ export default function floodevents() {
       }
 
       const amenity_score = 1 - Math.exp(-(impact_total) / 10.0);
-      const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score);
+
+      // Calculate roads score with band weighting
+      const inner_weight_mult = inner_enabled ? inner_mult : 0;
+      const outer_weight_mult = outer_enabled ? outer_mult : 0;
+      const roads_impact = (roads_counts.inner * inner_weight_mult) + (roads_counts.outer * outer_weight_mult);
+      const roads_score = 1 - Math.exp(-(roads_impact) / 10.0);
+
+      const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score) + (w_roads * roads_score);
 
       out.set(id, {
         center: [lng, lat],
@@ -691,11 +706,11 @@ export default function floodevents() {
         roads_counts,
         impact: { inner: impact_inner, outer: impact_outer, total: impact_total },
         centrality: { bnorm, cnorm },
-        scores: { amenity_score, ar_impact },
+        scores: { amenity_score, roads_score, roads_impact, ar_impact },
       });
     }
     return out;
-  }, [floods_fc, amenity_list, road_fc, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity]);
+  }, [floods_fc, amenity_list, road_fc, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, inner_enabled, outer_enabled, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity, w_roads]);
 
   function paint_selected_rings(center, r_in, r_out) {
   const map = map_ref.current;
@@ -1575,15 +1590,18 @@ export default function floodevents() {
                   <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
                     <Card className="border bg-background/80 shadow-none">
                       <CardHeader>
-                        <CardTitle className="text-base">Catchment Configuration</CardTitle>
+                        <CardTitle className="text-base">Band Toggles & Weights</CardTitle>
                         <CardDescription>
-                          Define inner and outer radii and their contribution weights. Inner amenities usually have more impact.
+                          Enable/disable distance bands and set their weight multipliers (1-10). Disabled bands contribute 0 to the calculation.
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
+                          {/* Inner Band */}
                           <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-                            <div className="font-semibold text-sm">Inner Band</div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-sm">Inner Band</span>
+                            </div>
                             <div className="space-y-2">
                               <Label htmlFor="inner-radius" className="text-xs">Radius (meters)</Label>
                               <Input
@@ -1600,25 +1618,42 @@ export default function floodevents() {
                                 }}
                               />
                             </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="inner-mult" className="text-xs">Weight Multiplier</Label>
-                              <Input
-                                id="inner-mult"
-                                type="number"
-                                inputMode="numeric"
-                                step="1"
-                                min={0}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id="inner-band-toggle"
+                                  checked={inner_enabled}
+                                  onCheckedChange={set_inner_enabled}
+                                />
+                                <Label htmlFor="inner-band-toggle" className="text-xs cursor-pointer">
+                                  enable
+                                </Label>
+                              </div>
+                              <NumberInput
                                 value={inner_mult}
-                                onChange={(e) => set_inner_mult(clamp(+e.target.value || 0, 0, 10))}
+                                onValueChange={(numVal) => {
+                                  if (numVal !== undefined) {
+                                    set_inner_mult(numVal);
+                                  }
+                                }}
+                                min={1}
+                                max={10}
+                                stepper={1}
+                                decimalScale={0}
+                                fixedDecimalScale={false}
+                                disabled={!inner_enabled}
                               />
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">
-                              Inner Band: {r_inner} m — Weight: {inner_mult.toFixed(1)}
+                              Inner Band: {r_inner} m — Weight: {inner_enabled ? inner_mult : 0}
                             </div>
                           </div>
 
+                          {/* Outer Band */}
                           <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-                            <div className="font-semibold text-sm">Outer Band</div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-sm">Outer Band</span>
+                            </div>
                             <div className="space-y-2">
                               <Label htmlFor="outer-radius" className="text-xs">Radius (meters)</Label>
                               <Input
@@ -1635,20 +1670,34 @@ export default function floodevents() {
                                 }}
                               />
                             </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="outer-mult" className="text-xs">Weight Multiplier</Label>
-                              <Input
-                                id="outer-mult"
-                                type="number"
-                                inputMode="numeric"
-                                step="1"
-                                min={0}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id="outer-band-toggle"
+                                  checked={outer_enabled}
+                                  onCheckedChange={set_outer_enabled}
+                                />
+                                <Label htmlFor="outer-band-toggle" className="text-xs cursor-pointer">
+                                  enable
+                                </Label>
+                              </div>
+                              <NumberInput
                                 value={outer_mult}
-                                onChange={(e) => set_outer_mult(clamp(+e.target.value || 0, 0, 10))}
+                                onValueChange={(numVal) => {
+                                  if (numVal !== undefined) {
+                                    set_outer_mult(numVal);
+                                  }
+                                }}
+                                min={1}
+                                max={10}
+                                stepper={1}
+                                decimalScale={0}
+                                fixedDecimalScale={false}
+                                disabled={!outer_enabled}
                               />
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">
-                              Outer Band: {r_outer} m — Weight: {outer_mult.toFixed(1)}
+                              Outer Band: {r_outer} m — Weight: {outer_enabled ? outer_mult : 0}
                             </div>
                           </div>
                         </div>
@@ -1721,7 +1770,7 @@ export default function floodevents() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
                           {Object.entries(AR_IMPACT_PRESETS).map(([key, preset]) => (
                             <button
                               key={key}
@@ -1729,13 +1778,15 @@ export default function floodevents() {
                                 set_w_betweenness(preset.weights.betweenness);
                                 set_w_closeness(preset.weights.closeness);
                                 set_w_amenity(preset.weights.amenity);
+                                set_w_roads(preset.weights.roads);
                               }}
                               className="rounded-lg border bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
                             >
                               <div className="font-semibold text-sm mb-1">{preset.name}</div>
                               <div className="text-xs text-muted-foreground">{preset.description}</div>
-                              <div className="mt-2 text-[10px] font-mono text-muted-foreground">
-                                B:{preset.weights.betweenness} C:{preset.weights.closeness} A:{preset.weights.amenity}
+                              <div className="mt-2 text-[10px] font-mono text-muted-foreground space-y-0.5">
+                                <div>B:{preset.weights.betweenness} C:{preset.weights.closeness}</div>
+                                <div>A:{preset.weights.amenity} R:{preset.weights.roads}</div>
                               </div>
                             </button>
                           ))}
@@ -1802,6 +1853,23 @@ export default function floodevents() {
                               Density and type of amenities affected, weighted by category multipliers and ring weights.
                             </p>
                           </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Roads Weight</Label>
+                              <span className="text-sm font-semibold">{w_roads.toFixed(2)}</span>
+                            </div>
+                            <Slider
+                              value={[w_roads * 100]}
+                              min={0}
+                              max={100}
+                              step={5}
+                              onValueChange={(value) => set_w_roads(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Number of roads affected within distance rings, weighted by band multipliers.
+                            </p>
+                          </div>
                         </div>
 
                         {/* Dynamic Formula Display */}
@@ -1810,17 +1878,17 @@ export default function floodevents() {
                             Current Formula
                           </div>
                           <p className="font-mono text-xs mb-2">
-                            AR Impact = ({w_betweenness.toFixed(2)} × Betweenness) + ({w_closeness.toFixed(2)} × Closeness) + ({w_amenity.toFixed(2)} × Amenity Score)
+                            AR Impact = ({w_betweenness.toFixed(2)} × Betweenness) + ({w_closeness.toFixed(2)} × Closeness) + ({w_amenity.toFixed(2)} × Amenity Score) + ({w_roads.toFixed(2)} × Roads Score)
                           </p>
                           <ul className="mt-2 list-disc space-y-1 pl-4">
                             <li>
                               Betweenness and Closeness are normalized centrality values (0-1) for the affected road.
                             </li>
                             <li>
-                              Amenity Score = 1 - exp(-impact total / 10), providing diminishing returns for high amenity counts.
+                              Amenity Score = 1 - exp(-impact_amenity / 10), where impact_amenity = {inner_enabled ? inner_mult : 0} × Σ(inner amenities × category weight) + {outer_enabled ? outer_mult : 0} × Σ(outer amenities × category weight).
                             </li>
                             <li>
-                              Impact total = {inner_mult.toFixed(1)} × Σ(enabled inner amenities × category weight) + {outer_mult.toFixed(1)} × Σ(enabled outer amenities × category weight).
+                              Roads Score = 1 - exp(-impact_roads / 10), where impact_roads = {inner_enabled ? inner_mult : 0} × (inner roads count) + {outer_enabled ? outer_mult : 0} × (outer roads count).
                             </li>
                           </ul>
                         </div>
@@ -1834,127 +1902,153 @@ export default function floodevents() {
         </Accordion>
       </header>
 
-      {/* Flood Display Panel - Ranked Event Cards */}
+      {/* Flood Display Panel - Selected Event Details */}
       <section className="rounded-3xl border border-border bg-card shadow-sm">
         <div className="px-6 py-5 space-y-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Top Flood Events by AR Impact</h2>
+              <h2 className="text-lg font-semibold">Flood Event Details</h2>
               <p className="text-sm text-muted-foreground">
-                {sorted.length} event{sorted.length !== 1 ? 's' : ''} ranked by Amenities & Road Impact score. Click a card to view details.
+                {selected ? 'Selected event details with AR Impact analysis' : 'Select a flood event from the table to view details'}
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Showing top {Math.min(10, sorted.length)} of {sorted.length}</span>
-            </div>
+            {selected && (
+              <Button variant="ghost" size="sm" onClick={() => {
+                set_selected(null);
+                set_selected_props(null);
+                set_selected_stats(null);
+              }}>
+                <X className="h-4 w-4 mr-1" />
+                Clear Selection
+              </Button>
+            )}
           </div>
 
-          {sorted.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              {sorted.slice(0, 10).map((row, index) => {
-                const isSelected = selected === row.id;
-                const rank = index + 1;
-
-                return (
-                  <button
-                    key={row.id}
-                    onClick={() => {
-                      if (selected === row.id) {
-                        set_selected(null);
-                        set_selected_props(null);
-                        set_selected_stats(null);
-                      } else {
-                        set_selected(row.id);
-                        set_selected_props(row._props);
-                        focus_select(row.id);
-                      }
-                    }}
-                    className={`rounded-lg border p-4 text-left transition-all hover:shadow-md ${
-                      isSelected
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                        : 'border-border bg-muted/30 hover:bg-muted/50'
-                    }`}
-                  >
-                    {/* Rank badge */}
-                    <div className="flex items-start justify-between mb-2">
-                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
-                        rank === 1 ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400' :
-                        rank === 2 ? 'bg-gray-400/20 text-gray-700 dark:text-gray-400' :
-                        rank === 3 ? 'bg-amber-600/20 text-amber-700 dark:text-amber-500' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        #{rank}
-                      </div>
-                      {isSelected && (
-                        <div className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
-                          Selected
-                        </div>
-                      )}
+          {selected && selected_stats ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* AR Impact Card */}
+              <Card className="border-2 border-primary/20 bg-primary/5">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground">AR Impact Score</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</div>
+                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between">
+                      <span>Betweenness:</span>
+                      <span className="font-mono">{(w_betweenness * (selected_stats.centrality?.bnorm ?? 0)).toFixed(3)}</span>
                     </div>
-
-                    {/* AR Impact Score */}
-                    <div className="mb-3">
-                      <div className="text-xs text-muted-foreground mb-1">AR Impact</div>
-                      <div className="text-2xl font-bold">{row.ar_impact.toFixed(3)}</div>
-                      <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-                        <span>C: {row.centrality.toFixed(2)}</span>
-                        <span>•</span>
-                        <span>I: {row.impact_total.toFixed(1)}</span>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span>Closeness:</span>
+                      <span className="font-mono">{(w_closeness * (selected_stats.centrality?.cnorm ?? 0)).toFixed(3)}</span>
                     </div>
-
-                    {/* Event Info */}
-                    <div className="space-y-1 text-xs">
-                      <div className="font-medium truncate" title={row.event}>
-                        {to_title_case(row.event) || 'Unknown Event'}
-                      </div>
-                      <div className="text-muted-foreground truncate" title={row.location}>
-                        {row.location || 'Unknown Location'}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {row.event_date || 'No date'}
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span>Amenity:</span>
+                      <span className="font-mono">{(w_amenity * (selected_stats.scores?.amenity_score ?? 0)).toFixed(3)}</span>
                     </div>
-
-                    {/* Stats */}
-                    <div className="mt-3 pt-3 border-t space-y-1 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Main Road:</span>
-                        <span className="font-medium truncate ml-2" title={row.parent_road}>
-                          {row.parent_road ? (row.parent_road.length > 12 ? row.parent_road.slice(0, 12) + '...' : row.parent_road) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Amenities:</span>
-                        <span className="font-medium">{row.ring_total}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-muted-foreground">A (in/out):</span>
-                        <span className="font-mono">{row.ring_inner}/{row.ring_outer}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Roads:</span>
-                        <span className="font-medium">{row.roads_total}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-muted-foreground">R (in/out):</span>
-                        <span className="font-mono">{row.roads_inner}/{row.roads_outer}</span>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span>Roads:</span>
+                      <span className="font-mono">{(w_roads * (selected_stats.scores?.roads_score ?? 0)).toFixed(3)}</span>
                     </div>
-                  </button>
-                );
-              })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Amenities Affected */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground">Amenities Affected</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{selected_stats.counts?.total ?? 0}</div>
+                  <div className="mt-2 space-y-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Inner ring ({r_inner}m):</span>
+                      <span className="font-semibold">{selected_stats.counts?.inner ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Outer ring ({r_outer}m):</span>
+                      <span className="font-semibold">{selected_stats.counts?.outer ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t pt-1 mt-1">
+                      <span className="text-muted-foreground">Impact Total:</span>
+                      <span className="font-mono">{selected_stats.impact?.total?.toFixed(1) ?? 'N/A'}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Roads Affected */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground">Roads Affected</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{selected_stats.roads_counts?.total ?? 0}</div>
+                  <div className="mt-2 space-y-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Inner ring ({r_inner}m):</span>
+                      <span className="font-semibold">{selected_stats.roads_counts?.inner ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Outer ring ({r_outer}m):</span>
+                      <span className="font-semibold">{selected_stats.roads_counts?.outer ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t pt-1 mt-1">
+                      <span className="text-muted-foreground">Main road:</span>
+                      <span className="text-xs truncate max-w-[120px]" title={selected_props?.parent_road}>
+                        {selected_props?.parent_road ?? 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Event Information */}
+              <Card className="md:col-span-3">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Event Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 text-sm">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Event ID</div>
+                      <div className="font-mono">{selected_props?.id ?? 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Event Type</div>
+                      <div>{to_title_case(selected_props?.event ?? 'Unknown')}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Date</div>
+                      <div>{selected_props?.event_date ?? 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Location</div>
+                      <div className="truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Planning Area</div>
+                      <div>{selected_props?.start_planning_area ?? 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Postal Code</div>
+                      <div className="font-mono">{selected_props?.start_postal_code ?? 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Coordinates</div>
+                      <div className="font-mono text-xs">{selected_props?.start_lat?.toFixed(5) ?? 'N/A'}, {selected_props?.start_lng?.toFixed(5) ?? 'N/A'}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>No flood events match the current filters.</p>
-              <Button
-                variant="outline"
-                onClick={reset_all_filters}
-                className="mt-4"
-              >
-                Clear Filters
-              </Button>
+            <div className="border-2 border-dashed rounded-lg p-12 text-center">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">No flood event selected</p>
+                <p className="text-xs text-muted-foreground">Click on a row in the table below to view detailed AR Impact analysis</p>
+              </div>
             </div>
           )}
         </div>
