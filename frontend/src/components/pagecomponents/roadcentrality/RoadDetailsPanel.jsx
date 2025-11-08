@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { X } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
@@ -89,93 +90,114 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Main KPIs with visual indicators */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Importance with percentile */}
-          <div className="rounded-lg border-2 border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-medium text-muted-foreground uppercase">Importance</div>
-              {percentileLabel && (
-                <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+        {/* 6 KPI Cards in one row */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Importance */}
+          <div className="rounded-lg border-2 border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5 p-3">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase mb-1">Importance</div>
+            {percentileLabel && (
+              <div className="mb-1">
+                <span className="px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
                   {percentileLabel}
                 </span>
-              )}
-            </div>
-            <div className="text-2xl font-bold text-primary mb-1">{format_number(p.importance, 2) ?? "—"}</div>
-            {percentile && (
-              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all"
-                  style={{ width: `${100 - percentile}%` }}
-                />
               </div>
             )}
+            <div className="text-xl font-bold text-primary">{format_number(p.importance, 2) ?? "—"}</div>
           </div>
 
           {/* SLA Category */}
-          <div className="rounded-lg border bg-muted/50 p-4">
-            <div className="text-xs font-medium text-muted-foreground uppercase mb-2">SLA Category</div>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{slaCategory || "—"}</div>
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase mb-1">SLA Category</div>
+            <div className="text-sm font-bold text-green-600 dark:text-green-400 mt-2">{p.sla_priority || "—"}</div>
+          </div>
+
+          {/* Betweenness */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="text-[10px] text-muted-foreground mb-1">Betweenness</div>
+            {percentileLabel && <div className="h-3 mb-1"></div>}
+            <div className="text-xl font-bold">{format_number(p.betweenness_norm, 4) ?? "—"}</div>
+          </div>
+
+          {/* Closeness */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="text-[10px] text-muted-foreground mb-1">Closeness</div>
+            {percentileLabel && <div className="h-3 mb-1"></div>}
+            <div className="text-xl font-bold">{format_number(p.closeness_norm, 4) ?? "—"}</div>
+          </div>
+
+          {/* Amenities */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="text-[10px] text-muted-foreground mb-1">Amenities</div>
+            {percentileLabel && <div className="h-3 mb-1"></div>}
+            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{p.amenity_count_total || 0}</div>
+          </div>
+
+          {/* Flood Events */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="text-[10px] text-muted-foreground mb-1">Flood Events</div>
+            {percentileLabel && <div className="h-3 mb-1"></div>}
+            <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{p.flood_count_total || 0}</div>
           </div>
         </div>
 
-        {/* Secondary KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-xs text-muted-foreground mb-1">Betweenness</div>
-            <div className="text-lg font-bold">{format_number(p.betweenness_norm, 4) ?? "—"}</div>
-          </div>
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-xs text-muted-foreground mb-1">Closeness</div>
-            <div className="text-lg font-bold">{format_number(p.closeness_norm, 4) ?? "—"}</div>
-          </div>
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-xs text-muted-foreground mb-1">Amenities</div>
-            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{p.amenity_count_total || 0}</div>
-          </div>
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-xs text-muted-foreground mb-1">Flood Events</div>
-            <div className="text-lg font-bold text-orange-600 dark:text-orange-400">{p.flood_count_total || 0}</div>
-          </div>
-        </div>
+        {/* Accordions for Amenities and Flood Events */}
+        <Accordion type="multiple" className="w-full">
+          <AccordionItem value="amenities">
+            <AccordionTrigger className="text-sm font-semibold">
+              Amenities ({p.amenity_count_total || 0})
+            </AccordionTrigger>
+            <AccordionContent>
+              {amenityBreakdown.length > 0 ? (
+                <ScrollArea className="h-48">
+                  <div className="space-y-1.5 pr-2">
+                    {amenityBreakdown.map(({ category, count }) => (
+                      <div
+                        key={category}
+                        className="flex items-center justify-between text-xs rounded px-3 py-2 bg-muted/50 hover:bg-muted transition-colors"
+                      >
+                        <span className="font-medium">{to_title_case(category)}</span>
+                        <span className="font-semibold text-blue-600 dark:text-blue-400">{count} items</span>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4">No amenities nearby</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-3 italic">
+                Note: Individual amenity item details require backend data integration
+              </p>
+            </AccordionContent>
+          </AccordionItem>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Amenities ({p.amenity_count_total || 0})</h4>
-            {amenityBreakdown.length > 0 ? (
-              <ScrollArea className="h-32">
-                <div className="space-y-1.5 pr-2">
-                  {amenityBreakdown.map(({ category, count }) => (
-                    <div key={category} className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/50">
-                      <span>{to_title_case(category)}</span>
-                      <span className="font-semibold">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            ) : (
-              <p className="text-xs text-muted-foreground">No amenities nearby</p>
-            )}
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Flood Events ({p.flood_count_total || 0})</h4>
-            {floodBreakdown.length > 0 ? (
-              <ScrollArea className="h-32">
-                <div className="space-y-1.5 pr-2">
-                  {floodBreakdown.map(({ type, count }) => (
-                    <div key={type} className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/50">
-                      <span>{to_title_case(type)}</span>
-                      <span className="font-semibold">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            ) : (
-              <p className="text-xs text-muted-foreground">No flood events recorded</p>
-            )}
-          </div>
-        </div>
+          <AccordionItem value="floods">
+            <AccordionTrigger className="text-sm font-semibold">
+              Flood Events ({p.flood_count_total || 0})
+            </AccordionTrigger>
+            <AccordionContent>
+              {floodBreakdown.length > 0 ? (
+                <ScrollArea className="h-48">
+                  <div className="space-y-1.5 pr-2">
+                    {floodBreakdown.map(({ type, count }) => (
+                      <div
+                        key={type}
+                        className="flex items-center justify-between text-xs rounded px-3 py-2 bg-muted/50 hover:bg-muted transition-colors"
+                      >
+                        <span className="font-medium">{to_title_case(type)}</span>
+                        <span className="font-semibold text-orange-600 dark:text-orange-400">{count} events</span>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4">No flood events recorded</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-3 italic">
+                Note: Individual flood event details require backend data integration
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
     </Card>
   );

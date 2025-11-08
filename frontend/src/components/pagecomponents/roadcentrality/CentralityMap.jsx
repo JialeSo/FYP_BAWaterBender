@@ -24,8 +24,8 @@ const COLOR_METRICS = [
   { value: "importance", label: "Importance" },
   { value: "amenity_count_total", label: "Amenity Count" },
   { value: "flood_count_total", label: "Flood Count" },
-  { value: "betweenness_norm", label: "Betweenness" },
-  { value: "closeness_norm", label: "Closeness" },
+  { value: "betweenness_norm", label: "Betweenness (Normalized)" },
+  { value: "closeness_norm", label: "Closeness (Normalized)" },
 ];
 
 const THICKNESS_METRICS = [
@@ -33,50 +33,47 @@ const THICKNESS_METRICS = [
   { value: "importance", label: "Importance" },
   { value: "amenity_count_total", label: "Amenity Count" },
   { value: "flood_count_total", label: "Flood Count" },
-  { value: "betweenness_norm", label: "Betweenness" },
-  { value: "closeness_norm", label: "Closeness" },
+  { value: "betweenness_norm", label: "Betweenness (Normalized)" },
+  { value: "closeness_norm", label: "Closeness (Normalized)" },
 ];
 
-// Calculate percentile thresholds from data
-const calculatePercentiles = (data, metric) => {
-  if (!data?.features?.length) return [0, 0, 0, 0, 0];
+// Calculate color thresholds based on max value (5 equal buckets)
+const calculateColorThresholds = (data, metric) => {
+  if (!data?.features?.length) return [0, 0, 0, 0, 0, 0];
 
   const values = data.features
     .map(f => f.properties?.[metric])
-    .filter(v => v !== null && v !== undefined && !isNaN(v))
-    .sort((a, b) => a - b);
+    .filter(v => v !== null && v !== undefined && !isNaN(v));
 
-  if (values.length === 0) return [0, 0, 0, 0, 0];
+  if (values.length === 0) return [0, 0, 0, 0, 0, 0];
 
-  const getPercentile = (p) => {
-    const index = Math.floor((values.length - 1) * p);
-    return values[index] || 0;
-  };
+  const maxValue = Math.max(...values);
 
+  // Create 5 equal buckets from 0 to max
   return [
     0,
-    getPercentile(0.2),
-    getPercentile(0.4),
-    getPercentile(0.6),
-    getPercentile(0.8),
-    Math.max(...values),
+    maxValue * 0.2,
+    maxValue * 0.4,
+    maxValue * 0.6,
+    maxValue * 0.8,
+    maxValue,
   ];
 };
 
-// Function to create color expression based on percentiles
-const createColorExpression = (metric, percentiles) => {
-  const [p0, p20, p40, p60, p80, p100] = percentiles;
+// Function to create color expression based on value thresholds
+const createColorExpression = (metric, thresholds) => {
+  const [t0, t20, t40, t60, t80, t100] = thresholds;
 
   return [
     "interpolate",
     ["linear"],
     ["coalesce", ["to-number", ["get", metric]], 0],
-    p0, "#f1f5f9",    // Very light (0-20%)
-    p20, "#93c5fd",   // Light blue (20-40%)
-    p40, "#60a5fa",   // Medium blue (40-60%)
-    p60, "#3b82f6",   // Blue (60-80%)
-    p80, "#1d4ed8",   // Dark blue (80-100%)
-    p100, "#1e40af",  // Very dark blue (100%)
+    t0, "#f1f5f9",    // Very light (0-20% of max)
+    t20, "#93c5fd",   // Light blue (20-40% of max)
+    t40, "#60a5fa",   // Medium blue (40-60% of max)
+    t60, "#3b82f6",   // Blue (60-80% of max)
+    t80, "#1d4ed8",   // Dark blue (80-100% of max)
+    t100, "#1e40af",  // Very dark blue (100% of max)
   ];
 };
 
@@ -97,9 +94,9 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick }) 
   const [colorMetric, setColorMetric] = useState("importance");
   const [thicknessMetric, setThicknessMetric] = useState("none");
 
-  // Calculate percentiles for color metric
-  const colorPercentiles = useMemo(() => {
-    return calculatePercentiles(data, colorMetric);
+  // Calculate color thresholds based on max value
+  const colorThresholds = useMemo(() => {
+    return calculateColorThresholds(data, colorMetric);
   }, [data, colorMetric]);
 
   // Update map paint properties when metrics or data change
@@ -108,12 +105,12 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick }) 
     if (!map || !map.isStyleLoaded() || !map.getLayer("roads")) return;
 
     try {
-      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, colorPercentiles));
+      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, colorThresholds));
       map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric));
     } catch (e) {
       console.error("Failed to update paint properties:", e);
     }
-  }, [colorMetric, thicknessMetric, colorPercentiles]);
+  }, [colorMetric, thicknessMetric, colorThresholds]);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN || mapRef.current || !containerRef.current) return;
@@ -144,7 +141,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick }) 
           source: "road-network",
           layout: { visibility: "visible", "line-cap": "round", "line-join": "round" },
           paint: {
-            "line-color": createColorExpression(colorMetric, colorPercentiles),
+            "line-color": createColorExpression(colorMetric, colorThresholds),
             "line-width": createWidthExpression(thicknessMetric),
             "line-opacity": 0.95
           },
@@ -368,14 +365,14 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick }) 
         <p className="font-semibold mb-2">Legend</p>
         <div className="space-y-2">
           <div>
-            <p className="text-muted-foreground mb-1">Colour = {colorLabel} (Percentiles)</p>
+            <p className="text-muted-foreground mb-1">Colour = {colorLabel}</p>
             <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #f1f5f9, #93c5fd, #60a5fa, #3b82f6, #1d4ed8, #1e40af)" }} />
             <div className="mt-1 flex justify-between text-muted-foreground text-[9px]">
-              <span>0-20%</span>
-              <span>20-40%</span>
-              <span>40-60%</span>
-              <span>60-80%</span>
-              <span>80-100%</span>
+              <span>{format_number(colorThresholds[0], 1)}</span>
+              <span>{format_number(colorThresholds[5], 1)}</span>
+            </div>
+            <div className="mt-0.5 text-center text-muted-foreground text-[8px]">
+              Range: 0 to {format_number(colorThresholds[5], 2)} (max)
             </div>
           </div>
           {thicknessMetric !== "none" && (
