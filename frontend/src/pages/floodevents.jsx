@@ -113,24 +113,29 @@ const METRIC_FILTER_CONFIG = [
 
 const METRIC_SUMMARY_ROWS = [
   {
-    metric: "Amenity Inner Count",
-    meaning: "Amenities mapped inside the inner distance ring for each flood.",
-    insight: "Higher values indicate more immediate amenity exposure and increase the calculated impact through the inner weight.",
+    metric: "Roads Affected",
+    meaning: "Total number of roads within the inner and outer distance rings from each flood location.",
+    insight: "Higher values indicate more road infrastructure at risk. Roads in inner ring are weighted more heavily. Contributes to AR Impact via roads score.",
   },
   {
-    metric: "Total Amenity Count",
-    meaning: "Combined amenities from the inner and outer rings (inner + outer).",
-    insight: "Acts as an upper bound on potential exposure; large totals can still yield moderate impact if outer amenities dominate with a lower weight.",
+    metric: "Amenities Affected",
+    meaning: "Total number of amenities (hospitals, schools, etc.) within the inner and outer distance rings from each flood location.",
+    insight: "Higher values indicate more critical facilities at risk. Each amenity category has a different weight (e.g., emergency services weighted highest).",
   },
   {
-    metric: "Road Centrality Index",
-    meaning: "Weighted blend of network betweenness and closeness with configurable weights, normalised between 0 and 1.",
-    insight: "Measures how critical nearby roads are for connectivity; higher centrality amplifies the AR Impact when combined with amenity impact.",
+    metric: "Betweenness Norm",
+    meaning: "Normalized betweenness centrality of the affected road (0-1 scale). Measures how often the road lies on shortest paths between other roads.",
+    insight: "Higher values indicate roads critical for network connectivity. Roads with high betweenness are key transit routes whose flooding disrupts many journeys.",
   },
   {
-    metric: "Calculated Impact",
-    meaning: "Amenity score derived from inner and outer counts with their respective weights (impact = inner_count * inner_weight + outer_count * outer_weight).",
-    insight: "Feeds into the AR Impact alongside centrality (AR Impact = w_betweenness * betweenness + w_closeness * closeness + w_amenity * amenity score), so both amenity counts and road importance drive the final score.",
+    metric: "Closeness Norm",
+    meaning: "Normalized closeness centrality of the affected road (0-1 scale). Measures how central the road is to the entire network.",
+    insight: "Higher values indicate roads with good access to all other roads. Flooding these roads affects reachability across the entire network.",
+  },
+  {
+    metric: "AR Impact",
+    meaning: "Amenity-Road Impact score combining 4 weighted components: betweenness, closeness, amenity exposure, and roads affected.",
+    insight: "Final risk score (formula: AR = w_b × betweenness + w_c × closeness + w_a × amenity_score + w_r × roads_score). Use presets or adjust weights to prioritize different factors.",
   },
 ];
 
@@ -508,8 +513,11 @@ export default function floodevents() {
   const [page, set_page] = useState(1);
   const [visible_cols, set_visible_cols] = useState({
     id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
-    ring_inner: true, ring_outer: true, ring_total: true,
-    impact_inner: true, impact_outer: true, impact_total: true, centrality: true, ar_impact: true,
+    roads_total: true, ring_total: true, betweenness_norm: true, closeness_norm: true, ar_impact: true,
+    // Optional/advanced columns (hidden by default)
+    roads_inner: false, roads_outer: false,
+    ring_inner: false, ring_outer: false,
+    impact_inner: false, impact_outer: false, impact_total: false,
     start_postal_code: false, start_lat: false, start_lng: false,
   });
 
@@ -761,17 +769,24 @@ export default function floodevents() {
       return {
         id, event_date, event, dt, location, parent_road, planning_area,
         start_postal_code, start_lat, start_lng,
+        // Amenities affected
         ring_inner: stats?.counts.inner ?? 0,
         ring_outer: stats?.counts.outer ?? 0,
         ring_total: stats?.counts.total ?? 0,
+        // Roads affected
         roads_inner: stats?.roads_counts?.inner ?? 0,
         roads_outer: stats?.roads_counts?.outer ?? 0,
         roads_total: stats?.roads_counts?.total ?? 0,
+        // Weighted impacts (for advanced users)
         impact_inner: +(stats?.impact.inner ?? 0).toFixed(2),
         impact_outer:  +(stats?.impact.outer ?? 0).toFixed(2),
         impact_total:  +(stats?.impact.total ?? 0).toFixed(2),
-        centrality:    +((w_betweenness * (stats?.centrality.bnorm ?? 0)) + (w_closeness * (stats?.centrality.cnorm ?? 0))).toFixed(3),
-        ar_impact:     +(stats?.scores.ar_impact ?? 0).toFixed(3),
+        // Centrality components
+        betweenness_norm: +(stats?.centrality.bnorm ?? 0).toFixed(3),
+        closeness_norm: +(stats?.centrality.cnorm ?? 0).toFixed(3),
+        centrality: +((w_betweenness * (stats?.centrality.bnorm ?? 0)) + (w_closeness * (stats?.centrality.cnorm ?? 0))).toFixed(3),
+        // Final AR Impact score
+        ar_impact: +(stats?.scores.ar_impact ?? 0).toFixed(3),
         _props: p,
       };
     });
@@ -1348,14 +1363,23 @@ export default function floodevents() {
     }
     const impact_total = impact_inner + impact_outer;
     const amenity_score = 1 - Math.exp(-impact_total / 10.0);
-    const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score);
+
+    // Calculate roads score with band weighting (matching batch calculation)
+    const inner_weight_mult = inner_enabled ? inner_mult : 0;
+    const outer_weight_mult = outer_enabled ? outer_mult : 0;
+    const roads_impact = (roads_pack.inner.length * inner_weight_mult) + (roads_pack.outer.length * outer_weight_mult);
+    const roads_score = 1 - Math.exp(-roads_impact / 10.0);
+
+    // AR Impact with all 4 components
+    const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score) + (w_roads * roads_score);
 
     set_selected_stats({
       center,
       counts: { inner: inner_count, outer: outer_count, total: inner_count + outer_count },
+      roads_counts: { inner: roads_pack.inner.length, outer: roads_pack.outer.length, total: roads_pack.inner.length + roads_pack.outer.length },
       impact: { inner: +impact_inner.toFixed(2), outer: +impact_outer.toFixed(2), total: +impact_total.toFixed(2) },
       centrality: { bnorm, cnorm },
-      scores: { amenity_score: +amenity_score.toFixed(3), ar_impact: +ar_impact.toFixed(3) },
+      scores: { amenity_score: +amenity_score.toFixed(3), roads_score: +roads_score.toFixed(3), roads_impact: +roads_impact.toFixed(2), ar_impact: +ar_impact.toFixed(3) },
     });
 
     const rin = Math.max(0, Math.min(r_inner, r_outer));
@@ -1418,20 +1442,32 @@ export default function floodevents() {
   }
 
   const columns = [
+    // Basic event information
     { key: "id", label: "ID", type: "string" },
     { key: "event_date", label: "Event Date", type: "string" },
     { key: "event", label: "Event Type", type: "string", render: (v)=>v?.replace("_"," ") },
     { key: "planning_area", label: "Planning Area", type: "string" },
     { key: "location", label: "Location", type: "string" },
     { key: "parent_road", label: "Road", type: "string" },
-    { key: "ring_inner", label: "Inner Count", type: "number" },
-    { key: "ring_outer", label: "Outer Count", type: "number" },
-    { key: "ring_total", label: "Total Count", type: "number" },
-    { key: "impact_inner", label: "Impact (Inner)", type: "number" },
-    { key: "impact_outer",  label: "Impact (Outer)", type: "number" },
-    { key: "impact_total",  label: "Impact Total", type: "number" },
-    { key: "centrality",    label: "Road Centrality", type: "number" },
-    { key: "ar_impact",     label: "AR Impact", type: "number" },
+
+    // Primary metrics (shown by default)
+    { key: "roads_total", label: "Roads Affected", type: "number" },
+    { key: "ring_total", label: "Amenities Affected", type: "number" },
+    { key: "betweenness_norm", label: "Betweenness Norm", type: "number" },
+    { key: "closeness_norm", label: "Closeness Norm", type: "number" },
+    { key: "ar_impact", label: "AR Impact", type: "number" },
+
+    // Detailed breakdowns (optional, hidden by default)
+    { key: "roads_inner", label: "Roads (Inner)", type: "number", optional: true },
+    { key: "roads_outer", label: "Roads (Outer)", type: "number", optional: true },
+    { key: "ring_inner", label: "Amenities (Inner)", type: "number", optional: true },
+    { key: "ring_outer", label: "Amenities (Outer)", type: "number", optional: true },
+    { key: "impact_inner", label: "Weighted Impact (Inner)", type: "number", optional: true },
+    { key: "impact_outer", label: "Weighted Impact (Outer)", type: "number", optional: true },
+    { key: "impact_total", label: "Weighted Impact Total", type: "number", optional: true },
+    { key: "centrality", label: "Weighted Centrality", type: "number", optional: true },
+
+    // Additional metadata (optional)
     { key: "start_postal_code", label: "Postal Code", type: "string", optional: true },
     { key: "start_lat", label: "Start Latitude", type: "number", optional: true },
     { key: "start_lng", label: "Start Longitude", type: "number", optional: true },
