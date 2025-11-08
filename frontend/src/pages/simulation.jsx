@@ -1,8 +1,18 @@
-// src/pages/simulation-node-breakdown.jsx
+// src/pages/simulation.jsx
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useMapData } from "@/context/MapDataContext";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { X, MapPin, AlertTriangle, Download } from "lucide-react";
+
+mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
+const mapbox_style = "mapbox://styles/mapbox/light-v11";
 
 /* ============================== helpers ============================== */
 const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
@@ -10,8 +20,6 @@ const toNum = (v) => { const n = +v; return Number.isFinite(n) ? n : null; };
 const fmtS = (s) => (Number.isFinite(s) ? `${Math.round(s)}s` : "—");
 const fmtM = (s) => (Number.isFinite(s) ? (s / 60).toFixed(1) + "m" : "—");
 const dist2 = (a, b) => { if (!a || !b) return Number.POSITIVE_INFINITY; const dx=a[0]-b[0], dy=a[1]-b[1]; return dx*dx+dy*dy; };
-const Arrow = ({ active, dir }) => <span className="ml-1 inline-block w-3 text-muted-foreground">{active ? (dir === "asc" ? "▲" : "▼") : ""}</span>;
-const toggleDir = (d) => (d === "asc" ? "desc" : "asc");
 
 /* ========================= tiny priority queue ======================= */
 class MinPQ {
@@ -31,12 +39,11 @@ class MinPQ {
   size(){ return this.a.length; }
 }
 
-/* ==================== graph builder (directed, time) =================
-   We keep edges with rn_id + coordinates so we can filter them later.   */
+/* ==================== graph builder (directed, time) ================= */
 function buildGraph(road_fc) {
-  const nodes = new Map();          // nodeId -> { id, coord:[lon,lat], paId, paName, szId, szName }
-  const adj = new Map();            // nodeId -> Array<{to, w, rn_id, coords}>
-  const edges = [];                 // flat list for spatial/radius filtering
+  const nodes = new Map();
+  const adj = new Map();
+  const edges = [];
 
   const nodeMetaFromEdge = (p, which, coords) => {
     const coord = which === "u" ? coords[0] : coords[coords.length - 1];
@@ -44,8 +51,6 @@ function buildGraph(road_fc) {
       coord,
       paId: toInt(p.PA_ID ?? p.pa_id),
       paName: p.PLN_AREA_N ?? p.pln_area_n ?? null,
-      szId: toInt(p.SZ_ID ?? p.sz_id),
-      szName: p.SUBZONE_N ?? p.subzone_n ?? null,
     };
   };
 
@@ -75,7 +80,7 @@ function buildGraph(road_fc) {
 }
 
 /* ================== snap moh_hospitals to nearest nodes ============== */
-function snapHospitalsToNodes(amenity_fc, nodes, planningLookup) {
+function snapHospitalsToNodes(amenity_fc, nodes) {
   const hospitals = [];
   const nodeArr = Array.from(nodes.values());
   for (const f of amenity_fc?.features || []) {
@@ -90,13 +95,10 @@ function snapHospitalsToNodes(amenity_fc, nodes, planningLookup) {
       if (best == null || d2 < best.d2) best = { nodeId: n.id, d2, node: n };
     }
     if (best) {
-      const pa = planningLookup?.by_id?.[best.node.paId] || null;
       hospitals.push({
         hosp_id: p.amenity_id ?? String(hospitals.length),
         hosp_name: p.amenity_name ?? "hospital",
         node_id: best.nodeId,
-        node_pa_id: best.node.paId ?? null,
-        node_pa_name: pa?.name ?? best.node.paName ?? null,
         pt,
       });
     }
@@ -104,12 +106,10 @@ function snapHospitalsToNodes(amenity_fc, nodes, planningLookup) {
   return hospitals;
 }
 
-/* ======================== multi-source dijkstra =======================
-   Accepts an optional edgeFilter(edge) => boolean to dynamically ignore
-   flooded/filtered roads WITHOUT rebuilding the graph structures.       */
+/* ======================== multi-source dijkstra ======================= */
 function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFilter) {
-  const dist = new Map();           // nodeId -> seconds
-  const srcOf = new Map();          // nodeId -> hospitalNodeId
+  const dist = new Map();
+  const srcOf = new Map();
   const pq = new MinPQ();
 
   for (const s of hospitalNodeIds) { dist.set(s, 0); srcOf.set(s, s); pq.push(0, s); }
@@ -136,67 +136,41 @@ function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFi
   return { dist, srcOf, visited };
 }
 
-/* ================== aggregates + row construction ===================== */
-function buildRows({ graph, amenity_fc_enriched, lookups, onProgress, edgeFilter }) {
+/* ==================== compute accessibility stats ===================== */
+function computeAccessibility({ graph, amenity_fc_enriched, onProgress, edgeFilter }) {
   const { nodes, adj } = graph;
-  const hospitals = snapHospitalsToNodes(amenity_fc_enriched, nodes, lookups?.planning);
-  if (!hospitals.length) throw new Error("No moh_hospitals found to seed Dijkstra.");
+  const hospitals = snapHospitalsToNodes(amenity_fc_enriched, nodes);
+  if (!hospitals.length) throw new Error("No moh_hospitals found.");
+
   const hospitalNodeIds = hospitals.map(h => h.node_id);
-  const { dist, srcOf } = multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFilter);
+  const { dist } = multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFilter);
 
   const hospByNode = new Map();
   for (const h of hospitals) hospByNode.set(h.node_id, h);
 
-  const nodeRows = [];
+  const stats = {
+    total_nodes: nodes.size,
+    hospitals_count: hospitals.length,
+    avg_time_s: 0,
+    max_time_s: 0,
+    nodes_unreachable: 0,
+  };
+
+  let sum = 0, count = 0, max = 0;
   for (const n of nodes.values()) {
     const t = dist.get(n.id) ?? Infinity;
-    const src = srcOf.get(n.id) ?? null;
-    const h = src != null ? hospByNode.get(src) : null;
-    nodeRows.push({
-      node_id: n.id,
-      node_lon: n.coord?.[0] ?? null,
-      node_lat: n.coord?.[1] ?? null,
-      node_pa_id: n.paId ?? null,
-      node_pa_name: n.paName ?? "",
-      node_sz_id: n.szId ?? null,
-      node_sz_name: n.szName ?? "",
-      nearest_hospital_node: src ?? null,
-      nearest_hospital_id: h?.hosp_id ?? null,
-      nearest_hospital_name: h?.hosp_name ?? null,
-      nearest_hospital_pa_id: h?.node_pa_id ?? null,
-      nearest_hospital_pa_name: h?.node_pa_name ?? "",
-      travel_time_s: Number.isFinite(t) ? t : null,
-      travel_time_min: Number.isFinite(t) ? t / 60 : null,
-      cross_pa: n.paId != null && h?.node_pa_id != null && n.paId !== h.node_pa_id ? 1 : 0,
-    });
-  }
-
-  const byPA = new Map();
-  for (const r of nodeRows) {
-    const key = r.node_pa_id ?? -1;
-    if (!byPA.has(key)) byPA.set(key, { pa_id: r.node_pa_id, pa_name: r.node_pa_name, n: 0, min_s: Infinity, max_s: -Infinity, sum_s: 0, cross_pa_nodes: 0 });
-    const agg = byPA.get(key);
-    if (r.travel_time_s != null) {
-      agg.n += 1;
-      agg.min_s = Math.min(agg.min_s, r.travel_time_s);
-      agg.max_s = Math.max(agg.max_s, r.travel_time_s);
-      agg.sum_s += r.travel_time_s;
+    if (!Number.isFinite(t)) {
+      stats.nodes_unreachable++;
+    } else {
+      sum += t;
+      count++;
+      if (t > max) max = t;
     }
-    if (r.cross_pa) agg.cross_pa_nodes += 1;
   }
-  const paRows = Array.from(byPA.values()).map(a => ({
-    pa_id: a.pa_id,
-    pa_name: a.pa_name || "(unknown)",
-    nodes: a.n,
-    min_s: Number.isFinite(a.min_s) ? a.min_s : null,
-    min_min: Number.isFinite(a.min_s) ? a.min_s / 60 : null,
-    avg_s: a.n ? a.sum_s / a.n : null,
-    avg_min: a.n ? (a.sum_s / a.n) / 60 : null,
-    max_s: Number.isFinite(a.max_s) ? a.max_s : null,
-    max_min: Number.isFinite(a.max_s) ? a.max_s / 60 : null,
-    cross_pa_nodes: a.cross_pa_nodes,
-  }));
-  return { nodeRows, paRows, hospitalsCount: hospitals.length, nodesCount: nodes.size };
+  stats.avg_time_s = count > 0 ? sum / count : 0;
+  stats.max_time_s = max;
+
+  return stats;
 }
 
 /* ============================= CSV export ============================= */
@@ -209,410 +183,555 @@ function toCSV(arr) {
   return lines.join("\n");
 }
 
-/* =============================== Page ================================= */
-export default function SimulationNodeBreakdown() {
-  const { road_fc_enriched, amenity_fc_enriched, lookups, loading, error } = useMapData();
+function downloadCSV(name, rows) {
+  const csv = toCSV(rows);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
 
-  // graph & readiness
-  const graph = useMemo(() => buildGraph(road_fc_enriched), [road_fc_enriched]);
+/* =============================== Page ================================= */
+export default function Simulation() {
+  const { road_fc_enriched, amenity_fc_enriched, loading, error } = useMapData();
+
+  // Build graph (lazy - only when data ready, doesn't auto-compute)
+  const graph = useMemo(() => {
+    if (!road_fc_enriched?.features?.length) return { nodes: new Map(), adj: new Map(), edges: [] };
+    return buildGraph(road_fc_enriched);
+  }, [road_fc_enriched]);
+
   const ready = useMemo(
     () => !!graph.nodes?.size && !!graph.edges?.length && !!amenity_fc_enriched?.features?.length,
     [graph, amenity_fc_enriched]
   );
 
+  // Map
+  const container_ref = useRef(null);
+  const map_ref = useRef(null);
+
   // UI state
+  const [initialized, setInitialized] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // filters: by RN_ID, by PA (planning area), by radius around [lon,lat]
-  const [blockedRnIdsText, setBlockedRnIdsText] = useState("");  // comma/space separated list
-  const [blockedPA, setBlockedPA] = useState("");                 // optional PA name slug or exact
-  const [radiusCenter, setRadiusCenter] = useState({ lon: "", lat: "" });
-  const [radiusMeters, setRadiusMeters] = useState("");           // approximate using degrees
+  // Flood markers (array of {id, lng, lat})
+  const [floodMarkers, setFloodMarkers] = useState([]);
+  const [radiusMeters, setRadiusMeters] = useState(500);
 
-  // results (baseline & flooded)
-  const [baseline, setBaseline] = useState({ nodeRows: [], paRows: [], nodesCount: 0, hospitalsCount: 0 });
-  const [flooded, setFlooded]   = useState({ nodeRows: [], paRows: [], nodesCount: 0, hospitalsCount: 0 });
+  // Results
+  const [baselineStats, setBaselineStats] = useState(null);
+  const [floodedStats, setFloodedStats] = useState(null);
+  const [affectedRoads, setAffectedRoads] = useState([]);
 
-  // table sorting
-  const [paSort, setPaSort] = useState({ key: "pa_name", dir: "asc" });
-  const [nodeSort, setNodeSort] = useState({ key: "travel_time_s", dir: "asc" });
+  // Initialize map
+  useEffect(() => {
+    if (!container_ref.current || map_ref.current) return;
 
-  // build edgeFilter from UI
-  const edgeFilter = useMemo(() => {
-    // rn_id set
-    const rnSet = new Set(
-      blockedRnIdsText
-        .split(/[^0-9]+/)
-        .map((s) => toInt(s))
-        .filter((x) => x != null)
-    );
+    const map = new mapboxgl.Map({
+      container: container_ref.current,
+      style: mapbox_style,
+      center: [103.82, 1.35],
+      zoom: 11,
+      attributionControl: false,
+    });
+    map_ref.current = map;
 
-    // PA blocker (match edge coords' PA via original properties is heavy; use rn-based if PA provided by matching the PA on edge properties in road_fc_enriched)
-    const paSlug = String(blockedPA || "").trim().toLowerCase();
-    const paIds = new Set();
-    if (paSlug) {
-      for (const f of road_fc_enriched?.features || []) {
-        const name = String(f.properties?.PLN_AREA_N ?? f.properties?.pln_area_n ?? "").toLowerCase();
-        if (name && name.includes(paSlug)) {
-          const rid = toInt(f.properties?.RN_ID ?? f.properties?.rn_id);
-          if (rid != null) paIds.add(rid);
-        }
+    map.on("load", () => {
+      // Add sources for flood markers and affected roads
+      map.addSource("flood-markers", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("affected-roads", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("flood-radius", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      // Affected roads layer (red)
+      map.addLayer({
+        id: "affected-roads-line",
+        type: "line",
+        source: "affected-roads",
+        paint: {
+          "line-color": "#ef4444",
+          "line-width": 3,
+          "line-opacity": 0.7,
+        },
+      });
+
+      // Flood radius circles
+      map.addLayer({
+        id: "flood-radius-fill",
+        type: "fill",
+        source: "flood-radius",
+        paint: {
+          "fill-color": "#ef4444",
+          "fill-opacity": 0.1,
+        },
+      });
+      map.addLayer({
+        id: "flood-radius-line",
+        type: "line",
+        source: "flood-radius",
+        paint: {
+          "line-color": "#ef4444",
+          "line-width": 2,
+          "line-dasharray": [2, 2],
+          "line-opacity": 0.5,
+        },
+      });
+
+      // Flood markers layer (red dots)
+      map.addLayer({
+        id: "flood-markers-circle",
+        type: "circle",
+        source: "flood-markers",
+        paint: {
+          "circle-radius": 8,
+          "circle-color": "#ef4444",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+
+      setInitialized(true);
+    });
+
+    // Click to add flood marker
+    map.on("click", (e) => {
+      const { lng, lat } = e.lngLat;
+      const id = `flood-${Date.now()}`;
+      setFloodMarkers(prev => [...prev, { id, lng, lat }]);
+    });
+
+    return () => {
+      if (map_ref.current) {
+        map_ref.current.remove();
+        map_ref.current = null;
       }
-    }
+    };
+  }, []);
 
-    // radius blocker: approximate degrees (1 deg ~ 111,000m). We'll compare to vertices along the line.
-    const lon0 = +radiusCenter.lon, lat0 = +radiusCenter.lat;
-    const hasCenter = Number.isFinite(lon0) && Number.isFinite(lat0);
-    const radM = +radiusMeters;
-    const radDeg = Number.isFinite(radM) ? (radM / 111000) : null;
-    const rad2 = (hasCenter && Number.isFinite(radDeg)) ? (radDeg * radDeg) : null;
-    const center = hasCenter ? [lon0, lat0] : null;
+  // Update flood markers on map
+  useEffect(() => {
+    const map = map_ref.current;
+    if (!map || !initialized) return;
+
+    const features = floodMarkers.map(m => ({
+      type: "Feature",
+      properties: { id: m.id },
+      geometry: { type: "Point", coordinates: [m.lng, m.lat] },
+    }));
+
+    map.getSource("flood-markers")?.setData({
+      type: "FeatureCollection",
+      features,
+    });
+  }, [floodMarkers, initialized]);
+
+  // Update radius circles on map
+  useEffect(() => {
+    const map = map_ref.current;
+    if (!map || !initialized) return;
+
+    const features = floodMarkers.map(m => {
+      const center = [m.lng, m.lat];
+      const radiusInKm = radiusMeters / 1000;
+      const points = 64;
+      const coords = [];
+      for (let i = 0; i <= points; i++) {
+        const angle = (i / points) * 2 * Math.PI;
+        const dx = radiusInKm * Math.cos(angle) / 111; // approximate degrees
+        const dy = radiusInKm * Math.sin(angle) / 111;
+        coords.push([center[0] + dx, center[1] + dy]);
+      }
+      return {
+        type: "Feature",
+        properties: { id: m.id },
+        geometry: { type: "Polygon", coordinates: [coords] },
+      };
+    });
+
+    map.getSource("flood-radius")?.setData({
+      type: "FeatureCollection",
+      features,
+    });
+  }, [floodMarkers, radiusMeters, initialized]);
+
+  // Build edge filter based on flood markers and radius
+  const edgeFilter = useMemo(() => {
+    if (!floodMarkers.length) return null;
+
+    const radDeg = radiusMeters / 111000;
+    const rad2 = radDeg * radDeg;
+    const centers = floodMarkers.map(m => [m.lng, m.lat]);
 
     return (e) => {
-      if (rnSet.size && e.rn_id != null && rnSet.has(e.rn_id)) return false;
-      if (paIds.size && e.rn_id != null && paIds.has(e.rn_id)) return false;
-
-      if (center && rad2 != null && Array.isArray(e.coords)) {
+      // Block edge if ANY vertex is within radius of ANY flood marker
+      if (Array.isArray(e.coords)) {
         for (const pt of e.coords) {
-          if (dist2(pt, center) <= rad2) return false; // block edge if any vertex is within radius
+          for (const center of centers) {
+            if (dist2(pt, center) <= rad2) return false;
+          }
         }
       }
-      return true; // keep edge
+      return true;
     };
-  }, [blockedRnIdsText, blockedPA, radiusCenter, radiusMeters, road_fc_enriched]);
+  }, [floodMarkers, radiusMeters]);
 
-  const computeAll = useCallback(async () => {
+  // Compute baseline (no filter)
+  const computeBaseline = useCallback(async () => {
     if (!ready) return;
-    setBusy(true); setProgress(0);
+    setBusy(true);
+    setProgress(0);
     try {
-      // baseline
-      const base = buildRows({
+      const stats = computeAccessibility({
         graph,
         amenity_fc_enriched,
-        lookups,
         onProgress: (v) => setProgress(v),
-        edgeFilter: null, // no filtering
+        edgeFilter: null,
       });
-      setBaseline(base);
-
-      // flooded (with edge filter)
-      setProgress(0);
-      const flood = buildRows({
-        graph,
-        amenity_fc_enriched,
-        lookups,
-        onProgress: (v) => setProgress(v),
-        edgeFilter, // apply filter
-      });
-      setFlooded(flood);
+      setBaselineStats(stats);
     } catch (e) {
       console.error(e);
-      alert(e?.message || "Failed to compute.");
+      alert(e?.message || "Failed to compute baseline.");
     } finally {
       setBusy(false);
     }
-  }, [ready, graph, amenity_fc_enriched, lookups, edgeFilter]);
+  }, [ready, graph, amenity_fc_enriched]);
 
-  useEffect(() => { if (ready && !baseline.nodeRows.length && !busy) computeAll(); }, [ready]); // eslint-disable-line
-
-  // derive PA comparison with deltas
-  const paCompare = useMemo(() => {
-    const byName = new Map();
-    for (const r of baseline.paRows) byName.set(r.pa_name || "(unknown)", { base: r, flood: null });
-    for (const r of flooded.paRows) {
-      const key = r.pa_name || "(unknown)";
-      const obj = byName.get(key) || { base: null, flood: null };
-      obj.flood = r; byName.set(key, obj);
-    }
-    const rows = [];
-    for (const [name, { base, flood }] of byName.entries()) {
-      rows.push({
-        pa_name: name,
-        nodes_base: base?.nodes ?? 0,
-        min_base: base?.min_s ?? null,
-        avg_base: base?.avg_s ?? null,
-        max_base: base?.max_s ?? null,
-        nodes_flood: flood?.nodes ?? 0,
-        min_flood: flood?.min_s ?? null,
-        avg_flood: flood?.avg_s ?? null,
-        max_flood: flood?.max_s ?? null,
-        d_min: (base?.min_s != null && flood?.min_s != null) ? (flood.min_s - base.min_s) : null,
-        d_avg: (base?.avg_s != null && flood?.avg_s != null) ? (flood.avg_s - base.avg_s) : null,
-        d_max: (base?.max_s != null && flood?.max_s != null) ? (flood.max_s - base.max_s) : null,
+  // Compute flooded scenario
+  const computeFlooded = useCallback(async () => {
+    if (!ready || !edgeFilter) return;
+    setBusy(true);
+    setProgress(0);
+    try {
+      const stats = computeAccessibility({
+        graph,
+        amenity_fc_enriched,
+        onProgress: (v) => setProgress(v),
+        edgeFilter,
       });
+      setFloodedStats(stats);
+
+      // Get affected roads (edges blocked by filter)
+      const blockedEdges = [];
+      for (const e of graph.edges) {
+        if (!edgeFilter(e)) {
+          blockedEdges.push({
+            rn_id: e.rn_id,
+            coords: e.coords,
+          });
+        }
+      }
+
+      // Deduplicate by rn_id and build features
+      const seenRnIds = new Set();
+      const roadFeatures = [];
+      for (const e of blockedEdges) {
+        if (e.rn_id != null && !seenRnIds.has(e.rn_id)) {
+          seenRnIds.add(e.rn_id);
+          roadFeatures.push({
+            type: "Feature",
+            properties: { rn_id: e.rn_id },
+            geometry: { type: "LineString", coordinates: e.coords },
+          });
+        }
+      }
+      setAffectedRoads(roadFeatures);
+
+      // Update map
+      const map = map_ref.current;
+      if (map && initialized) {
+        map.getSource("affected-roads")?.setData({
+          type: "FeatureCollection",
+          features: roadFeatures,
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Failed to compute flooded scenario.");
+    } finally {
+      setBusy(false);
     }
-    return rows;
-  }, [baseline.paRows, flooded.paRows]);
+  }, [ready, graph, amenity_fc_enriched, edgeFilter, initialized]);
 
-  // sorting
-  const [paSortKey, setPaSortKey] = useState("d_avg");
-  const [paSortDir, setPaSortDir] = useState("desc");
-  const paSorted = useMemo(() => {
-    const arr = [...paCompare];
-    const key = paSortKey, dir = paSortDir;
-    const cmp = (a, b) => {
-      const va = a[key], vb = b[key];
-      if (va == null && vb == null) return 0;
-      if (va == null) return 1;
-      if (vb == null) return -1;
-      if (typeof va === "string" || typeof vb === "string") {
-        return dir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
-      }
-      return dir === "asc" ? (va - vb) : (vb - va);
-    };
-    arr.sort(cmp); return arr;
-  }, [paCompare, paSortKey, paSortDir]);
+  // Remove flood marker
+  const removeMarker = (id) => {
+    setFloodMarkers(prev => prev.filter(m => m.id !== id));
+  };
 
-  const [nodeSortKey, setNodeSortKey] = useState("travel_time_s");
-  const [nodeSortDir, setNodeSortDir] = useState("asc");
-  const nodeSorted = useMemo(() => {
-    const arr = [...flooded.nodeRows]; // show the CURRENT (filtered) state
-    const key = nodeSortKey, dir = nodeSortDir;
-    const cmp = (a, b) => {
-      const va = a[key], vb = b[key];
-      if (va == null && vb == null) return 0;
-      if (va == null) return 1;
-      if (vb == null) return -1;
-      if (typeof va === "string" || typeof vb === "string") {
-        return dir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
-      }
-      return dir === "asc" ? (va - vb) : (vb - va);
-    };
-    arr.sort(cmp); return arr;
-  }, [flooded.nodeRows, nodeSortKey, nodeSortDir]);
-
-  const exportCSV = (name, rows) => {
-    const csv = toCSV(rows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
+  // Clear all markers
+  const clearAll = () => {
+    setFloodMarkers([]);
+    setFloodedStats(null);
+    setAffectedRoads([]);
+    const map = map_ref.current;
+    if (map && initialized) {
+      map.getSource("affected-roads")?.setData({ type: "FeatureCollection", features: [] });
+    }
   };
 
   if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading base data…</div>;
-  if (error)   return <div className="p-4 text-sm text-red-500">{String(error)}</div>;
+  if (error) return <div className="p-4 text-sm text-red-500">{String(error)}</div>;
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-6 py-6">
-      <section className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Simulation Playground</h1>
-        <p className="text-base text-muted-foreground">
-          Node-level hospital accessibility (nearest <code>moh_hospitals</code> by network travel time) with dynamic road filtering.
-        </p>
-      </section>
-
-      {/* Controls */}
-      <section className="rounded-2xl border p-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium mb-1">Block roads by RN_ID (comma/space separated)</label>
-            <input
-              value={blockedRnIdsText}
-              onChange={(e) => setBlockedRnIdsText(e.target.value)}
-              placeholder="e.g. 12, 345, 6789"
-              className="w-full rounded-md border px-3 py-2 text-sm"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">These roads will be removed from the graph during the flooded run.</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Block roads by Planning Area (contains)</label>
-            <input
-              value={blockedPA}
-              onChange={(e) => setBlockedPA(e.target.value)}
-              placeholder="e.g. KALLANG"
-              className="w-full rounded-md border px-3 py-2 text-sm"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">Matches road segments whose PA name contains this text.</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-sm font-medium mb-1">Radius center lon</label>
-              <input value={radiusCenter.lon} onChange={(e)=>setRadiusCenter(s=>({...s,lon:e.target.value}))}
-                     placeholder="103.85" className="w-full rounded-md border px-3 py-2 text-sm"/>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Radius center lat</label>
-              <input value={radiusCenter.lat} onChange={(e)=>setRadiusCenter(s=>({...s,lat:e.target.value}))}
-                     placeholder="1.30" className="w-full rounded-md border px-3 py-2 text-sm"/>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Radius (meters)</label>
-              <input value={radiusMeters} onChange={(e)=>setRadiusMeters(e.target.value)}
-                     placeholder="300" className="w-full rounded-md border px-3 py-2 text-sm"/>
-            </div>
-            <p className="col-span-3 text-xs text-muted-foreground">Any road with a vertex inside this radius will be blocked.</p>
-          </div>
+    <div className="flex h-full w-full">
+      {/* Left Sidebar - Controls */}
+      <div className="w-96 border-r bg-card flex flex-col overflow-hidden">
+        <div className="p-6 border-b">
+          <h1 className="text-2xl font-semibold tracking-tight">Flood Simulation</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Click on the map to mark flood locations and see impact on hospital accessibility
+          </p>
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            onClick={computeAll}
-            disabled={!ready || busy}
-            className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-60"
-          >
-            {busy ? "Computing…" : "Run Simulation (baseline & flooded)"}
-          </button>
-          <div className="text-xs text-muted-foreground ml-2">
-            Nodes: <b>{baseline.nodesCount || 0}</b> • Hospitals: <b>{baseline.hospitalsCount || 0}</b>
-          </div>
-        </div>
+        <div className="flex-1 overflow-auto p-6 space-y-6">
+          {/* Baseline Computation */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Step 1: Baseline</CardTitle>
+              <CardDescription>Compute normal hospital accessibility (no flooding)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={computeBaseline}
+                disabled={!ready || busy}
+                className="w-full"
+              >
+                {busy && !baselineStats ? "Computing…" : baselineStats ? "✓ Baseline Computed" : "Compute Baseline"}
+              </Button>
 
-        {busy ? (
-          <div className="mt-3 rounded-md border p-3">
-            <div className="mb-2 text-sm">Running multi-source Dijkstra…</div>
-            <div className="h-2 w-full overflow-hidden rounded bg-muted">
-              <div className="h-2 bg-primary transition-all" style={{ width: "50%" }} />
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">Visited ~{progress} nodes</div>
-          </div>
-        ) : null}
-      </section>
-
-      {/* Planning Area comparison (sortable, with deltas) */}
-      <section className="rounded-2xl border">
-        <div className="flex items-center justify-between border-b p-3">
-          <div className="text-sm font-medium">Planning Area – Baseline vs Flooded (deltas)</div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => exportCSV("planning_areas_comparison.csv", paCompare)}
-              className="rounded-md border px-3 py-1.5 text-sm"
-              disabled={!paCompare.length || busy}
-            >
-              Export CSV
-            </button>
-          </div>
-        </div>
-        <div className="max-h-[45vh] overflow-auto text-sm">
-          <table className="w-full">
-            <thead className="sticky top-0 bg-background">
-              <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
-                <th className="cursor-pointer hover:underline"
-                    onClick={()=>{ setPaSortKey("pa_name"); setPaSortDir(paSortKey==="pa_name"?toggleDir(paSortDir):"asc"); }}>
-                  PA <Arrow active={paSortKey==="pa_name"} dir={paSortDir}/>
-                </th>
-                <th>Nodes (base)</th>
-                <th className="cursor-pointer hover:underline"
-                    onClick={()=>{ setPaSortKey("min_base"); setPaSortDir(paSortKey==="min_base"?toggleDir(paSortDir):"asc"); }}>
-                  Min (s) base <Arrow active={paSortKey==="min_base"} dir={paSortDir}/>
-                </th>
-                <th>Avg (s) base</th>
-                <th className="cursor-pointer hover:underline"
-                    onClick={()=>{ setPaSortKey("max_base"); setPaSortDir(paSortKey==="max_base"?toggleDir(paSortDir):"desc"); }}>
-                  Max (s) base <Arrow active={paSortKey==="max_base"} dir={paSortDir}/>
-                </th>
-                <th>Nodes (flood)</th>
-                <th>Min (s) flood</th>
-                <th>Avg (s) flood</th>
-                <th>Max (s) flood</th>
-                <th className="cursor-pointer hover:underline"
-                    onClick={()=>{ setPaSortKey("d_avg"); setPaSortDir(paSortKey==="d_avg"?toggleDir(paSortDir):"desc"); }}>
-                  Δ Avg (s) <Arrow active={paSortKey==="d_avg"} dir={paSortDir}/>
-                </th>
-                <th className="cursor-pointer hover:underline"
-                    onClick={()=>{ setPaSortKey("d_max"); setPaSortDir(paSortKey==="d_max"?toggleDir(paSortDir):"desc"); }}>
-                  Δ Max (s) <Arrow active={paSortKey==="d_max"} dir={paSortDir}/>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paSorted.map((r, i) => (
-                <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
-                  <td className="font-medium">{r.pa_name}</td>
-                  <td>{r.nodes_base}</td>
-                  <td>{fmtS(r.min_base)}</td>
-                  <td>{fmtS(r.avg_base)}</td>
-                  <td>{fmtS(r.max_base)}</td>
-                  <td>{r.nodes_flood}</td>
-                  <td>{fmtS(r.min_flood)}</td>
-                  <td>{fmtS(r.avg_flood)}</td>
-                  <td>{fmtS(r.max_flood)}</td>
-                  <td className={Number(r.d_avg) > 0 ? "text-amber-700" : ""}>{fmtS(r.d_avg)}</td>
-                  <td className={Number(r.d_max) > 0 ? "text-red-700" : ""}>{fmtS(r.d_max)}</td>
-                </tr>
-              ))}
-              {!paSorted.length && (
-                <tr><td colSpan={11} className="p-4 text-center text-muted-foreground">No data yet.</td></tr>
+              {baselineStats && (
+                <div className="mt-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Nodes:</span>
+                    <span className="font-semibold">{baselineStats.total_nodes.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Hospitals:</span>
+                    <span className="font-semibold">{baselineStats.hospitals_count}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg Time:</span>
+                    <span className="font-semibold">{fmtM(baselineStats.avg_time_s)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Max Time:</span>
+                    <span className="font-semibold">{fmtM(baselineStats.max_time_s)}</span>
+                  </div>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </CardContent>
+          </Card>
 
-      {/* Node table (current = flooded/filtered state), sortable */}
-      <section className="rounded-2xl border">
-        <div className="flex items-center justify-between border-b p-3">
-          <div className="text-sm font-medium">All Nodes – Current (after filtering)</div>
+          {/* Flood Markers */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Step 2: Mark Flood Locations</CardTitle>
+              <CardDescription>Click on the map to add flood markers</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Radius Slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Flood Radius</Label>
+                  <span className="text-sm font-semibold">{radiusMeters}m</span>
+                </div>
+                <Slider
+                  value={[radiusMeters]}
+                  min={100}
+                  max={2000}
+                  step={50}
+                  onValueChange={(v) => setRadiusMeters(v[0])}
+                />
+              </div>
+
+              {/* Marker List */}
+              <div className="space-y-2">
+                <Label className="text-sm">
+                  Flood Markers ({floodMarkers.length})
+                </Label>
+                {floodMarkers.length === 0 ? (
+                  <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                    <MapPin className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      Click on the map to add flood locations
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-auto">
+                    {floodMarkers.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-red-500" />
+                          <div className="text-xs font-mono">
+                            {m.lng.toFixed(5)}, {m.lat.toFixed(5)}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeMarker(m.id)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {floodMarkers.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAll}
+                    className="w-full"
+                  >
+                    Clear All Markers
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Run Simulation */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Step 3: Run Simulation</CardTitle>
+              <CardDescription>Compute impact with flooded roads blocked</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                onClick={computeFlooded}
+                disabled={!ready || !baselineStats || floodMarkers.length === 0 || busy}
+                className="w-full"
+              >
+                {busy && floodedStats !== null ? "Computing…" : "Run Flood Simulation"}
+              </Button>
+
+              {busy && (
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    Running Dijkstra… Visited ~{progress.toLocaleString()} nodes
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded bg-muted">
+                    <div className="h-2 bg-primary transition-all" style={{ width: "50%" }} />
+                  </div>
+                </div>
+              )}
+
+              {floodedStats && (
+                <div className="space-y-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="font-semibold text-base mb-2">Flooded Scenario</div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Avg Time:</span>
+                      <span className="font-semibold">{fmtM(floodedStats.avg_time_s)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Max Time:</span>
+                      <span className="font-semibold">{fmtM(floodedStats.max_time_s)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Unreachable Nodes:</span>
+                      <span className="font-semibold text-red-600">{floodedStats.nodes_unreachable}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Roads Affected:</span>
+                      <span className="font-semibold text-red-600">{affectedRoads.length}</span>
+                    </div>
+                  </div>
+
+                  {baselineStats && (
+                    <div className="border-t pt-4">
+                      <div className="font-semibold text-base mb-2 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        Impact Analysis
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Δ Avg Time:</span>
+                          <span className={`font-semibold ${(floodedStats.avg_time_s - baselineStats.avg_time_s) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            +{fmtM(floodedStats.avg_time_s - baselineStats.avg_time_s)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Δ Max Time:</span>
+                          <span className={`font-semibold ${(floodedStats.max_time_s - baselineStats.max_time_s) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            +{fmtM(floodedStats.max_time_s - baselineStats.max_time_s)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Avg Increase:</span>
+                          <span className="font-semibold text-red-600">
+                            {baselineStats.avg_time_s > 0 ? (((floodedStats.avg_time_s - baselineStats.avg_time_s) / baselineStats.avg_time_s) * 100).toFixed(1) : 0}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Right - Map */}
+      <div className="flex-1 relative">
+        <div ref={container_ref} className="absolute inset-0" />
+
+        {/* Map Legend */}
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 space-y-2 text-xs">
+          <div className="font-semibold mb-2">Legend</div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => exportCSV("nodes_current_filtered.csv", flooded.nodeRows)}
-              className="rounded-md border px-3 py-1.5 text-sm"
-              disabled={!flooded.nodeRows.length || busy}
-            >
-              Export CSV
-            </button>
+            <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white" />
+            <span>Flood Location</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-red-500" style={{ opacity: 0.7 }} />
+            <span>Affected Roads</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-red-500 border-dashed rounded-full" style={{ opacity: 0.3 }} />
+            <span>Flood Radius</span>
           </div>
         </div>
-        <div className="max-h-[50vh] overflow-auto text-sm">
-          <table className="w-full">
-            <thead className="sticky top-0 bg-background">
-              <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("node_id"); setNodeSortDir(nodeSortKey==="node_id"?toggleDir(nodeSortDir):"asc"); }}>
-                  Node <Arrow active={nodeSortKey==="node_id"} dir={nodeSortDir}/>
-                </th>
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("node_lon"); setNodeSortDir(nodeSortKey==="node_lon"?toggleDir(nodeSortDir):"asc"); }}>
-                  Lon <Arrow active={nodeSortKey==="node_lon"} dir={nodeSortDir}/>
-                </th>
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("node_lat"); setNodeSortDir(nodeSortKey==="node_lat"?toggleDir(nodeSortDir):"asc"); }}>
-                  Lat <Arrow active={nodeSortKey==="node_lat"} dir={nodeSortDir}/>
-                </th>
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("node_pa_name"); setNodeSortDir(nodeSortKey==="node_pa_name"?toggleDir(nodeSortDir):"asc"); }}>
-                  PA <Arrow active={nodeSortKey==="node_pa_name"} dir={nodeSortDir}/>
-                </th>
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("node_sz_name"); setNodeSortDir(nodeSortKey==="node_sz_name"?toggleDir(nodeSortDir):"asc"); }}>
-                  Subzone <Arrow active={nodeSortKey==="node_sz_name"} dir={nodeSortDir}/>
-                </th>
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("nearest_hospital_name"); setNodeSortDir(nodeSortKey==="nearest_hospital_name"?toggleDir(nodeSortDir):"asc"); }}>
-                  Nearest hospital <Arrow active={nodeSortKey==="nearest_hospital_name"} dir={nodeSortDir}/>
-                </th>
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("nearest_hospital_pa_name"); setNodeSortDir(nodeSortKey==="nearest_hospital_pa_name"?toggleDir(nodeSortDir):"asc"); }}>
-                  Hospital PA <Arrow active={nodeSortKey==="nearest_hospital_pa_name"} dir={nodeSortDir}/>
-                </th>
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("travel_time_s"); setNodeSortDir(nodeSortKey==="travel_time_s"?toggleDir(nodeSortDir):"asc"); }}>
-                  Time (s) <Arrow active={nodeSortKey==="travel_time_s"} dir={nodeSortDir}/>
-                </th>
-                <th>Time (min)</th>
-                <th className="cursor-pointer hover:underline" onClick={()=>{ setNodeSortKey("cross_pa"); setNodeSortDir(nodeSortKey==="cross_pa"?toggleDir(nodeSortDir):"desc"); }}>
-                  Cross-PA <Arrow active={nodeSortKey==="cross_pa"} dir={nodeSortDir}/>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {nodeSorted.map((r) => (
-                <tr key={r.node_id} className="border-t [&>td]:px-3 [&>td]:py-2">
-                  <td className="font-mono">{r.node_id}</td>
-                  <td>{Number.isFinite(r.node_lon) ? r.node_lon.toFixed(6) : ""}</td>
-                  <td>{Number.isFinite(r.node_lat) ? r.node_lat.toFixed(6) : ""}</td>
-                  <td>{r.node_pa_name || ""}</td>
-                  <td>{r.node_sz_name || ""}</td>
-                  <td>{r.nearest_hospital_name || `(node ${r.nearest_hospital_node ?? "—"})`}</td>
-                  <td>{r.nearest_hospital_pa_name || ""}</td>
-                  <td>{fmtS(r.travel_time_s)}</td>
-                  <td>{fmtM(r.travel_time_s)}</td>
-                  <td>{r.cross_pa ? "✓" : ""}</td>
-                </tr>
-              ))}
-              {!nodeSorted.length && (
-                <tr><td colSpan={10} className="p-4 text-center text-muted-foreground">No data yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
-      <p className="text-xs text-muted-foreground">
-        Tip: Filtering roads changes the graph only during the “flooded” run. Baseline remains intact for comparison. You can block by RN_IDs, any PA name substring, and/or a radius around a lon/lat.
-      </p>
+        {/* Instructions Overlay */}
+        {!baselineStats && (
+          <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md pointer-events-auto">
+              <h3 className="font-semibold text-lg mb-2">Getting Started</h3>
+              <ol className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2">
+                  <span className="font-semibold">1.</span>
+                  <span>Click "Compute Baseline" in the left panel to calculate normal hospital accessibility</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold">2.</span>
+                  <span>Click on the map to mark flood locations</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold">3.</span>
+                  <span>Adjust the flood radius if needed</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold">4.</span>
+                  <span>Click "Run Flood Simulation" to see the impact</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
