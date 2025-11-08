@@ -518,6 +518,13 @@ export default function Centrality() {
     return sortedByImportance.find(f => f.properties.RN_ID === selectedRoadId);
   }, [selectedRoadId, sortedByImportance]);
 
+  // Get road rank (1-based index in sorted list)
+  const selectedRoadRank = useMemo(() => {
+    if (!selectedRoadId) return null;
+    const index = sortedByImportance.findIndex(f => f.properties.RN_ID === selectedRoadId);
+    return index >= 0 ? index + 1 : null;
+  }, [selectedRoadId, sortedByImportance]);
+
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1305,6 +1312,9 @@ export default function Centrality() {
         onClose={() => setSelectedRoadId(null)}
         amenityCounts={selectedRoad ? amenityCategoryCountByRoad.get(selectedRoad.properties.RN_ID) : null}
         floodCounts={selectedRoad ? floodTypeCountByRoad.get(selectedRoad.properties.RN_ID) : null}
+        totalRoads={sortedByImportance.length}
+        roadRank={selectedRoadRank}
+        getSLACategory={getSLACategory}
       />
         {/* Right: Map */}
         <div ref={mapSectionRef}>

@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { X } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
-export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts }) {
+export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory }) {
   // Show prompt if no road selected
   if (!road) {
     return (
@@ -31,6 +31,22 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts }) 
   }
 
   const p = road.properties ?? {};
+
+  // Calculate percentile rank
+  const percentile = useMemo(() => {
+    if (!totalRoads || !roadRank) return null;
+    return Math.round((roadRank / totalRoads) * 100);
+  }, [totalRoads, roadRank]);
+
+  const percentileLabel = useMemo(() => {
+    if (!percentile) return null;
+    if (percentile <= 5) return "Top 5%";
+    if (percentile <= 10) return "Top 10%";
+    if (percentile <= 25) return "Top 25%";
+    return `Top ${percentile}%`;
+  }, [percentile]);
+
+  const slaCategory = getSLACategory ? getSLACategory(p.importance) : null;
 
   const amenityBreakdown = useMemo(() => {
     if (!amenityCounts) return [];
@@ -65,15 +81,38 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts }) 
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Main KPIs with visual indicators */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Importance with percentile */}
+          <div className="rounded-lg border-2 border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-medium text-muted-foreground uppercase">Importance</div>
+              {percentileLabel && (
+                <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                  {percentileLabel}
+                </span>
+              )}
+            </div>
+            <div className="text-2xl font-bold text-primary mb-1">{format_number(p.importance, 2) ?? "—"}</div>
+            {percentile && (
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all"
+                  style={{ width: `${100 - percentile}%` }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* SLA Category */}
+          <div className="rounded-lg border bg-muted/50 p-4">
+            <div className="text-xs font-medium text-muted-foreground uppercase mb-2">SLA Category</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{slaCategory || "—"}</div>
+          </div>
+        </div>
+
+        {/* Secondary KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-xs text-muted-foreground mb-1">Importance Score</div>
-            <div className="text-lg font-bold">{format_number(p.importance, 2) ?? "—"}</div>
-          </div>
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="text-xs text-muted-foreground mb-1">SLA Priority</div>
-            <div className="text-lg font-bold">{format_number(p.sla_priority, 2) ?? "—"}</div>
-          </div>
           <div className="rounded-lg border bg-muted/50 p-3">
             <div className="text-xs text-muted-foreground mb-1">Betweenness</div>
             <div className="text-lg font-bold">{format_number(p.betweenness_norm, 4) ?? "—"}</div>
@@ -81,6 +120,14 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts }) 
           <div className="rounded-lg border bg-muted/50 p-3">
             <div className="text-xs text-muted-foreground mb-1">Closeness</div>
             <div className="text-lg font-bold">{format_number(p.closeness_norm, 4) ?? "—"}</div>
+          </div>
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="text-xs text-muted-foreground mb-1">Amenities</div>
+            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{p.amenity_count_total || 0}</div>
+          </div>
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="text-xs text-muted-foreground mb-1">Flood Events</div>
+            <div className="text-lg font-bold text-orange-600 dark:text-orange-400">{p.flood_count_total || 0}</div>
           </div>
         </div>
 
