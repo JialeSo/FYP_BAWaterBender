@@ -88,11 +88,12 @@ const createWidthExpression = (metric) => {
   ];
 };
 
-export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick }) {
+export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, amenityItems = [], floodItems = [] }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const [colorMetric, setColorMetric] = useState("importance");
   const [thicknessMetric, setThicknessMetric] = useState("none");
+  const markersRef = useRef([]);
 
   // Calculate color thresholds based on max value
   const colorThresholds = useMemo(() => {
@@ -316,6 +317,126 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick }) 
 
     highlightSource.setData(EMPTY_COLLECTION);
   }, [selectedRoadId, data]);
+
+  // Add markers for amenities and floods when a road is selected
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    // Don't show markers if no road is selected
+    if (!selectedRoadId) return;
+
+    // Add amenity markers (blue)
+    amenityItems.forEach((item) => {
+      if (!item.geometry || item.geometry.type !== 'Point') return;
+
+      const [lng, lat] = item.geometry.coordinates;
+
+      // Create marker element
+      const el = document.createElement('div');
+      el.className = 'amenity-marker';
+      el.style.width = '20px';
+      el.style.height = '20px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = '#3b82f6';
+      el.style.border = '2px solid white';
+      el.style.cursor = 'pointer';
+      el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+
+      // Create popup
+      const popup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
+        .setHTML(`
+          <div style="padding: 8px; max-width: 250px;">
+            <div style="font-weight: 600; margin-bottom: 6px; color: #3b82f6;">${item.name || 'Unknown Amenity'}</div>
+            <div style="font-size: 11px; color: #64748b;">
+              <div><strong>Category:</strong> ${item.category || 'N/A'}</div>
+              <div><strong>Type:</strong> ${item.properties?.amenity || 'N/A'}</div>
+              ${item.properties?.postal_code ? `<div><strong>Postal Code:</strong> ${item.properties.postal_code}</div>` : ''}
+              <div style="margin-top: 4px;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+            </div>
+          </div>
+        `);
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(map);
+
+      // Click handler
+      el.addEventListener('click', () => {
+        // Hide all other popups
+        markersRef.current.forEach(m => {
+          if (m !== marker && m.getPopup().isOpen()) {
+            m.togglePopup();
+          }
+        });
+        marker.togglePopup();
+      });
+
+      markersRef.current.push(marker);
+    });
+
+    // Add flood markers (orange)
+    floodItems.forEach((item) => {
+      const lat = item.properties?.origin_lat;
+      const lng = item.properties?.origin_lng;
+
+      if (!lat || !lng) return;
+
+      // Create marker element
+      const el = document.createElement('div');
+      el.className = 'flood-marker';
+      el.style.width = '20px';
+      el.style.height = '20px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = '#f97316';
+      el.style.border = '2px solid white';
+      el.style.cursor = 'pointer';
+      el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+
+      // Create popup
+      const popup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
+        .setHTML(`
+          <div style="padding: 8px; max-width: 250px;">
+            <div style="font-weight: 600; margin-bottom: 6px; color: #f97316;">${item.name || 'Flood Event'}</div>
+            <div style="font-size: 11px; color: #64748b;">
+              <div><strong>Type:</strong> ${item.type || 'N/A'}</div>
+              ${item.date ? `<div><strong>Date:</strong> ${item.date}</div>` : ''}
+              ${item.properties?.location ? `<div><strong>Location:</strong> ${item.properties.location}</div>` : ''}
+              <div style="margin-top: 4px;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+            </div>
+          </div>
+        `);
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(map);
+
+      // Click handler
+      el.addEventListener('click', () => {
+        // Hide all other popups
+        markersRef.current.forEach(m => {
+          if (m !== marker && m.getPopup().isOpen()) {
+            m.togglePopup();
+          }
+        });
+        marker.togglePopup();
+      });
+
+      markersRef.current.push(marker);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+    };
+  }, [selectedRoadId, amenityItems, floodItems]);
 
   const colorLabel = COLOR_METRICS.find(m => m.value === colorMetric)?.label || "Importance";
   const thicknessLabel = THICKNESS_METRICS.find(m => m.value === thicknessMetric)?.label || "None (Uniform)";

@@ -1450,6 +1450,8 @@ export default function Centrality() {
             selectedRoadId={selectedRoadId}
             onMapLoad={setMapInstance}
             onRoadClick={handleRoadSelect}
+            amenityItems={selectedAmenityItems}
+            floodItems={selectedFloodItems}
           />
         </div>
       <section className="rounded-3xl border bg-card shadow-sm p-6">
