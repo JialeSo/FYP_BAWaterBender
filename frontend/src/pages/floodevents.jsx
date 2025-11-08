@@ -28,6 +28,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, } from "@/components/ui/collapsible";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronsUpDown, MapPin, X } from "lucide-react";
+import { NumberInput } from "@/components/NumberInput";
+import { FloodEventsLearnDialog } from "./FloodEventsLearnDialog";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
@@ -133,7 +135,7 @@ const METRIC_SUMMARY_ROWS = [
 ];
 
 const RANKING_METRICS = [
-  { key: "flood_index", label: "Flood Index", precision: 3 },
+  { key: "ar_impact", label: "AR Impact", precision: 3 },
   { key: "impact_total", label: "Impact Total", precision: 2 },
   { key: "ring_total", label: "Total Amenities", precision: 0 },
   { key: "centrality", label: "Centrality", precision: 3 },
@@ -368,6 +370,25 @@ const default_weight_by_category = {
   tourism: 1,
   transport_services: 3,
 };
+
+const AR_IMPACT_PRESETS = {
+  centrality_focused: {
+    name: "Centrality Focused",
+    description: "Prioritizes road network importance",
+    weights: { betweenness: 0.4, closeness: 0.4, amenity: 0.2 },
+  },
+  balanced: {
+    name: "Balanced",
+    description: "Pure centrality analysis",
+    weights: { betweenness: 0.5, closeness: 0.5, amenity: 0.0 },
+  },
+  amenity_focused: {
+    name: "Amenity Focused",
+    description: "Emphasizes facility exposure",
+    weights: { betweenness: 0.1, closeness: 0.1, amenity: 0.8 },
+  },
+};
+
 function normalize01(val, min, max) {
   if (!Number.isFinite(val) || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) return 0;
   return (val - min) / (max - min);
@@ -483,7 +504,7 @@ export default function floodevents() {
   const [visible_cols, set_visible_cols] = useState({
     id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
     ring_inner: true, ring_outer: true, ring_total: true,
-    impact_inner: true, impact_outer: true, impact_total: true, centrality: true, flood_index: true,
+    impact_inner: true, impact_outer: true, impact_total: true, centrality: true, ar_impact: true,
     start_postal_code: false, start_lat: false, start_lng: false,
   });
 
@@ -523,10 +544,24 @@ export default function floodevents() {
     return out;
   });
 
+  const [cat_enabled, setCatEnabled] = useState(() => {
+    const out = {};
+    for (const c of Object.values(category_lookup?.by_id || {})) {
+      const name = String(c.amenity_category || "").trim();
+      out[name] = true;
+    }
+    // Also enable default categories
+    Object.keys(default_weight_by_category).forEach((name) => {
+      if (!(name in out)) out[name] = true;
+    });
+    return out;
+  });
+
   const [inner_mult, set_inner_mult] = useState(1.0);
   const [outer_mult, set_outer_mult] = useState(0.5);
-  const [w_centrality, set_w_centrality] = useState(0.5);
-  const [w_amenity, set_w_amenity] = useState(0.5);
+  const [w_betweenness, set_w_betweenness] = useState(0.4);
+  const [w_closeness, set_w_closeness] = useState(0.4);
+  const [w_amenity, set_w_amenity] = useState(0.2);
 
   /* roads index by rn_id for centrality */
   const roads_by_id = useMemo(() => {
@@ -615,7 +650,8 @@ export default function floodevents() {
       for (const a of near) {
         const d = a._distm;
         const band = d <= r_in ? "inner" : "outer";
-        const w = +cat_weights[a.category] || 0.0;
+        const enabled = cat_enabled[a.category] ?? true;
+        const w = enabled ? (+cat_weights[a.category] || 0.0) : 0.0;
         if (band === "inner") { inner++; impact_inner += w * inner_mult; }
         else { outer++; impact_outer += w * outer_mult; }
       }
@@ -637,21 +673,20 @@ export default function floodevents() {
         if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
         if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
       }
-      const centrality_score = 0.6*bnorm + 0.4*cnorm;
 
       const amenity_score = 1 - Math.exp(-(impact_total) / 10.0);
-      const flood_index = (w_centrality * centrality_score) + (w_amenity * amenity_score);
+      const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score);
 
       out.set(id, {
         center: [lng, lat],
         counts,
         impact: { inner: impact_inner, outer: impact_outer, total: impact_total },
-        centrality: { bnorm, cnorm, centrality_score },
-        scores: { amenity_score, flood_index },
+        centrality: { bnorm, cnorm },
+        scores: { amenity_score, ar_impact },
       });
     }
     return out;
-  }, [floods_fc, amenity_list, r_inner, r_outer, cat_weights, inner_mult, outer_mult, roads_by_id, centrality_scale, w_centrality, w_amenity]);
+  }, [floods_fc, amenity_list, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity]);
 
   function paint_selected_rings(center, r_in, r_out) {
   const map = map_ref.current;
@@ -708,8 +743,8 @@ export default function floodevents() {
         impact_inner: +(stats?.impact.inner ?? 0).toFixed(2),
         impact_outer:  +(stats?.impact.outer ?? 0).toFixed(2),
         impact_total:  +(stats?.impact.total ?? 0).toFixed(2),
-        centrality:    +(stats?.centrality.centrality_score ?? 0).toFixed(3),
-        flood_index:   +(stats?.scores.flood_index ?? 0).toFixed(3),
+        centrality:    +((w_betweenness * (stats?.centrality.bnorm ?? 0)) + (w_closeness * (stats?.centrality.cnorm ?? 0))).toFixed(3),
+        ar_impact:     +(stats?.scores.ar_impact ?? 0).toFixed(3),
         _props: p,
       };
     });
@@ -1234,7 +1269,8 @@ export default function floodevents() {
     const amenity_feats = [];
     for (const a of near) {
       const band = a._distm <= r_in ? "inner" : "outer";
-      const w = +cat_weights[a.category] || 0;
+      const enabled = cat_enabled[a.category] ?? true;
+      const w = enabled ? (+cat_weights[a.category] || 0) : 0;
       if (band === "inner") { inner_count++; impact_inner += w * inner_mult; }
       else { outer_count++; impact_outer += w * outer_mult; }
       amenity_feats.push({
@@ -1281,17 +1317,16 @@ export default function floodevents() {
       if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
       if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
     }
-    const centrality_score = 0.6*bnorm + 0.4*cnorm;
     const impact_total = impact_inner + impact_outer;
     const amenity_score = 1 - Math.exp(-impact_total / 10.0);
-    const flood_index = (w_centrality * centrality_score) + (w_amenity * amenity_score);
+    const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score);
 
     set_selected_stats({
       center,
       counts: { inner: inner_count, outer: outer_count, total: inner_count + outer_count },
       impact: { inner: +impact_inner.toFixed(2), outer: +impact_outer.toFixed(2), total: +impact_total.toFixed(2) },
-      centrality: { bnorm, cnorm, centrality_score: +centrality_score.toFixed(3) },
-      scores: { amenity_score: +amenity_score.toFixed(3), flood_index: +flood_index.toFixed(3) },
+      centrality: { bnorm, cnorm },
+      scores: { amenity_score: +amenity_score.toFixed(3), ar_impact: +ar_impact.toFixed(3) },
     });
 
     const rin = Math.max(0, Math.min(r_inner, r_outer));
@@ -1367,7 +1402,7 @@ export default function floodevents() {
     { key: "impact_outer",  label: "Impact (Outer)", type: "number" },
     { key: "impact_total",  label: "Impact Total", type: "number" },
     { key: "centrality",    label: "Road Centrality", type: "number" },
-    { key: "flood_index",   label: "Flood Index", type: "number" },
+    { key: "ar_impact",     label: "AR Impact", type: "number" },
     { key: "start_postal_code", label: "Postal Code", type: "string", optional: true },
     { key: "start_lat", label: "Start Latitude", type: "number", optional: true },
     { key: "start_lng", label: "Start Longitude", type: "number", optional: true },
@@ -1396,8 +1431,9 @@ export default function floodevents() {
       <header className="space-y-5">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Flood Events Dashboard</h1>
+          <FloodEventsLearnDialog />
           <p className="text-sm text-muted-foreground md:text-base">
-            Weighted amenity impact x road centrality = flood index. Click a row or map point to focus. Press{" "}
+            Amenities & Road Impact (AR Impact) combines road centrality with amenity exposure. Click a row or map point to focus. Press{" "}
             <kbd className="rounded-md border px-1.5 py-0.5 text-xs uppercase">Esc</kbd> to clear.
           </p>
         </div>
@@ -1507,50 +1543,87 @@ export default function floodevents() {
 
                 <Card className="border bg-background/80 shadow-none">
                   <CardHeader>
-                    <CardTitle className="text-base">Flood Index Blend</CardTitle>
+                    <CardTitle className="text-base">Amenities & Road Impact (AR Impact)</CardTitle>
                     <CardDescription>
-                      Balance network centrality against amenity density.
+                      Configure how betweenness, closeness, and amenity impact combine.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Preset Buttons */}
                     <div className="space-y-2">
-                      <Slider
-                        value={[Math.round(w_centrality * 100)]}
-                        min={0}
-                        max={100}
-                        step={5}
-                        onValueChange={(value) => {
-                          const next = clamp((value?.[0] ?? 0) / 100, 0, 1);
-                          const centralityWeight = Number(next.toFixed(2));
-                          const amenityWeight = Number((1 - centralityWeight).toFixed(2));
-                          set_w_centrality(centralityWeight);
-                          set_w_amenity(amenityWeight);
-                        }}
-                      />
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Amenity heavy</span>
-                        <span>Centrality heavy</span>
-                      </div>
-                      <div className="text-xs font-medium">
-                        Centrality {w_centrality.toFixed(2)} | Amenity {w_amenity.toFixed(2)}
+                      <Label className="text-sm font-medium">Presets</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {Object.entries(AR_IMPACT_PRESETS).map(([key, preset]) => (
+                          <button
+                            key={key}
+                            onClick={() => {
+                              set_w_betweenness(preset.weights.betweenness);
+                              set_w_closeness(preset.weights.closeness);
+                              set_w_amenity(preset.weights.amenity);
+                            }}
+                            className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            <div className="font-semibold text-sm mb-1">{preset.name}</div>
+                            <div className="text-xs text-muted-foreground">{preset.description}</div>
+                            <div className="mt-2 text-[10px] font-mono text-muted-foreground">
+                              B:{preset.weights.betweenness} C:{preset.weights.closeness} A:{preset.weights.amenity}
+                            </div>
+                          </button>
+                        ))}
                       </div>
                     </div>
+
+                    {/* Weight Sliders */}
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-sm">Betweenness Weight: {w_betweenness.toFixed(2)}</Label>
+                        <Slider
+                          value={[w_betweenness * 100]}
+                          min={0}
+                          max={100}
+                          step={5}
+                          onValueChange={(value) => set_w_betweenness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Closeness Weight: {w_closeness.toFixed(2)}</Label>
+                        <Slider
+                          value={[w_closeness * 100]}
+                          min={0}
+                          max={100}
+                          step={5}
+                          onValueChange={(value) => set_w_closeness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Amenity Weight: {w_amenity.toFixed(2)}</Label>
+                        <Slider
+                          value={[w_amenity * 100]}
+                          min={0}
+                          max={100}
+                          step={5}
+                          onValueChange={(value) => set_w_amenity(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Dynamic Formula Display */}
                     <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed">
                       <div className="mb-2 font-semibold uppercase tracking-wide text-muted-foreground">
                         Current Formula
                       </div>
-                      <p>
-                        Flood index = w<sub>centrality</sub> * centrality score + w<sub>amenity</sub> * amenity score.
+                      <p className="font-mono text-xs mb-2">
+                        AR Impact = ({w_betweenness.toFixed(2)} × Betweenness) + ({w_closeness.toFixed(2)} × Closeness) + ({w_amenity.toFixed(2)} × Amenity Score)
                       </p>
                       <ul className="mt-2 list-disc space-y-1 pl-4">
                         <li>
-                          Centrality score = 0.6 * betweenness + 0.4 * closeness (both normalised to 0-1 for the selected road).
+                          Betweenness and Closeness are normalized centrality values (0-1) for the affected road.
                         </li>
                         <li>
-                          Amenity score = 1 - exp(-impact total / 10), so impact growth has diminishing returns.
+                          Amenity Score = 1 - exp(-impact total / 10), providing diminishing returns for high amenity counts.
                         </li>
                         <li>
-                          Impact total = inner_mult * sum(inner amenities) + outer_mult * sum(outer amenities).
+                          Impact total = inner_mult × Σ(enabled inner amenities × category weight) + outer_mult × Σ(enabled outer amenities × category weight).
                         </li>
                       </ul>
                     </div>
@@ -1560,35 +1633,55 @@ export default function floodevents() {
 
               <Card className="border bg-background/80 shadow-none">
                 <CardHeader>
-                  <CardTitle className="text-base">Amenity Category Weights</CardTitle>
+                  <CardTitle className="text-base">Amenity Category Weights & Toggles</CardTitle>
                   <CardDescription>
-                    Tune category multipliers that feed into the impact calculation.
+                    Enable/disable categories and set their weights. Disabled categories contribute 0 to the impact calculation.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                    {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => (
-                      <div
-                        key={name}
-                        className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2"
-                      >
-                        <span className="text-sm font-medium">{to_title_case(name)}</span>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.1"
-                          min={0}
-                          value={cat_weights[name] ?? 1}
-                          onChange={(e) =>
-                            setCatWeights((prev) => ({
-                              ...prev,
-                              [name]: clamp(+e.target.value || 0, 0, 10),
-                            }))
-                          }
-                          className="h-9 w-20"
-                        />
-                      </div>
-                    ))}
+                    {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => {
+                      const enabled = cat_enabled[name] ?? true;
+                      const weight = cat_weights[name] ?? 1;
+                      return (
+                        <div
+                          key={name}
+                          className="space-y-2 rounded-lg border bg-muted/30 p-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{to_title_case(name)}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                id={`amenity-${name}`}
+                                checked={enabled}
+                                onCheckedChange={(checked) =>
+                                  setCatEnabled((prev) => ({ ...prev, [name]: !!checked }))
+                                }
+                              />
+                              <Label htmlFor={`amenity-${name}`} className="text-xs cursor-pointer">
+                                enable
+                              </Label>
+                            </div>
+                            <NumberInput
+                              value={weight}
+                              onValueChange={(numVal) => {
+                                if (numVal !== undefined) {
+                                  setCatWeights((prev) => ({ ...prev, [name]: numVal }));
+                                }
+                              }}
+                              min={1}
+                              max={10}
+                              stepper={0.1}
+                              decimalScale={1}
+                              fixedDecimalScale={true}
+                              disabled={!enabled}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -1642,9 +1735,9 @@ export default function floodevents() {
             <div className="flex-1 overflow-y-auto p-3">
               {selected_stats && (
                 <div className="mb-3 rounded-lg border p-3 text-xs bg-muted/40">
-                  <div className="font-medium mb-1">flood index (live)</div>
-                  <div>centrality {w_centrality.toFixed(2)} · amenity {w_amenity.toFixed(2)}</div>
-                  <div className="mt-1">index = {selected_stats.scores?.flood_index ?? "—"}</div>
+                  <div className="font-medium mb-1">AR Impact (live)</div>
+                  <div>B:{w_betweenness.toFixed(2)} C:{w_closeness.toFixed(2)} A:{w_amenity.toFixed(2)}</div>
+                  <div className="mt-1">AR Impact = {selected_stats.scores?.ar_impact ?? "—"}</div>
                 </div>
               )}
 
@@ -2042,7 +2135,7 @@ function AmenitiesPanel({ center, stats, amenity_list, ring_filter, r_inner, r_o
       <div className="flex items-center gap-2">
         <input value={q} onChange={(e)=>set_q(e.target.value)} placeholder="search name / category…" className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring" />
         <span className="text-xs text-muted-foreground whitespace-nowrap">
-          total: <b>{totals.total}</b> · index: <b>{stats.scores?.flood_index ?? "—"}</b>
+          total: <b>{totals.total}</b> · AR Impact: <b>{stats.scores?.ar_impact ?? "—"}</b>
         </span>
       </div>
 
