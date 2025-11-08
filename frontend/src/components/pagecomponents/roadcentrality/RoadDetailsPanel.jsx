@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { X } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
-export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory }) {
+export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {} }) {
   // Show prompt if no road selected
   if (!road) {
     return (
@@ -50,19 +50,27 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
 
   const amenityBreakdown = useMemo(() => {
     if (!amenityCounts) return [];
-    return Object.entries(amenityCounts)
-      .filter(([, count]) => count > 0)
+    // Handle Map objects and filter by enabled categories
+    const entries = amenityCounts instanceof Map
+      ? Array.from(amenityCounts.entries())
+      : Object.entries(amenityCounts);
+    return entries
+      .filter(([category, count]) => count > 0 && amenityEnabled[category])
       .map(([category, count]) => ({ category, count }))
       .sort((a, b) => b.count - a.count);
-  }, [amenityCounts]);
+  }, [amenityCounts, amenityEnabled]);
 
   const floodBreakdown = useMemo(() => {
     if (!floodCounts) return [];
-    return Object.entries(floodCounts)
-      .filter(([, count]) => count > 0)
+    // Handle Map objects and filter by enabled types
+    const entries = floodCounts instanceof Map
+      ? Array.from(floodCounts.entries())
+      : Object.entries(floodCounts);
+    return entries
+      .filter(([type, count]) => count > 0 && floodEnabled[type])
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => b.count - a.count);
-  }, [floodCounts]);
+  }, [floodCounts, floodEnabled]);
 
   return (
     <Card className="mb-4 border-2 border-primary">

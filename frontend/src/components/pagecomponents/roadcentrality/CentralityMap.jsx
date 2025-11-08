@@ -31,20 +31,54 @@ const COLOR_METRICS = [
 
 const THICKNESS_METRICS = [
   { value: "none", label: "None (Uniform)" },
+  { value: "importance", label: "Importance" },
+  { value: "amenity_count_total", label: "Amenity Count" },
+  { value: "flood_count_total", label: "Flood Count" },
   { value: "betweenness_norm", label: "Betweenness" },
   { value: "closeness_norm", label: "Closeness" },
-  { value: "importance", label: "Importance" },
+  { value: "sla_priority", label: "SLA Priority" },
 ];
 
-// Function to create color expression based on metric
-const createColorExpression = (metric) => {
+// Calculate percentile thresholds from data
+const calculatePercentiles = (data, metric) => {
+  if (!data?.features?.length) return [0, 0, 0, 0, 0];
+
+  const values = data.features
+    .map(f => f.properties?.[metric])
+    .filter(v => v !== null && v !== undefined && !isNaN(v))
+    .sort((a, b) => a - b);
+
+  if (values.length === 0) return [0, 0, 0, 0, 0];
+
+  const getPercentile = (p) => {
+    const index = Math.floor((values.length - 1) * p);
+    return values[index] || 0;
+  };
+
   return [
-    "interpolate", ["linear"], ["coalesce", ["to-number", ["get", metric]], 0],
-    0, "#dbeafe",
-    20, "#93c5fd",
-    40, "#60a5fa",
-    70, "#3b82f6",
-    90, "#1d4ed8",
+    0,
+    getPercentile(0.2),
+    getPercentile(0.4),
+    getPercentile(0.6),
+    getPercentile(0.8),
+    Math.max(...values),
+  ];
+};
+
+// Function to create color expression based on percentiles
+const createColorExpression = (metric, percentiles) => {
+  const [p0, p20, p40, p60, p80, p100] = percentiles;
+
+  return [
+    "interpolate",
+    ["linear"],
+    ["coalesce", ["to-number", ["get", metric]], 0],
+    p0, "#f1f5f9",    // Very light (0-20%)
+    p20, "#93c5fd",   // Light blue (20-40%)
+    p40, "#60a5fa",   // Medium blue (40-60%)
+    p60, "#3b82f6",   // Blue (60-80%)
+    p80, "#1d4ed8",   // Dark blue (80-100%)
+    p100, "#1e40af",  // Very dark blue (100%)
   ];
 };
 
@@ -63,20 +97,25 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, ge
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const [colorMetric, setColorMetric] = useState("importance");
-  const [thicknessMetric, setThicknessMetric] = useState("betweenness_norm");
+  const [thicknessMetric, setThicknessMetric] = useState("none");
 
-  // Update map paint properties when metrics change
+  // Calculate percentiles for color metric
+  const colorPercentiles = useMemo(() => {
+    return calculatePercentiles(data, colorMetric);
+  }, [data, colorMetric]);
+
+  // Update map paint properties when metrics or data change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded() || !map.getLayer("roads")) return;
 
     try {
-      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric));
+      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, colorPercentiles));
       map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric));
     } catch (e) {
       console.error("Failed to update paint properties:", e);
     }
-  }, [colorMetric, thicknessMetric]);
+  }, [colorMetric, thicknessMetric, colorPercentiles]);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN || mapRef.current || !containerRef.current) return;
@@ -107,7 +146,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, ge
           source: "road-network",
           layout: { visibility: "visible", "line-cap": "round", "line-join": "round" },
           paint: {
-            "line-color": createColorExpression(colorMetric),
+            "line-color": createColorExpression(colorMetric, colorPercentiles),
             "line-width": createWidthExpression(thicknessMetric),
             "line-opacity": 0.95
           },
@@ -331,11 +370,14 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, ge
         <p className="font-semibold mb-2">Legend</p>
         <div className="space-y-2">
           <div>
-            <p className="text-muted-foreground mb-1">Colour = {colorLabel}</p>
-            <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1d4ed8)" }} />
-            <div className="mt-1 flex justify-between text-muted-foreground text-[10px]">
-              <span>low</span>
-              <span>high</span>
+            <p className="text-muted-foreground mb-1">Colour = {colorLabel} (Percentiles)</p>
+            <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #f1f5f9, #93c5fd, #60a5fa, #3b82f6, #1d4ed8, #1e40af)" }} />
+            <div className="mt-1 flex justify-between text-muted-foreground text-[9px]">
+              <span>0-20%</span>
+              <span>20-40%</span>
+              <span>40-60%</span>
+              <span>60-80%</span>
+              <span>80-100%</span>
             </div>
           </div>
           {thicknessMetric !== "none" && (

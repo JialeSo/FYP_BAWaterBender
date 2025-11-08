@@ -56,7 +56,7 @@ const BASE_COLUMNS = [
   { key: "amenity_count_total", label: "Amenity Count", type: "number" },
   { key: "flood_count_total", label: "Flood Count", type: "number" },
   { key: "importance", label: "Importance", type: "number", format: (v) => format_number(v, 2) },
-  { key: "sla_priority", label: "SLA Priority", type: "number", format: (v) => format_number(v, 2) },
+  { key: "sla_priority", label: "SLA Category", type: "string" },
 ];
 
 export default function Centrality() {
@@ -399,8 +399,13 @@ export default function Centrality() {
 
       const amenRow = amenityCategoryCountByRoad.get(rn) || new Map();
       const floodRow = floodTypeCountByRoad.get(rn) || new Map();
-      const amenTot = Array.from(amenRow.values()).reduce((a, v) => a + v, 0);
-      const floodTot = Array.from(floodRow.values()).reduce((a, v) => a + v, 0);
+      // Only count enabled categories/types
+      const amenTot = Array.from(amenRow.entries())
+        .filter(([cat]) => amenityEnabled[cat])
+        .reduce((a, [_, v]) => a + v, 0);
+      const floodTot = Array.from(floodRow.entries())
+        .filter(([type]) => floodEnabled[type])
+        .reduce((a, [_, v]) => a + v, 0);
 
       // Components 0-100 (bet/clo already 0-1)
       const bet_norm = useCompBetweenness ? bet * 100 : 0;
@@ -447,8 +452,28 @@ export default function Centrality() {
   const sortedByImportance = useMemo(() => {
     const arr = [...scored];
     arr.sort((a, b) => (b.properties.importance || 0) - (a.properties.importance || 0));
-    return arr;
-  }, [scored]);
+
+    // Add SLA category labels after sorting
+    return arr.map((f, index) => {
+      const importance = f.properties.importance;
+      const percentile = (index / arr.length) * 100;
+
+      let slaCategory = "5-Year SLA";
+      if (percentile < slaTop1Year) {
+        slaCategory = "1-Year SLA";
+      } else if (percentile < slaTop1Year + slaNext3Year) {
+        slaCategory = "3-Year SLA";
+      }
+
+      return {
+        ...f,
+        properties: {
+          ...f.properties,
+          sla_priority: slaCategory,
+        }
+      };
+    });
+  }, [scored, slaTop1Year, slaNext3Year]);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedByImportance.length / PAGE_SIZE)), [sortedByImportance.length]);
 
   const allColumnDefs = useMemo(() => {
@@ -1315,6 +1340,8 @@ export default function Centrality() {
         totalRoads={sortedByImportance.length}
         roadRank={selectedRoadRank}
         getSLACategory={getSLACategory}
+        amenityEnabled={amenityEnabled}
+        floodEnabled={floodEnabled}
       />
         {/* Right: Map */}
         <div ref={mapSectionRef}>
