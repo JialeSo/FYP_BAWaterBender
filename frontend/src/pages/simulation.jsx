@@ -276,14 +276,11 @@ export default function Simulation() {
   const [roadSearchTerm, setRoadSearchTerm] = useState("");
 
   // Maps
-  const baselineMapRef = useRef(null);
-  const floodedMapRef = useRef(null);
-  const baselineContainerRef = useRef(null);
-  const floodedContainerRef = useRef(null);
   const configMapRef = useRef(null);
   const configContainerRef = useRef(null);
-  const baselinePopupRef = useRef(null);
-  const floodedPopupRef = useRef(null);
+  const resultMapRef = useRef(null);
+  const resultContainerRef = useRef(null);
+  const popupRef = useRef(null);
   const roadPopupRef = useRef(null);
 
   // Computation state
@@ -294,7 +291,7 @@ export default function Simulation() {
   const [paDeltas, setPaDeltas] = useState([]);
   const [selectedPA, setSelectedPA] = useState(null);
   const [hoveredPA, setHoveredPA] = useState(null);
-  const [showBlockedRoads, setShowBlockedRoads] = useState(true); // Toggle between showing blocked vs available roads
+  const [selectedMetric, setSelectedMetric] = useState("delta_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time"
 
   // Scenarios now loaded from context - no need to fetch here
   useEffect(() => {
@@ -1254,14 +1251,15 @@ export default function Simulation() {
           <div className="space-y-4">
             {floodInputMethod === "manual" ? (
               <div className="grid grid-cols-[400px_1fr] gap-4 h-[calc(100vh-16rem)]">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Flood Markers</CardTitle>
-                    <CardDescription>Click map to add markers</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <ScrollArea className="max-h-[40vh]">
-                      <div className="space-y-3">
+                <div className="flex flex-col h-full overflow-hidden">
+                  <Card className="flex-1 flex flex-col overflow-hidden">
+                    <CardHeader className="flex-shrink-0">
+                      <CardTitle>Flood Markers</CardTitle>
+                      <CardDescription>Click map to add markers</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col space-y-4 overflow-hidden">
+                      <ScrollArea className="flex-1">
+                        <div className="space-y-3 pr-4">
                         {floodMarkers.map((marker, idx) => (
                           <div key={marker.id} className="border rounded-lg p-3 space-y-2">
                             <div className="flex items-center justify-between">
@@ -1295,28 +1293,29 @@ export default function Simulation() {
                       </div>
                     </ScrollArea>
 
-                    {affectedRoads.length > 0 && (
-                      <>
-                        <Separator />
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm font-semibold">Affected Roads ({affectedRoads.filter(r => r.selected).length}/{affectedRoads.length})</Label>
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: true })))}>All</Button>
-                              <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: false })))}>None</Button>
+                      {affectedRoads.length > 0 && (
+                        <>
+                          <Separator className="my-4" />
+                          <div className="space-y-2 flex-shrink-0">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm font-semibold">Affected Roads ({affectedRoads.filter(r => r.selected).length}/{affectedRoads.length})</Label>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: true })))}>All</Button>
+                                <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: false })))}>None</Button>
+                              </div>
+                            </div>
+                            <div className="relative">
+                              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search roads..."
+                                value={roadSearchTerm}
+                                onChange={(e) => setRoadSearchTerm(e.target.value)}
+                                className="pl-8 h-9"
+                              />
                             </div>
                           </div>
-                          <div className="relative">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="Search roads..."
-                              value={roadSearchTerm}
-                              onChange={(e) => setRoadSearchTerm(e.target.value)}
-                              className="pl-8 h-9"
-                            />
-                          </div>
-                          <ScrollArea className="max-h-[40vh] border rounded p-2">
-                            <div className="space-y-2">
+                          <ScrollArea className="flex-1 border rounded p-2">
+                            <div className="space-y-2 pr-4">
                               {filteredAffectedRoads.map((road) => (
                                 <div key={road.rn_id} className="flex items-center space-x-2">
                                   <Checkbox
@@ -1336,11 +1335,11 @@ export default function Simulation() {
                               )}
                             </div>
                           </ScrollArea>
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
 
                 <div ref={configContainerRef} className="rounded-lg border" />
               </div>
@@ -1437,28 +1436,30 @@ export default function Simulation() {
                     className="pl-8 h-9"
                   />
                 </div>
-                <div className="border rounded-lg">
-                  <ScrollArea className="max-h-[200px] p-3">
-                    <RadioGroup value={selectedAmenityType} onValueChange={(value) => {
-                      setSelectedAmenityType(value);
-                      setExcludedAmenities(new Set()); // Reset excluded amenities when changing type
-                    }}>
-                      <div className="space-y-2">
-                        {filteredAmenities.map((amenity) => (
-                          <div key={amenity.type} className="flex items-center space-x-2">
-                            <RadioGroupItem value={amenity.type} id={`step3-amenity-${amenity.type}`} />
-                            <label htmlFor={`step3-amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
-                              {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
-                            </label>
-                          </div>
-                        ))}
-                        {filteredAmenities.length === 0 && (
-                          <div className="text-center text-sm text-muted-foreground py-4">
-                            No amenity types match your search
-                          </div>
-                        )}
-                      </div>
-                    </RadioGroup>
+                <div className="border rounded-lg overflow-hidden">
+                  <ScrollArea className="max-h-[200px]">
+                    <div className="p-3 pr-6">
+                      <RadioGroup value={selectedAmenityType} onValueChange={(value) => {
+                        setSelectedAmenityType(value);
+                        setExcludedAmenities(new Set()); // Reset excluded amenities when changing type
+                      }}>
+                        <div className="space-y-2">
+                          {filteredAmenities.map((amenity) => (
+                            <div key={amenity.type} className="flex items-center space-x-2">
+                              <RadioGroupItem value={amenity.type} id={`step3-amenity-${amenity.type}`} />
+                              <label htmlFor={`step3-amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
+                                {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
+                              </label>
+                            </div>
+                          ))}
+                          {filteredAmenities.length === 0 && (
+                            <div className="text-center text-sm text-muted-foreground py-4">
+                              No amenity types match your search
+                            </div>
+                          )}
+                        </div>
+                      </RadioGroup>
+                    </div>
                   </ScrollArea>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -1500,30 +1501,32 @@ export default function Simulation() {
                               </Button>
                             </div>
                           </div>
-                          <ScrollArea className="max-h-[200px] border rounded-lg p-3">
-                            <div className="space-y-2">
-                              {individualAmenities.map((amenity) => (
-                                <div key={amenity.id} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`amenity-${amenity.id}`}
-                                    checked={!excludedAmenities.has(amenity.id)}
-                                    onCheckedChange={(checked) => {
-                                      const newExcluded = new Set(excludedAmenities);
-                                      if (checked) {
-                                        newExcluded.delete(amenity.id);
-                                      } else {
-                                        newExcluded.add(amenity.id);
-                                      }
-                                      setExcludedAmenities(newExcluded);
-                                    }}
-                                  />
-                                  <label htmlFor={`amenity-${amenity.id}`} className="text-xs flex-1 cursor-pointer">
-                                    {amenity.name}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
+                          <div className="border rounded-lg overflow-hidden">
+                            <ScrollArea className="max-h-[200px]">
+                              <div className="p-3 pr-6 space-y-2">
+                                {individualAmenities.map((amenity) => (
+                                  <div key={amenity.id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`amenity-${amenity.id}`}
+                                      checked={!excludedAmenities.has(amenity.id)}
+                                      onCheckedChange={(checked) => {
+                                        const newExcluded = new Set(excludedAmenities);
+                                        if (checked) {
+                                          newExcluded.delete(amenity.id);
+                                        } else {
+                                          newExcluded.add(amenity.id);
+                                        }
+                                        setExcludedAmenities(newExcluded);
+                                      }}
+                                    />
+                                    <label htmlFor={`amenity-${amenity.id}`} className="text-xs flex-1 cursor-pointer">
+                                      {amenity.name}
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </ScrollArea>
+                          </div>
                         </div>
                       </AccordionContent>
                     </AccordionItem>
@@ -1591,8 +1594,9 @@ export default function Simulation() {
                   )}
 
                   {/* Road List */}
-                  <ScrollArea className="max-h-[250px] border rounded-lg p-3">
-                    <div className="space-y-2">
+                  <div className="border rounded-lg overflow-hidden">
+                    <ScrollArea className="max-h-[250px]">
+                      <div className="p-3 pr-6 space-y-2">
                       {floodInputMethod === "manual" ? (
                         // Manual mode - editable checkboxes
                         <>
@@ -1665,8 +1669,9 @@ export default function Simulation() {
                           })()}
                         </>
                       )}
-                    </div>
-                  </ScrollArea>
+                      </div>
+                    </ScrollArea>
+                  </div>
                 </CardContent>
               </Card>
             )}
