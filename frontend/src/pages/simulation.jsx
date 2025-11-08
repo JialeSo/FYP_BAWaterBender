@@ -737,28 +737,44 @@ export default function Simulation() {
             }
 
             let html = `
-              <div style="background: #fff; padding: 8px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="dark:bg-gray-800 dark:text-white">
-                <div style="font-weight: 600; margin-bottom: 4px;">${props.pa_name}</div>
-                <div style="font-size: 11px; color: #666;" class="dark:text-gray-300">Total Intersections: ${props.total_intersections}</div>
+              <div style="background: #1f2937; color: #fff; padding: 10px; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #374151;">
+                <div style="font-weight: 600; margin-bottom: 6px; font-size: 13px;">${props.pa_name}</div>
+                <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">Total Intersections: ${props.total_intersections}</div>
             `;
 
             if (selectedMetric === "delta_time") {
               html += `
-                <div style="font-size: 11px; margin-top: 4px;"><strong>Δ Time:</strong> +${fmtM(props.delta_avg_s)}</div>
-                <div style="font-size: 11px; color: #666;" class="dark:text-gray-400">Baseline: ${fmtM(props.base_avg_s)} → Flooded: ${fmtM(props.flood_avg_s)}</div>
+                <div style="border-top: 1px solid #374151; padding-top: 6px;">
+                  <div style="font-size: 12px; font-weight: 600; color: #fbbf24; margin-bottom: 4px;">Δ Time: +${fmtM(props.delta_avg_s)}</div>
+                  <div style="font-size: 10px; color: #d1d5db;">Baseline: ${fmtM(props.base_avg_s)}</div>
+                  <div style="font-size: 10px; color: #d1d5db;">Flooded: ${fmtM(props.flood_avg_s)}</div>
+                </div>
               `;
             } else if (selectedMetric === "unreachable") {
               html += `
-                <div style="font-size: 11px; margin-top: 4px;"><strong>Δ Unreachable:</strong> +${props.delta_unreachable}</div>
-                <div style="font-size: 11px; color: #666;" class="dark:text-gray-400">Baseline: ${props.base_unreachable} → Flooded: ${props.flood_unreachable}</div>
+                <div style="border-top: 1px solid #374151; padding-top: 6px;">
+                  <div style="font-size: 12px; font-weight: 600; color: #ef4444; margin-bottom: 4px;">Δ Unreachable: +${props.delta_unreachable}</div>
+                  <div style="font-size: 10px; color: #d1d5db;">Baseline: ${props.base_unreachable}</div>
+                  <div style="font-size: 10px; color: #d1d5db;">Flooded: ${props.flood_unreachable}</div>
+                </div>
               `;
             } else if (selectedMetric === "baseline_time") {
-              html += `<div style="font-size: 11px; margin-top: 4px;"><strong>Avg Time:</strong> ${fmtM(props.base_avg_s)}</div>`;
+              html += `
+                <div style="border-top: 1px solid #374151; padding-top: 6px;">
+                  <div style="font-size: 12px; font-weight: 600; color: #60a5fa;">Avg Time: ${fmtM(props.base_avg_s)}</div>
+                  <div style="font-size: 10px; color: #9ca3af;">Unreachable: ${props.base_unreachable}</div>
+                </div>
+              `;
             } else if (selectedMetric === "flooded_time") {
-              html += `<div style="font-size: 11px; margin-top: 4px;"><strong>Avg Time:</strong> ${fmtM(props.flood_avg_s)}</div>`;
+              html += `
+                <div style="border-top: 1px solid #374151; padding-top: 6px;">
+                  <div style="font-size: 12px; font-weight: 600; color: #60a5fa;">Avg Time: ${fmtM(props.flood_avg_s)}</div>
+                  <div style="font-size: 10px; color: #9ca3af;">Unreachable: ${props.flood_unreachable}</div>
+                </div>
+              `;
             }
 
-            html += `<div style="font-size: 10px; color: #999; margin-top: 4px;" class="dark:text-gray-500">Click to view roads</div></div>`;
+            html += `<div style="font-size: 10px; color: #6b7280; margin-top: 8px; border-top: 1px solid #374151; padding-top: 6px;">Click to view roads & filter area</div></div>`;
 
             popupRef.current = new mapboxgl.Popup({ 
               closeButton: false, 
@@ -795,9 +811,21 @@ export default function Simulation() {
             map.setFeatureState({ source: "choropleth", id: paId }, { selected: true });
             setSelectedPA({ pa_id: paId, pa_name: paName });
 
+            // Filter choropleth to show only selected planning area
+            const currentSource = map.getSource("choropleth");
+            if (currentSource && currentSource._data) {
+              const allFeatures = currentSource._data.features || [];
+              const filteredFeatures = allFeatures.filter(f => f.properties.pa_id === paId);
+              map.getSource("choropleth")?.setData({
+                type: "FeatureCollection",
+                features: filteredFeatures,
+              });
+            }
+
             // Get amenities for calculating accessibility
             const amenities = snapAmenitiesToNodes(amenity_fc_enriched, graph.nodes, [selectedAmenityType], excludedAmenities);
             const amenityNodeIds = new Set(amenities.map(a => a.node_id));
+            const amenityByNodeId = new Map(amenities.map(a => [a.node_id, a]));
 
             // Build blocked roads set
             let blockedRnIds = new Set();
@@ -810,23 +838,75 @@ export default function Simulation() {
               }
             }
 
+            // Helper function to find nearest amenity from a node using Dijkstra
+            const findNearestAmenity = (startNode, applyBlockedRoads) => {
+              const pq = new MinPQ();
+              const dist = new Map();
+              const visited = new Set();
+
+              dist.set(startNode, 0);
+              pq.insert(startNode, 0);
+
+              while (pq.size() > 0) {
+                const [u, d] = pq.delMin();
+                if (visited.has(u)) continue;
+                visited.add(u);
+
+                // Check if we reached an amenity
+                if (amenityNodeIds.has(u)) {
+                  const amenity = amenityByNodeId.get(u);
+                  return {
+                    hospital: amenity?.amenity_name || 'Unknown Hospital',
+                    time: d
+                  };
+                }
+
+                const neighbors = graph.adj.get(u) || [];
+                for (const { to, w, rn_id } of neighbors) {
+                  if (visited.has(to)) continue;
+
+                  // Apply blocked roads filter if needed
+                  if (applyBlockedRoads && rn_id != null && blockedRnIds.has(rn_id)) {
+                    continue;
+                  }
+
+                  const newDist = d + w;
+                  if (!dist.has(to) || newDist < dist.get(to)) {
+                    dist.set(to, newDist);
+                    pq.insert(to, newDist);
+                  }
+                }
+              }
+
+              return { hospital: 'No hospital reachable', time: Infinity };
+            };
+
             // Filter roads within this planning area
             const roadsInPA = [];
             const seenRnIds = new Set();
-            
+
             for (const edge of graph.edges) {
               const nodeFrom = graph.nodes.get(edge.from);
               const nodeTo = graph.nodes.get(edge.to);
-              
+
               if (nodeFrom?.paId === paId || nodeTo?.paId === paId) {
                 if (edge.rn_id != null && edge.coords && !seenRnIds.has(edge.rn_id)) {
                   seenRnIds.add(edge.rn_id);
 
                   const isBlocked = blockedRnIds.has(edge.rn_id);
-                  
+
+                  // Find nearest hospital in baseline (no blocked roads)
+                  const baseline = findNearestAmenity(edge.from, false);
+
+                  // Find nearest hospital in flooded (with blocked roads)
+                  const flooded = findNearestAmenity(edge.from, true);
+
+                  // Calculate delta
+                  const delta = flooded.time - baseline.time;
+
                   // Check if road is accessible (connects to amenity)
                   const isAccessible = amenityNodeIds.has(edge.from) || amenityNodeIds.has(edge.to);
-                  
+
                   // Calculate line width based on travel time (higher time = thicker line)
                   const travelTime = edge.w || 60;
                   const width = Math.max(2, Math.min(8, travelTime / 60));
@@ -844,6 +924,11 @@ export default function Simulation() {
                       accessible: isAccessible,
                       color,
                       width,
+                      baseline_hospital: baseline.hospital,
+                      baseline_time: baseline.time,
+                      flooded_hospital: flooded.hospital,
+                      flooded_time: flooded.time,
+                      delta_time: delta,
                     },
                     geometry: { type: "LineString", coordinates: edge.coords },
                   });
@@ -882,22 +967,42 @@ export default function Simulation() {
               roadPopupRef.current.remove();
             }
 
+            const deltaTimeStr = Number.isFinite(props.delta_time) && props.delta_time !== Infinity
+              ? fmtM(props.delta_time)
+              : 'N/A';
+            const deltaColor = props.delta_time > 0 ? '#fbbf24' : '#22c55e';
+
             const html = `
-              <div style="background: #fff; padding: 6px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="dark:bg-gray-800 dark:text-white">
-                <div style="font-weight: 600; font-size: 12px;">${props.name}</div>
-                <div style="font-size: 10px; margin-top: 2px;">RN_ID: ${props.rn_id}</div>
-                <div style="font-size: 10px;">Travel Time: ${fmtM(props.travel_time)}</div>
-                <div style="font-size: 10px; color: ${props.accessible ? '#22c55e' : '#ef4444'};">
-                  ${props.accessible ? '✓ Accessible to amenity' : '✗ Not accessible'}
+              <div style="background: #1f2937; color: #fff; padding: 8px 10px; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #374151;">
+                <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #f3f4f6;">${props.name}</div>
+                <div style="font-size: 10px; color: #9ca3af; margin-bottom: 6px;">RN_ID: ${props.rn_id}</div>
+
+                <div style="border-top: 1px solid #374151; padding-top: 6px; margin-top: 6px;">
+                  <div style="font-size: 11px; font-weight: 600; color: ${deltaColor}; margin-bottom: 4px;">
+                    Δ Time: ${props.delta_time > 0 ? '+' : ''}${deltaTimeStr}
+                  </div>
+
+                  <div style="font-size: 10px; margin-top: 4px;">
+                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Baseline:</strong></div>
+                    <div style="color: #9ca3af; margin-left: 8px; margin-bottom: 1px;">→ ${props.baseline_hospital}</div>
+                    <div style="color: #9ca3af; margin-left: 8px;">Time: ${Number.isFinite(props.baseline_time) ? fmtM(props.baseline_time) : 'N/A'}</div>
+                  </div>
+
+                  <div style="font-size: 10px; margin-top: 6px;">
+                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Flooded:</strong></div>
+                    <div style="color: #9ca3af; margin-left: 8px; margin-bottom: 1px;">→ ${props.flooded_hospital}</div>
+                    <div style="color: #9ca3af; margin-left: 8px;">Time: ${Number.isFinite(props.flooded_time) ? fmtM(props.flooded_time) : 'N/A'}</div>
+                  </div>
                 </div>
-                ${props.blocked ? '<div style="font-size: 10px; color: #ef4444;">⚠ Blocked by flood</div>' : ''}
+
+                ${props.blocked ? '<div style="font-size: 10px; color: #ef4444; margin-top: 6px; padding-top: 6px; border-top: 1px solid #374151;">⚠ Blocked by flood</div>' : ''}
               </div>
             `;
 
-            roadPopupRef.current = new mapboxgl.Popup({ 
-              closeButton: false, 
+            roadPopupRef.current = new mapboxgl.Popup({
+              closeButton: false,
               closeOnClick: false,
-              maxWidth: '250px'
+              maxWidth: '280px'
             })
               .setLngLat(e.lngLat)
               .setHTML(html)
