@@ -8,13 +8,14 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCircle } from "lucide-react";
+import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCircle, Search } from "lucide-react";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
@@ -252,6 +253,7 @@ export default function Simulation() {
   // Manual flood configuration
   const [floodMarkers, setFloodMarkers] = useState([]);
   const [affectedRoads, setAffectedRoads] = useState([]);
+  const [roadSearchTerm, setRoadSearchTerm] = useState("");
 
   // Maps
   const baselineMapRef = useRef(null);
@@ -639,8 +641,17 @@ export default function Simulation() {
   }, [step, baselineStats, floodedStats, paDeltas, lookups]);
 
   const canProceedToStep2 = floodInputMethod === "manual" || (floodInputMethod === "scenario" && selectedScenario);
-  const canProceedToStep3 = floodInputMethod === "scenario" ? !!selectedScenario :
-    (floodMarkers.length > 0 && affectedRoads.filter(r => r.selected).length > 0);
+  const canProceedToStep3 = floodInputMethod === "scenario" ? !!selectedScenario : floodMarkers.length > 0;
+
+  // Filter roads by search term
+  const filteredAffectedRoads = useMemo(() => {
+    if (!roadSearchTerm.trim()) return affectedRoads;
+    const term = roadSearchTerm.toLowerCase();
+    return affectedRoads.filter(r =>
+      r.name.toLowerCase().includes(term) ||
+      String(r.rn_id).includes(term)
+    );
+  }, [affectedRoads, roadSearchTerm]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
@@ -653,9 +664,14 @@ export default function Simulation() {
         <div className="flex items-center gap-2">
           {[1, 2, 3, 4].map((s) => (
             <div key={s} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                s === step ? "bg-primary text-primary-foreground" : s < step ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
-              }`}>
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                  s === step ? "bg-primary text-primary-foreground" : s < step ? "bg-green-500 text-white cursor-pointer hover:bg-green-600" : "bg-muted text-muted-foreground"
+                }`}
+                onClick={() => {
+                  if (s < step) setStep(s);
+                }}
+              >
                 {s}
               </div>
               {s < 4 && <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground" />}
@@ -739,7 +755,7 @@ export default function Simulation() {
                     <CardDescription>Click map to add markers</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <ScrollArea className="h-[calc(100vh-24rem)]">
+                    <ScrollArea className="h-[calc((100vh-28rem)/2)]">
                       <div className="space-y-3">
                         {floodMarkers.map((marker, idx) => (
                           <div key={marker.id} className="border rounded-lg p-3 space-y-2">
@@ -785,9 +801,18 @@ export default function Simulation() {
                               <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: false })))}>None</Button>
                             </div>
                           </div>
-                          <ScrollArea className="h-48 border rounded p-2">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Search roads..."
+                              value={roadSearchTerm}
+                              onChange={(e) => setRoadSearchTerm(e.target.value)}
+                              className="pl-8 h-9"
+                            />
+                          </div>
+                          <ScrollArea className="h-[calc((100vh-28rem)/2)] border rounded p-2">
                             <div className="space-y-2">
-                              {affectedRoads.map((road) => (
+                              {filteredAffectedRoads.map((road) => (
                                 <div key={road.rn_id} className="flex items-center space-x-2">
                                   <Checkbox
                                     id={`road-${road.rn_id}`}
@@ -797,6 +822,11 @@ export default function Simulation() {
                                   <label htmlFor={`road-${road.rn_id}`} className="text-xs flex-1 cursor-pointer">{road.name}</label>
                                 </div>
                               ))}
+                              {filteredAffectedRoads.length === 0 && (
+                                <div className="text-center text-sm text-muted-foreground py-4">
+                                  No roads match your search
+                                </div>
+                              )}
                             </div>
                           </ScrollArea>
                         </div>
