@@ -15,7 +15,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCircle, Search } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCircle, Search, ChevronDown } from "lucide-react";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
@@ -85,16 +86,20 @@ function buildGraph(road_fc) {
 }
 
 /* ================== snap amenities to nodes ============== */
-function snapAmenitiesToNodes(amenity_fc, nodes, selectedTypes = ["moh_hospitals"]) {
+function snapAmenitiesToNodes(amenity_fc, nodes, selectedTypes = ["moh_hospitals"], excludedAmenities = new Set()) {
   const amenities = [];
   const nodeArr = Array.from(nodes.values());
 
   for (const f of amenity_fc?.features || []) {
     const p = f.properties || {};
     const amenityType = String(p.amenity_type || "").trim();
+    const amenityId = p.amenity_id ?? p.id;
 
     // Filter by selected types
     if (!selectedTypes.includes(amenityType)) continue;
+
+    // Filter out excluded amenities
+    if (amenityId && excludedAmenities.has(amenityId)) continue;
 
     const pt = f.geometry?.coordinates;
     if (!pt || !Number.isFinite(+pt[0]) || !Number.isFinite(+pt[1])) continue;
@@ -107,7 +112,7 @@ function snapAmenitiesToNodes(amenity_fc, nodes, selectedTypes = ["moh_hospitals
 
     if (best) {
       amenities.push({
-        amenity_id: p.amenity_id ?? String(amenities.length),
+        amenity_id: amenityId ?? String(amenities.length),
         amenity_name: p.amenity_name ?? amenityType,
         amenity_type: amenityType,
         node_id: best.nodeId,
@@ -147,9 +152,9 @@ function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFi
 }
 
 /* ==================== compute per-PA stats ============= */
-function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter, selectedAmenityType = "moh_hospitals" }) {
+function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter, selectedAmenityType = "moh_hospitals", excludedAmenities = new Set() }) {
   const { nodes, adj } = graph;
-  const amenities = snapAmenitiesToNodes(amenity_fc_enriched, nodes, [selectedAmenityType]);
+  const amenities = snapAmenitiesToNodes(amenity_fc_enriched, nodes, [selectedAmenityType], excludedAmenities);
   if (!amenities.length) throw new Error(`No amenities found for type: ${selectedAmenityType}`);
 
   const amenityNodeIds = amenities.map(a => a.node_id);
@@ -260,6 +265,7 @@ export default function Simulation() {
   const [selectedAmenityType, setSelectedAmenityType] = useState("moh_hospitals");
   const [amenitySearchTerm, setAmenitySearchTerm] = useState("");
   const [availableAmenities, setAvailableAmenities] = useState([]);
+  const [excludedAmenities, setExcludedAmenities] = useState(new Set()); // Set of amenity_ids to exclude
 
   // Road filtering (for Step 3)
   const [selectedPlanningArea, setSelectedPlanningArea] = useState("all");
@@ -276,6 +282,9 @@ export default function Simulation() {
   const floodedContainerRef = useRef(null);
   const configMapRef = useRef(null);
   const configContainerRef = useRef(null);
+  const baselinePopupRef = useRef(null);
+  const floodedPopupRef = useRef(null);
+  const roadPopupRef = useRef(null);
 
   // Computation state
   const [busy, setBusy] = useState(false);
@@ -285,6 +294,7 @@ export default function Simulation() {
   const [paDeltas, setPaDeltas] = useState([]);
   const [selectedPA, setSelectedPA] = useState(null);
   const [hoveredPA, setHoveredPA] = useState(null);
+  const [showBlockedRoads, setShowBlockedRoads] = useState(true); // Toggle between showing blocked vs available roads
 
   // Scenarios now loaded from context - no need to fetch here
   useEffect(() => {
@@ -535,6 +545,7 @@ export default function Simulation() {
         onProgress: (v) => setProgress(v),
         edgeFilter: null,
         selectedAmenityType,
+        excludedAmenities,
       });
       setBaselineStats(baseline);
 
@@ -546,6 +557,7 @@ export default function Simulation() {
         onProgress: (v) => setProgress(v),
         edgeFilter,
         selectedAmenityType,
+        excludedAmenities,
       });
       setFloodedStats(flooded);
 
@@ -583,7 +595,7 @@ export default function Simulation() {
     } finally {
       setBusy(false);
     }
-  }, [ready, graph, amenity_fc_enriched, edgeFilter, selectedAmenityType]);
+  }, [ready, graph, amenity_fc_enriched, edgeFilter, selectedAmenityType, excludedAmenities]);
 
   // Initialize result maps
   useEffect(() => {
@@ -663,14 +675,21 @@ export default function Simulation() {
             const feature = e.features[0];
             const props = feature.properties;
 
+            // Remove existing popup
+            if (baselinePopupRef.current) {
+              baselinePopupRef.current.remove();
+            }
+
             const html = `
-              <div class="font-semibold">${props.pa_name}</div>
-              <div class="text-sm mt-1">Avg Time: ${fmtM(props.avg_s)}</div>
-              <div class="text-sm">Total Nodes: ${props.nodes}</div>
-              <div class="text-sm">Unreachable: ${props.unreachable}</div>
+              <div class="mapbox-popup-content dark:bg-gray-800 dark:text-white">
+                <div class="font-semibold">${props.pa_name}</div>
+                <div class="text-sm mt-1">Avg Time: ${fmtM(props.avg_s)}</div>
+                <div class="text-sm">Total Nodes: ${props.nodes}</div>
+                <div class="text-sm">Unreachable: ${props.unreachable}</div>
+              </div>
             `;
 
-            new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+            baselinePopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: 'dark:bg-gray-800' })
               .setLngLat(e.lngLat)
               .setHTML(html)
               .addTo(map);
@@ -679,8 +698,10 @@ export default function Simulation() {
 
         map.on("mouseleave", "choropleth-fill", () => {
           map.getCanvas().style.cursor = "";
-          const popups = document.getElementsByClassName("mapboxgl-popup");
-          if (popups.length) popups[0].remove();
+          if (baselinePopupRef.current) {
+            baselinePopupRef.current.remove();
+            baselinePopupRef.current = null;
+          }
         });
       });
     }
@@ -787,22 +808,29 @@ export default function Simulation() {
             const feature = e.features[0];
             const props = feature.properties;
 
+            // Remove existing popup
+            if (floodedPopupRef.current) {
+              floodedPopupRef.current.remove();
+            }
+
             const html = `
-              <div class="font-semibold">${props.pa_name}</div>
-              <div class="text-xs mt-1">Total Nodes: ${props.total_nodes}</div>
-              <div class="text-xs mt-2"><strong>Baseline:</strong></div>
-              <div class="text-xs">Avg Time: ${fmtM(props.base_avg_s)}</div>
-              <div class="text-xs">Unreachable: ${props.base_unreachable}</div>
-              <div class="text-xs mt-1"><strong>Flooded:</strong></div>
-              <div class="text-xs">Avg Time: ${fmtM(props.flood_avg_s)}</div>
-              <div class="text-xs">Unreachable: ${props.flood_unreachable}</div>
-              <div class="text-xs mt-1 font-semibold text-red-600"><strong>Delta:</strong></div>
-              <div class="text-xs text-red-600">Δ Time: +${fmtM(props.delta_avg_s)}</div>
-              <div class="text-xs text-red-600">Δ Unreachable: +${props.delta_unreachable}</div>
-              <div class="text-xs mt-1 text-muted-foreground">Click to view roads</div>
+              <div class="mapbox-popup-content dark:bg-gray-800 dark:text-white">
+                <div class="font-semibold">${props.pa_name}</div>
+                <div class="text-xs mt-1">Total Nodes: ${props.total_nodes}</div>
+                <div class="text-xs mt-2"><strong>Baseline:</strong></div>
+                <div class="text-xs">Avg Time: ${fmtM(props.base_avg_s)}</div>
+                <div class="text-xs">Unreachable: ${props.base_unreachable}</div>
+                <div class="text-xs mt-1"><strong>Flooded:</strong></div>
+                <div class="text-xs">Avg Time: ${fmtM(props.flood_avg_s)}</div>
+                <div class="text-xs">Unreachable: ${props.flood_unreachable}</div>
+                <div class="text-xs mt-1 font-semibold text-red-600"><strong>Delta:</strong></div>
+                <div class="text-xs text-red-600 dark:text-red-400">Δ Time: +${fmtM(props.delta_avg_s)}</div>
+                <div class="text-xs text-red-600 dark:text-red-400">Δ Unreachable: +${props.delta_unreachable}</div>
+                <div class="text-xs mt-1 text-muted-foreground dark:text-gray-400">Click to view roads</div>
+              </div>
             `;
 
-            new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+            floodedPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: 'dark:bg-gray-800' })
               .setLngLat(e.lngLat)
               .setHTML(html)
               .addTo(map);
@@ -811,8 +839,10 @@ export default function Simulation() {
 
         map.on("mouseleave", "choropleth-fill", () => {
           map.getCanvas().style.cursor = "";
-          const popups = document.getElementsByClassName("mapboxgl-popup");
-          if (popups.length) popups[0].remove();
+          if (floodedPopupRef.current) {
+            floodedPopupRef.current.remove();
+            floodedPopupRef.current = null;
+          }
         });
 
         // Add click handler to show roads
@@ -831,22 +861,41 @@ export default function Simulation() {
             map.setFeatureState({ source: "choropleth", id: paId }, { selected: true });
             setSelectedPA({ pa_id: paId, pa_name: paName });
 
+            // Build blocked roads set
+            let blockedRnIds = new Set();
+            if (floodInputMethod === "manual") {
+              blockedRnIds = new Set(affectedRoads.filter(r => r.selected).map(r => r.rn_id));
+            } else if (floodInputMethod === "scenario" && selectedScenario) {
+              const scenario = flood_scenarios.find(s => s.name === selectedScenario);
+              if (scenario) {
+                blockedRnIds = new Set(scenario.roads.map(r => r.rn_id));
+              }
+            }
+
             // Filter roads within this planning area
             const roadsInPA = [];
+            const seenRnIds = new Set();
             for (const edge of graph.edges) {
               const nodeFrom = graph.nodes.get(edge.from);
               const nodeTo = graph.nodes.get(edge.to);
               if (nodeFrom?.paId === paId || nodeTo?.paId === paId) {
-                if (edge.rn_id != null && edge.coords) {
-                  roadsInPA.push({
-                    type: "Feature",
-                    properties: {
-                      rn_id: edge.rn_id,
-                      name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
-                      travel_time: edge.w,
-                    },
-                    geometry: { type: "LineString", coordinates: edge.coords },
-                  });
+                if (edge.rn_id != null && edge.coords && !seenRnIds.has(edge.rn_id)) {
+                  seenRnIds.add(edge.rn_id);
+
+                  const isBlocked = blockedRnIds.has(edge.rn_id);
+                  // Show blocked roads if toggle is on, otherwise show available roads
+                  if ((showBlockedRoads && isBlocked) || (!showBlockedRoads && !isBlocked)) {
+                    roadsInPA.push({
+                      type: "Feature",
+                      properties: {
+                        rn_id: edge.rn_id,
+                        name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+                        travel_time: edge.w,
+                        blocked: isBlocked,
+                      },
+                      geometry: { type: "LineString", coordinates: edge.coords },
+                    });
+                  }
                 }
               }
             }
@@ -878,13 +927,20 @@ export default function Simulation() {
             const feature = e.features[0];
             const props = feature.properties;
 
+            // Remove existing popup
+            if (roadPopupRef.current) {
+              roadPopupRef.current.remove();
+            }
+
             const html = `
-              <div class="font-semibold">${props.name}</div>
-              <div class="text-xs mt-1">RN_ID: ${props.rn_id}</div>
-              <div class="text-xs">Travel Time: ${fmtM(props.travel_time)}</div>
+              <div class="mapbox-popup-content dark:bg-gray-800 dark:text-white">
+                <div class="font-semibold">${props.name}</div>
+                <div class="text-xs mt-1">RN_ID: ${props.rn_id}</div>
+                <div class="text-xs">Travel Time: ${fmtM(props.travel_time)}</div>
+              </div>
             `;
 
-            new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+            roadPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: 'dark:bg-gray-800' })
               .setLngLat(e.lngLat)
               .setHTML(html)
               .addTo(map);
@@ -892,8 +948,10 @@ export default function Simulation() {
         });
 
         map.on("mouseleave", "roads-line", () => {
-          const popups = document.getElementsByClassName("mapboxgl-popup");
-          if (popups.length) popups[0].remove();
+          if (roadPopupRef.current) {
+            roadPopupRef.current.remove();
+            roadPopupRef.current = null;
+          }
         });
       });
     }
@@ -903,6 +961,61 @@ export default function Simulation() {
       if (floodedMapRef.current) { floodedMapRef.current.remove(); floodedMapRef.current = null; }
     };
   }, [step, baselineStats, floodedStats, paDeltas, planning_fc_raw, graph]);
+
+  // Update roads when toggle changes
+  useEffect(() => {
+    if (!selectedPA || !floodedMapRef.current || step !== 4) return;
+
+    const map = floodedMapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const paId = selectedPA.pa_id;
+
+    // Build blocked roads set
+    let blockedRnIds = new Set();
+    if (floodInputMethod === "manual") {
+      blockedRnIds = new Set(affectedRoads.filter(r => r.selected).map(r => r.rn_id));
+    } else if (floodInputMethod === "scenario" && selectedScenario) {
+      const scenario = flood_scenarios.find(s => s.name === selectedScenario);
+      if (scenario) {
+        blockedRnIds = new Set(scenario.roads.map(r => r.rn_id));
+      }
+    }
+
+    // Filter roads within this planning area
+    const roadsInPA = [];
+    const seenRnIds = new Set();
+    for (const edge of graph.edges) {
+      const nodeFrom = graph.nodes.get(edge.from);
+      const nodeTo = graph.nodes.get(edge.to);
+      if (nodeFrom?.paId === paId || nodeTo?.paId === paId) {
+        if (edge.rn_id != null && edge.coords && !seenRnIds.has(edge.rn_id)) {
+          seenRnIds.add(edge.rn_id);
+
+          const isBlocked = blockedRnIds.has(edge.rn_id);
+          // Show blocked roads if toggle is on, otherwise show available roads
+          if ((showBlockedRoads && isBlocked) || (!showBlockedRoads && !isBlocked)) {
+            roadsInPA.push({
+              type: "Feature",
+              properties: {
+                rn_id: edge.rn_id,
+                name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+                travel_time: edge.w,
+                blocked: isBlocked,
+              },
+              geometry: { type: "LineString", coordinates: edge.coords },
+            });
+          }
+        }
+      }
+    }
+
+    // Update roads on map
+    map.getSource("roads")?.setData({
+      type: "FeatureCollection",
+      features: roadsInPA,
+    });
+  }, [showBlockedRoads, selectedPA, step, graph, floodInputMethod, affectedRoads, selectedScenario, flood_scenarios]);
 
   const canProceedToStep2 = floodInputMethod === "manual" || (floodInputMethod === "scenario" && selectedScenario);
   const canProceedToStep3 = floodInputMethod === "scenario" ? !!selectedScenario : floodMarkers.length > 0;
@@ -966,6 +1079,20 @@ export default function Simulation() {
     const areas = Array.from(paSet).map(s => JSON.parse(s)).sort((a, b) => a.name.localeCompare(b.name));
     return [{ id: "all", name: "All Planning Areas" }, ...areas];
   }, [affectedRoads, graph]);
+
+  // Get individual amenities for the selected type
+  const individualAmenities = useMemo(() => {
+    if (!amenity_fc_enriched?.features?.length || !selectedAmenityType) return [];
+
+    return amenity_fc_enriched.features
+      .filter(f => f.properties?.amenity_type === selectedAmenityType)
+      .map(f => ({
+        id: f.properties?.amenity_id ?? f.properties?.id,
+        name: f.properties?.amenity_name ?? f.properties?.name ?? 'Unnamed',
+        type: f.properties?.amenity_type,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [amenity_fc_enriched, selectedAmenityType]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
@@ -1077,66 +1204,40 @@ export default function Simulation() {
               </CardContent>
             </Card>
 
-            {/* Scenario Selection & Summary */}
+            {/* Scenario Selection */}
             {floodInputMethod === "scenario" && (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Select Flood Scenario</CardTitle>
-                    <CardDescription>Choose a predefined historical scenario</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Select value={selectedScenario} onValueChange={setSelectedScenario}>
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Choose a scenario..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {flood_scenarios.map((s) => (
-                          <SelectItem key={s.name} value={s.name} className="py-3">
-                            <div className="flex flex-col">
-                              <span className="font-medium">{s.name}</span>
-                              <span className="text-xs text-muted-foreground">{s.roads.length} roads affected</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </CardContent>
-                </Card>
-
-                {/* Summary Card when scenario selected */}
-                {selectedScenario && (
-                  <Card className="border-primary/50 bg-primary/5">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Scenario Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Scenario:</span>
-                        <span className="font-semibold">{selectedScenario}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Total Roads Blocked:</span>
-                        <span className="font-semibold text-destructive">
-                          {flood_scenarios.find(s => s.name === selectedScenario)?.roads.length || 0}
-                        </span>
-                      </div>
-                      <Separator className="my-2" />
-                      <div className="text-xs">
-                        <p className="font-medium mb-1">Sample Roads:</p>
-                        <div className="bg-muted/50 rounded p-2 max-h-20 overflow-y-auto">
-                          {flood_scenarios.find(s => s.name === selectedScenario)?.roads.slice(0, 5).map((r, i) => (
-                            <div key={i} className="text-muted-foreground">• {r.name} (RN_ID: {r.rn_id})</div>
-                          ))}
-                          {(flood_scenarios.find(s => s.name === selectedScenario)?.roads.length || 0) > 5 && (
-                            <div className="text-muted-foreground italic">...and {(flood_scenarios.find(s => s.name === selectedScenario)?.roads.length || 0) - 5} more</div>
-                          )}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Select Flood Scenario</CardTitle>
+                  <CardDescription>Choose a predefined historical scenario</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <RadioGroup value={selectedScenario} onValueChange={setSelectedScenario}>
+                    <div className="space-y-3">
+                      {flood_scenarios.map((scenario) => (
+                        <div
+                          key={scenario.name}
+                          className="flex items-start space-x-3 rounded-lg border-2 p-4 cursor-pointer hover:bg-accent/50 hover:border-primary/50 transition-all"
+                          onClick={() => setSelectedScenario(scenario.name)}
+                        >
+                          <RadioGroupItem value={scenario.name} id={`scenario-${scenario.name}`} className="mt-1" />
+                          <div className="flex-1">
+                            <Label htmlFor={`scenario-${scenario.name}`} className="cursor-pointer font-semibold text-base">
+                              {scenario.name}
+                            </Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {scenario.description}
+                            </p>
+                            <p className="text-xs text-destructive font-medium mt-2">
+                              🚧 {scenario.roads.length} roads affected
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
+                      ))}
+                    </div>
+                  </RadioGroup>
+                </CardContent>
+              </Card>
             )}
 
             {/* Navigation */}
@@ -1336,28 +1437,98 @@ export default function Simulation() {
                     className="pl-8 h-9"
                   />
                 </div>
-                <ScrollArea className="max-h-[300px] border rounded-lg p-3">
-                  <RadioGroup value={selectedAmenityType} onValueChange={setSelectedAmenityType}>
-                    <div className="space-y-2">
-                      {filteredAmenities.map((amenity) => (
-                        <div key={amenity.type} className="flex items-center space-x-2">
-                          <RadioGroupItem value={amenity.type} id={`step3-amenity-${amenity.type}`} />
-                          <label htmlFor={`step3-amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
-                            {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
-                          </label>
-                        </div>
-                      ))}
-                      {filteredAmenities.length === 0 && (
-                        <div className="text-center text-sm text-muted-foreground py-4">
-                          No amenity types match your search
-                        </div>
-                      )}
-                    </div>
-                  </RadioGroup>
-                </ScrollArea>
+                <div className="border rounded-lg">
+                  <ScrollArea className="max-h-[200px] p-3">
+                    <RadioGroup value={selectedAmenityType} onValueChange={(value) => {
+                      setSelectedAmenityType(value);
+                      setExcludedAmenities(new Set()); // Reset excluded amenities when changing type
+                    }}>
+                      <div className="space-y-2">
+                        {filteredAmenities.map((amenity) => (
+                          <div key={amenity.type} className="flex items-center space-x-2">
+                            <RadioGroupItem value={amenity.type} id={`step3-amenity-${amenity.type}`} />
+                            <label htmlFor={`step3-amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
+                              {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
+                            </label>
+                          </div>
+                        ))}
+                        {filteredAmenities.length === 0 && (
+                          <div className="text-center text-sm text-muted-foreground py-4">
+                            No amenity types match your search
+                          </div>
+                        )}
+                      </div>
+                    </RadioGroup>
+                  </ScrollArea>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Selected: <span className="font-semibold">{selectedAmenityType.replace(/_/g, ' ')}</span>
+                  {excludedAmenities.size > 0 && (
+                    <span className="text-destructive ml-1">({excludedAmenities.size} excluded)</span>
+                  )}
                 </p>
+
+                {/* Accordion for individual amenities */}
+                {individualAmenities.length > 0 && (
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="individual-amenities" className="border rounded-lg px-3">
+                      <AccordionTrigger className="text-sm font-medium hover:no-underline">
+                        Filter Individual Amenities ({individualAmenities.length} total)
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2 pt-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-muted-foreground">
+                              Uncheck amenities to exclude them from analysis
+                            </span>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => setExcludedAmenities(new Set())}
+                              >
+                                All
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => setExcludedAmenities(new Set(individualAmenities.map(a => a.id)))}
+                              >
+                                None
+                              </Button>
+                            </div>
+                          </div>
+                          <ScrollArea className="max-h-[200px] border rounded-lg p-3">
+                            <div className="space-y-2">
+                              {individualAmenities.map((amenity) => (
+                                <div key={amenity.id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`amenity-${amenity.id}`}
+                                    checked={!excludedAmenities.has(amenity.id)}
+                                    onCheckedChange={(checked) => {
+                                      const newExcluded = new Set(excludedAmenities);
+                                      if (checked) {
+                                        newExcluded.delete(amenity.id);
+                                      } else {
+                                        newExcluded.add(amenity.id);
+                                      }
+                                      setExcludedAmenities(newExcluded);
+                                    }}
+                                  />
+                                  <label htmlFor={`amenity-${amenity.id}`} className="text-xs flex-1 cursor-pointer">
+                                    {amenity.name}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
               </CardContent>
             </Card>
 
@@ -1420,7 +1591,7 @@ export default function Simulation() {
                   )}
 
                   {/* Road List */}
-                  <ScrollArea className="max-h-[300px] border rounded-lg p-3">
+                  <ScrollArea className="max-h-[250px] border rounded-lg p-3">
                     <div className="space-y-2">
                       {floodInputMethod === "manual" ? (
                         // Manual mode - editable checkboxes
@@ -1530,14 +1701,78 @@ export default function Simulation() {
         {/* Step 4: Results */}
         {step === 4 && baselineStats && floodedStats && (
           <div className="space-y-6">
+            {/* Legend and Toggle */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Map Legend</CardTitle>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowBlockedRoads(!showBlockedRoads)}
+                  >
+                    {showBlockedRoads ? "Show Available Roads" : "Show Blocked Roads"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Baseline Legend */}
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Baseline Map (Left)</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+                        <span>Low travel time (0-25%)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
+                        <span>Medium-low (25-50%)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
+                        <span>Medium-high (50-75%)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
+                        <span>High travel time (75-100%)</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Delta Legend */}
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Delta Impact Map (Right)</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+                        <span>Low increase (0-25%)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
+                        <span>Medium-low (25-50%)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
+                        <span>Medium-high (50-75%)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
+                        <span>High increase (75-100%)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Side-by-side maps */}
             <div className="grid grid-cols-2 gap-4" style={{ height: "50vh" }}>
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Baseline (No Flooding)</CardTitle>
-                  <CardDescription>Average time to nearest hospital</CardDescription>
+                  <CardDescription>Average time to nearest amenity</CardDescription>
                 </CardHeader>
-                <CardContent className="p-0">
+                <CardContent className="p-0 relative">
                   <div ref={baselineContainerRef} style={{ height: "calc(50vh - 5rem)" }} />
                 </CardContent>
               </Card>
@@ -1545,9 +1780,11 @@ export default function Simulation() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Flooded Scenario - Delta Impact</CardTitle>
-                  <CardDescription>Hover to see impact, click planning area to view roads</CardDescription>
+                  <CardDescription>
+                    Hover to see impact, click planning area to view {showBlockedRoads ? "blocked" : "available"} roads
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="p-0">
+                <CardContent className="p-0 relative">
                   <div ref={floodedContainerRef} style={{ height: "calc(50vh - 5rem)" }} />
                 </CardContent>
               </Card>
