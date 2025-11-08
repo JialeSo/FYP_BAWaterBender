@@ -2037,7 +2037,9 @@ export default function floodevents() {
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Coordinates</div>
-                      <div className="font-mono text-xs">{selected_props?.start_lat?.toFixed(5) ?? 'N/A'}, {selected_props?.start_lng?.toFixed(5) ?? 'N/A'}</div>
+                      <div className="font-mono text-xs">
+                        {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
