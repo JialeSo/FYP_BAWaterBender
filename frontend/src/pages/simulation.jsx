@@ -526,7 +526,7 @@ export default function Simulation() {
       if (e.rn_id != null && blockedRnIds.has(e.rn_id)) return false;
       return true;
     };
-  }, [floodInputMethod, affectedRoads, selectedScenario, floodScenarios]);
+  }, [floodInputMethod, affectedRoads, selectedScenario, flood_scenarios]);
 
   // Run simulation
   const runSimulation = useCallback(async () => {
@@ -1063,7 +1063,19 @@ export default function Simulation() {
   // Get unique planning areas from roads
   const planningAreasFromRoads = useMemo(() => {
     const paSet = new Set();
-    for (const road of affectedRoads) {
+
+    // Get roads from either manual mode or scenario mode
+    let roadsToCheck = [];
+    if (floodInputMethod === "manual") {
+      roadsToCheck = affectedRoads.map(r => ({ rn_id: r.rn_id }));
+    } else if (floodInputMethod === "scenario" && selectedScenario) {
+      const scenario = flood_scenarios.find(s => s.name === selectedScenario);
+      if (scenario) {
+        roadsToCheck = scenario.roads;
+      }
+    }
+
+    for (const road of roadsToCheck) {
       for (const edge of graph.edges) {
         if (edge.rn_id === road.rn_id) {
           const nodeFrom = graph.nodes.get(edge.from);
@@ -1075,7 +1087,7 @@ export default function Simulation() {
     }
     const areas = Array.from(paSet).map(s => JSON.parse(s)).sort((a, b) => a.name.localeCompare(b.name));
     return [{ id: "all", name: "All Planning Areas" }, ...areas];
-  }, [affectedRoads, graph]);
+  }, [affectedRoads, graph, floodInputMethod, selectedScenario, flood_scenarios]);
 
   // Get individual amenities for the selected type
   const individualAmenities = useMemo(() => {
@@ -1258,7 +1270,7 @@ export default function Simulation() {
                       <CardDescription>Click map to add markers</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col space-y-4 overflow-hidden">
-                      <ScrollArea className="flex-1">
+                      <div className="flex-shrink-0" style={{ maxHeight: '30vh', overflowY: 'auto' }}>
                         <div className="space-y-3 pr-4">
                         {floodMarkers.map((marker, idx) => (
                           <div key={marker.id} className="border rounded-lg p-3 space-y-2">
@@ -1290,8 +1302,8 @@ export default function Simulation() {
                             Click on the map to add flood markers
                           </div>
                         )}
+                        </div>
                       </div>
-                    </ScrollArea>
 
                       {affectedRoads.length > 0 && (
                         <>
@@ -1314,7 +1326,7 @@ export default function Simulation() {
                               />
                             </div>
                           </div>
-                          <ScrollArea className="flex-1 border rounded p-2">
+                          <div className="border rounded p-2" style={{ maxHeight: '30vh', overflowY: 'auto' }}>
                             <div className="space-y-2 pr-4">
                               {filteredAffectedRoads.map((road) => (
                                 <div key={road.rn_id} className="flex items-center space-x-2">
@@ -1334,7 +1346,7 @@ export default function Simulation() {
                                 </div>
                               )}
                             </div>
-                          </ScrollArea>
+                          </div>
                         </>
                       )}
                     </CardContent>
@@ -1436,9 +1448,8 @@ export default function Simulation() {
                     className="pl-8 h-9"
                   />
                 </div>
-                <div className="border rounded-lg overflow-hidden">
-                  <ScrollArea className="max-h-[200px]">
-                    <div className="p-3 pr-6">
+                <div className="border rounded-lg" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <div className="p-3 pr-4">
                       <RadioGroup value={selectedAmenityType} onValueChange={(value) => {
                         setSelectedAmenityType(value);
                         setExcludedAmenities(new Set()); // Reset excluded amenities when changing type
@@ -1459,8 +1470,7 @@ export default function Simulation() {
                           )}
                         </div>
                       </RadioGroup>
-                    </div>
-                  </ScrollArea>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Selected: <span className="font-semibold">{selectedAmenityType.replace(/_/g, ' ')}</span>
@@ -1501,9 +1511,8 @@ export default function Simulation() {
                               </Button>
                             </div>
                           </div>
-                          <div className="border rounded-lg overflow-hidden">
-                            <ScrollArea className="max-h-[200px]">
-                              <div className="p-3 pr-6 space-y-2">
+                          <div className="border rounded-lg" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                            <div className="p-3 pr-4 space-y-2">
                                 {individualAmenities.map((amenity) => (
                                   <div key={amenity.id} className="flex items-center space-x-2">
                                     <Checkbox
@@ -1524,8 +1533,7 @@ export default function Simulation() {
                                     </label>
                                   </div>
                                 ))}
-                              </div>
-                            </ScrollArea>
+                            </div>
                           </div>
                         </div>
                       </AccordionContent>
@@ -1594,9 +1602,8 @@ export default function Simulation() {
                   )}
 
                   {/* Road List */}
-                  <div className="border rounded-lg overflow-hidden">
-                    <ScrollArea className="max-h-[250px]">
-                      <div className="p-3 pr-6 space-y-2">
+                  <div className="border rounded-lg" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                    <div className="p-3 pr-4 space-y-2">
                       {floodInputMethod === "manual" ? (
                         // Manual mode - editable checkboxes
                         <>
@@ -1669,8 +1676,7 @@ export default function Simulation() {
                           })()}
                         </>
                       )}
-                      </div>
-                    </ScrollArea>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
