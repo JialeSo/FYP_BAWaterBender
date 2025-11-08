@@ -1604,11 +1604,7 @@ export default function Centrality() {
                     <Label className="text-sm font-medium">SLA Category</Label>
                     <MultiSelectCombobox
                       label=""
-                      options={[
-                        { value: "1-Year SLA", label: "1-Year SLA", count: 0 },
-                        { value: "3-Year SLA", label: "3-Year SLA", count: 0 },
-                        { value: "5-Year SLA", label: "5-Year SLA", count: 0 },
-                      ]}
+                      options={["1-Year SLA", "3-Year SLA", "5-Year SLA"]}
                       selected={slaCategories}
                       onChange={setSlaCategories}
                       placeholder="All categories"

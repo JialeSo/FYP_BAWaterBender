@@ -351,8 +351,25 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
       el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
       el.style.transition = 'opacity 0.2s';
 
-      // Create popup
-      const popup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
+      // Create hover tooltip (compact, dark-mode compatible)
+      const hoverTooltip = new mapboxgl.Popup({
+        offset: 15,
+        closeButton: false,
+        closeOnClick: false,
+        className: 'marker-hover-tooltip'
+      })
+        .setHTML(`
+          <div style="padding: 6px 8px; font-size: 11px; background: #1e293b; color: #e2e8f0; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+            <div style="font-weight: 600; color: #60a5fa; margin-bottom: 3px;">${item.name || 'Unknown Amenity'}</div>
+            <div style="color: #cbd5e1; font-size: 10px;">
+              <div><strong>Type:</strong> ${item.properties?.amenity || 'N/A'}</div>
+              ${item.properties?.postal_code ? `<div><strong>Postal:</strong> ${item.properties.postal_code}</div>` : ''}
+            </div>
+          </div>
+        `);
+
+      // Create click popup (detailed)
+      const clickPopup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
         .setHTML(`
           <div style="padding: 8px; max-width: 250px;">
             <div style="font-weight: 600; margin-bottom: 6px; color: #3b82f6;">${item.name || 'Unknown Amenity'}</div>
@@ -367,11 +384,24 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat([lng, lat])
-        .setPopup(popup)
         .addTo(map);
+
+      // Hover handlers for tooltip
+      el.addEventListener('mouseenter', () => {
+        if (!clickPopup.isOpen()) {
+          hoverTooltip.setLngLat([lng, lat]).addTo(map);
+        }
+      });
+
+      el.addEventListener('mouseleave', () => {
+        hoverTooltip.remove();
+      });
 
       // Click handler - hide all other markers when this one is clicked
       el.addEventListener('click', () => {
+        // Remove hover tooltip
+        hoverTooltip.remove();
+
         // Set this marker as active
         setActiveMarkerId(markerId);
 
@@ -386,17 +416,18 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
 
         // Close all other popups
         markersRef.current.forEach(m => {
-          if (m !== marker && m.getPopup().isOpen()) {
-            m.togglePopup();
+          const popup = m._clickPopup;
+          if (popup && popup.isOpen()) {
+            popup.remove();
           }
         });
 
         // Open this popup
-        marker.togglePopup();
+        clickPopup.setLngLat([lng, lat]).addTo(map);
       });
 
       // When popup is closed, restore all markers
-      popup.on('close', () => {
+      clickPopup.on('close', () => {
         setActiveMarkerId(null);
         markersRef.current.forEach(m => {
           const markerEl = m.getElement();
@@ -404,6 +435,10 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
           markerEl.style.pointerEvents = 'auto';
         });
       });
+
+      // Store the click popup on the marker object for later reference
+      marker._clickPopup = clickPopup;
+      marker._hoverTooltip = hoverTooltip;
 
       markersRef.current.push(marker);
     });
@@ -429,8 +464,25 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
       el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
       el.style.transition = 'opacity 0.2s';
 
-      // Create popup
-      const popup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
+      // Create hover tooltip (compact, dark-mode compatible)
+      const hoverTooltip = new mapboxgl.Popup({
+        offset: 15,
+        closeButton: false,
+        closeOnClick: false,
+        className: 'marker-hover-tooltip'
+      })
+        .setHTML(`
+          <div style="padding: 6px 8px; font-size: 11px; background: #1e293b; color: #e2e8f0; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+            <div style="font-weight: 600; color: #fb923c; margin-bottom: 3px;">${item.name || 'Flood Event'}</div>
+            <div style="color: #cbd5e1; font-size: 10px;">
+              ${item.date ? `<div><strong>Date:</strong> ${item.date}</div>` : ''}
+              ${item.properties?.location ? `<div><strong>Location:</strong> ${item.properties.location}</div>` : ''}
+            </div>
+          </div>
+        `);
+
+      // Create click popup (detailed)
+      const clickPopup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
         .setHTML(`
           <div style="padding: 8px; max-width: 250px;">
             <div style="font-weight: 600; margin-bottom: 6px; color: #f97316;">${item.name || 'Flood Event'}</div>
@@ -445,13 +497,26 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat([lng, lat])
-        .setPopup(popup)
         .addTo(map);
 
       const markerIndex = amenityItems.length + idx;
 
+      // Hover handlers for tooltip
+      el.addEventListener('mouseenter', () => {
+        if (!clickPopup.isOpen()) {
+          hoverTooltip.setLngLat([lng, lat]).addTo(map);
+        }
+      });
+
+      el.addEventListener('mouseleave', () => {
+        hoverTooltip.remove();
+      });
+
       // Click handler - hide all other markers when this one is clicked
       el.addEventListener('click', () => {
+        // Remove hover tooltip
+        hoverTooltip.remove();
+
         // Set this marker as active
         setActiveMarkerId(markerId);
 
@@ -466,17 +531,18 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
 
         // Close all other popups
         markersRef.current.forEach(m => {
-          if (m !== marker && m.getPopup().isOpen()) {
-            m.togglePopup();
+          const popup = m._clickPopup;
+          if (popup && popup.isOpen()) {
+            popup.remove();
           }
         });
 
         // Open this popup
-        marker.togglePopup();
+        clickPopup.setLngLat([lng, lat]).addTo(map);
       });
 
       // When popup is closed, restore all markers
-      popup.on('close', () => {
+      clickPopup.on('close', () => {
         setActiveMarkerId(null);
         markersRef.current.forEach(m => {
           const markerEl = m.getElement();
@@ -485,12 +551,21 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
         });
       });
 
+      // Store the click popup on the marker object for later reference
+      marker._clickPopup = clickPopup;
+      marker._hoverTooltip = hoverTooltip;
+
       markersRef.current.push(marker);
     });
 
     // Cleanup on unmount
     return () => {
-      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current.forEach(marker => {
+        marker.remove();
+        // Clean up associated popups
+        if (marker._clickPopup) marker._clickPopup.remove();
+        if (marker._hoverTooltip) marker._hoverTooltip.remove();
+      });
       markersRef.current = [];
       setActiveMarkerId(null);
     };
