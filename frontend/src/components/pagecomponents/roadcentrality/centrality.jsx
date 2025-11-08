@@ -1280,15 +1280,13 @@ export default function Centrality() {
         </Accordion>
       </header>
 
-      {/* Road Details Panel (shows when road selected) */}
-      {selectedRoad && (
-        <RoadDetailsPanel
-          road={selectedRoad}
-          onClose={() => setSelectedRoadId(null)}
-          amenityCounts={amenityCategoryCountByRoad.get(selectedRoad.properties.RN_ID)}
-          floodCounts={floodTypeCountByRoad.get(selectedRoad.properties.RN_ID)}
-        />
-      )}
+      {/* Road Details Panel (always visible) */}
+      <RoadDetailsPanel
+        road={selectedRoad}
+        onClose={() => setSelectedRoadId(null)}
+        amenityCounts={selectedRoad ? amenityCategoryCountByRoad.get(selectedRoad.properties.RN_ID) : null}
+        floodCounts={selectedRoad ? floodTypeCountByRoad.get(selectedRoad.properties.RN_ID) : null}
+      />
         {/* Right: Map */}
         <CentralityMap
           data={mapData}
@@ -1309,15 +1307,30 @@ export default function Centrality() {
           totalPages={totalPages}
           onPageChange={setCurrentPage}
           allColumnDefs={allColumnDefs}
+          onRowClick={setSelectedRoadId}
         />
       </section>
 
-      {/* custom popup styles */}
+      {/* custom popup styles - dark mode */}
       <style>{`
-        .centrality-popup .mapboxgl-popup-content {
-          border-radius: 12px;
-          padding: 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        .mapboxgl-popup-content {
+          background-color: #0f172a !important;
+          border-radius: 12px !important;
+          padding: 0 !important;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+          border: 1px solid #1e293b !important;
+        }
+        .mapboxgl-popup-tip {
+          border-top-color: #0f172a !important;
+        }
+        .mapboxgl-popup-close-button {
+          color: #94a3b8 !important;
+          font-size: 20px !important;
+          padding: 4px 8px !important;
+        }
+        .mapboxgl-popup-close-button:hover {
+          background-color: transparent !important;
+          color: #fff !important;
         }
       `}</style>
     </div>

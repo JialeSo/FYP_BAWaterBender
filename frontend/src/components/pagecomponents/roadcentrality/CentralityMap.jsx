@@ -1,27 +1,80 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { computeBounds } from "@/lib/geo";
 import {
-  COLOR_SCORE,
   EMPTY_COLLECTION,
   MAPBOX_STYLE,
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
-  WIDTH_EXPR,
   format_number,
 } from "./shared";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 if (typeof mapboxgl.setTelemetryEnabled === "function") mapboxgl.setTelemetryEnabled(false);
 
+// Metric options for color and thickness
+const COLOR_METRICS = [
+  { value: "importance", label: "Importance" },
+  { value: "amenity_count_total", label: "Amenity Count" },
+  { value: "flood_count_total", label: "Flood Count" },
+  { value: "betweenness_norm", label: "Betweenness" },
+  { value: "closeness_norm", label: "Closeness" },
+  { value: "sla_priority", label: "SLA Priority" },
+];
+
+const THICKNESS_METRICS = [
+  { value: "betweenness_norm", label: "Betweenness" },
+  { value: "closeness_norm", label: "Closeness" },
+  { value: "importance", label: "Importance" },
+  { value: "amenity_count_total", label: "Amenity Count" },
+  { value: "flood_count_total", label: "Flood Count" },
+];
+
+// Function to create color expression based on metric
+const createColorExpression = (metric) => {
+  return [
+    "interpolate", ["linear"], ["coalesce", ["to-number", ["get", metric]], 0],
+    0, "#dbeafe",
+    20, "#93c5fd",
+    40, "#60a5fa",
+    70, "#3b82f6",
+    90, "#1d4ed8",
+  ];
+};
+
+// Function to create width expression based on metric
+const createWidthExpression = (metric) => {
+  return [
+    "interpolate", ["linear"], ["coalesce", ["to-number", ["get", metric]], 0],
+    0, 1, 0.05, 1.5, 0.1, 2.5, 0.3, 4, 0.6, 6, 1, 8,
+  ];
+};
+
 export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
+  const [colorMetric, setColorMetric] = useState("importance");
+  const [thicknessMetric, setThicknessMetric] = useState("betweenness_norm");
+
+  // Update map paint properties when metrics change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded() || !map.getLayer("roads")) return;
+
+    try {
+      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric));
+      map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric));
+    } catch (e) {
+      console.error("Failed to update paint properties:", e);
+    }
+  }, [colorMetric, thicknessMetric]);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN || mapRef.current || !containerRef.current) return;
@@ -51,7 +104,11 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
           type: "line",
           source: "road-network",
           layout: { visibility: "visible", "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": COLOR_SCORE, "line-width": WIDTH_EXPR, "line-opacity": 0.95 },
+          paint: {
+            "line-color": createColorExpression(colorMetric),
+            "line-width": createWidthExpression(thicknessMetric),
+            "line-opacity": 0.95
+          },
         });
       }
     };
@@ -93,15 +150,15 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
         const p = f.properties || {};
         const name = p.name || p.ref || "unnamed segment";
         const html = `
-          <div style="font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; color:#e2e8f0;">
-            <div style="font-weight:600; margin-bottom:4px; color:#fff;">${name}</div>
-            <div style="display:grid; grid-template-columns:auto auto; gap:6px 10px;">
-              <div style="color:#94a3b8;">RN_ID</div><div>${p.RN_ID ?? "—"}</div>
-              <div style="color:#94a3b8;">PLANNING_AREA</div><div>${p.PLN_AREA_N ?? "—"}</div>
-              <div style="color:#94a3b8;">IMPORTANCE</div><div>${format_number(p.importance, 2) ?? "—"}</div>
-              <div style="color:#94a3b8;">SLA</div><div>${format_number(p.sla_priority, 2) ?? "—"}</div>
-              <div style="color:#94a3b8;">BETWEENNESS</div><div>${format_number(p.betweenness_norm, 4) ?? "—"}</div>
-              <div style="color:#94a3b8;">CLOSENESS</div><div>${format_number(p.closeness_norm, 4) ?? "—"}</div>
+          <div style="font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; background:#0f172a; color:#e2e8f0; padding:8px; border-radius:8px;">
+            <div style="font-weight:600; margin-bottom:8px; color:#fff; font-size:13px;">${name}</div>
+            <div style="display:grid; grid-template-columns:auto auto; gap:6px 12px; font-size:11px;">
+              <div style="color:#94a3b8;">RN_ID</div><div style="color:#f1f5f9;">${p.RN_ID ?? "—"}</div>
+              <div style="color:#94a3b8;">Planning Area</div><div style="color:#f1f5f9;">${p.PLN_AREA_N ?? "—"}</div>
+              <div style="color:#94a3b8;">Importance</div><div style="color:#f1f5f9; font-weight:600;">${format_number(p.importance, 2) ?? "—"}</div>
+              <div style="color:#94a3b8;">SLA Priority</div><div style="color:#f1f5f9;">${format_number(p.sla_priority, 2) ?? "—"}</div>
+              <div style="color:#94a3b8;">Betweenness</div><div style="color:#f1f5f9;">${format_number(p.betweenness_norm, 4) ?? "—"}</div>
+              <div style="color:#94a3b8;">Closeness</div><div style="color:#f1f5f9;">${format_number(p.closeness_norm, 4) ?? "—"}</div>
             </div>
           </div>
         `;
@@ -211,30 +268,70 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
     highlightSource.setData(EMPTY_COLLECTION);
   }, [selectedRoadId, data]);
 
+  const colorLabel = COLOR_METRICS.find(m => m.value === colorMetric)?.label || "Importance";
+  const thicknessLabel = THICKNESS_METRICS.find(m => m.value === thicknessMetric)?.label || "Betweenness";
+
   return (
-    <div className="relative h-[60vh] min-h-[26rem] w-full rounded-2xl overflow-hidden bg-slate-950">
-      <div ref={containerRef} className="absolute inset-0 min-h-[560px]" />
-      <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-xl bg-card/95 backdrop-blur-sm border p-3 text-xs shadow-lg">
-        <p className="font-semibold mb-2">Legend</p>
-        <div className="space-y-2">
-          <div>
-            <p className="text-muted-foreground mb-1">Colour = Importance Score</p>
-            <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1d4ed8)" }} />
-            <div className="mt-1 flex justify-between text-muted-foreground text-[10px]">
-              <span>low</span>
-              <span>high</span>
-            </div>
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-1">Thickness = Betweenness</p>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="inline-block h-[2px] w-10 bg-muted-foreground" />
-                <span className="text-muted-foreground text-[10px]">low</span>
+    <div className="space-y-3">
+      {/* Metric Selection Dropdowns */}
+      <div className="flex items-center gap-4 p-3 rounded-xl bg-card border">
+        <div className="flex items-center gap-2">
+          <Label className="text-sm font-medium whitespace-nowrap">Map Color:</Label>
+          <Select value={colorMetric} onValueChange={setColorMetric}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {COLOR_METRICS.map((metric) => (
+                <SelectItem key={metric.value} value={metric.value}>
+                  {metric.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm font-medium whitespace-nowrap">Map Thickness:</Label>
+          <Select value={thicknessMetric} onValueChange={setThicknessMetric}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {THICKNESS_METRICS.map((metric) => (
+                <SelectItem key={metric.value} value={metric.value}>
+                  {metric.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="relative h-[60vh] min-h-[26rem] w-full rounded-2xl overflow-hidden bg-slate-950">
+        <div ref={containerRef} className="absolute inset-0 min-h-[560px]" />
+        {/* Dynamic Legend */}
+        <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-xl bg-card/95 backdrop-blur-sm border p-3 text-xs shadow-lg">
+          <p className="font-semibold mb-2">Legend</p>
+          <div className="space-y-2">
+            <div>
+              <p className="text-muted-foreground mb-1">Colour = {colorLabel}</p>
+              <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1d4ed8)" }} />
+              <div className="mt-1 flex justify-between text-muted-foreground text-[10px]">
+                <span>low</span>
+                <span>high</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block h-[6px] w-10 bg-foreground" />
-                <span className="text-muted-foreground text-[10px]">high</span>
+            </div>
+            <div>
+              <p className="text-muted-foreground mb-1">Thickness = {thicknessLabel}</p>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-[2px] w-10 bg-muted-foreground" />
+                  <span className="text-muted-foreground text-[10px]">low</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-[6px] w-10 bg-foreground" />
+                  <span className="text-muted-foreground text-[10px]">high</span>
+                </div>
               </div>
             </div>
           </div>

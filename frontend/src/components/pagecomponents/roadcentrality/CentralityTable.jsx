@@ -15,6 +15,7 @@ export function CentralityTable({
   onPageChange,
   allColumnDefs,
   defaultKeys = ["RN_ID", "name", "PLN_AREA_N", "importance", "sla_priority", "flood_count_total", "amenity_count_total", "betweenness_norm", "closeness_norm"],
+  onRowClick,
 }) {
   const [tableQ, setTableQ] = useState("");
   const [sortKey, setSortKey] = useState("importance");
@@ -226,7 +227,12 @@ export function CentralityTable({
                 const p = f?.properties ?? {};
                 const key = p.RN_ID ?? p.osmid ?? i;
                 return (
-                  <tr key={key} className="border-t hover:bg-muted/60">
+                  <tr
+                    key={key}
+                    className="border-t hover:bg-muted/60 cursor-pointer transition-colors"
+                    onClick={() => onRowClick && onRowClick(p.RN_ID)}
+                    title="Click to view on map"
+                  >
                     {visibleColumns.map((col) => (
                       <td key={col.key} className="px-4 py-2">
                         {format_cell(p[col.key], col)}

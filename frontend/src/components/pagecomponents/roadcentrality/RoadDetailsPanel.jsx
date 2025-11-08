@@ -8,7 +8,27 @@ import { X } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
 export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts }) {
-  if (!road) return null;
+  // Show prompt if no road selected
+  if (!road) {
+    return (
+      <Card className="mb-4 border-2 border-dashed">
+        <CardHeader>
+          <CardTitle className="text-lg">Road Details</CardTitle>
+          <CardDescription>
+            Click on a row in the table below or hover over a road on the map to view details
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8 text-center">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">No road selected</p>
+              <p className="text-xs text-muted-foreground">Select a road to view KPIs, amenity details, and flood information</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const p = road.properties ?? {};
 
