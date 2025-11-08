@@ -670,22 +670,23 @@ export default function Simulation() {
 
         // This function will be called initially and when selectedMetric changes
         // It's defined here so we can call it both on load and on metric change
-        window.updateChoroplethData = () => {
-          const currentMetric = selectedMetric || "delta_time";
+        // It accepts the current metric as a parameter to avoid closure issues
+        window.updateChoroplethData = (currentMetric) => {
+          const metric = currentMetric || "delta_time";
           const features = [];
           
           // Build paDeltas map
           const paByIdDelta = new Map(paDeltas.map(pa => [pa.pa_id, pa]));
-          
+
           // Calculate max values for normalization based on metric
           let maxValue = 1;
-          if (currentMetric === "delta_time") {
+          if (metric === "delta_time") {
             maxValue = Math.max(...paDeltas.map(pa => pa.delta_avg_s || 0), 1);
-          } else if (currentMetric === "unreachable") {
+          } else if (metric === "unreachable") {
             maxValue = Math.max(...paDeltas.map(pa => pa.delta_unreachable || 0), 1);
-          } else if (currentMetric === "baseline_time") {
+          } else if (metric === "baseline_time") {
             maxValue = Math.max(...paDeltas.map(pa => pa.base_avg_s || 0), 1);
-          } else if (currentMetric === "flooded_time") {
+          } else if (metric === "flooded_time") {
             maxValue = Math.max(...paDeltas.map(pa => pa.flood_avg_s || 0), 1);
           }
 
@@ -702,20 +703,20 @@ export default function Simulation() {
             let value = 0;
             let color = "#d1d5db";
 
-            if (currentMetric === "delta_time") {
+            if (metric === "delta_time") {
               value = delta.delta_avg_s || 0;
               color = getColorForValue(value, maxValue, false); // Delta uses warm colors
-            } else if (currentMetric === "unreachable") {
+            } else if (metric === "unreachable") {
               value = delta.delta_unreachable || 0;
               // Custom color scale for unreachable
               if (value === 0) color = "#86efac";
               else if (value <= 5) color = "#fde047";
               else if (value <= 15) color = "#fb923c";
               else color = "#ef4444";
-            } else if (currentMetric === "baseline_time") {
+            } else if (metric === "baseline_time") {
               value = delta.base_avg_s || 0;
               color = getColorForValue(value, maxValue, true); // Baseline uses cool colors
-            } else if (currentMetric === "flooded_time") {
+            } else if (metric === "flooded_time") {
               value = delta.flood_avg_s || 0;
               color = getColorForValue(value, maxValue, true); // Flooded uses cool colors
             }
@@ -745,12 +746,12 @@ export default function Simulation() {
             });
           }
 
-          console.log(`Updated choropleth for metric: ${currentMetric}, features: ${features.length}`);
+          console.log(`Updated choropleth for metric: ${metric}, features: ${features.length}`);
           map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
         };
 
-        // Call initially
-        window.updateChoroplethData();
+        // Call initially with the current selected metric
+        window.updateChoroplethData(selectedMetric);
 
         // Update blocked roads layer
         const updateBlockedRoadsLayer = () => {
@@ -1104,7 +1105,7 @@ export default function Simulation() {
   // Update choropleth when metric changes
   useEffect(() => {
     if (resultMapRef.current && window.updateChoroplethData) {
-      window.updateChoroplethData();
+      window.updateChoroplethData(selectedMetric);
     }
   }, [selectedMetric]);
 
