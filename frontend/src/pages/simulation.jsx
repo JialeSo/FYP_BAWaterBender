@@ -231,7 +231,7 @@ function downloadCSV(name, rows) {
 
 /* =============================== Page ================================= */
 export default function Simulation() {
-  const { road_fc_enriched, amenity_fc_enriched, lookups, loading, error } = useMapData();
+  const { road_fc_enriched, amenity_fc_enriched, planning_fc_raw, lookups, loading, error } = useMapData();
 
   // Build graph
   const graph = useMemo(() => {
@@ -274,9 +274,14 @@ export default function Simulation() {
 
   // Load flood scenarios CSV
   useEffect(() => {
-    fetch("/data/road_network_flood_scenarios.csv")
-      .then(res => res.text())
+    console.log("Loading flood scenarios CSV...");
+    fetch("/map/road_network_flood_scenarios.csv")
+      .then(res => {
+        console.log("Scenarios CSV fetch response:", res.status);
+        return res.text();
+      })
       .then(text => {
+        console.log("Scenarios CSV text length:", text.length);
         const lines = text.trim().split("\n");
         if (lines.length < 2) return;
 
@@ -557,7 +562,7 @@ export default function Simulation() {
 
   // Initialize result maps
   useEffect(() => {
-    if (step !== 4 || !baselineStats || !floodedStats || !lookups?.planning) return;
+    if (step !== 4 || !baselineStats || !floodedStats || !planning_fc_raw?.features?.length) return;
 
     // Baseline map
     if (baselineContainerRef.current && !baselineMapRef.current) {
@@ -597,25 +602,33 @@ export default function Simulation() {
         const maxTime = Math.max(...baselineStats.paStats.map(pa => pa.avg_s || 0), 1);
         const paById = new Map(baselineStats.paStats.map(pa => [pa.pa_id, pa]));
         const features = [];
-        for (const pa of Object.values(lookups.planning.by_id || {})) {
-          const stats = paById.get(pa.id);
+
+        for (const f of planning_fc_raw.features) {
+          const props = f.properties || {};
+          const pa_id = toInt(props.pa_id ?? props.PA_ID);
+          const pa_name = props.pln_area_n ?? props.PLN_AREA_N ?? "(unknown)";
+
+          if (pa_id == null || !f.geometry) continue;
+
+          const stats = paById.get(pa_id);
           const color = stats ? getColorForValue(stats.avg_s, maxTime, true) : "#d1d5db";
-          if (pa.geometry) {
-            features.push({
-              type: "Feature",
-              id: pa.id,
-              properties: {
-                pa_id: pa.id,
-                pa_name: pa.name,
-                color,
-                avg_s: stats?.avg_s || 0,
-                nodes: stats?.nodes || 0,
-                unreachable: stats?.unreachable || 0,
-              },
-              geometry: pa.geometry,
-            });
-          }
+
+          features.push({
+            type: "Feature",
+            id: pa_id,
+            properties: {
+              pa_id,
+              pa_name,
+              color,
+              avg_s: stats?.avg_s || 0,
+              nodes: stats?.nodes || 0,
+              unreachable: stats?.unreachable || 0,
+            },
+            geometry: f.geometry,
+          });
         }
+
+        console.log("Baseline choropleth features:", features.length);
         map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
 
         // Add hover cursor
@@ -709,29 +722,37 @@ export default function Simulation() {
         const maxDelta = Math.max(...paDeltas.map(d => d.delta_avg_s || 0), 1);
         const paById = new Map(paDeltas.map(d => [d.pa_id, d]));
         const features = [];
-        for (const pa of Object.values(lookups.planning.by_id || {})) {
-          const delta = paById.get(pa.id);
+
+        for (const f of planning_fc_raw.features) {
+          const props = f.properties || {};
+          const pa_id = toInt(props.pa_id ?? props.PA_ID);
+          const pa_name = props.pln_area_n ?? props.PLN_AREA_N ?? "(unknown)";
+
+          if (pa_id == null || !f.geometry) continue;
+
+          const delta = paById.get(pa_id);
           const color = delta ? getColorForValue(delta.delta_avg_s, maxDelta, false) : "#d1d5db";
-          if (pa.geometry) {
-            features.push({
-              type: "Feature",
-              id: pa.id,
-              properties: {
-                pa_id: pa.id,
-                pa_name: pa.name,
-                color,
-                total_nodes: delta?.total_nodes || 0,
-                base_avg_s: delta?.base_avg_s || 0,
-                flood_avg_s: delta?.flood_avg_s || 0,
-                delta_avg_s: delta?.delta_avg_s || 0,
-                base_unreachable: delta?.base_unreachable || 0,
-                flood_unreachable: delta?.flood_unreachable || 0,
-                delta_unreachable: delta?.delta_unreachable || 0,
-              },
-              geometry: pa.geometry,
-            });
-          }
+
+          features.push({
+            type: "Feature",
+            id: pa_id,
+            properties: {
+              pa_id,
+              pa_name,
+              color,
+              total_nodes: delta?.total_nodes || 0,
+              base_avg_s: delta?.base_avg_s || 0,
+              flood_avg_s: delta?.flood_avg_s || 0,
+              delta_avg_s: delta?.delta_avg_s || 0,
+              base_unreachable: delta?.base_unreachable || 0,
+              flood_unreachable: delta?.flood_unreachable || 0,
+              delta_unreachable: delta?.delta_unreachable || 0,
+            },
+            geometry: f.geometry,
+          });
         }
+
+        console.log("Flooded choropleth features:", features.length);
         map.getSource("choropleth")?.setData({ type: "FeatureCollection", features });
 
         // Add hover popup
@@ -856,7 +877,7 @@ export default function Simulation() {
       if (baselineMapRef.current) { baselineMapRef.current.remove(); baselineMapRef.current = null; }
       if (floodedMapRef.current) { floodedMapRef.current.remove(); floodedMapRef.current = null; }
     };
-  }, [step, baselineStats, floodedStats, paDeltas, lookups]);
+  }, [step, baselineStats, floodedStats, paDeltas, planning_fc_raw, graph]);
 
   const canProceedToStep2 = floodInputMethod === "manual" || (floodInputMethod === "scenario" && selectedScenario);
   const canProceedToStep3 = floodInputMethod === "scenario" ? !!selectedScenario : floodMarkers.length > 0;
