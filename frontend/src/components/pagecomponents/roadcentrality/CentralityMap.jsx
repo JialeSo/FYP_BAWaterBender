@@ -94,6 +94,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
   const [colorMetric, setColorMetric] = useState("importance");
   const [thicknessMetric, setThicknessMetric] = useState("none");
   const markersRef = useRef([]);
+  const [activeMarkerId, setActiveMarkerId] = useState(null);
 
   // Calculate color thresholds based on max value
   const colorThresholds = useMemo(() => {
@@ -326,15 +327,17 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
     // Clear existing markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
+    setActiveMarkerId(null);
 
     // Don't show markers if no road is selected
     if (!selectedRoadId) return;
 
     // Add amenity markers (blue)
-    amenityItems.forEach((item) => {
+    amenityItems.forEach((item, idx) => {
       if (!item.geometry || item.geometry.type !== 'Point') return;
 
       const [lng, lat] = item.geometry.coordinates;
+      const markerId = `amenity-${idx}`;
 
       // Create marker element
       const el = document.createElement('div');
@@ -346,6 +349,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
       el.style.border = '2px solid white';
       el.style.cursor = 'pointer';
       el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+      el.style.transition = 'opacity 0.2s';
 
       // Create popup
       const popup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
@@ -366,26 +370,52 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
         .setPopup(popup)
         .addTo(map);
 
-      // Click handler
+      // Click handler - hide all other markers when this one is clicked
       el.addEventListener('click', () => {
-        // Hide all other popups
+        // Set this marker as active
+        setActiveMarkerId(markerId);
+
+        // Hide all other markers
+        markersRef.current.forEach((m, i) => {
+          const markerEl = m.getElement();
+          if (i !== idx) {
+            markerEl.style.opacity = '0';
+            markerEl.style.pointerEvents = 'none';
+          }
+        });
+
+        // Close all other popups
         markersRef.current.forEach(m => {
           if (m !== marker && m.getPopup().isOpen()) {
             m.togglePopup();
           }
         });
+
+        // Open this popup
         marker.togglePopup();
+      });
+
+      // When popup is closed, restore all markers
+      popup.on('close', () => {
+        setActiveMarkerId(null);
+        markersRef.current.forEach(m => {
+          const markerEl = m.getElement();
+          markerEl.style.opacity = '1';
+          markerEl.style.pointerEvents = 'auto';
+        });
       });
 
       markersRef.current.push(marker);
     });
 
     // Add flood markers (orange)
-    floodItems.forEach((item) => {
+    floodItems.forEach((item, idx) => {
       const lat = item.properties?.origin_lat;
       const lng = item.properties?.origin_lng;
 
       if (!lat || !lng) return;
+
+      const markerId = `flood-${idx}`;
 
       // Create marker element
       const el = document.createElement('div');
@@ -397,6 +427,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
       el.style.border = '2px solid white';
       el.style.cursor = 'pointer';
       el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+      el.style.transition = 'opacity 0.2s';
 
       // Create popup
       const popup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
@@ -417,15 +448,41 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
         .setPopup(popup)
         .addTo(map);
 
-      // Click handler
+      const markerIndex = amenityItems.length + idx;
+
+      // Click handler - hide all other markers when this one is clicked
       el.addEventListener('click', () => {
-        // Hide all other popups
+        // Set this marker as active
+        setActiveMarkerId(markerId);
+
+        // Hide all other markers
+        markersRef.current.forEach((m, i) => {
+          const markerEl = m.getElement();
+          if (i !== markerIndex) {
+            markerEl.style.opacity = '0';
+            markerEl.style.pointerEvents = 'none';
+          }
+        });
+
+        // Close all other popups
         markersRef.current.forEach(m => {
           if (m !== marker && m.getPopup().isOpen()) {
             m.togglePopup();
           }
         });
+
+        // Open this popup
         marker.togglePopup();
+      });
+
+      // When popup is closed, restore all markers
+      popup.on('close', () => {
+        setActiveMarkerId(null);
+        markersRef.current.forEach(m => {
+          const markerEl = m.getElement();
+          markerEl.style.opacity = '1';
+          markerEl.style.pointerEvents = 'auto';
+        });
       });
 
       markersRef.current.push(marker);
@@ -435,6 +492,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
     return () => {
       markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
+      setActiveMarkerId(null);
     };
   }, [selectedRoadId, amenityItems, floodItems]);
 

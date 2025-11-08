@@ -614,7 +614,7 @@ export default function Centrality() {
         return {
           ...a,
           category,
-          name: a.properties?.name || a.properties?.amenity || 'Unknown',
+          name: a.properties?.amenity_name || a.properties?.name || a.properties?.amenity || 'Unknown',
         };
       })
       .filter(a => amenityEnabled[a.category]); // Only enabled categories
@@ -1462,176 +1462,187 @@ export default function Centrality() {
           </p>
         </div>
 
-        {/* Table Filters with Sliders */}
-        <Card className="mb-4 border-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Table Filters</CardTitle>
-            <CardDescription>Use sliders to filter roads by metric ranges. Filters apply to both table and map.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Amenity Count */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Amenity Count</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {amenityCountMin || 0} - {amenityCountMax || maxValues.amenity}
-                  </span>
+        {/* Table Filters Accordion */}
+        <Accordion type="single" collapsible className="mb-4">
+          <AccordionItem value="filters" className="border rounded-lg">
+            <AccordionTrigger className="px-4 py-3 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <span className="text-base font-semibold">Table Filters</span>
+                <span className="text-xs text-muted-foreground">
+                  ({[amenityCountMin, amenityCountMax, floodCountMin, floodCountMax, betweennessMin, betweennessMax, closenessMin, closenessMax, importanceMin, importanceMax].filter(v => v !== "").length > 0 || slaCategories.length > 0 ? 'Active' : 'None'})
+                </span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Use sliders to filter roads by metric ranges. Filters apply to both table and map.
+              </p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Amenity Count */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Amenity Count</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {amenityCountMin || 0} - {amenityCountMax || maxValues.amenity}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={maxValues.amenity}
+                      step={1}
+                      value={[
+                        amenityCountMin !== "" ? parseFloat(amenityCountMin) : 0,
+                        amenityCountMax !== "" ? parseFloat(amenityCountMax) : maxValues.amenity
+                      ]}
+                      onValueChange={([min, max]) => {
+                        setAmenityCountMin(min.toString());
+                        setAmenityCountMax(max.toString());
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Flood Count */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Flood Count</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {floodCountMin || 0} - {floodCountMax || maxValues.flood}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={maxValues.flood}
+                      step={1}
+                      value={[
+                        floodCountMin !== "" ? parseFloat(floodCountMin) : 0,
+                        floodCountMax !== "" ? parseFloat(floodCountMax) : maxValues.flood
+                      ]}
+                      onValueChange={([min, max]) => {
+                        setFloodCountMin(min.toString());
+                        setFloodCountMax(max.toString());
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Betweenness */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Betweenness (Normalized)</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {betweennessMin || "0"} - {betweennessMax || maxValues.betweenness.toFixed(4)}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={maxValues.betweenness}
+                      step={0.0001}
+                      value={[
+                        betweennessMin !== "" ? parseFloat(betweennessMin) : 0,
+                        betweennessMax !== "" ? parseFloat(betweennessMax) : maxValues.betweenness
+                      ]}
+                      onValueChange={([min, max]) => {
+                        setBetweennessMin(min.toFixed(4));
+                        setBetweennessMax(max.toFixed(4));
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Closeness */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Closeness (Normalized)</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {closenessMin || "0"} - {closenessMax || maxValues.closeness.toFixed(4)}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={maxValues.closeness}
+                      step={0.0001}
+                      value={[
+                        closenessMin !== "" ? parseFloat(closenessMin) : 0,
+                        closenessMax !== "" ? parseFloat(closenessMax) : maxValues.closeness
+                      ]}
+                      onValueChange={([min, max]) => {
+                        setClosenessMin(min.toFixed(4));
+                        setClosenessMax(max.toFixed(4));
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Importance */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Importance Score</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {importanceMin || 0} - {importanceMax || maxValues.importance.toFixed(2)}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={maxValues.importance}
+                      step={0.01}
+                      value={[
+                        importanceMin !== "" ? parseFloat(importanceMin) : 0,
+                        importanceMax !== "" ? parseFloat(importanceMax) : maxValues.importance
+                      ]}
+                      onValueChange={([min, max]) => {
+                        setImportanceMin(min.toFixed(2));
+                        setImportanceMax(max.toFixed(2));
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* SLA Category */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">SLA Category</Label>
+                    <MultiSelectCombobox
+                      label=""
+                      options={[
+                        { value: "1-Year SLA", label: "1-Year SLA", count: 0 },
+                        { value: "3-Year SLA", label: "3-Year SLA", count: 0 },
+                        { value: "5-Year SLA", label: "5-Year SLA", count: 0 },
+                      ]}
+                      selected={slaCategories}
+                      onChange={setSlaCategories}
+                      placeholder="All categories"
+                      searchPlaceholder="Search categories…"
+                    />
+                  </div>
                 </div>
-                <Slider
-                  min={0}
-                  max={maxValues.amenity}
-                  step={1}
-                  value={[
-                    amenityCountMin !== "" ? parseFloat(amenityCountMin) : 0,
-                    amenityCountMax !== "" ? parseFloat(amenityCountMax) : maxValues.amenity
-                  ]}
-                  onValueChange={([min, max]) => {
-                    setAmenityCountMin(min.toString());
-                    setAmenityCountMax(max.toString());
-                  }}
-                  className="w-full"
-                />
-              </div>
 
-              {/* Flood Count */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Flood Count</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {floodCountMin || 0} - {floodCountMax || maxValues.flood}
-                  </span>
+                {/* Clear all filters button */}
+                <div className="flex justify-end pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAmenityCountMin("");
+                      setAmenityCountMax("");
+                      setFloodCountMin("");
+                      setFloodCountMax("");
+                      setBetweennessMin("");
+                      setBetweennessMax("");
+                      setClosenessMin("");
+                      setClosenessMax("");
+                      setImportanceMin("");
+                      setImportanceMax("");
+                      setSlaCategories([]);
+                    }}
+                  >
+                    Clear All Filters
+                  </Button>
                 </div>
-                <Slider
-                  min={0}
-                  max={maxValues.flood}
-                  step={1}
-                  value={[
-                    floodCountMin !== "" ? parseFloat(floodCountMin) : 0,
-                    floodCountMax !== "" ? parseFloat(floodCountMax) : maxValues.flood
-                  ]}
-                  onValueChange={([min, max]) => {
-                    setFloodCountMin(min.toString());
-                    setFloodCountMax(max.toString());
-                  }}
-                  className="w-full"
-                />
               </div>
-
-              {/* Betweenness */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Betweenness (Normalized)</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {betweennessMin || "0"} - {betweennessMax || maxValues.betweenness.toFixed(4)}
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={maxValues.betweenness}
-                  step={0.0001}
-                  value={[
-                    betweennessMin !== "" ? parseFloat(betweennessMin) : 0,
-                    betweennessMax !== "" ? parseFloat(betweennessMax) : maxValues.betweenness
-                  ]}
-                  onValueChange={([min, max]) => {
-                    setBetweennessMin(min.toFixed(4));
-                    setBetweennessMax(max.toFixed(4));
-                  }}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Closeness */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Closeness (Normalized)</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {closenessMin || "0"} - {closenessMax || maxValues.closeness.toFixed(4)}
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={maxValues.closeness}
-                  step={0.0001}
-                  value={[
-                    closenessMin !== "" ? parseFloat(closenessMin) : 0,
-                    closenessMax !== "" ? parseFloat(closenessMax) : maxValues.closeness
-                  ]}
-                  onValueChange={([min, max]) => {
-                    setClosenessMin(min.toFixed(4));
-                    setClosenessMax(max.toFixed(4));
-                  }}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Importance */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Importance Score</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {importanceMin || 0} - {importanceMax || maxValues.importance.toFixed(2)}
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={maxValues.importance}
-                  step={0.01}
-                  value={[
-                    importanceMin !== "" ? parseFloat(importanceMin) : 0,
-                    importanceMax !== "" ? parseFloat(importanceMax) : maxValues.importance
-                  ]}
-                  onValueChange={([min, max]) => {
-                    setImportanceMin(min.toFixed(2));
-                    setImportanceMax(max.toFixed(2));
-                  }}
-                  className="w-full"
-                />
-              </div>
-
-              {/* SLA Category */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">SLA Category</Label>
-                <MultiSelectCombobox
-                  label=""
-                  options={[
-                    { value: "1-Year SLA", label: "1-Year SLA", count: 0 },
-                    { value: "3-Year SLA", label: "3-Year SLA", count: 0 },
-                    { value: "5-Year SLA", label: "5-Year SLA", count: 0 },
-                  ]}
-                  selected={slaCategories}
-                  onChange={setSlaCategories}
-                  placeholder="All categories"
-                  searchPlaceholder="Search categories…"
-                />
-              </div>
-            </div>
-
-            {/* Clear all filters button */}
-            <div className="flex justify-end pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setAmenityCountMin("");
-                  setAmenityCountMax("");
-                  setFloodCountMin("");
-                  setFloodCountMax("");
-                  setBetweennessMin("");
-                  setBetweennessMax("");
-                  setClosenessMin("");
-                  setClosenessMax("");
-                  setImportanceMin("");
-                  setImportanceMax("");
-                  setSlaCategories([]);
-                }}
-              >
-                Clear All Filters
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         <CentralityTable
           rows={filteredSorted}
