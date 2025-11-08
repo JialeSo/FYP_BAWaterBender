@@ -88,7 +88,7 @@ const METRIC_FILTER_CONFIG = [
   {
     key: "centrality",
     label: "Road Centrality Index",
-    description: "Blended centrality score (60% betweenness, 40% closeness).",
+    description: "Blended centrality score based on configurable betweenness and closeness weights.",
     step: 0.01,
   },
   {
@@ -124,13 +124,13 @@ const METRIC_SUMMARY_ROWS = [
   },
   {
     metric: "Road Centrality Index",
-    meaning: "Weighted blend of network betweenness (60%) and closeness (40%), normalised between 0 and 1.",
-    insight: "Measures how critical nearby roads are for connectivity; higher centrality amplifies the flood index when combined with amenity impact.",
+    meaning: "Weighted blend of network betweenness and closeness with configurable weights, normalised between 0 and 1.",
+    insight: "Measures how critical nearby roads are for connectivity; higher centrality amplifies the AR Impact when combined with amenity impact.",
   },
   {
     metric: "Calculated Impact",
     meaning: "Amenity score derived from inner and outer counts with their respective weights (impact = inner_count * inner_weight + outer_count * outer_weight).",
-    insight: "Feeds into the flood index alongside centrality (index = w_centrality * centrality + w_amenity * amenity score), so both amenity counts and road importance drive the final score.",
+    insight: "Feeds into the AR Impact alongside centrality (AR Impact = w_betweenness * betweenness + w_closeness * closeness + w_amenity * amenity score), so both amenity counts and road importance drive the final score.",
   },
 ];
 
@@ -1136,7 +1136,7 @@ export default function floodevents() {
   useEffect(() => {
     if (!selected) return;
     focus_select(selected);
-  }, [cat_weights, inner_mult, outer_mult, w_centrality, w_amenity]);
+  }, [cat_weights, cat_enabled, inner_mult, outer_mult, w_betweenness, w_closeness, w_amenity]);
 
   // While editing radius, just repaint the selected rings so they never flicker off
   useEffect(() => {
