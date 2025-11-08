@@ -34,21 +34,33 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
   const p = road.properties ?? {};
 
   // Helper function to calculate percentile rank for any metric
-  const calculatePercentileRank = useMemo(() => (value, metric) => {
+  const calculatePercentileRank = (value, metric) => {
     if (!allRoads.length || value === null || value === undefined) return null;
-    const values = allRoads.map(r => r.properties?.[metric] || 0).filter(v => v !== null && v !== undefined);
-    values.sort((a, b) => a - b);
-    const index = values.findIndex(v => v >= value);
-    if (index === -1) return 100;
-    return Math.round(((values.length - index) / values.length) * 100);
-  }, [allRoads]);
+
+    // Get all values for this metric
+    const values = allRoads.map(r => {
+      const val = r.properties?.[metric];
+      return val !== null && val !== undefined ? val : 0;
+    });
+
+    // Sort in descending order (highest first)
+    values.sort((a, b) => b - a);
+
+    // Find how many roads have a higher value
+    const betterCount = values.filter(v => v > value).length;
+
+    // Calculate percentile (what % of roads this road is better than)
+    const percentile = Math.round(((allRoads.length - betterCount) / allRoads.length) * 100);
+
+    return percentile;
+  };
 
   // Calculate percentile ranks for all metrics
-  const importancePercentile = useMemo(() => calculatePercentileRank(p.importance, 'importance'), [p.importance, calculatePercentileRank]);
-  const betweennessPercentile = useMemo(() => calculatePercentileRank(p.betweenness_norm, 'betweenness_norm'), [p.betweenness_norm, calculatePercentileRank]);
-  const closenessPercentile = useMemo(() => calculatePercentileRank(p.closeness_norm, 'closeness_norm'), [p.closeness_norm, calculatePercentileRank]);
-  const amenityPercentile = useMemo(() => calculatePercentileRank(p.amenity_count_total, 'amenity_count_total'), [p.amenity_count_total, calculatePercentileRank]);
-  const floodPercentile = useMemo(() => calculatePercentileRank(p.flood_count_total, 'flood_count_total'), [p.flood_count_total, calculatePercentileRank]);
+  const importancePercentile = useMemo(() => calculatePercentileRank(p.importance, 'importance'), [p.importance, allRoads]);
+  const betweennessPercentile = useMemo(() => calculatePercentileRank(p.betweenness_norm, 'betweenness_norm'), [p.betweenness_norm, allRoads]);
+  const closenessPercentile = useMemo(() => calculatePercentileRank(p.closeness_norm, 'closeness_norm'), [p.closeness_norm, allRoads]);
+  const amenityPercentile = useMemo(() => calculatePercentileRank(p.amenity_count_total, 'amenity_count_total'), [p.amenity_count_total, allRoads]);
+  const floodPercentile = useMemo(() => calculatePercentileRank(p.flood_count_total, 'flood_count_total'), [p.flood_count_total, allRoads]);
 
   const getPercentileLabel = (percentile) => {
     if (!percentile) return null;
