@@ -161,6 +161,19 @@ export default function Centrality() {
 
   const [q, setQ] = useState("");
 
+  /* ===== advanced filters ===== */
+  const [amenityCountMin, setAmenityCountMin] = useState("");
+  const [amenityCountMax, setAmenityCountMax] = useState("");
+  const [floodCountMin, setFloodCountMin] = useState("");
+  const [floodCountMax, setFloodCountMax] = useState("");
+  const [betweennessMin, setBetweennessMin] = useState("");
+  const [betweennessMax, setBetweennessMax] = useState("");
+  const [closenessMin, setClosenessMin] = useState("");
+  const [closenessMax, setClosenessMax] = useState("");
+  const [importanceMin, setImportanceMin] = useState("");
+  const [importanceMax, setImportanceMax] = useState("");
+  const [slaCategories, setSlaCategories] = useState([]); // Array of selected SLA categories
+
   /* ===== multiplier-based weights ===== */
   const amenityCategoryKeys = useMemo(
     () => Object.keys(amenityCounts).sort((a, b) => a.localeCompare(b)),
@@ -472,7 +485,41 @@ export default function Centrality() {
       };
     });
   }, [scored, slaTop1Year, slaNext3Year]);
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedByImportance.length / PAGE_SIZE)), [sortedByImportance.length]);
+
+  // Apply advanced filters
+  const filteredSorted = useMemo(() => {
+    return sortedByImportance.filter((f) => {
+      const p = f.properties;
+
+      // Amenity count filter
+      if (amenityCountMin !== "" && (p.amenity_count_total || 0) < parseFloat(amenityCountMin)) return false;
+      if (amenityCountMax !== "" && (p.amenity_count_total || 0) > parseFloat(amenityCountMax)) return false;
+
+      // Flood count filter
+      if (floodCountMin !== "" && (p.flood_count_total || 0) < parseFloat(floodCountMin)) return false;
+      if (floodCountMax !== "" && (p.flood_count_total || 0) > parseFloat(floodCountMax)) return false;
+
+      // Betweenness filter
+      if (betweennessMin !== "" && (p.betweenness_norm || 0) < parseFloat(betweennessMin)) return false;
+      if (betweennessMax !== "" && (p.betweenness_norm || 0) > parseFloat(betweennessMax)) return false;
+
+      // Closeness filter
+      if (closenessMin !== "" && (p.closeness_norm || 0) < parseFloat(closenessMin)) return false;
+      if (closenessMax !== "" && (p.closeness_norm || 0) > parseFloat(closenessMax)) return false;
+
+      // Importance filter
+      if (importanceMin !== "" && (p.importance || 0) < parseFloat(importanceMin)) return false;
+      if (importanceMax !== "" && (p.importance || 0) > parseFloat(importanceMax)) return false;
+
+      // SLA category filter
+      if (slaCategories.length > 0 && !slaCategories.includes(p.sla_priority)) return false;
+
+      return true;
+    });
+  }, [sortedByImportance, amenityCountMin, amenityCountMax, floodCountMin, floodCountMax,
+      betweennessMin, betweennessMax, closenessMin, closenessMax, importanceMin, importanceMax, slaCategories]);
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
   const allColumnDefs = useMemo(() => {
     const keys = new Set(BASE_COLUMNS.map((c) => c.key));
@@ -495,7 +542,7 @@ export default function Centrality() {
     return defs;
   }, [scored]);
 
-  const mapData = useMemo(() => (sortedByImportance.length ? { type: "FeatureCollection", features: sortedByImportance } : EMPTY_COLLECTION), [sortedByImportance]);
+  const mapData = useMemo(() => (filteredSorted.length ? { type: "FeatureCollection", features: filteredSorted } : EMPTY_COLLECTION), [filteredSorted]);
 
    // Selected road state
   const [selectedRoadId, setSelectedRoadId] = useState(null);
@@ -754,6 +801,140 @@ export default function Centrality() {
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                       placeholder="Name, RN ID, area…"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Advanced Filters */}
+          <AccordionItem value="advanced-filters" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+              Advanced Filters
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6 pt-2">
+              <Card className="border bg-background/80 shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-base">Metric Range Filters</CardTitle>
+                  <CardDescription>
+                    Filter roads by metric ranges. Leave empty for no limit.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Amenity Count */}
+                  <div className="space-y-1.5">
+                    <Label>Amenity Count</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={amenityCountMin}
+                        onChange={(e) => setAmenityCountMin(e.target.value)}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={amenityCountMax}
+                        onChange={(e) => setAmenityCountMax(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Flood Count */}
+                  <div className="space-y-1.5">
+                    <Label>Flood Count</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={floodCountMin}
+                        onChange={(e) => setFloodCountMin(e.target.value)}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={floodCountMax}
+                        onChange={(e) => setFloodCountMax(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Betweenness */}
+                  <div className="space-y-1.5">
+                    <Label>Betweenness (Normalized)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        placeholder="Min"
+                        value={betweennessMin}
+                        onChange={(e) => setBetweennessMin(e.target.value)}
+                      />
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        placeholder="Max"
+                        value={betweennessMax}
+                        onChange={(e) => setBetweennessMax(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Closeness */}
+                  <div className="space-y-1.5">
+                    <Label>Closeness (Normalized)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        placeholder="Min"
+                        value={closenessMin}
+                        onChange={(e) => setClosenessMin(e.target.value)}
+                      />
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        placeholder="Max"
+                        value={closenessMax}
+                        onChange={(e) => setClosenessMax(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Importance */}
+                  <div className="space-y-1.5">
+                    <Label>Importance Score</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={importanceMin}
+                        onChange={(e) => setImportanceMin(e.target.value)}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={importanceMax}
+                        onChange={(e) => setImportanceMax(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* SLA Category */}
+                  <div className="space-y-1.5">
+                    <Label>SLA Category</Label>
+                    <MultiSelectCombobox
+                      label=""
+                      options={[
+                        { value: "1-Year SLA", label: "1-Year SLA", count: 0 },
+                        { value: "3-Year SLA", label: "3-Year SLA", count: 0 },
+                        { value: "5-Year SLA", label: "5-Year SLA", count: 0 },
+                      ]}
+                      selected={slaCategories}
+                      onChange={setSlaCategories}
+                      placeholder="Select SLA categories"
+                      searchPlaceholder="Search categories…"
                     />
                   </div>
                 </CardContent>
@@ -1358,8 +1539,8 @@ export default function Centrality() {
           </p>
         </div>
         <CentralityTable
-          rows={sortedByImportance}
-          totalRows={sortedByImportance.length}
+          rows={filteredSorted}
+          totalRows={filteredSorted.length}
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
