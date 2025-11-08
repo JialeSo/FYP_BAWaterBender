@@ -1689,7 +1689,7 @@ export default function Simulation() {
                   <CardTitle>Running Simulation...</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Computing... {progress.toLocaleString()} nodes visited</div>
+                  <div className="text-sm text-muted-foreground">Computing... {progress.toLocaleString()} intersections visited</div>
                   <div className="h-2 rounded bg-muted overflow-hidden">
                     <div className="h-full bg-primary transition-all" style={{ width: "50%" }} />
                   </div>
@@ -1712,94 +1712,118 @@ export default function Simulation() {
         {/* Step 4: Results */}
         {step === 4 && baselineStats && floodedStats && (
           <div className="space-y-6">
-            {/* Legend and Toggle */}
+            {/* Unified Map */}
             <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Map Legend</CardTitle>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowBlockedRoads(!showBlockedRoads)}
-                  >
-                    {showBlockedRoads ? "Show Available Roads" : "Show Blocked Roads"}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Baseline Legend */}
-                  <div>
-                    <p className="text-sm font-semibold mb-2">Baseline Map (Left)</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
-                        <span>Low travel time (0-25%)</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
-                        <span>Medium-low (25-50%)</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
-                        <span>Medium-high (50-75%)</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
-                        <span>High travel time (75-100%)</span>
-                      </div>
-                    </div>
+              <CardContent className="p-0 relative" style={{ height: "70vh" }}>
+                {/* Map Container */}
+                <div ref={resultContainerRef} className="w-full h-full" />
+
+                {/* Metric Selection Control - Top of Map */}
+                <div className="absolute top-4 left-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2">
+                  <div className="text-xs font-semibold mb-2 px-2">View Metric</div>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      size="sm"
+                      variant={selectedMetric === "delta_time" ? "default" : "ghost"}
+                      className="justify-start text-xs h-8"
+                      onClick={() => setSelectedMetric("delta_time")}
+                    >
+                      Δ Travel Time
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedMetric === "unreachable" ? "default" : "ghost"}
+                      className="justify-start text-xs h-8"
+                      onClick={() => setSelectedMetric("unreachable")}
+                    >
+                      Unreachable Intersections
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedMetric === "baseline_time" ? "default" : "ghost"}
+                      className="justify-start text-xs h-8"
+                      onClick={() => setSelectedMetric("baseline_time")}
+                    >
+                      Baseline Time
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedMetric === "flooded_time" ? "default" : "ghost"}
+                      className="justify-start text-xs h-8"
+                      onClick={() => setSelectedMetric("flooded_time")}
+                    >
+                      Flooded Time
+                    </Button>
                   </div>
-                  {/* Delta Legend */}
-                  <div>
-                    <p className="text-sm font-semibold mb-2">Delta Impact Map (Right)</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
-                        <span>Low increase (0-25%)</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
-                        <span>Medium-low (25-50%)</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
-                        <span>Medium-high (50-75%)</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
-                        <span>High increase (75-100%)</span>
-                      </div>
-                    </div>
+                </div>
+
+                {/* Legend - Bottom of Map */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3">
+                  <div className="flex items-center gap-6">
+                    {selectedMetric === "delta_time" && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+                          <span className="text-xs">Low (0-25%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
+                          <span className="text-xs">Medium (25-50%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
+                          <span className="text-xs">High (50-75%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
+                          <span className="text-xs">Very High (75-100%)</span>
+                        </div>
+                      </>
+                    )}
+                    {selectedMetric === "unreachable" && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+                          <span className="text-xs">0 unreachable</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
+                          <span className="text-xs">1-5 unreachable</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
+                          <span className="text-xs">6-15 unreachable</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
+                          <span className="text-xs">&gt;15 unreachable</span>
+                        </div>
+                      </>
+                    )}
+                    {(selectedMetric === "baseline_time" || selectedMetric === "flooded_time") && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+                          <span className="text-xs">Low time (0-25%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
+                          <span className="text-xs">Medium (25-50%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
+                          <span className="text-xs">High (50-75%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
+                          <span className="text-xs">Very High (75-100%)</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Side-by-side maps */}
-            <div className="grid grid-cols-2 gap-4" style={{ height: "50vh" }}>
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Baseline (No Flooding)</CardTitle>
-                  <CardDescription>Average time to nearest amenity</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0 relative">
-                  <div ref={baselineContainerRef} style={{ height: "calc(50vh - 5rem)" }} />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Flooded Scenario - Delta Impact</CardTitle>
-                  <CardDescription>
-                    Hover to see impact, click planning area to view {showBlockedRoads ? "blocked" : "available"} roads
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0 relative">
-                  <div ref={floodedContainerRef} style={{ height: "calc(50vh - 5rem)" }} />
-                </CardContent>
-              </Card>
-            </div>
 
             {/* Results table */}
             <Card>
@@ -1820,7 +1844,7 @@ export default function Simulation() {
                     <thead className="sticky top-0 bg-muted">
                       <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
                         <th>Planning Area</th>
-                        <th>Total Nodes</th>
+                        <th>Total Intersections</th>
                         <th>Baseline Avg</th>
                         <th>Baseline Unreachable</th>
                         <th>Flooded Avg</th>
