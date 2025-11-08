@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { computeBounds } from "@/lib/geo";
@@ -26,7 +26,6 @@ const COLOR_METRICS = [
   { value: "flood_count_total", label: "Flood Count" },
   { value: "betweenness_norm", label: "Betweenness" },
   { value: "closeness_norm", label: "Closeness" },
-  { value: "sla_priority", label: "SLA Priority" },
 ];
 
 const THICKNESS_METRICS = [
@@ -36,7 +35,6 @@ const THICKNESS_METRICS = [
   { value: "flood_count_total", label: "Flood Count" },
   { value: "betweenness_norm", label: "Betweenness" },
   { value: "closeness_norm", label: "Closeness" },
-  { value: "sla_priority", label: "SLA Priority" },
 ];
 
 // Calculate percentile thresholds from data
@@ -93,7 +91,7 @@ const createWidthExpression = (metric) => {
   ];
 };
 
-export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, getSLACategory }) {
+export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const [colorMetric, setColorMetric] = useState("importance");
@@ -190,7 +188,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, ge
 
         const p = f.properties || {};
         const name = p.name || p.ref || "Unnamed Road";
-        const slaCategory = getSLACategory ? getSLACategory(p.importance) : "—";
+        const slaCategory = p.sla_priority || "—";
         const html = `
           <div style="font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; background:#0f172a; color:#e2e8f0; padding:10px; border-radius:8px;">
             <div style="font-weight:600; margin-bottom:10px; color:#fff; font-size:14px; padding-bottom:8px; border-bottom:1px solid #1e293b;">${name}</div>

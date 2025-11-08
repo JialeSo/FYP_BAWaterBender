@@ -497,7 +497,7 @@ export default function Centrality() {
     return defs;
   }, [scored]);
 
-  const mapData = useMemo(() => (scored.length ? { type: "FeatureCollection", features: scored } : EMPTY_COLLECTION), [scored]);
+  const mapData = useMemo(() => (sortedByImportance.length ? { type: "FeatureCollection", features: sortedByImportance } : EMPTY_COLLECTION), [sortedByImportance]);
 
    // Selected road state
   const [selectedRoadId, setSelectedRoadId] = useState(null);
@@ -1350,7 +1350,6 @@ export default function Centrality() {
             selectedRoadId={selectedRoadId}
             onMapLoad={setMapInstance}
             onRoadClick={handleRoadSelect}
-            getSLACategory={getSLACategory}
           />
         </div>
       <section className="rounded-3xl border bg-card shadow-sm p-6">
