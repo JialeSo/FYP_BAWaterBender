@@ -507,7 +507,7 @@ export default function Simulation() {
     if (floodInputMethod === "manual") {
       blockedRnIds = new Set(affectedRoads.filter(r => r.selected).map(r => r.rn_id));
     } else if (floodInputMethod === "scenario" && selectedScenario) {
-      const scenario = floodScenarios.find(s => s.name === selectedScenario);
+      const scenario = flood_scenarios.find(s => s.name === selectedScenario);
       if (scenario) {
         blockedRnIds = new Set(scenario.roads.map(r => r.rn_id));
       }
@@ -973,96 +973,73 @@ export default function Simulation() {
   return (
     <div className="flex flex-col h-screen">
       {/* Header with stepper */}
-      <div className="border-b p-6">
+      <div className="border-b p-6 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
         <h1 className="text-2xl font-semibold mb-4">Flood Impact Simulation</h1>
-        <div className="flex items-center gap-2">
-          {[1, 2, 3, 4].map((s) => (
-            <div key={s} className="flex items-center">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  s === step ? "bg-primary text-primary-foreground" : s < step ? "bg-green-500 text-white cursor-pointer hover:bg-green-600" : "bg-muted text-muted-foreground"
-                }`}
-                onClick={() => {
-                  if (s < step) setStep(s);
-                }}
-              >
-                {s}
+        <div className="flex items-center gap-1 overflow-x-auto pb-2">
+          {[
+            { num: 1, title: "Define Flood Input" },
+            { num: 2, title: "Configure Details" },
+            { num: 3, title: "Review Setup" },
+            { num: 4, title: "View Results" }
+          ].map((s, idx) => (
+            <div key={s.num} className="flex items-center flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+                    s.num === step
+                      ? "bg-primary text-primary-foreground shadow-lg scale-110"
+                      : s.num < step
+                      ? "bg-green-500 text-white cursor-pointer hover:bg-green-600 hover:scale-105"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                  onClick={() => {
+                    if (s.num < step) setStep(s.num);
+                  }}
+                >
+                  {s.num}
+                </div>
+                <span className={`text-xs mt-1 font-medium whitespace-nowrap ${
+                  s.num === step ? "text-primary" : "text-muted-foreground"
+                }`}>
+                  {s.title}
+                </span>
               </div>
-              {s < 4 && <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground" />}
+              {idx < 3 && (
+                <ChevronRight className="h-5 w-5 mx-2 text-muted-foreground flex-shrink-0" />
+              )}
             </div>
           ))}
-        </div>
-        <div className="mt-2 text-sm text-muted-foreground">
-          {step === 1 && "Choose flood input method"}
-          {step === 2 && "Configure flood details"}
-          {step === 3 && "Review and run simulation"}
-          {step === 4 && "View results"}
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {/* Step 1: Choose Method & Amenities */}
+        {/* Step 1: Define Flood Input */}
         {step === 1 && (
-          <div className="max-w-4xl mx-auto space-y-4">
+          <div className="max-w-3xl mx-auto space-y-6">
             {/* Info Panel */}
-            <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                  <AlertCircle className="h-5 w-5" />
                   What does this simulation do?
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p>
-                  This tool simulates the impact of flooding on <strong>accessibility to essential amenities</strong> across Singapore's planning areas.
+              <CardContent className="space-y-3 text-sm">
+                <p className="text-blue-900/90 dark:text-blue-100/90">
+                  This tool simulates the impact of flooding on <strong>accessibility to essential amenities</strong> (hospitals by default) across Singapore's planning areas.
                 </p>
-                <p>
-                  <strong>How it works:</strong>
-                </p>
-                <ul className="list-disc pl-6 space-y-1">
-                  <li>Define flood locations (manually or using historical scenarios)</li>
-                  <li>Mark which roads become impassable due to flooding</li>
-                  <li>Calculate the shortest travel time from each planning area to selected amenities (default: hospitals)</li>
-                  <li>Compare baseline accessibility vs. flooded scenario to see impact</li>
-                </ul>
-                <p className="font-semibold text-blue-800 dark:text-blue-300">
-                  The result shows which planning areas are most affected by loss of accessibility and increased travel times.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Amenity Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Select Amenity Types to Analyze</CardTitle>
-                <CardDescription>Choose which amenities to measure accessibility to (MOH Hospitals selected by default)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-48 border rounded-lg p-3">
-                  <div className="space-y-2">
-                    {availableAmenities.map((amenity) => (
-                      <div key={amenity.type} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`amenity-${amenity.type}`}
-                          checked={selectedAmenityTypes.includes(amenity.type)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedAmenityTypes(prev => [...prev, amenity.type]);
-                            } else {
-                              setSelectedAmenityTypes(prev => prev.filter(t => t !== amenity.type));
-                            }
-                          }}
-                        />
-                        <label htmlFor={`amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
-                          {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Selected: {selectedAmenityTypes.length} type(s)
+                <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg p-3 border border-blue-200/50">
+                  <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">How it works:</p>
+                  <ul className="list-disc pl-5 space-y-1 text-blue-900/80 dark:text-blue-100/80">
+                    <li>Define flood locations (manually or using historical scenarios)</li>
+                    <li>Mark which roads become impassable due to flooding</li>
+                    <li>Calculate the <strong>shortest travel time</strong> from each planning area to nearest amenities</li>
+                    <li>Compare baseline accessibility vs. flooded scenario</li>
+                  </ul>
+                </div>
+                <p className="font-semibold text-blue-800 dark:text-blue-300 bg-white/50 dark:bg-gray-900/30 p-2 rounded border border-blue-200/50">
+                  📊 Result: Shows which planning areas are most affected by increased travel times and loss of accessibility.
                 </p>
               </CardContent>
             </Card>
@@ -1070,26 +1047,29 @@ export default function Simulation() {
             {/* Flood Input Method */}
             <Card>
               <CardHeader>
-                <CardTitle>How would you like to define the flood event?</CardTitle>
-                <CardDescription>Choose between predefined scenarios or manually marking locations</CardDescription>
+                <CardTitle>Define Flood Event</CardTitle>
+                <CardDescription>Choose how you want to specify flood locations</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <RadioGroup value={floodInputMethod} onValueChange={setFloodInputMethod}>
-                  <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50" onClick={() => setFloodInputMethod("scenario")}>
+                  <div className="flex items-start space-x-3 rounded-lg border-2 p-4 cursor-pointer hover:bg-accent/50 hover:border-primary/50 transition-all" onClick={() => setFloodInputMethod("scenario")}>
                     <RadioGroupItem value="scenario" id="scenario" />
                     <div className="flex-1">
-                      <Label htmlFor="scenario" className="cursor-pointer font-semibold">Use Predefined Scenario</Label>
+                      <Label htmlFor="scenario" className="cursor-pointer font-semibold text-base">Use Predefined Scenario</Label>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Select from historical flood scenarios (e.g., Historical_highest60mins)
+                        Select from historical flood scenarios with pre-calculated affected roads.
+                      </p>
+                      <p className="text-xs text-primary mt-2 font-medium">
+                        Example: "Historical_highest60mins" simulates worst-recorded 60-minute flood across main arterial roads.
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50" onClick={() => setFloodInputMethod("manual")}>
+                  <div className="flex items-start space-x-3 rounded-lg border-2 p-4 cursor-pointer hover:bg-accent/50 hover:border-primary/50 transition-all" onClick={() => setFloodInputMethod("manual")}>
                     <RadioGroupItem value="manual" id="manual" />
                     <div className="flex-1">
-                      <Label htmlFor="manual" className="cursor-pointer font-semibold">Manually Mark Locations</Label>
+                      <Label htmlFor="manual" className="cursor-pointer font-semibold text-base">Manually Mark Locations</Label>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Click on map to add flood markers and configure radius for each
+                        Click on the map to add custom flood markers and configure radius for each location.
                       </p>
                     </div>
                   </div>
@@ -1097,34 +1077,72 @@ export default function Simulation() {
               </CardContent>
             </Card>
 
-            {/* Scenario Dropdown (outside RadioGroup) */}
+            {/* Scenario Selection & Summary */}
             {floodInputMethod === "scenario" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Select Scenario</CardTitle>
-                  <CardDescription>Choose from historical flood scenarios</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Select value={selectedScenario} onValueChange={setSelectedScenario}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a scenario..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {floodScenarios.map((s) => (
-                        <SelectItem key={s.name} value={s.name}>
-                          {s.name} ({s.roads.length} roads)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Select Flood Scenario</CardTitle>
+                    <CardDescription>Choose a predefined historical scenario</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Select value={selectedScenario} onValueChange={setSelectedScenario}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Choose a scenario..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {flood_scenarios.map((s) => (
+                          <SelectItem key={s.name} value={s.name} className="py-3">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{s.name}</span>
+                              <span className="text-xs text-muted-foreground">{s.roads.length} roads affected</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                </Card>
+
+                {/* Summary Card when scenario selected */}
+                {selectedScenario && (
+                  <Card className="border-primary/50 bg-primary/5">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Scenario Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Scenario:</span>
+                        <span className="font-semibold">{selectedScenario}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total Roads Blocked:</span>
+                        <span className="font-semibold text-destructive">
+                          {flood_scenarios.find(s => s.name === selectedScenario)?.roads.length || 0}
+                        </span>
+                      </div>
+                      <Separator className="my-2" />
+                      <div className="text-xs">
+                        <p className="font-medium mb-1">Sample Roads:</p>
+                        <div className="bg-muted/50 rounded p-2 max-h-20 overflow-y-auto">
+                          {flood_scenarios.find(s => s.name === selectedScenario)?.roads.slice(0, 5).map((r, i) => (
+                            <div key={i} className="text-muted-foreground">• {r.name} (RN_ID: {r.rn_id})</div>
+                          ))}
+                          {(flood_scenarios.find(s => s.name === selectedScenario)?.roads.length || 0) > 5 && (
+                            <div className="text-muted-foreground italic">...and {(flood_scenarios.find(s => s.name === selectedScenario)?.roads.length || 0) - 5} more</div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
 
             {/* Navigation */}
-            <div className="flex justify-end gap-2 pt-4">
-              <Button onClick={() => setStep(2)} disabled={!canProceedToStep2 || selectedAmenityTypes.length === 0}>
-                Next <ArrowRight className="ml-2 h-4 w-4" />
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button onClick={() => setStep(2)} disabled={!canProceedToStep2} size="lg">
+                Next: Configure Details <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -1141,7 +1159,7 @@ export default function Simulation() {
                     <CardDescription>Click map to add markers</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <ScrollArea className="h-[calc((100vh-28rem)/2)]">
+                    <ScrollArea className="max-h-[40vh]">
                       <div className="space-y-3">
                         {floodMarkers.map((marker, idx) => (
                           <div key={marker.id} className="border rounded-lg p-3 space-y-2">
@@ -1196,7 +1214,7 @@ export default function Simulation() {
                               className="pl-8 h-9"
                             />
                           </div>
-                          <ScrollArea className="h-[calc((100vh-28rem)/2)] border rounded p-2">
+                          <ScrollArea className="max-h-[40vh] border rounded p-2">
                             <div className="space-y-2">
                               {filteredAffectedRoads.map((road) => (
                                 <div key={road.rn_id} className="flex items-center space-x-2">
@@ -1205,7 +1223,9 @@ export default function Simulation() {
                                     checked={road.selected}
                                     onCheckedChange={() => setAffectedRoads(prev => prev.map(r => r.rn_id === road.rn_id ? { ...r, selected: !r.selected } : r))}
                                   />
-                                  <label htmlFor={`road-${road.rn_id}`} className="text-xs flex-1 cursor-pointer">{road.name}</label>
+                                  <label htmlFor={`road-${road.rn_id}`} className="text-xs flex-1 cursor-pointer">
+                                    {road.name} (RN_ID: {road.rn_id})
+                                  </label>
                                 </div>
                               ))}
                               {filteredAffectedRoads.length === 0 && (
@@ -1233,13 +1253,13 @@ export default function Simulation() {
                   <div className="bg-muted/50 rounded-lg p-4">
                     <div className="font-semibold">{selectedScenario}</div>
                     <div className="text-sm text-muted-foreground mt-1">
-                      {floodScenarios.find(s => s.name === selectedScenario)?.roads.length || 0} roads will be blocked
+                      {flood_scenarios.find(s => s.name === selectedScenario)?.roads.length || 0} roads will be blocked
                     </div>
                   </div>
 
                   <ScrollArea className="h-64 border rounded-lg p-4">
                     <div className="space-y-2">
-                      {floodScenarios.find(s => s.name === selectedScenario)?.roads.map((road, idx) => (
+                      {flood_scenarios.find(s => s.name === selectedScenario)?.roads.map((road, idx) => (
                         <div key={idx} className="text-sm border-b py-2">
                           <div className="font-medium">{road.name}</div>
                           <div className="text-xs text-muted-foreground">RN_ID: {road.rn_id}</div>
@@ -1290,91 +1310,189 @@ export default function Simulation() {
                   )}
                   <div className="flex justify-between">
                     <span className="font-semibold">Roads Blocked:</span>
-                    <span>{floodInputMethod === "manual" ? affectedRoads.filter(r => r.selected).length : floodScenarios.find(s => s.name === selectedScenario)?.roads.length || 0}</span>
+                    <span>{floodInputMethod === "manual" ? affectedRoads.filter(r => r.selected).length : flood_scenarios.find(s => s.name === selectedScenario)?.roads.length || 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-semibold">Amenity Types:</span>
-                    <span>{selectedAmenityTypes.length} selected</span>
+                    <span className="font-semibold">Amenity Type:</span>
+                    <span className="capitalize">{selectedAmenityType.replace(/_/g, ' ')}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Edit Amenity Types */}
+            {/* Edit Amenity Type (Single Selection) */}
             <Card>
               <CardHeader>
-                <CardTitle>Amenity Types</CardTitle>
-                <CardDescription>Adjust which amenity types to analyze (MOH Hospitals on top)</CardDescription>
+                <CardTitle>Select Amenity Type</CardTitle>
+                <CardDescription>Choose ONE amenity type to analyze (MOH Hospitals on top)</CardDescription>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-48 border rounded-lg p-3">
-                  <div className="space-y-2">
-                    {availableAmenities.map((amenity) => (
-                      <div key={amenity.type} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`step3-amenity-${amenity.type}`}
-                          checked={selectedAmenityTypes.includes(amenity.type)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedAmenityTypes(prev => [...prev, amenity.type]);
-                            } else {
-                              setSelectedAmenityTypes(prev => prev.filter(t => t !== amenity.type));
-                            }
-                          }}
-                        />
-                        <label htmlFor={`step3-amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
-                          {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+              <CardContent className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search amenity types..."
+                    value={amenitySearchTerm}
+                    onChange={(e) => setAmenitySearchTerm(e.target.value)}
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <ScrollArea className="max-h-[300px] border rounded-lg p-3">
+                  <RadioGroup value={selectedAmenityType} onValueChange={setSelectedAmenityType}>
+                    <div className="space-y-2">
+                      {filteredAmenities.map((amenity) => (
+                        <div key={amenity.type} className="flex items-center space-x-2">
+                          <RadioGroupItem value={amenity.type} id={`step3-amenity-${amenity.type}`} />
+                          <label htmlFor={`step3-amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
+                            {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
+                          </label>
+                        </div>
+                      ))}
+                      {filteredAmenities.length === 0 && (
+                        <div className="text-center text-sm text-muted-foreground py-4">
+                          No amenity types match your search
+                        </div>
+                      )}
+                    </div>
+                  </RadioGroup>
                 </ScrollArea>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Selected: {selectedAmenityTypes.length} type(s)
+                <p className="text-xs text-muted-foreground">
+                  Selected: <span className="font-semibold">{selectedAmenityType.replace(/_/g, ' ')}</span>
                 </p>
               </CardContent>
             </Card>
 
-            {/* Edit Blocked Roads (for manual mode) */}
-            {floodInputMethod === "manual" && affectedRoads.length > 0 && (
+            {/* Edit Blocked Roads */}
+            {((floodInputMethod === "manual" && affectedRoads.length > 0) ||
+              (floodInputMethod === "scenario" && selectedScenario)) && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Edit Blocked Roads</CardTitle>
-                  <CardDescription>Review and adjust which roads are blocked by flooding</CardDescription>
+                  <CardTitle>Blocked Roads</CardTitle>
+                  <CardDescription>
+                    {floodInputMethod === "manual"
+                      ? "Review and adjust which roads are blocked by flooding"
+                      : "Review roads blocked by the selected scenario"}
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold">Selected: {affectedRoads.filter(r => r.selected).length}/{affectedRoads.length}</span>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: true })))}>All</Button>
-                      <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: false })))}>None</Button>
-                    </div>
+                <CardContent className="space-y-3">
+                  {/* Planning Area Filter */}
+                  <div>
+                    <Label className="text-sm mb-1.5 block">Filter by Planning Area</Label>
+                    <Select value={String(selectedPlanningArea)} onValueChange={setSelectedPlanningArea}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {planningAreasFromRoads.map((pa) => (
+                          <SelectItem key={pa.id} value={String(pa.id)}>
+                            {pa.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="relative mb-2">
+
+                  {/* Search Bar */}
+                  <div className="relative">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search roads..."
+                      placeholder="Search roads by name or RN_ID..."
                       value={roadSearchTerm}
                       onChange={(e) => setRoadSearchTerm(e.target.value)}
                       className="pl-8 h-9"
                     />
                   </div>
-                  <ScrollArea className="h-64 border rounded-lg p-3">
+
+                  {/* All/None buttons for manual mode */}
+                  {floodInputMethod === "manual" && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">
+                        Selected: {affectedRoads.filter(r => r.selected).length}/{affectedRoads.length}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: true })))}>
+                          All
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: false })))}>
+                          None
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Road List */}
+                  <ScrollArea className="max-h-[300px] border rounded-lg p-3">
                     <div className="space-y-2">
-                      {filteredAffectedRoads.map((road) => (
-                        <div key={road.rn_id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`step3-road-${road.rn_id}`}
-                            checked={road.selected}
-                            onCheckedChange={() => setAffectedRoads(prev => prev.map(r => r.rn_id === road.rn_id ? { ...r, selected: !r.selected } : r))}
-                          />
-                          <label htmlFor={`step3-road-${road.rn_id}`} className="text-sm flex-1 cursor-pointer">{road.name}</label>
-                        </div>
-                      ))}
-                      {filteredAffectedRoads.length === 0 && (
-                        <div className="text-center text-sm text-muted-foreground py-4">
-                          No roads match your search
-                        </div>
+                      {floodInputMethod === "manual" ? (
+                        // Manual mode - editable checkboxes
+                        <>
+                          {filteredAffectedRoads.map((road) => (
+                            <div key={road.rn_id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`step3-road-${road.rn_id}`}
+                                checked={road.selected}
+                                onCheckedChange={() => setAffectedRoads(prev => prev.map(r => r.rn_id === road.rn_id ? { ...r, selected: !r.selected } : r))}
+                              />
+                              <label htmlFor={`step3-road-${road.rn_id}`} className="text-sm flex-1 cursor-pointer">
+                                {road.name} <span className="text-muted-foreground">(RN_ID: {road.rn_id})</span>
+                              </label>
+                            </div>
+                          ))}
+                          {filteredAffectedRoads.length === 0 && (
+                            <div className="text-center text-sm text-muted-foreground py-4">
+                              No roads match your filters
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        // Scenario mode - read-only list with filtering
+                        <>
+                          {(() => {
+                            const scenario = flood_scenarios.find(s => s.name === selectedScenario);
+                            if (!scenario) return null;
+
+                            let roads = scenario.roads;
+
+                            // Filter by planning area
+                            if (selectedPlanningArea !== "all") {
+                              roads = roads.filter(road => {
+                                for (const edge of graph.edges) {
+                                  if (edge.rn_id === road.rn_id) {
+                                    const nodeFrom = graph.nodes.get(edge.from);
+                                    const nodeTo = graph.nodes.get(edge.to);
+                                    if (nodeFrom?.paId === toInt(selectedPlanningArea) || nodeTo?.paId === toInt(selectedPlanningArea)) {
+                                      return true;
+                                    }
+                                  }
+                                }
+                                return false;
+                              });
+                            }
+
+                            // Filter by search term
+                            if (roadSearchTerm.trim()) {
+                              const term = roadSearchTerm.toLowerCase();
+                              roads = roads.filter(r =>
+                                r.name.toLowerCase().includes(term) ||
+                                String(r.rn_id).includes(term)
+                              );
+                            }
+
+                            return roads.length > 0 ? (
+                              roads.map((road, idx) => (
+                                <div key={idx} className="text-sm border-b pb-2">
+                                  <div className="font-medium">{road.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    RN_ID: {road.rn_id} {road.pa_name && `• ${road.pa_name}`}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center text-sm text-muted-foreground py-4">
+                                No roads match your filters
+                              </div>
+                            );
+                          })()}
+                        </>
                       )}
                     </div>
                   </ScrollArea>
@@ -1402,7 +1520,7 @@ export default function Simulation() {
               <Button variant="outline" onClick={() => setStep(2)} disabled={busy}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
-              <Button onClick={runSimulation} disabled={!ready || busy || selectedAmenityTypes.length === 0}>
+              <Button onClick={runSimulation} disabled={!ready || busy || !selectedAmenityType}>
                 <Play className="mr-2 h-4 w-4" /> Run Simulation
               </Button>
             </div>
