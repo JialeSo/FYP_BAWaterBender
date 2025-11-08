@@ -486,7 +486,7 @@ export default function floodevents() {
   const [r_inner, set_r_inner] = useState(200);
   const [r_outer, set_r_outer] = useState(500);
   const [q, set_q] = useState("");
-  const [event_type, set_event_type] = useState("all");
+  const [event_types_filter, set_event_types_filter] = useState([]);
   const [from_str, set_from_str] = useState("");
   const [to_str, set_to_str] = useState("");
   const [pa_filter, set_pa_filter] = useState([]);
@@ -522,7 +522,7 @@ export default function floodevents() {
 
   const reset_all_filters = () => {
     set_q("");
-    set_event_type("all");
+    set_event_types_filter([]);
     set_pa_filter([]);
     set_from_str("");
     set_to_str("");
@@ -777,6 +777,8 @@ export default function floodevents() {
     const needle = q.trim().toLowerCase();
     const pa_selected = new Set(pa_filter);
     const has_pa_filter = pa_selected.size > 0;
+    const event_types_selected = new Set(event_types_filter);
+    const has_event_types_filter = event_types_selected.size > 0;
     const parseBound = (raw) => {
       if (typeof raw !== "string") return null;
       const trimmed = raw.trim();
@@ -794,7 +796,7 @@ export default function floodevents() {
     };
 
     return rows.filter((r) => {
-      if (event_type !== "all" && r.event !== event_type) return false;
+      if (has_event_types_filter && !event_types_selected.has(r.event)) return false;
       if (!date_in_range(r.dt, from_date, to_date)) return false;
       if (has_pa_filter && !pa_selected.has(r.planning_area)) return false;
       if (!passesRange(r.ring_inner, metric_filters.inner)) return false;
@@ -812,7 +814,7 @@ export default function floodevents() {
       ];
       return haystacks.some((txt) => String(txt).toLowerCase().includes(needle));
     });
-  }, [rows, q, event_type, from_date, to_date, pa_filter, metric_filters]);
+  }, [rows, q, event_types_filter, from_date, to_date, pa_filter, metric_filters]);
 
   const has_active_metric_filters = useMemo(() => {
     return Object.values(metric_filters).some((range) => {
@@ -1438,258 +1440,505 @@ export default function floodevents() {
           </p>
         </div>
 
-        <Accordion
-          type="single"
-          collapsible
-          defaultValue="analysis"
-          className="space-y-4"
-        >
-          <AccordionItem
-            value="analysis"
-            className="overflow-hidden rounded-xl border bg-card shadow-sm"
-          >
-            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-              Analysis & Amenity Settings
+        {/* Flood Events Configuration - Unified Parent Accordion */}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="flood-config" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <AccordionTrigger className="px-6 py-4 text-lg font-bold">
+              Flood Events Configuration
             </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
-              <div className="grid gap-4 lg:grid-cols-3">
-                <Card className="border bg-background/80 shadow-none">
-                  <CardHeader>
-                    <CardTitle className="text-base">Distance Rings</CardTitle>
-                    <CardDescription>
-                      Define inner and outer radii for each flood catchment.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="inner-radius">Inner radius (m)</Label>
-                      <Input
-                        id="inner-radius"
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        step="10"
-                        value={r_inner}
-                        onChange={(e) => {
-                          const next = clamp(+e.target.value || 0, 0, 5000);
-                          set_r_inner(next);
-                          if (next > r_outer) set_r_outer(next);
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="outer-radius">Outer radius (m)</Label>
-                      <Input
-                        id="outer-radius"
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        step="10"
-                        value={r_outer}
-                        onChange={(e) => {
-                          const next = clamp(+e.target.value || 0, 0, 10000);
-                          set_r_outer(next);
-                          if (next < r_inner) set_r_inner(next);
-                        }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      The outer radius cannot be smaller than the inner radius.
-                    </p>
-                  </CardContent>
-                </Card>
+            <AccordionContent className="px-6 pb-6 pt-4">
+              {/* Nested accordions for each subsection */}
+              <Accordion type="multiple" className="space-y-4">
 
-                <Card className="border bg-background/80 shadow-none">
-                  <CardHeader>
-                    <CardTitle className="text-base">Amenity Impact</CardTitle>
-                    <CardDescription>
-                      Adjust how strongly inner and outer rings contribute.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="inner-mult">Inner band weight</Label>
-                      <Input
-                        id="inner-mult"
-                        type="number"
-                        inputMode="decimal"
-                        step="0.1"
-                        min={0}
-                        value={inner_mult}
-                        onChange={(e) =>
-                          set_inner_mult(clamp(+e.target.value || 0, 0, 10))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="outer-mult">Outer band weight</Label>
-                      <Input
-                        id="outer-mult"
-                        type="number"
-                        inputMode="decimal"
-                        step="0.1"
-                        min={0}
-                        value={outer_mult}
-                        onChange={(e) =>
-                          set_outer_mult(clamp(+e.target.value || 0, 0, 10))
-                        }
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Inner amenities usually drive most impact. Keep the outer weight lower to avoid over-emphasising distant amenities.
-                    </p>
-                  </CardContent>
-                </Card>
+                {/* Amenity Categories & Weights */}
+                <AccordionItem value="amenities" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                  <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+                    Amenity Categories & Weights
+                  </AccordionTrigger>
+                  <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+                    <Card className="border bg-background/80 shadow-none">
+                      <CardHeader>
+                        <CardTitle className="text-base">Per-Category Toggles & Weights</CardTitle>
+                        <CardDescription>
+                          Enable/disable categories and set their weights (1-10). Disabled categories contribute 0 to the impact calculation.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Show Example accordion */}
+                        <Accordion type="single" collapsible className="rounded-xl border bg-muted/40">
+                          <AccordionItem value="example" className="border-0">
+                            <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
+                              Show Example Calculation
+                            </AccordionTrigger>
+                            <AccordionContent className="px-4 pb-4">
+                              <div className="space-y-4 text-sm">
+                                <div>
+                                  <div className="font-semibold mb-2">Example: Flood event affecting 12 inner + 8 outer amenities</div>
+                                  <div className="space-y-2">
+                                    <div className="rounded-lg border bg-background px-3 py-2 text-xs">
+                                      <div className="text-muted-foreground mb-1">Inner ring (12 amenities):</div>
+                                      <div className="font-mono ml-2">
+                                        4 × Healthcare (weight {cat_weights.healthcare_facilities ?? 5}) × {inner_mult} = {(4 * (cat_weights.healthcare_facilities ?? 5) * inner_mult).toFixed(1)}
+                                      </div>
+                                      <div className="font-mono ml-2">
+                                        3 × Education (weight {cat_weights.education_institutions ?? 3}) × {inner_mult} = {(3 * (cat_weights.education_institutions ?? 3) * inner_mult).toFixed(1)}
+                                      </div>
+                                      <div className="font-mono ml-2">
+                                        5 × Other categories × {inner_mult} = {(5 * 2 * inner_mult).toFixed(1)}
+                                      </div>
+                                    </div>
+                                    <div className="rounded-lg border bg-background px-3 py-2 text-xs">
+                                      <div className="text-muted-foreground mb-1">Outer ring (8 amenities):</div>
+                                      <div className="font-mono ml-2">
+                                        8 × avg weight 2.5 × {outer_mult} = {(8 * 2.5 * outer_mult).toFixed(1)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="rounded-lg border bg-muted/40 p-3">
+                                  <div className="font-semibold mb-2">Calculation:</div>
+                                  <div className="text-xs space-y-1 font-mono">
+                                    <div>Total weighted impact = inner + outer ≈ {((4 * (cat_weights.healthcare_facilities ?? 5) * inner_mult) + (3 * (cat_weights.education_institutions ?? 3) * inner_mult) + (5 * 2 * inner_mult) + (8 * 2.5 * outer_mult)).toFixed(1)}</div>
+                                    <div>Amenity Score = 1 - e^(-impact / 10)</div>
+                                    <div className="mt-1">This score feeds into AR Impact via the amenity weight.</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
 
-                <Card className="border bg-background/80 shadow-none">
-                  <CardHeader>
-                    <CardTitle className="text-base">Amenities & Road Impact (AR Impact)</CardTitle>
-                    <CardDescription>
-                      Configure how betweenness, closeness, and amenity impact combine.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Preset Buttons */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Presets</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {Object.entries(AR_IMPACT_PRESETS).map(([key, preset]) => (
-                          <button
-                            key={key}
-                            onClick={() => {
-                              set_w_betweenness(preset.weights.betweenness);
-                              set_w_closeness(preset.weights.closeness);
-                              set_w_amenity(preset.weights.amenity);
-                            }}
-                            className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            <div className="font-semibold text-sm mb-1">{preset.name}</div>
-                            <div className="text-xs text-muted-foreground">{preset.description}</div>
-                            <div className="mt-2 text-[10px] font-mono text-muted-foreground">
-                              B:{preset.weights.betweenness} C:{preset.weights.closeness} A:{preset.weights.amenity}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                        {/* Category grid */}
+                        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                          {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => {
+                            const enabled = cat_enabled[name] ?? true;
+                            const weight = cat_weights[name] ?? 1;
+                            return (
+                              <div key={name} className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">{to_title_case(name)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      id={`amenity-${name}`}
+                                      checked={enabled}
+                                      onCheckedChange={(checked) =>
+                                        setCatEnabled((prev) => ({ ...prev, [name]: !!checked }))
+                                      }
+                                    />
+                                    <Label htmlFor={`amenity-${name}`} className="text-xs cursor-pointer">
+                                      enable
+                                    </Label>
+                                  </div>
+                                  <NumberInput
+                                    value={weight}
+                                    onValueChange={(numVal) => {
+                                      if (numVal !== undefined) {
+                                        setCatWeights((prev) => ({ ...prev, [name]: numVal }));
+                                      }
+                                    }}
+                                    min={1}
+                                    max={10}
+                                    stepper={0.1}
+                                    decimalScale={1}
+                                    fixedDecimalScale={true}
+                                    disabled={!enabled}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </AccordionContent>
+                </AccordionItem>
 
-                    {/* Weight Sliders */}
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label className="text-sm">Betweenness Weight: {w_betweenness.toFixed(2)}</Label>
-                        <Slider
-                          value={[w_betweenness * 100]}
-                          min={0}
-                          max={100}
-                          step={5}
-                          onValueChange={(value) => set_w_betweenness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Closeness Weight: {w_closeness.toFixed(2)}</Label>
-                        <Slider
-                          value={[w_closeness * 100]}
-                          min={0}
-                          max={100}
-                          step={5}
-                          onValueChange={(value) => set_w_closeness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Amenity Weight: {w_amenity.toFixed(2)}</Label>
-                        <Slider
-                          value={[w_amenity * 100]}
-                          min={0}
-                          max={100}
-                          step={5}
-                          onValueChange={(value) => set_w_amenity(clamp((value?.[0] ?? 0) / 100, 0, 1))}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Dynamic Formula Display */}
-                    <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed">
-                      <div className="mb-2 font-semibold uppercase tracking-wide text-muted-foreground">
-                        Current Formula
-                      </div>
-                      <p className="font-mono text-xs mb-2">
-                        AR Impact = ({w_betweenness.toFixed(2)} × Betweenness) + ({w_closeness.toFixed(2)} × Closeness) + ({w_amenity.toFixed(2)} × Amenity Score)
-                      </p>
-                      <ul className="mt-2 list-disc space-y-1 pl-4">
-                        <li>
-                          Betweenness and Closeness are normalized centrality values (0-1) for the affected road.
-                        </li>
-                        <li>
-                          Amenity Score = 1 - exp(-impact total / 10), providing diminishing returns for high amenity counts.
-                        </li>
-                        <li>
-                          Impact total = inner_mult × Σ(enabled inner amenities × category weight) + outer_mult × Σ(enabled outer amenities × category weight).
-                        </li>
-                      </ul>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="border bg-background/80 shadow-none">
-                <CardHeader>
-                  <CardTitle className="text-base">Amenity Category Weights & Toggles</CardTitle>
-                  <CardDescription>
-                    Enable/disable categories and set their weights. Disabled categories contribute 0 to the impact calculation.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                    {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => {
-                      const enabled = cat_enabled[name] ?? true;
-                      const weight = cat_weights[name] ?? 1;
-                      return (
-                        <div
-                          key={name}
-                          className="space-y-2 rounded-lg border bg-muted/30 p-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{to_title_case(name)}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                id={`amenity-${name}`}
-                                checked={enabled}
-                                onCheckedChange={(checked) =>
-                                  setCatEnabled((prev) => ({ ...prev, [name]: !!checked }))
-                                }
+                {/* Distance Rings & Band Weights */}
+                <AccordionItem value="rings" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                  <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+                    Distance Rings & Band Weights
+                  </AccordionTrigger>
+                  <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+                    <Card className="border bg-background/80 shadow-none">
+                      <CardHeader>
+                        <CardTitle className="text-base">Catchment Configuration</CardTitle>
+                        <CardDescription>
+                          Define inner and outer radii and their contribution weights. Inner amenities usually have more impact.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                            <div className="font-semibold text-sm">Inner Band</div>
+                            <div className="space-y-2">
+                              <Label htmlFor="inner-radius" className="text-xs">Radius (meters)</Label>
+                              <Input
+                                id="inner-radius"
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step="10"
+                                value={r_inner}
+                                onChange={(e) => {
+                                  const next = clamp(+e.target.value || 0, 0, 5000);
+                                  set_r_inner(next);
+                                  if (next > r_outer) set_r_outer(next);
+                                }}
                               />
-                              <Label htmlFor={`amenity-${name}`} className="text-xs cursor-pointer">
-                                enable
-                              </Label>
                             </div>
-                            <NumberInput
-                              value={weight}
-                              onValueChange={(numVal) => {
-                                if (numVal !== undefined) {
-                                  setCatWeights((prev) => ({ ...prev, [name]: numVal }));
-                                }
-                              }}
-                              min={1}
-                              max={10}
-                              stepper={0.1}
-                              decimalScale={1}
-                              fixedDecimalScale={true}
-                              disabled={!enabled}
-                            />
+                            <div className="space-y-2">
+                              <Label htmlFor="inner-mult" className="text-xs">Weight Multiplier</Label>
+                              <Input
+                                id="inner-mult"
+                                type="number"
+                                inputMode="decimal"
+                                step="0.1"
+                                min={0}
+                                value={inner_mult}
+                                onChange={(e) => set_inner_mult(clamp(+e.target.value || 0, 0, 10))}
+                              />
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              Inner Band: {r_inner} m — Weight: {inner_mult.toFixed(1)}
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                            <div className="font-semibold text-sm">Outer Band</div>
+                            <div className="space-y-2">
+                              <Label htmlFor="outer-radius" className="text-xs">Radius (meters)</Label>
+                              <Input
+                                id="outer-radius"
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step="10"
+                                value={r_outer}
+                                onChange={(e) => {
+                                  const next = clamp(+e.target.value || 0, 0, 10000);
+                                  set_r_outer(next);
+                                  if (next < r_inner) set_r_inner(next);
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="outer-mult" className="text-xs">Weight Multiplier</Label>
+                              <Input
+                                id="outer-mult"
+                                type="number"
+                                inputMode="decimal"
+                                step="0.1"
+                                min={0}
+                                value={outer_mult}
+                                onChange={(e) => set_outer_mult(clamp(+e.target.value || 0, 0, 10))}
+                              />
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              Outer Band: {r_outer} m — Weight: {outer_mult.toFixed(1)}
+                            </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+
+                        {/* Example visualization */}
+                        <Accordion type="single" collapsible className="rounded-xl border bg-muted/40">
+                          <AccordionItem value="viz" className="border-0">
+                            <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
+                              Show Ring Visualization
+                            </AccordionTrigger>
+                            <AccordionContent className="px-4 pb-4">
+                              <div className="space-y-3">
+                                <div className="text-sm text-muted-foreground">
+                                  Amenities are captured within two concentric rings around each flood location:
+                                </div>
+                                <div className="relative h-48 rounded-lg border bg-background p-4 flex items-center justify-center">
+                                  {/* Simple visualization */}
+                                  <div className="relative">
+                                    {/* Outer circle */}
+                                    <div
+                                      className="absolute inset-0 rounded-full border-4 border-sky-500/30 bg-sky-500/5"
+                                      style={{ width: '160px', height: '160px', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+                                    />
+                                    {/* Inner circle */}
+                                    <div
+                                      className="absolute inset-0 rounded-full border-4 border-green-500/50 bg-green-500/10"
+                                      style={{ width: '96px', height: '96px', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+                                    />
+                                    {/* Center point */}
+                                    <div
+                                      className="absolute w-3 h-3 rounded-full bg-red-500"
+                                      style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+                                    />
+                                  </div>
+                                  {/* Labels */}
+                                  <div className="absolute bottom-2 left-2 text-xs space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-4 h-4 rounded-full bg-green-500/30 border-2 border-green-500/50" />
+                                      <span>Inner: {r_inner}m × {inner_mult.toFixed(1)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-4 h-4 rounded-full bg-sky-500/20 border-2 border-sky-500/30" />
+                                      <span>Outer: {r_outer}m × {outer_mult.toFixed(1)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  The outer radius cannot be smaller than the inner radius. Amenities in the inner ring receive full weight ({inner_mult.toFixed(1)}), while outer amenities receive partial weight ({outer_mult.toFixed(1)}).
+                                </p>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      </CardContent>
+                    </Card>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* AR Impact Configuration */}
+                <AccordionItem value="ar-impact" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                  <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+                    AR Impact Weights
+                  </AccordionTrigger>
+                  <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+                    <Card className="border bg-background/80 shadow-none">
+                      <CardHeader>
+                        <CardTitle className="text-base">Weight Presets</CardTitle>
+                        <CardDescription>
+                          Quick configurations for common scenarios. Fine-tune sliders after applying a preset.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {Object.entries(AR_IMPACT_PRESETS).map(([key, preset]) => (
+                            <button
+                              key={key}
+                              onClick={() => {
+                                set_w_betweenness(preset.weights.betweenness);
+                                set_w_closeness(preset.weights.closeness);
+                                set_w_amenity(preset.weights.amenity);
+                              }}
+                              className="rounded-lg border bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                              <div className="font-semibold text-sm mb-1">{preset.name}</div>
+                              <div className="text-xs text-muted-foreground">{preset.description}</div>
+                              <div className="mt-2 text-[10px] font-mono text-muted-foreground">
+                                B:{preset.weights.betweenness} C:{preset.weights.closeness} A:{preset.weights.amenity}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border bg-background/80 shadow-none">
+                      <CardHeader>
+                        <CardTitle className="text-base">Adjust Component Weights</CardTitle>
+                        <CardDescription>
+                          Control how betweenness, closeness, and amenity impact combine into the AR Impact score.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Betweenness Weight</Label>
+                              <span className="text-sm font-semibold">{w_betweenness.toFixed(2)}</span>
+                            </div>
+                            <Slider
+                              value={[w_betweenness * 100]}
+                              min={0}
+                              max={100}
+                              step={5}
+                              onValueChange={(value) => set_w_betweenness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              How often the affected road lies on shortest paths between other roads.
+                            </p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Closeness Weight</Label>
+                              <span className="text-sm font-semibold">{w_closeness.toFixed(2)}</span>
+                            </div>
+                            <Slider
+                              value={[w_closeness * 100]}
+                              min={0}
+                              max={100}
+                              step={5}
+                              onValueChange={(value) => set_w_closeness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              How quickly the affected road can reach all other roads in the network.
+                            </p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Amenity Weight</Label>
+                              <span className="text-sm font-semibold">{w_amenity.toFixed(2)}</span>
+                            </div>
+                            <Slider
+                              value={[w_amenity * 100]}
+                              min={0}
+                              max={100}
+                              step={5}
+                              onValueChange={(value) => set_w_amenity(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Density and type of amenities affected, weighted by category multipliers and ring weights.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Dynamic Formula Display */}
+                        <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed">
+                          <div className="mb-2 font-semibold uppercase tracking-wide text-muted-foreground">
+                            Current Formula
+                          </div>
+                          <p className="font-mono text-xs mb-2">
+                            AR Impact = ({w_betweenness.toFixed(2)} × Betweenness) + ({w_closeness.toFixed(2)} × Closeness) + ({w_amenity.toFixed(2)} × Amenity Score)
+                          </p>
+                          <ul className="mt-2 list-disc space-y-1 pl-4">
+                            <li>
+                              Betweenness and Closeness are normalized centrality values (0-1) for the affected road.
+                            </li>
+                            <li>
+                              Amenity Score = 1 - exp(-impact total / 10), providing diminishing returns for high amenity counts.
+                            </li>
+                            <li>
+                              Impact total = {inner_mult.toFixed(1)} × Σ(enabled inner amenities × category weight) + {outer_mult.toFixed(1)} × Σ(enabled outer amenities × category weight).
+                            </li>
+                          </ul>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
       </header>
 
+      {/* Flood Display Panel - Ranked Event Cards */}
+      <section className="rounded-3xl border border-border bg-card shadow-sm">
+        <div className="px-6 py-5 space-y-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Top Flood Events by AR Impact</h2>
+              <p className="text-sm text-muted-foreground">
+                {sorted.length} event{sorted.length !== 1 ? 's' : ''} ranked by Amenities & Road Impact score. Click a card to view details.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Showing top {Math.min(10, sorted.length)} of {sorted.length}</span>
+            </div>
+          </div>
+
+          {sorted.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {sorted.slice(0, 10).map((row, index) => {
+                const isSelected = selected === row.id;
+                const rank = index + 1;
+
+                return (
+                  <button
+                    key={row.id}
+                    onClick={() => {
+                      if (selected === row.id) {
+                        set_selected(null);
+                        set_selected_props(null);
+                        set_selected_stats(null);
+                      } else {
+                        set_selected(row.id);
+                        set_selected_props(row._props);
+                        focus_select(row.id);
+                      }
+                    }}
+                    className={`rounded-lg border p-4 text-left transition-all hover:shadow-md ${
+                      isSelected
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                        : 'border-border bg-muted/30 hover:bg-muted/50'
+                    }`}
+                  >
+                    {/* Rank badge */}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                        rank === 1 ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400' :
+                        rank === 2 ? 'bg-gray-400/20 text-gray-700 dark:text-gray-400' :
+                        rank === 3 ? 'bg-amber-600/20 text-amber-700 dark:text-amber-500' :
+                        'bg-muted text-muted-foreground'
+                      }`}>
+                        #{rank}
+                      </div>
+                      {isSelected && (
+                        <div className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                          Selected
+                        </div>
+                      )}
+                    </div>
+
+                    {/* AR Impact Score */}
+                    <div className="mb-3">
+                      <div className="text-xs text-muted-foreground mb-1">AR Impact</div>
+                      <div className="text-2xl font-bold">{row.ar_impact.toFixed(3)}</div>
+                      <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span>C: {row.centrality.toFixed(2)}</span>
+                        <span>•</span>
+                        <span>I: {row.impact_total.toFixed(1)}</span>
+                      </div>
+                    </div>
+
+                    {/* Event Info */}
+                    <div className="space-y-1 text-xs">
+                      <div className="font-medium truncate" title={row.event}>
+                        {to_title_case(row.event) || 'Unknown Event'}
+                      </div>
+                      <div className="text-muted-foreground truncate" title={row.location}>
+                        {row.location || 'Unknown Location'}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {row.event_date || 'No date'}
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="mt-3 pt-3 border-t space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Road:</span>
+                        <span className="font-medium truncate ml-2" title={row.parent_road}>
+                          {row.parent_road ? (row.parent_road.length > 15 ? row.parent_road.slice(0, 15) + '...' : row.parent_road) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Amenities:</span>
+                        <span className="font-medium">{row.ring_total} total</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-muted-foreground">Inner/Outer:</span>
+                        <span className="font-mono">{row.ring_inner}/{row.ring_outer}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No flood events match the current filters.</p>
+              <Button
+                variant="outline"
+                onClick={reset_all_filters}
+                className="mt-4"
+              >
+                Clear Filters
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 relative rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden">
@@ -1810,26 +2059,18 @@ export default function floodevents() {
               />
             </div>
 
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="event-type">Event Type</Label>
-              <Select
-                value={event_type}
-                onValueChange={(value) => {
-                  set_event_type(value);
+            <div className="md:col-span-3">
+              <MultiSelectFilter
+                id="event-type"
+                label="Event Type"
+                options={event_type_options.filter(opt => opt !== "all")}
+                values={event_types_filter}
+                onChange={(selected) => {
+                  set_event_types_filter(selected);
                   set_page(1);
                 }}
-              >
-                <SelectTrigger id="event-type" className="w-full">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  {event_type_options.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {format_option_label(option, "All Types")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="All Event Types"
+              />
             </div>
 
             <div className="md:col-span-3">
