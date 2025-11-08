@@ -589,6 +589,42 @@ export default function Centrality() {
     return sortedByImportance.find(f => f.properties.RN_ID === selectedRoadId);
   }, [selectedRoadId, sortedByImportance]);
 
+  // Get amenity items for selected road
+  const selectedAmenityItems = useMemo(() => {
+    if (!selectedRoadId || !amenityFC) return [];
+    const byId = categoryLookup?.by_id || {};
+    return (amenityFC.features || [])
+      .filter(a => a?.properties?.rn_id === selectedRoadId)
+      .map(a => {
+        const id = get_amenity_category_id(a.properties);
+        const fromLookup = (id != null && byId[id]?.amenity_category) ? byId[id].amenity_category : null;
+        const category = fromLookup || String(get_amenity_category(a.properties));
+        return {
+          ...a,
+          category,
+          name: a.properties?.name || a.properties?.amenity || 'Unknown',
+        };
+      })
+      .filter(a => amenityEnabled[a.category]); // Only enabled categories
+  }, [selectedRoadId, amenityFC, categoryLookup, amenityEnabled]);
+
+  // Get flood items for selected road
+  const selectedFloodItems = useMemo(() => {
+    if (!selectedRoadId || !floodsFC) return [];
+    return (floodsFC.features || [])
+      .filter(f => f?.properties?.start_rn_id === selectedRoadId)
+      .map(f => {
+        const type = String(get_flood_type(f.properties));
+        return {
+          ...f,
+          type,
+          name: f.properties?.location || `${type} event`,
+          date: f.properties?.event_date || f.properties?.date,
+        };
+      })
+      .filter(f => floodEnabled[f.type]); // Only enabled types
+  }, [selectedRoadId, floodsFC, floodEnabled]);
+
   // Get road rank (1-based index in sorted list)
   const selectedRoadRank = useMemo(() => {
     if (!selectedRoadId) return null;
@@ -1524,6 +1560,9 @@ export default function Centrality() {
           amenityEnabled={amenityEnabled}
           floodEnabled={floodEnabled}
           allRoads={sortedByImportance}
+          amenityItems={selectedAmenityItems}
+          floodItems={selectedFloodItems}
+          mapInstance={mapInstance}
         />
       </div>
         {/* Right: Map */}

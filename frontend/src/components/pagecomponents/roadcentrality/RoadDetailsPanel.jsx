@@ -8,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { X } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
-export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {}, allRoads = [] }) {
+export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {}, allRoads = [], amenityItems = [], floodItems = [], mapInstance = null }) {
   // Show prompt if no road selected
   if (!road) {
     return (
@@ -59,6 +59,40 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
   };
 
   const slaCategory = getSLACategory ? getSLACategory(p.importance) : null;
+
+  // Handle clicking on an amenity/flood item to pan map
+  const handleItemClick = (item) => {
+    if (!mapInstance || !item.geometry) return;
+
+    // Get coordinates from geometry
+    let coords;
+    if (item.geometry.type === 'Point') {
+      coords = item.geometry.coordinates;
+    } else if (item.geometry.type === 'LineString' || item.geometry.type === 'MultiLineString') {
+      // For lines, get the midpoint
+      const coordinates = item.geometry.type === 'LineString'
+        ? item.geometry.coordinates
+        : item.geometry.coordinates[0];
+      const mid = Math.floor(coordinates.length / 2);
+      coords = coordinates[mid];
+    } else {
+      return; // Unsupported geometry type
+    }
+
+    // Pan to the item
+    mapInstance.flyTo({
+      center: coords,
+      zoom: 17,
+      duration: 1000
+    });
+
+    // Create and show popup
+    const popupContent = item.name || item.category || item.type || 'Unknown';
+    const popup = new window.mapboxgl.Popup({ closeButton: true, closeOnClick: true })
+      .setLngLat(coords)
+      .setHTML(`<div style="padding: 8px; font-weight: 600;">${popupContent}</div>`)
+      .addTo(mapInstance);
+  };
 
   const amenityBreakdown = useMemo(() => {
     if (!amenityCounts) return [];
@@ -179,19 +213,23 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
         <Accordion type="multiple" className="w-full">
           <AccordionItem value="amenities">
             <AccordionTrigger className="text-sm font-semibold">
-              Amenities ({p.amenity_count_total || 0})
+              Amenities ({amenityItems.length})
             </AccordionTrigger>
-            <AccordionContent>
-              {amenityBreakdown.length > 0 ? (
-                <ScrollArea className="h-48">
-                  <div className="space-y-1.5 pr-2">
-                    {amenityBreakdown.map(({ category, count }) => (
+            <AccordionContent className="space-y-2">
+              {amenityItems.length > 0 ? (
+                <ScrollArea className="h-56">
+                  <div className="space-y-1.5 pr-3">
+                    {amenityItems.map((item, idx) => (
                       <div
-                        key={category}
-                        className="flex items-center justify-between text-xs rounded px-3 py-2 bg-muted/50 hover:bg-muted transition-colors"
+                        key={idx}
+                        onClick={() => handleItemClick(item)}
+                        className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-muted/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer transition-colors border border-transparent hover:border-blue-300 dark:hover:border-blue-700"
                       >
-                        <span className="font-medium">{to_title_case(category)}</span>
-                        <span className="font-semibold text-blue-600 dark:text-blue-400">{count} items</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-foreground">{item.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{to_title_case(item.category)}</span>
+                        </div>
+                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">View on map</span>
                       </div>
                     ))}
                   </div>
@@ -199,27 +237,31 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
               ) : (
                 <p className="text-sm text-muted-foreground py-4">No amenities nearby</p>
               )}
-              <p className="text-xs text-muted-foreground mt-3 italic">
-                Note: Individual amenity item details require backend data integration
-              </p>
             </AccordionContent>
           </AccordionItem>
 
           <AccordionItem value="floods">
             <AccordionTrigger className="text-sm font-semibold">
-              Flood Events ({p.flood_count_total || 0})
+              Flood Events ({floodItems.length})
             </AccordionTrigger>
-            <AccordionContent>
-              {floodBreakdown.length > 0 ? (
-                <ScrollArea className="h-48">
-                  <div className="space-y-1.5 pr-2">
-                    {floodBreakdown.map(({ type, count }) => (
+            <AccordionContent className="space-y-2 pt-2">
+              {floodItems.length > 0 ? (
+                <ScrollArea className="h-56">
+                  <div className="space-y-2 pr-3">
+                    {floodItems.map((item, idx) => (
                       <div
-                        key={type}
-                        className="flex items-center justify-between text-xs rounded px-3 py-2 bg-muted/50 hover:bg-muted transition-colors"
+                        key={idx}
+                        onClick={() => handleItemClick(item)}
+                        className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-muted/50 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer transition-colors border border-transparent hover:border-orange-300 dark:hover:border-orange-700"
                       >
-                        <span className="font-medium">{to_title_case(type)}</span>
-                        <span className="font-semibold text-orange-600 dark:text-orange-400">{count} events</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-foreground">{item.name}</span>
+                          <div className="flex gap-2 text-[10px] text-muted-foreground">
+                            <span>{to_title_case(item.type)}</span>
+                            {item.date && <span>• {item.date}</span>}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold">View on map</span>
                       </div>
                     ))}
                   </div>
@@ -227,9 +269,6 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
               ) : (
                 <p className="text-sm text-muted-foreground py-4">No flood events recorded</p>
               )}
-              <p className="text-xs text-muted-foreground mt-3 italic">
-                Note: Individual flood event details require backend data integration
-              </p>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
