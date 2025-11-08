@@ -147,10 +147,10 @@ function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFi
 }
 
 /* ==================== compute per-PA stats ============= */
-function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter, selectedAmenityTypes = ["moh_hospitals"] }) {
+function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter, selectedAmenityType = "moh_hospitals" }) {
   const { nodes, adj } = graph;
-  const amenities = snapAmenitiesToNodes(amenity_fc_enriched, nodes, selectedAmenityTypes);
-  if (!amenities.length) throw new Error(`No amenities found for types: ${selectedAmenityTypes.join(", ")}`);
+  const amenities = snapAmenitiesToNodes(amenity_fc_enriched, nodes, [selectedAmenityType]);
+  if (!amenities.length) throw new Error(`No amenities found for type: ${selectedAmenityType}`);
 
   const amenityNodeIds = amenities.map(a => a.node_id);
   const { dist } = multiSourceDijkstra({ nodes, adj }, amenityNodeIds, onProgress, edgeFilter);
@@ -238,7 +238,7 @@ function downloadCSV(name, rows) {
 
 /* =============================== Page ================================= */
 export default function Simulation() {
-  const { road_fc_enriched, amenity_fc_enriched, planning_fc_raw, lookups, loading, error } = useMapData();
+  const { road_fc_enriched, amenity_fc_enriched, planning_fc_raw, flood_scenarios, lookups, loading, error } = useMapData();
 
   // Build graph
   const graph = useMemo(() => {
@@ -255,11 +255,14 @@ export default function Simulation() {
   const [step, setStep] = useState(1);
   const [floodInputMethod, setFloodInputMethod] = useState("manual"); // "manual" | "scenario"
   const [selectedScenario, setSelectedScenario] = useState("");
-  const [floodScenarios, setFloodScenarios] = useState([]);
 
-  // Amenity selection
-  const [selectedAmenityTypes, setSelectedAmenityTypes] = useState(["moh_hospitals"]);
+  // Amenity selection (single type only - for Step 3)
+  const [selectedAmenityType, setSelectedAmenityType] = useState("moh_hospitals");
+  const [amenitySearchTerm, setAmenitySearchTerm] = useState("");
   const [availableAmenities, setAvailableAmenities] = useState([]);
+
+  // Road filtering (for Step 3)
+  const [selectedPlanningArea, setSelectedPlanningArea] = useState("all");
 
   // Manual flood configuration
   const [floodMarkers, setFloodMarkers] = useState([]);
@@ -283,50 +286,12 @@ export default function Simulation() {
   const [selectedPA, setSelectedPA] = useState(null);
   const [hoveredPA, setHoveredPA] = useState(null);
 
-  // Load flood scenarios CSV
+  // Scenarios now loaded from context - no need to fetch here
   useEffect(() => {
-    console.log("Loading flood scenarios CSV...");
-    fetch("/map/road_network_flood_scenarios.csv")
-      .then(res => {
-        console.log("Scenarios CSV fetch response:", res.status);
-        return res.text();
-      })
-      .then(text => {
-        console.log("Scenarios CSV text length:", text.length);
-        const lines = text.trim().split("\n");
-        if (lines.length < 2) return;
-
-        const headers = lines[0].split(",");
-        const scenarioCol = headers.indexOf("flood_scenario");
-        const rnIdCol = headers.indexOf("RN_ID");
-        const nameCol = headers.indexOf("RD_NAME");
-
-        if (scenarioCol === -1 || rnIdCol === -1) return;
-
-        const byScenario = new Map();
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(",");
-          const scenario = cols[scenarioCol]?.trim();
-          const rn_id = toInt(cols[rnIdCol]);
-          const name = cols[nameCol]?.trim() || `Road ${rn_id}`;
-
-          if (!scenario || rn_id == null) continue;
-
-          if (!byScenario.has(scenario)) {
-            byScenario.set(scenario, []);
-          }
-          byScenario.get(scenario).push({ rn_id, name });
-        }
-
-        const scenarios = Array.from(byScenario.entries()).map(([name, roads]) => ({
-          name,
-          roads,
-        }));
-        setFloodScenarios(scenarios);
-        console.log("Loaded scenarios:", scenarios.length, scenarios);
-      })
-      .catch(err => console.error("Failed to load scenarios:", err));
-  }, []);
+    if (flood_scenarios?.length) {
+      console.log("Flood scenarios from context:", flood_scenarios.length, flood_scenarios);
+    }
+  }, [flood_scenarios]);
 
   // Reset markers when going back to step 1
   useEffect(() => {
@@ -339,7 +304,7 @@ export default function Simulation() {
     }
   }, [step]);
 
-  // Extract unique amenity types
+  // Extract unique amenity types (for Step 3 single selection)
   useEffect(() => {
     if (!amenity_fc_enriched?.features?.length) return;
 
@@ -355,18 +320,17 @@ export default function Simulation() {
     // Put moh_hospitals first
     const sorted = types.filter(t => t === "moh_hospitals").concat(types.filter(t => t !== "moh_hospitals"));
 
-    const amenitiesWithSelection = sorted.map(type => {
+    const amenities = sorted.map(type => {
       const count = amenity_fc_enriched.features.filter(f => f.properties?.amenity_type === type).length;
       return {
         type,
         label: type.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
         count,
-        selected: type === "moh_hospitals", // Default only moh_hospitals selected
       };
     });
 
-    setAvailableAmenities(amenitiesWithSelection);
-    console.log("Available amenity types:", amenitiesWithSelection);
+    setAvailableAmenities(amenities);
+    console.log("Available amenity types:", amenities);
   }, [amenity_fc_enriched]);
 
   // Initialize config map
@@ -427,18 +391,24 @@ export default function Simulation() {
     };
   }, [step, floodInputMethod]);
 
-  // Update config map markers
+  // Update config map markers with numbering
   useEffect(() => {
     const map = configMapRef.current;
     if (!map || !map.isStyleLoaded()) return;
 
-    const markerFeatures = floodMarkers.map(m => ({
+    // Remove existing marker popups/labels
+    const existingMarkers = document.getElementsByClassName('marker-label');
+    while (existingMarkers.length > 0) {
+      existingMarkers[0].remove();
+    }
+
+    const markerFeatures = floodMarkers.map((m, idx) => ({
       type: "Feature",
-      properties: { id: m.id },
+      properties: { id: m.id, number: idx + 1 },
       geometry: { type: "Point", coordinates: [m.lng, m.lat] },
     }));
 
-    const radiusFeatures = floodMarkers.map(m => {
+    const radiusFeatures = floodMarkers.map((m, idx) => {
       const radiusInKm = m.radius / 1000;
       const points = 64;
       const coords = [];
@@ -450,13 +420,25 @@ export default function Simulation() {
       }
       return {
         type: "Feature",
-        properties: { id: m.id },
+        properties: { id: m.id, number: idx + 1 },
         geometry: { type: "Polygon", coordinates: [coords] },
       };
     });
 
     map.getSource("markers")?.setData({ type: "FeatureCollection", features: markerFeatures });
     map.getSource("radius")?.setData({ type: "FeatureCollection", features: radiusFeatures });
+
+    // Add numbered labels for each marker
+    floodMarkers.forEach((m, idx) => {
+      const el = document.createElement('div');
+      el.className = 'marker-label';
+      el.textContent = String(idx + 1);
+      el.style.cssText = 'background: #ef4444; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white;';
+
+      new mapboxgl.Marker(el)
+        .setLngLat([m.lng, m.lat])
+        .addTo(map);
+    });
   }, [floodMarkers]);
 
   // Find affected roads
@@ -552,7 +534,7 @@ export default function Simulation() {
         amenity_fc_enriched,
         onProgress: (v) => setProgress(v),
         edgeFilter: null,
-        selectedAmenityTypes,
+        selectedAmenityType,
       });
       setBaselineStats(baseline);
 
@@ -563,7 +545,7 @@ export default function Simulation() {
         amenity_fc_enriched,
         onProgress: (v) => setProgress(v),
         edgeFilter,
-        selectedAmenityTypes,
+        selectedAmenityType,
       });
       setFloodedStats(flooded);
 
@@ -601,7 +583,7 @@ export default function Simulation() {
     } finally {
       setBusy(false);
     }
-  }, [ready, graph, amenity_fc_enriched, edgeFilter, selectedAmenityTypes]);
+  }, [ready, graph, amenity_fc_enriched, edgeFilter, selectedAmenityType]);
 
   // Initialize result maps
   useEffect(() => {
@@ -925,15 +907,65 @@ export default function Simulation() {
   const canProceedToStep2 = floodInputMethod === "manual" || (floodInputMethod === "scenario" && selectedScenario);
   const canProceedToStep3 = floodInputMethod === "scenario" ? !!selectedScenario : floodMarkers.length > 0;
 
-  // Filter roads by search term
+  // Filter roads by search term and planning area
   const filteredAffectedRoads = useMemo(() => {
-    if (!roadSearchTerm.trim()) return affectedRoads;
-    const term = roadSearchTerm.toLowerCase();
-    return affectedRoads.filter(r =>
-      r.name.toLowerCase().includes(term) ||
-      String(r.rn_id).includes(term)
+    let filtered = affectedRoads;
+
+    // Filter by planning area (for Step 3)
+    if (step === 3 && selectedPlanningArea !== "all") {
+      filtered = filtered.filter(road => {
+        // Find nodes connected to this road
+        for (const edge of graph.edges) {
+          if (edge.rn_id === road.rn_id) {
+            const nodeFrom = graph.nodes.get(edge.from);
+            const nodeTo = graph.nodes.get(edge.to);
+            if (nodeFrom?.paId === toInt(selectedPlanningArea) || nodeTo?.paId === toInt(selectedPlanningArea)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+    }
+
+    // Filter by search term
+    if (roadSearchTerm.trim()) {
+      const term = roadSearchTerm.toLowerCase();
+      filtered = filtered.filter(r =>
+        r.name.toLowerCase().includes(term) ||
+        String(r.rn_id).includes(term)
+      );
+    }
+
+    return filtered;
+  }, [affectedRoads, roadSearchTerm, selectedPlanningArea, step, graph]);
+
+  // Filter amenities by search term
+  const filteredAmenities = useMemo(() => {
+    if (!amenitySearchTerm.trim()) return availableAmenities;
+    const term = amenitySearchTerm.toLowerCase();
+    return availableAmenities.filter(a =>
+      a.label.toLowerCase().includes(term) ||
+      a.type.toLowerCase().includes(term)
     );
-  }, [affectedRoads, roadSearchTerm]);
+  }, [availableAmenities, amenitySearchTerm]);
+
+  // Get unique planning areas from roads
+  const planningAreasFromRoads = useMemo(() => {
+    const paSet = new Set();
+    for (const road of affectedRoads) {
+      for (const edge of graph.edges) {
+        if (edge.rn_id === road.rn_id) {
+          const nodeFrom = graph.nodes.get(edge.from);
+          const nodeTo = graph.nodes.get(edge.to);
+          if (nodeFrom?.paName) paSet.add(JSON.stringify({ id: nodeFrom.paId, name: nodeFrom.paName }));
+          if (nodeTo?.paName) paSet.add(JSON.stringify({ id: nodeTo.paId, name: nodeTo.paName }));
+        }
+      }
+    }
+    const areas = Array.from(paSet).map(s => JSON.parse(s)).sort((a, b) => a.name.localeCompare(b.name));
+    return [{ id: "all", name: "All Planning Areas" }, ...areas];
+  }, [affectedRoads, graph]);
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;

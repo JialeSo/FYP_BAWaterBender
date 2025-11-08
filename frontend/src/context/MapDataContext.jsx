@@ -529,6 +529,7 @@ function MapDataProvider({ children }) {
   const [floods_fc_raw, set_floods_raw] = useState(null);
   const [amenity_fc_raw, set_amenity_raw] = useState(null);
   const [category_lookup, set_category_lookup] = useState({ by_id: {}, by_name: {}, table: [] });
+  const [flood_scenarios, set_flood_scenarios] = useState([]);
 
   const [loading, set_loading] = useState(true);
   const [error, set_error] = useState("");
@@ -541,7 +542,7 @@ function MapDataProvider({ children }) {
         const [
           planning, subzone, road,
           floods_csv, amenity_csv,
-          category_csv
+          category_csv, scenarios_csv
         ] = await Promise.all([
           fetch("/map/planning_area.geojson").then(r => r.json()),
           fetch("/map/subzone_area.geojson").then(r => r.json()),
@@ -549,6 +550,7 @@ function MapDataProvider({ children }) {
           fetch("/map/floods_3layers.csv").then(r => r.text()),
           fetch("/map/amenities_3layers.csv").then(r => r.text()),
           fetch("/map/amenity_category_lookup_rows.csv").then(r => r.text()),
+          fetch("/map/road_network_flood_scenarios.csv").then(r => r.text()),
         ]);
 
         set_planning_raw(as_feature_collection(planning));
@@ -557,6 +559,33 @@ function MapDataProvider({ children }) {
         set_floods_raw(floods_csv_to_fc(floods_csv));
         set_amenity_raw(amenities_csv_to_fc(amenity_csv));
         set_category_lookup(build_category_lookup(category_csv));
+
+        // Parse flood scenarios
+        const { records } = parse_csv(scenarios_csv);
+        const byScenario = new Map();
+        for (const row of records) {
+          const scenario = row.flood_scenario?.trim();
+          const rn_id = to_int(row.RN_ID);
+          const name = row.RD_NAME?.trim() || `Road ${rn_id}`;
+          const pa_name = row.PLN_AREA_N?.trim();
+
+          if (!scenario || rn_id == null) continue;
+
+          if (!byScenario.has(scenario)) {
+            byScenario.set(scenario, []);
+          }
+          byScenario.get(scenario).push({ rn_id, name, pa_name });
+        }
+
+        const scenarios = Array.from(byScenario.entries()).map(([name, roads]) => ({
+          name,
+          roads,
+          description: name.includes("Historical") ?
+            `Simulates ${name.replace(/_/g, " ")} flood scenario affecting ${roads.length} roads across major arterial routes.` :
+            `${roads.length} roads affected in this scenario.`,
+        }));
+        set_flood_scenarios(scenarios);
+
       } catch (e) {
         console.error(e);
         set_error(e?.message || "failed to load map data.");
@@ -629,11 +658,12 @@ function MapDataProvider({ children }) {
       categories: category_lookup?.table?.length,
       floods_enriched: floods_fc_enriched?.features?.length,
       amenities_enriched: amenity_fc_enriched?.features?.length,
+      flood_scenarios: flood_scenarios?.length,
     });
   }, [
     planning_fc_raw, subzone_fc_raw, road_fc_raw,
     floods_fc_raw, amenity_fc_raw, category_lookup,
-    floods_fc_enriched, amenity_fc_enriched
+    floods_fc_enriched, amenity_fc_enriched, flood_scenarios
   ]);
 
   /* ========= context value ========= */
@@ -645,6 +675,7 @@ function MapDataProvider({ children }) {
     amenity_fc_raw,
     amenity_fc_enriched,   // ⬅️ expose enriched amenities
     category_lookup,
+    flood_scenarios,       // ⬅️ expose flood scenarios
     lookups,
     loading,
     error,
