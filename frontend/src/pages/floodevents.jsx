@@ -95,19 +95,19 @@ const METRIC_FILTER_CONFIG = [
     key: "impactInner",
     label: "Impact (Inner)",
     description: "Weighted amenity impact contributed by the inner catchment.",
-    step: 0.1,
+    step: 1,
   },
   {
     key: "impactOuter",
     label: "Impact (Outer)",
     description: "Weighted amenity impact contributed by the outer catchment.",
-    step: 0.1,
+    step: 1,
   },
   {
     key: "impactTotal",
     label: "Impact (Total)",
     description: "Total weighted amenity impact used in the index calculation.",
-    step: 0.1,
+    step: 1,
   },
 ];
 
@@ -359,16 +359,16 @@ function popup_html(p = {}) {
 /* ===== weights & scoring ===== */
 const default_weight_by_category = {
   community_spaces: 1,
-  education_institutions: 3,
+  education_institutions: 3.464,
   emergency_services: 5,
-  essential_services: 4,
-  government_services: 2,
-  healthcare_facilities: 5,
+  essential_services: 2,
+  government_services: 3.162,
+  healthcare_facilities: 4,
   others: 1,
-  residential: 2,
-  retail_services: 2,
+  residential: 3.162,
+  retail_services: 1,
   tourism: 1,
-  transport_services: 3,
+  transport_services: 3.742,
 };
 
 const AR_IMPACT_PRESETS = {
@@ -557,7 +557,7 @@ export default function floodevents() {
     return out;
   });
 
-  const [inner_mult, set_inner_mult] = useState(1.0);
+  const [inner_mult, set_inner_mult] = useState(2.0);
   const [outer_mult, set_outer_mult] = useState(0.5);
   const [w_betweenness, set_w_betweenness] = useState(0.4);
   const [w_closeness, set_w_closeness] = useState(0.4);
@@ -659,6 +659,14 @@ export default function floodevents() {
       const counts = { inner, outer, total: inner + outer };
       const impact_total = impact_inner + impact_outer;
 
+      // Calculate roads affected within distance rings
+      const roads_near = roads_within_rings(road_fc, [lng, lat], r_in, r_out);
+      const roads_counts = {
+        inner: roads_near.inner.length,
+        outer: roads_near.outer.length,
+        total: roads_near.inner.length + roads_near.outer.length
+      };
+
       let bnorm = 0, cnorm = 0;
       if (p.start_rn_id != null) {
         const rlist = roads_by_id.get(String(p.start_rn_id)) || [];
@@ -680,13 +688,14 @@ export default function floodevents() {
       out.set(id, {
         center: [lng, lat],
         counts,
+        roads_counts,
         impact: { inner: impact_inner, outer: impact_outer, total: impact_total },
         centrality: { bnorm, cnorm },
         scores: { amenity_score, ar_impact },
       });
     }
     return out;
-  }, [floods_fc, amenity_list, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity]);
+  }, [floods_fc, amenity_list, road_fc, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity]);
 
   function paint_selected_rings(center, r_in, r_out) {
   const map = map_ref.current;
@@ -740,6 +749,9 @@ export default function floodevents() {
         ring_inner: stats?.counts.inner ?? 0,
         ring_outer: stats?.counts.outer ?? 0,
         ring_total: stats?.counts.total ?? 0,
+        roads_inner: stats?.roads_counts?.inner ?? 0,
+        roads_outer: stats?.roads_counts?.outer ?? 0,
+        roads_total: stats?.roads_counts?.total ?? 0,
         impact_inner: +(stats?.impact.inner ?? 0).toFixed(2),
         impact_outer:  +(stats?.impact.outer ?? 0).toFixed(2),
         impact_total:  +(stats?.impact.total ?? 0).toFixed(2),
@@ -1540,9 +1552,9 @@ export default function floodevents() {
                                     }}
                                     min={1}
                                     max={10}
-                                    stepper={0.1}
-                                    decimalScale={1}
-                                    fixedDecimalScale={true}
+                                    stepper={1}
+                                    decimalScale={0}
+                                    fixedDecimalScale={false}
                                     disabled={!enabled}
                                   />
                                 </div>
@@ -1593,8 +1605,8 @@ export default function floodevents() {
                               <Input
                                 id="inner-mult"
                                 type="number"
-                                inputMode="decimal"
-                                step="0.1"
+                                inputMode="numeric"
+                                step="1"
                                 min={0}
                                 value={inner_mult}
                                 onChange={(e) => set_inner_mult(clamp(+e.target.value || 0, 0, 10))}
@@ -1628,8 +1640,8 @@ export default function floodevents() {
                               <Input
                                 id="outer-mult"
                                 type="number"
-                                inputMode="decimal"
-                                step="0.1"
+                                inputMode="numeric"
+                                step="1"
                                 min={0}
                                 value={outer_mult}
                                 onChange={(e) => set_outer_mult(clamp(+e.target.value || 0, 0, 10))}
@@ -1907,18 +1919,26 @@ export default function floodevents() {
                     {/* Stats */}
                     <div className="mt-3 pt-3 border-t space-y-1 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Road:</span>
+                        <span className="text-muted-foreground">Main Road:</span>
                         <span className="font-medium truncate ml-2" title={row.parent_road}>
-                          {row.parent_road ? (row.parent_road.length > 15 ? row.parent_road.slice(0, 15) + '...' : row.parent_road) : 'N/A'}
+                          {row.parent_road ? (row.parent_road.length > 12 ? row.parent_road.slice(0, 12) + '...' : row.parent_road) : 'N/A'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Amenities:</span>
-                        <span className="font-medium">{row.ring_total} total</span>
+                        <span className="font-medium">{row.ring_total}</span>
                       </div>
                       <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-muted-foreground">Inner/Outer:</span>
+                        <span className="text-muted-foreground">A (in/out):</span>
                         <span className="font-mono">{row.ring_inner}/{row.ring_outer}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Roads:</span>
+                        <span className="font-medium">{row.roads_total}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-muted-foreground">R (in/out):</span>
+                        <span className="font-mono">{row.roads_inner}/{row.roads_outer}</span>
                       </div>
                     </div>
                   </button>
