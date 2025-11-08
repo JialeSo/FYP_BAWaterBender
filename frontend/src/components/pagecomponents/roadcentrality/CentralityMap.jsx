@@ -30,11 +30,10 @@ const COLOR_METRICS = [
 ];
 
 const THICKNESS_METRICS = [
+  { value: "none", label: "None (Uniform)" },
   { value: "betweenness_norm", label: "Betweenness" },
   { value: "closeness_norm", label: "Closeness" },
   { value: "importance", label: "Importance" },
-  { value: "amenity_count_total", label: "Amenity Count" },
-  { value: "flood_count_total", label: "Flood Count" },
 ];
 
 // Function to create color expression based on metric
@@ -51,13 +50,16 @@ const createColorExpression = (metric) => {
 
 // Function to create width expression based on metric
 const createWidthExpression = (metric) => {
+  if (metric === "none") {
+    return 3; // Uniform width
+  }
   return [
     "interpolate", ["linear"], ["coalesce", ["to-number", ["get", metric]], 0],
     0, 1, 0.05, 1.5, 0.1, 2.5, 0.3, 4, 0.6, 6, 1, 8,
   ];
 };
 
-export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
+export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, getSLACategory }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const [colorMetric, setColorMetric] = useState("importance");
@@ -148,17 +150,21 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
         }
 
         const p = f.properties || {};
-        const name = p.name || p.ref || "unnamed segment";
+        const name = p.name || p.ref || "Unnamed Road";
+        const slaCategory = getSLACategory ? getSLACategory(p.importance) : "—";
         const html = `
-          <div style="font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; background:#0f172a; color:#e2e8f0; padding:8px; border-radius:8px;">
-            <div style="font-weight:600; margin-bottom:8px; color:#fff; font-size:13px;">${name}</div>
-            <div style="display:grid; grid-template-columns:auto auto; gap:6px 12px; font-size:11px;">
-              <div style="color:#94a3b8;">RN_ID</div><div style="color:#f1f5f9;">${p.RN_ID ?? "—"}</div>
+          <div style="font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; background:#0f172a; color:#e2e8f0; padding:10px; border-radius:8px;">
+            <div style="font-weight:600; margin-bottom:10px; color:#fff; font-size:14px; padding-bottom:8px; border-bottom:1px solid #1e293b;">${name}</div>
+            <div style="display:grid; grid-template-columns:auto auto; gap:8px 14px; font-size:11px;">
+              <div style="color:#94a3b8;">Road ID</div><div style="color:#f1f5f9;">${p.RN_ID ?? "—"}</div>
               <div style="color:#94a3b8;">Planning Area</div><div style="color:#f1f5f9;">${p.PLN_AREA_N ?? "—"}</div>
-              <div style="color:#94a3b8;">Importance</div><div style="color:#f1f5f9; font-weight:600;">${format_number(p.importance, 2) ?? "—"}</div>
-              <div style="color:#94a3b8;">SLA Priority</div><div style="color:#f1f5f9;">${format_number(p.sla_priority, 2) ?? "—"}</div>
+              <div style="color:#94a3b8;">Subzone</div><div style="color:#f1f5f9;">${p.SUBZONE_N ?? "—"}</div>
+              <div style="color:#94a3b8;">Importance</div><div style="color:#60a5fa; font-weight:700;">${format_number(p.importance, 2) ?? "—"}</div>
               <div style="color:#94a3b8;">Betweenness</div><div style="color:#f1f5f9;">${format_number(p.betweenness_norm, 4) ?? "—"}</div>
               <div style="color:#94a3b8;">Closeness</div><div style="color:#f1f5f9;">${format_number(p.closeness_norm, 4) ?? "—"}</div>
+              <div style="color:#94a3b8;">Amenity Count</div><div style="color:#f1f5f9;">${p.amenity_count_total ?? "0"}</div>
+              <div style="color:#94a3b8;">Flood Count</div><div style="color:#f1f5f9;">${p.flood_count_total ?? "0"}</div>
+              <div style="color:#94a3b8;">SLA Category</div><div style="color:#10b981; font-weight:600;">${slaCategory}</div>
             </div>
           </div>
         `;
@@ -171,6 +177,15 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
 
       map.on("mousemove", "roads", onMove);
       map.on("mouseleave", "roads", onLeave);
+
+      // Click handler
+      map.on("click", "roads", (e) => {
+        const f = e.features?.[0];
+        if (f && onRoadClick) {
+          const p = f.properties || {};
+          onRoadClick(p.RN_ID);
+        }
+      });
 
       try {
         map.resize();
@@ -269,58 +284,61 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
   }, [selectedRoadId, data]);
 
   const colorLabel = COLOR_METRICS.find(m => m.value === colorMetric)?.label || "Importance";
-  const thicknessLabel = THICKNESS_METRICS.find(m => m.value === thicknessMetric)?.label || "Betweenness";
+  const thicknessLabel = THICKNESS_METRICS.find(m => m.value === thicknessMetric)?.label || "None (Uniform)";
 
   return (
-    <div className="space-y-3">
-      {/* Metric Selection Dropdowns */}
-      <div className="flex items-center gap-4 p-3 rounded-xl bg-card border">
-        <div className="flex items-center gap-2">
-          <Label className="text-sm font-medium whitespace-nowrap">Map Color:</Label>
-          <Select value={colorMetric} onValueChange={setColorMetric}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {COLOR_METRICS.map((metric) => (
-                <SelectItem key={metric.value} value={metric.value}>
-                  {metric.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-sm font-medium whitespace-nowrap">Map Thickness:</Label>
-          <Select value={thicknessMetric} onValueChange={setThicknessMetric}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {THICKNESS_METRICS.map((metric) => (
-                <SelectItem key={metric.value} value={metric.value}>
-                  {metric.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="relative h-[60vh] min-h-[26rem] w-full rounded-2xl overflow-hidden bg-slate-950">
+      <div ref={containerRef} className="absolute inset-0 min-h-[560px]" />
+
+      {/* Metric Controls - Top Right */}
+      <div className="absolute top-4 right-4 z-10 space-y-2 pointer-events-auto">
+        <div className="rounded-xl bg-card/95 backdrop-blur-sm border p-3 shadow-lg space-y-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Color Metric</Label>
+            <Select value={colorMetric} onValueChange={setColorMetric}>
+              <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {COLOR_METRICS.map((metric) => (
+                  <SelectItem key={metric.value} value={metric.value}>
+                    {metric.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Thickness</Label>
+            <Select value={thicknessMetric} onValueChange={setThicknessMetric}>
+              <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {THICKNESS_METRICS.map((metric) => (
+                  <SelectItem key={metric.value} value={metric.value}>
+                    {metric.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
-      <div className="relative h-[60vh] min-h-[26rem] w-full rounded-2xl overflow-hidden bg-slate-950">
-        <div ref={containerRef} className="absolute inset-0 min-h-[560px]" />
-        {/* Dynamic Legend */}
-        <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-xl bg-card/95 backdrop-blur-sm border p-3 text-xs shadow-lg">
-          <p className="font-semibold mb-2">Legend</p>
-          <div className="space-y-2">
-            <div>
-              <p className="text-muted-foreground mb-1">Colour = {colorLabel}</p>
-              <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1d4ed8)" }} />
-              <div className="mt-1 flex justify-between text-muted-foreground text-[10px]">
-                <span>low</span>
-                <span>high</span>
-              </div>
+      {/* Dynamic Legend - Bottom Left */}
+      <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-xl bg-card/95 backdrop-blur-sm border p-3 text-xs shadow-lg">
+        <p className="font-semibold mb-2">Legend</p>
+        <div className="space-y-2">
+          <div>
+            <p className="text-muted-foreground mb-1">Colour = {colorLabel}</p>
+            <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1d4ed8)" }} />
+            <div className="mt-1 flex justify-between text-muted-foreground text-[10px]">
+              <span>low</span>
+              <span>high</span>
             </div>
+          </div>
+          {thicknessMetric !== "none" && (
             <div>
               <p className="text-muted-foreground mb-1">Thickness = {thicknessLabel}</p>
               <div className="space-y-1">
@@ -334,7 +352,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad }) {
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

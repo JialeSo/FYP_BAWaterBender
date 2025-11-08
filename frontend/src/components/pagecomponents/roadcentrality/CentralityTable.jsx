@@ -16,6 +16,7 @@ export function CentralityTable({
   allColumnDefs,
   defaultKeys = ["RN_ID", "name", "PLN_AREA_N", "importance", "sla_priority", "flood_count_total", "amenity_count_total", "betweenness_norm", "closeness_norm"],
   onRowClick,
+  selectedRoadId,
 }) {
   const [tableQ, setTableQ] = useState("");
   const [sortKey, setSortKey] = useState("importance");
@@ -226,10 +227,13 @@ export function CentralityTable({
               pageRows.map((f, i) => {
                 const p = f?.properties ?? {};
                 const key = p.RN_ID ?? p.osmid ?? i;
+                const isSelected = selectedRoadId === p.RN_ID;
                 return (
                   <tr
                     key={key}
-                    className="border-t hover:bg-muted/60 cursor-pointer transition-colors"
+                    className={`border-t hover:bg-muted/60 cursor-pointer transition-colors ${
+                      isSelected ? 'bg-primary/10 border-l-4 border-l-primary' : ''
+                    }`}
                     onClick={() => onRowClick && onRowClick(p.RN_ID)}
                     title="Click to view on map"
                   >

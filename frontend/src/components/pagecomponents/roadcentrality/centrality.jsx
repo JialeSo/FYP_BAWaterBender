@@ -1,7 +1,7 @@
 // src/pages/centrality.jsx
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useMapData } from "@/context/MapDataContext";
 
 /* shadcn ui */
@@ -477,19 +477,38 @@ export default function Centrality() {
    // Selected road state
   const [selectedRoadId, setSelectedRoadId] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
+  const mapSectionRef = useRef(null);
+
+  // Handle road selection with scroll to map
+  const handleRoadSelect = useCallback((roadId) => {
+    setSelectedRoadId(roadId);
+    // Scroll to map section smoothly
+    if (mapSectionRef.current) {
+      mapSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, []);
 
   
   // Calculate SLA tier for a road based on percentile
   const getSLATier = useCallback((importance) => {
     if (!useSLAMapping) return null;
-    
+
     const index = sortedByImportance.findIndex(f => f.properties.importance === importance);
     const percentile = (index / sortedByImportance.length) * 100;
-    
+
     if (percentile < slaTop1Year) return 1;
     if (percentile < slaTop1Year + slaNext3Year) return 3;
     return 5;
   }, [useSLAMapping, slaTop1Year, slaNext3Year, sortedByImportance]);
+
+  // Convert SLA tier to category label
+  const getSLACategory = useCallback((importance) => {
+    const tier = getSLATier(importance);
+    if (tier === 1) return "1-Year";
+    if (tier === 3) return "3-Year";
+    if (tier === 5) return "5-Year";
+    return "—";
+  }, [getSLATier]);
 
 
   
@@ -1288,11 +1307,15 @@ export default function Centrality() {
         floodCounts={selectedRoad ? floodTypeCountByRoad.get(selectedRoad.properties.RN_ID) : null}
       />
         {/* Right: Map */}
-        <CentralityMap
-          data={mapData}
-          selectedRoadId={selectedRoadId}
-          onMapLoad={setMapInstance}
-        />
+        <div ref={mapSectionRef}>
+          <CentralityMap
+            data={mapData}
+            selectedRoadId={selectedRoadId}
+            onMapLoad={setMapInstance}
+            onRoadClick={handleRoadSelect}
+            getSLACategory={getSLACategory}
+          />
+        </div>
       <section className="rounded-3xl border bg-card shadow-sm p-6">
         <div className="mb-4">
           <h2 className="text-lg font-semibold">All Segments</h2>
@@ -1307,7 +1330,8 @@ export default function Centrality() {
           totalPages={totalPages}
           onPageChange={setCurrentPage}
           allColumnDefs={allColumnDefs}
-          onRowClick={setSelectedRoadId}
+          onRowClick={handleRoadSelect}
+          selectedRoadId={selectedRoadId}
         />
       </section>
 
