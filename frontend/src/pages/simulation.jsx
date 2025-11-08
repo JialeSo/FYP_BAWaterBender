@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, MapPin, AlertTriangle, Play, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { X, MapPin, AlertTriangle, Play, Download } from "lucide-react";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
@@ -182,8 +183,11 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter 
     pa_name: a.pa_name,
     nodes: a.nodes,
     avg_s: a.nodes > 0 ? a.sum_s / a.nodes : null,
+    avg_min: a.nodes > 0 ? (a.sum_s / a.nodes) / 60 : null,
     min_s: Number.isFinite(a.min_s) ? a.min_s : null,
+    min_min: Number.isFinite(a.min_s) ? a.min_s / 60 : null,
     max_s: Number.isFinite(a.max_s) ? a.max_s : null,
+    max_min: Number.isFinite(a.max_s) ? a.max_s / 60 : null,
     unreachable: a.unreachable,
   }));
 
@@ -194,11 +198,28 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter 
 function getColorForDelta(deltaSeconds, maxDelta) {
   if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return "#d1d5db"; // gray
   const ratio = Math.min(1, deltaSeconds / maxDelta);
-  // Color scale: green → yellow → orange → red
   if (ratio < 0.25) return "#86efac"; // green-300
   if (ratio < 0.5) return "#fde047"; // yellow-300
   if (ratio < 0.75) return "#fb923c"; // orange-400
   return "#ef4444"; // red-500
+}
+
+/* ============================= CSV export ============================= */
+function toCSV(arr) {
+  if (!arr?.length) return "";
+  const headers = Object.keys(arr[0]);
+  const esc = (v) => (v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replaceAll('"','""')}"` : String(v));
+  const lines = [headers.join(",")];
+  for (const obj of arr) lines.push(headers.map(h => esc(obj[h])).join(","));
+  return lines.join("\n");
+}
+
+function downloadCSV(name, rows) {
+  const csv = toCSV(rows);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
 }
 
 /* =============================== Page ================================= */
@@ -230,12 +251,12 @@ export default function Simulation() {
   const [radiusMeters, setRadiusMeters] = useState(500);
 
   // Affected roads (with selection state)
-  const [affectedRoads, setAffectedRoads] = useState([]); // Array of { rn_id, name, coords, selected }
+  const [affectedRoads, setAffectedRoads] = useState([]);
 
   // Results
-  const [baselineStats, setBaselineStats] = useState(null); // { paStats, hospitalsCount, nodesCount }
+  const [baselineStats, setBaselineStats] = useState(null);
   const [floodedStats, setFloodedStats] = useState(null);
-  const [paDeltas, setPaDeltas] = useState([]); // Array of { pa_id, pa_name, delta_avg_s, ... }
+  const [paDeltas, setPaDeltas] = useState([]);
 
   // Initialize map
   useEffect(() => {
@@ -269,7 +290,7 @@ export default function Simulation() {
         data: { type: "FeatureCollection", features: [] },
       });
 
-      // Choropleth layer (planning areas colored by delta)
+      // Choropleth layer
       map.addLayer({
         id: "pa-choropleth-fill",
         type: "fill",
@@ -401,7 +422,7 @@ export default function Simulation() {
     });
   }, [floodMarkers, radiusMeters, initialized]);
 
-  // Find affected roads when flood markers or radius change
+  // Find affected roads
   const findAffectedRoads = useCallback(() => {
     if (!floodMarkers.length) {
       setAffectedRoads([]);
@@ -418,7 +439,6 @@ export default function Simulation() {
     for (const e of graph.edges) {
       if (e.rn_id == null || seenRnIds.has(e.rn_id)) continue;
 
-      // Check if any vertex is within radius of any flood marker
       let affected = false;
       if (Array.isArray(e.coords)) {
         for (const pt of e.coords) {
@@ -439,7 +459,7 @@ export default function Simulation() {
           rn_id: e.rn_id,
           name: props.name ?? props.NAME ?? `Road ${e.rn_id}`,
           coords: e.coords,
-          selected: true, // Default: selected for blocking
+          selected: true,
         });
       }
     }
@@ -469,13 +489,13 @@ export default function Simulation() {
     });
   }, [affectedRoads, initialized]);
 
-  // Build edge filter based on selected affected roads
+  // Build edge filter
   const edgeFilter = useMemo(() => {
     const selectedRnIds = new Set(affectedRoads.filter(r => r.selected).map(r => r.rn_id));
     if (!selectedRnIds.size) return null;
 
     return (e) => {
-      if (e.rn_id != null && selectedRnIds.has(e.rn_id)) return false; // block this edge
+      if (e.rn_id != null && selectedRnIds.has(e.rn_id)) return false;
       return true;
     };
   }, [affectedRoads]);
@@ -515,7 +535,7 @@ export default function Simulation() {
       });
       setFloodedStats(stats);
 
-      // Calculate deltas per PA
+      // Calculate deltas
       const baseByName = new Map();
       for (const pa of baselineStats.paStats) {
         baseByName.set(pa.pa_name, pa);
@@ -534,15 +554,19 @@ export default function Simulation() {
           pa_id: paFlood.pa_id,
           pa_name: paFlood.pa_name,
           base_avg_s: paBase.avg_s,
+          base_avg_min: paBase.avg_min,
           flood_avg_s: paFlood.avg_s,
+          flood_avg_min: paFlood.avg_min,
           delta_avg_s,
+          delta_avg_min: delta_avg_s / 60,
           delta_max_s,
+          delta_max_min: delta_max_s / 60,
           delta_unreachable,
         });
       }
       setPaDeltas(deltas);
 
-      // Update choropleth map
+      // Update choropleth
       const map = map_ref.current;
       if (map && initialized && lookups?.planning) {
         const maxDelta = Math.max(...deltas.map(d => d.delta_avg_s || 0), 1);
@@ -619,289 +643,319 @@ export default function Simulation() {
   const selectedRoadsCount = affectedRoads.filter(r => r.selected).length;
 
   return (
-    <div className="flex h-full w-full">
-      {/* Left Sidebar */}
-      <div className="w-96 border-r bg-card flex flex-col overflow-hidden">
-        <div className="p-6 border-b">
-          <h1 className="text-2xl font-semibold tracking-tight">Flood Simulation</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Visualize planning area impact with choropleth map
-          </p>
-        </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100%" }}>
+      {/* Top Row: Map + Controls */}
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        {/* Left Sidebar */}
+        <div style={{ width: "384px", borderRight: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div className="p-6 border-b">
+            <h1 className="text-2xl font-semibold tracking-tight">Flood Simulation</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Choropleth map showing planning area impact
+            </p>
+          </div>
 
-        <ScrollArea className="flex-1">
-          <div className="p-6 space-y-6">
-            {/* Step 1: Baseline */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Step 1: Compute Baseline</CardTitle>
-                <CardDescription>Calculate normal hospital accessibility</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={computeBaseline}
-                  disabled={!ready || busy}
-                  className="w-full"
-                >
-                  {busy && !baselineStats ? "Computing…" : baselineStats ? "✓ Baseline Complete" : "Compute Baseline"}
-                </Button>
-
-                {baselineStats && (
-                  <div className="mt-4 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Planning Areas:</span>
-                      <span className="font-semibold">{baselineStats.paStats.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Nodes:</span>
-                      <span className="font-semibold">{baselineStats.nodesCount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Hospitals:</span>
-                      <span className="font-semibold">{baselineStats.hospitalsCount}</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Step 2: Mark Flood Locations */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Step 2: Mark Flood Locations</CardTitle>
-                <CardDescription>Click on map to add flood markers</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Radius Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">Flood Radius</Label>
-                    <span className="text-sm font-semibold">{radiusMeters}m</span>
-                  </div>
-                  <Slider
-                    value={[radiusMeters]}
-                    min={100}
-                    max={2000}
-                    step={50}
-                    onValueChange={(v) => setRadiusMeters(v[0])}
-                  />
-                </div>
-
-                {/* Marker List */}
-                <div className="space-y-2">
-                  <Label className="text-sm">
-                    Flood Markers ({floodMarkers.length})
-                  </Label>
-                  {floodMarkers.length === 0 ? (
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                      <MapPin className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-xs text-muted-foreground">
-                        Click on map to add locations
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-32 overflow-auto">
-                      {floodMarkers.map((m) => (
-                        <div key={m.id} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3 text-red-500" />
-                            <div className="text-xs font-mono">
-                              {m.lng.toFixed(4)}, {m.lat.toFixed(4)}
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeMarker(m.id)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {floodMarkers.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearAll}
-                      className="w-full"
-                    >
-                      Clear All
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Step 3: Select Affected Roads */}
-            {affectedRoads.length > 0 && (
+          <ScrollArea style={{ flex: 1 }}>
+            <div className="p-6 space-y-6">
+              {/* Step 1 */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Step 3: Select Affected Roads</CardTitle>
-                  <CardDescription>
-                    {selectedRoadsCount} of {affectedRoads.length} roads selected
-                  </CardDescription>
+                  <CardTitle className="text-base">Step 1: Compute Baseline</CardTitle>
+                  <CardDescription>Calculate normal hospital accessibility</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => selectAllRoads(true)}
-                      className="flex-1"
-                    >
-                      Select All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => selectAllRoads(false)}
-                      className="flex-1"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-
-                  <ScrollArea className="h-48 border rounded-md p-2">
-                    <div className="space-y-2">
-                      {affectedRoads.map((road) => (
-                        <div key={road.rn_id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`road-${road.rn_id}`}
-                            checked={road.selected}
-                            onCheckedChange={() => toggleRoadSelection(road.rn_id)}
-                          />
-                          <label
-                            htmlFor={`road-${road.rn_id}`}
-                            className="text-xs flex-1 cursor-pointer"
-                          >
-                            {road.name}
-                          </label>
-                        </div>
-                      ))}
+                <CardContent>
+                  <Button onClick={computeBaseline} disabled={!ready || busy} className="w-full">
+                    {busy && !baselineStats ? "Computing…" : baselineStats ? "✓ Baseline Complete" : "Compute Baseline"}
+                  </Button>
+                  {baselineStats && (
+                    <div className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Planning Areas:</span>
+                        <span className="font-semibold">{baselineStats.paStats.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Nodes:</span>
+                        <span className="font-semibold">{baselineStats.nodesCount.toLocaleString()}</span>
+                      </div>
                     </div>
-                  </ScrollArea>
+                  )}
                 </CardContent>
               </Card>
-            )}
 
-            {/* Step 4: Run Simulation */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Step 4: Run Simulation</CardTitle>
-                <CardDescription>Compute flooded scenario & show choropleth</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button
-                  onClick={computeFlooded}
-                  disabled={!ready || !baselineStats || selectedRoadsCount === 0 || busy}
-                  className="w-full"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  {busy && floodedStats !== null ? "Computing…" : "Run Flood Simulation"}
-                </Button>
-
-                {busy && (
+              {/* Step 2 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Step 2: Mark Flood Locations</CardTitle>
+                  <CardDescription>Click on map to add markers</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="text-xs text-muted-foreground">
-                      Running Dijkstra… {progress.toLocaleString()} nodes
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Flood Radius</Label>
+                      <span className="text-sm font-semibold">{radiusMeters}m</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded bg-muted">
-                      <div className="h-2 bg-primary transition-all" style={{ width: "50%" }} />
-                    </div>
+                    <Slider
+                      value={[radiusMeters]}
+                      min={100}
+                      max={2000}
+                      step={50}
+                      onValueChange={(v) => setRadiusMeters(v[0])}
+                    />
                   </div>
-                )}
-
-                {floodedStats && paDeltas.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                      <span className="font-semibold text-sm">Top Affected Planning Areas</span>
-                    </div>
-                    <ScrollArea className="h-48">
-                      <div className="space-y-2">
-                        {paDeltas
-                          .filter(d => d.delta_avg_s > 0)
-                          .sort((a, b) => b.delta_avg_s - a.delta_avg_s)
-                          .slice(0, 10)
-                          .map((pa) => (
-                            <div key={pa.pa_id} className="border rounded-lg p-2">
-                              <div className="font-semibold text-xs">{pa.pa_name}</div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Δ Avg: <span className="text-red-600 font-semibold">+{fmtM(pa.delta_avg_s)}</span>
-                              </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Markers ({floodMarkers.length})</Label>
+                    {floodMarkers.length === 0 ? (
+                      <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                        <MapPin className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-xs text-muted-foreground">Click map to add</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-32 overflow-auto">
+                        {floodMarkers.map((m) => (
+                          <div key={m.id} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-3 w-3 text-red-500" />
+                              <div className="text-xs font-mono">{m.lng.toFixed(4)}, {m.lat.toFixed(4)}</div>
                             </div>
-                          ))}
+                            <Button size="sm" variant="ghost" onClick={() => removeMarker(m.id)} className="h-6 w-6 p-0">
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {floodMarkers.length > 0 && (
+                      <Button variant="outline" size="sm" onClick={clearAll} className="w-full">Clear All</Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Step 3 */}
+              {affectedRoads.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Step 3: Select Roads</CardTitle>
+                    <CardDescription>{selectedRoadsCount} of {affectedRoads.length} selected</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => selectAllRoads(true)} className="flex-1">Select All</Button>
+                      <Button variant="outline" size="sm" onClick={() => selectAllRoads(false)} className="flex-1">Clear All</Button>
+                    </div>
+                    <ScrollArea className="h-48 border rounded-md p-2">
+                      <div className="space-y-2">
+                        {affectedRoads.map((road) => (
+                          <div key={road.rn_id} className="flex items-center space-x-2">
+                            <Checkbox id={`road-${road.rn_id}`} checked={road.selected} onCheckedChange={() => toggleRoadSelection(road.rn_id)} />
+                            <label htmlFor={`road-${road.rn_id}`} className="text-xs flex-1 cursor-pointer">{road.name}</label>
+                          </div>
+                        ))}
                       </div>
                     </ScrollArea>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </ScrollArea>
-      </div>
+                  </CardContent>
+                </Card>
+              )}
 
-      {/* Right - Map */}
-      <div className="flex-1 relative h-full">
-        <div ref={container_ref} className="absolute inset-0" />
-
-        {/* Color Legend */}
-        {paDeltas.length > 0 && (
-          <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 space-y-2">
-            <div className="font-semibold text-xs">Avg Time Increase</div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }} />
-                <span className="text-xs">Low (0-25%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }} />
-                <span className="text-xs">Medium (25-50%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }} />
-                <span className="text-xs">High (50-75%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }} />
-                <span className="text-xs">Severe (75-100%)</span>
-              </div>
+              {/* Step 4 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Step 4: Run Simulation</CardTitle>
+                  <CardDescription>Compute flood impact</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button onClick={computeFlooded} disabled={!ready || !baselineStats || selectedRoadsCount === 0 || busy} className="w-full">
+                    <Play className="h-4 w-4 mr-2" />
+                    {busy && floodedStats !== null ? "Computing…" : "Run Simulation"}
+                  </Button>
+                  {busy && (
+                    <div className="space-y-2">
+                      <div className="text-xs text-muted-foreground">Running… {progress.toLocaleString()} nodes</div>
+                      <div className="h-2 w-full overflow-hidden rounded bg-muted">
+                        <div className="h-2 bg-primary transition-all" style={{ width: "50%" }} />
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          </div>
-        )}
-
-        {/* Map Legend */}
-        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 space-y-2 text-xs">
-          <div className="font-semibold">Map Legend</div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white" />
-            <span>Flood Location</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-red-500" />
-            <span>Blocked Roads</span>
-          </div>
+          </ScrollArea>
         </div>
 
-        {/* Instructions */}
-        {!baselineStats && (
-          <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md pointer-events-auto">
-              <h3 className="font-semibold text-lg mb-2">Getting Started</h3>
-              <ol className="space-y-2 text-sm text-muted-foreground">
-                <li>1. Compute baseline accessibility</li>
-                <li>2. Click map to mark flood locations</li>
-                <li>3. Review and select affected roads</li>
-                <li>4. Run simulation to see choropleth map</li>
-              </ol>
+        {/* Map */}
+        <div style={{ flex: 1, position: "relative" }}>
+          <div ref={container_ref} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+
+          {/* Choropleth Legend */}
+          {paDeltas.length > 0 && (
+            <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 space-y-2">
+              <div className="font-semibold text-xs">Avg Time Increase</div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }} />
+                  <span className="text-xs">Low</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }} />
+                  <span className="text-xs">Medium</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }} />
+                  <span className="text-xs">High</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }} />
+                  <span className="text-xs">Severe</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Map Legend */}
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 space-y-2 text-xs">
+            <div className="font-semibold">Map Legend</div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white" />
+              <span>Flood Location</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-red-500" />
+              <span>Blocked Roads</span>
             </div>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Bottom Row: Results Tables */}
+      {paDeltas.length > 0 && (
+        <div style={{ height: "40vh", borderTop: "1px solid #e5e7eb", display: "flex", flexDirection: "column" }}>
+          <Tabs defaultValue="deltas" className="flex-1 flex flex-col">
+            <div className="border-b px-6 pt-4">
+              <TabsList>
+                <TabsTrigger value="deltas">Planning Area Deltas</TabsTrigger>
+                <TabsTrigger value="baseline">Baseline Stats</TabsTrigger>
+                <TabsTrigger value="flooded">Flooded Stats</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="deltas" className="flex-1 overflow-auto m-0 p-0">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold">Planning Area Delta Comparison</h3>
+                  <Button size="sm" variant="outline" onClick={() => downloadCSV("pa_deltas.csv", paDeltas)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+                <div className="border rounded-lg overflow-auto max-h-[calc(40vh-8rem)]">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-muted">
+                      <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
+                        <th>Planning Area</th>
+                        <th>Base Avg (min)</th>
+                        <th>Flood Avg (min)</th>
+                        <th>Δ Avg (min)</th>
+                        <th>Δ Max (min)</th>
+                        <th>Δ Unreachable</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paDeltas
+                        .sort((a, b) => (b.delta_avg_s || 0) - (a.delta_avg_s || 0))
+                        .map((d, i) => (
+                          <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
+                            <td className="font-medium">{d.pa_name}</td>
+                            <td>{fmtM(d.base_avg_s)}</td>
+                            <td>{fmtM(d.flood_avg_s)}</td>
+                            <td className={d.delta_avg_s > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_avg_s > 0 ? `+${fmtM(d.delta_avg_s)}` : fmtM(d.delta_avg_s)}</td>
+                            <td className={d.delta_max_s > 0 ? "text-red-600" : ""}>{d.delta_max_s > 0 ? `+${fmtM(d.delta_max_s)}` : fmtM(d.delta_max_s)}</td>
+                            <td>{d.delta_unreachable}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="baseline" className="flex-1 overflow-auto m-0 p-0">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold">Baseline Statistics (No Flooding)</h3>
+                  <Button size="sm" variant="outline" onClick={() => downloadCSV("baseline_stats.csv", baselineStats.paStats)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+                <div className="border rounded-lg overflow-auto max-h-[calc(40vh-8rem)]">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-muted">
+                      <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
+                        <th>Planning Area</th>
+                        <th>Nodes</th>
+                        <th>Avg (min)</th>
+                        <th>Min (min)</th>
+                        <th>Max (min)</th>
+                        <th>Unreachable</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {baselineStats.paStats.map((pa, i) => (
+                        <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
+                          <td className="font-medium">{pa.pa_name}</td>
+                          <td>{pa.nodes}</td>
+                          <td>{fmtM(pa.avg_s)}</td>
+                          <td>{fmtM(pa.min_s)}</td>
+                          <td>{fmtM(pa.max_s)}</td>
+                          <td>{pa.unreachable}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="flooded" className="flex-1 overflow-auto m-0 p-0">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold">Flooded Scenario Statistics</h3>
+                  <Button size="sm" variant="outline" onClick={() => downloadCSV("flooded_stats.csv", floodedStats.paStats)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+                <div className="border rounded-lg overflow-auto max-h-[calc(40vh-8rem)]">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-muted">
+                      <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
+                        <th>Planning Area</th>
+                        <th>Nodes</th>
+                        <th>Avg (min)</th>
+                        <th>Min (min)</th>
+                        <th>Max (min)</th>
+                        <th>Unreachable</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {floodedStats.paStats.map((pa, i) => (
+                        <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
+                          <td className="font-medium">{pa.pa_name}</td>
+                          <td>{pa.nodes}</td>
+                          <td>{fmtM(pa.avg_s)}</td>
+                          <td>{fmtM(pa.min_s)}</td>
+                          <td>{fmtM(pa.max_s)}</td>
+                          <td>{pa.unreachable}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
     </div>
   );
 }
