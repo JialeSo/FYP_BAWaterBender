@@ -753,8 +753,8 @@ export default function Simulation() {
         // Call initially with the current selected metric
         window.updateChoroplethData(selectedMetric);
 
-        // Update blocked roads layer
-        const updateBlockedRoadsLayer = () => {
+        // Update blocked roads layer - make it accessible globally for restoring
+        window.updateBlockedRoadsLayer = () => {
           // Get blocked roads from either manual mode or scenario mode
           let blockedRnIds = new Set();
           if (floodInputMethod === "manual") {
@@ -895,6 +895,12 @@ export default function Simulation() {
               });
             }
 
+            // Hide blocked roads layer when viewing a specific planning area
+            map.getSource("blocked-roads")?.setData({
+              type: "FeatureCollection",
+              features: [],
+            });
+
             // Get amenities for calculating accessibility
             const amenities = snapAmenitiesToNodes(amenity_fc_enriched, graph.nodes, [selectedAmenityType], excludedAmenities);
             const amenityNodeIds = new Set(amenities.map(a => a.node_id));
@@ -1030,6 +1036,41 @@ export default function Simulation() {
           }
         });
 
+        // Click handler to exit planning area view (restore full map)
+        map.on("click", (e) => {
+          // Check if we clicked on a choropleth feature (if so, the above handler will fire)
+          const features = map.queryRenderedFeatures(e.point, { layers: ["choropleth-fill"] });
+
+          // Only exit if we didn't click on a choropleth feature AND we have a selected PA
+          if (features.length === 0 && selectedPA) {
+            // Clear selection state
+            map.removeFeatureState({ source: "choropleth", id: selectedPA.pa_id });
+            setSelectedPA(null);
+
+            // Restore full choropleth
+            if (window.updateChoroplethData) {
+              window.updateChoroplethData(selectedMetric);
+            }
+
+            // Clear roads layer
+            map.getSource("roads")?.setData({
+              type: "FeatureCollection",
+              features: [],
+            });
+
+            // Restore blocked roads layer
+            if (window.updateBlockedRoadsLayer) {
+              window.updateBlockedRoadsLayer();
+            }
+
+            // Reset zoom to show full map
+            map.fitBounds([
+              [103.6, 1.15],  // Southwest coordinates
+              [104.1, 1.47]   // Northeast coordinates
+            ], { padding: 20 });
+          }
+        });
+
         // Road hover tooltip
         map.on("mousemove", "roads-line", (e) => {
           if (e.features && e.features.length > 0) {
@@ -1097,8 +1138,9 @@ export default function Simulation() {
         resultMapRef.current.remove(); 
         resultMapRef.current = null; 
       }
-      // Clean up the global function
+      // Clean up the global functions
       delete window.updateChoroplethData;
+      delete window.updateBlockedRoadsLayer;
     };
   }, [step, baselineStats, floodedStats, paDeltas, planning_fc_raw, graph, selectedAmenityType, excludedAmenities, amenity_fc_enriched, floodInputMethod, affectedRoads, selectedScenario, flood_scenarios]);
 
@@ -1912,6 +1954,17 @@ export default function Simulation() {
                         <div className="flex items-center gap-2">
                           <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
                           <span className="text-xs">Very High (75-100%)</span>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Separator and Blocked Roads indicator (only when not viewing a specific planning area) */}
+                    {!selectedPA && (
+                      <>
+                        <div style={{ width: '1px', height: '24px', backgroundColor: '#d1d5db' }}></div>
+                        <div className="flex items-center gap-2">
+                          <div style={{ width: '24px', height: '3px', backgroundColor: '#ef4444', opacity: 0.6 }}></div>
+                          <span className="text-xs font-medium">Flooded Roads</span>
                         </div>
                       </>
                     )}
