@@ -84,13 +84,18 @@ function buildGraph(road_fc) {
   return { nodes, adj, edges };
 }
 
-/* ================== snap hospitals ============== */
-function snapHospitalsToNodes(amenity_fc, nodes) {
-  const hospitals = [];
+/* ================== snap amenities to nodes ============== */
+function snapAmenitiesToNodes(amenity_fc, nodes, selectedTypes = ["moh_hospitals"]) {
+  const amenities = [];
   const nodeArr = Array.from(nodes.values());
+
   for (const f of amenity_fc?.features || []) {
     const p = f.properties || {};
-    if (String(p.amenity_type).toLowerCase() !== "moh_hospitals") continue;
+    const amenityType = String(p.amenity_type || "").trim();
+
+    // Filter by selected types
+    if (!selectedTypes.includes(amenityType)) continue;
+
     const pt = f.geometry?.coordinates;
     if (!pt || !Number.isFinite(+pt[0]) || !Number.isFinite(+pt[1])) continue;
 
@@ -99,16 +104,18 @@ function snapHospitalsToNodes(amenity_fc, nodes) {
       const d2 = dist2(pt, n.coord);
       if (best == null || d2 < best.d2) best = { nodeId: n.id, d2, node: n };
     }
+
     if (best) {
-      hospitals.push({
-        hosp_id: p.amenity_id ?? String(hospitals.length),
-        hosp_name: p.amenity_name ?? "hospital",
+      amenities.push({
+        amenity_id: p.amenity_id ?? String(amenities.length),
+        amenity_name: p.amenity_name ?? amenityType,
+        amenity_type: amenityType,
         node_id: best.nodeId,
         pt,
       });
     }
   }
-  return hospitals;
+  return amenities;
 }
 
 /* ======================== dijkstra ======================= */
@@ -140,13 +147,13 @@ function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFi
 }
 
 /* ==================== compute per-PA stats ============= */
-function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter }) {
+function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter, selectedAmenityTypes = ["moh_hospitals"] }) {
   const { nodes, adj } = graph;
-  const hospitals = snapHospitalsToNodes(amenity_fc_enriched, nodes);
-  if (!hospitals.length) throw new Error("No moh_hospitals found.");
+  const amenities = snapAmenitiesToNodes(amenity_fc_enriched, nodes, selectedAmenityTypes);
+  if (!amenities.length) throw new Error(`No amenities found for types: ${selectedAmenityTypes.join(", ")}`);
 
-  const hospitalNodeIds = hospitals.map(h => h.node_id);
-  const { dist } = multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFilter);
+  const amenityNodeIds = amenities.map(a => a.node_id);
+  const { dist } = multiSourceDijkstra({ nodes, adj }, amenityNodeIds, onProgress, edgeFilter);
 
   const byPA = new Map();
   for (const n of nodes.values()) {
@@ -187,7 +194,7 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter 
     unreachable: a.unreachable,
   }));
 
-  return { paStats, hospitalsCount: hospitals.length, nodesCount: nodes.size };
+  return { paStats, amenitiesCount: amenities.length, nodesCount: nodes.size };
 }
 
 /* ============================= Color scale ============================ */
@@ -249,6 +256,10 @@ export default function Simulation() {
   const [floodInputMethod, setFloodInputMethod] = useState("manual"); // "manual" | "scenario"
   const [selectedScenario, setSelectedScenario] = useState("");
   const [floodScenarios, setFloodScenarios] = useState([]);
+
+  // Amenity selection
+  const [selectedAmenityTypes, setSelectedAmenityTypes] = useState(["moh_hospitals"]);
+  const [availableAmenities, setAvailableAmenities] = useState([]);
 
   // Manual flood configuration
   const [floodMarkers, setFloodMarkers] = useState([]);
@@ -327,6 +338,36 @@ export default function Simulation() {
       setHoveredPA(null);
     }
   }, [step]);
+
+  // Extract unique amenity types
+  useEffect(() => {
+    if (!amenity_fc_enriched?.features?.length) return;
+
+    const typeSet = new Set();
+    for (const f of amenity_fc_enriched.features) {
+      const type = f.properties?.amenity_type;
+      if (type && type.trim()) {
+        typeSet.add(type.trim());
+      }
+    }
+
+    const types = Array.from(typeSet).sort();
+    // Put moh_hospitals first
+    const sorted = types.filter(t => t === "moh_hospitals").concat(types.filter(t => t !== "moh_hospitals"));
+
+    const amenitiesWithSelection = sorted.map(type => {
+      const count = amenity_fc_enriched.features.filter(f => f.properties?.amenity_type === type).length;
+      return {
+        type,
+        label: type.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+        count,
+        selected: type === "moh_hospitals", // Default only moh_hospitals selected
+      };
+    });
+
+    setAvailableAmenities(amenitiesWithSelection);
+    console.log("Available amenity types:", amenitiesWithSelection);
+  }, [amenity_fc_enriched]);
 
   // Initialize config map
   useEffect(() => {
@@ -511,6 +552,7 @@ export default function Simulation() {
         amenity_fc_enriched,
         onProgress: (v) => setProgress(v),
         edgeFilter: null,
+        selectedAmenityTypes,
       });
       setBaselineStats(baseline);
 
@@ -521,6 +563,7 @@ export default function Simulation() {
         amenity_fc_enriched,
         onProgress: (v) => setProgress(v),
         edgeFilter,
+        selectedAmenityTypes,
       });
       setFloodedStats(flooded);
 
@@ -558,7 +601,7 @@ export default function Simulation() {
     } finally {
       setBusy(false);
     }
-  }, [ready, graph, amenity_fc_enriched, edgeFilter]);
+  }, [ready, graph, amenity_fc_enriched, edgeFilter, selectedAmenityTypes]);
 
   // Initialize result maps
   useEffect(() => {
@@ -927,38 +970,109 @@ export default function Simulation() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {/* Step 1: Choose Method */}
+        {/* Step 1: Choose Method & Amenities */}
         {step === 1 && (
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>How would you like to define the flood event?</CardTitle>
-              <CardDescription>Choose between predefined scenarios or manually marking locations</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <RadioGroup value={floodInputMethod} onValueChange={setFloodInputMethod}>
-                <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50" onClick={() => setFloodInputMethod("scenario")}>
-                  <RadioGroupItem value="scenario" id="scenario" />
-                  <div className="flex-1">
-                    <Label htmlFor="scenario" className="cursor-pointer font-semibold">Use Predefined Scenario</Label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Select from historical flood scenarios (e.g., Historical_highest60mins)
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50" onClick={() => setFloodInputMethod("manual")}>
-                  <RadioGroupItem value="manual" id="manual" />
-                  <div className="flex-1">
-                    <Label htmlFor="manual" className="cursor-pointer font-semibold">Manually Mark Locations</Label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Click on map to add flood markers and configure radius for each
-                    </p>
-                  </div>
-                </div>
-              </RadioGroup>
+          <div className="max-w-4xl mx-auto space-y-4">
+            {/* Info Panel */}
+            <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                  What does this simulation do?
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p>
+                  This tool simulates the impact of flooding on <strong>accessibility to essential amenities</strong> across Singapore's planning areas.
+                </p>
+                <p>
+                  <strong>How it works:</strong>
+                </p>
+                <ul className="list-disc pl-6 space-y-1">
+                  <li>Define flood locations (manually or using historical scenarios)</li>
+                  <li>Mark which roads become impassable due to flooding</li>
+                  <li>Calculate the shortest travel time from each planning area to selected amenities (default: hospitals)</li>
+                  <li>Compare baseline accessibility vs. flooded scenario to see impact</li>
+                </ul>
+                <p className="font-semibold text-blue-800 dark:text-blue-300">
+                  The result shows which planning areas are most affected by loss of accessibility and increased travel times.
+                </p>
+              </CardContent>
+            </Card>
 
-              {floodInputMethod === "scenario" && (
-                <div className="mt-4 space-y-2">
-                  <Label>Select Scenario</Label>
+            {/* Amenity Selection */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Select Amenity Types to Analyze</CardTitle>
+                <CardDescription>Choose which amenities to measure accessibility to (MOH Hospitals selected by default)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48 border rounded-lg p-3">
+                  <div className="space-y-2">
+                    {availableAmenities.map((amenity) => (
+                      <div key={amenity.type} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`amenity-${amenity.type}`}
+                          checked={selectedAmenityTypes.includes(amenity.type)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedAmenityTypes(prev => [...prev, amenity.type]);
+                            } else {
+                              setSelectedAmenityTypes(prev => prev.filter(t => t !== amenity.type));
+                            }
+                          }}
+                        />
+                        <label htmlFor={`amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
+                          {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Selected: {selectedAmenityTypes.length} type(s)
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Flood Input Method */}
+            <Card>
+              <CardHeader>
+                <CardTitle>How would you like to define the flood event?</CardTitle>
+                <CardDescription>Choose between predefined scenarios or manually marking locations</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <RadioGroup value={floodInputMethod} onValueChange={setFloodInputMethod}>
+                  <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50" onClick={() => setFloodInputMethod("scenario")}>
+                    <RadioGroupItem value="scenario" id="scenario" />
+                    <div className="flex-1">
+                      <Label htmlFor="scenario" className="cursor-pointer font-semibold">Use Predefined Scenario</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Select from historical flood scenarios (e.g., Historical_highest60mins)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-muted/50" onClick={() => setFloodInputMethod("manual")}>
+                    <RadioGroupItem value="manual" id="manual" />
+                    <div className="flex-1">
+                      <Label htmlFor="manual" className="cursor-pointer font-semibold">Manually Mark Locations</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Click on map to add flood markers and configure radius for each
+                      </p>
+                    </div>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+
+            {/* Scenario Dropdown (outside RadioGroup) */}
+            {floodInputMethod === "scenario" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Select Scenario</CardTitle>
+                  <CardDescription>Choose from historical flood scenarios</CardDescription>
+                </CardHeader>
+                <CardContent>
                   <Select value={selectedScenario} onValueChange={setSelectedScenario}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a scenario..." />
@@ -971,16 +1085,17 @@ export default function Simulation() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              )}
+                </CardContent>
+              </Card>
+            )}
 
-              <div className="flex justify-end gap-2 mt-6">
-                <Button onClick={() => setStep(2)} disabled={!canProceedToStep2}>
-                  Next <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Navigation */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button onClick={() => setStep(2)} disabled={!canProceedToStep2 || selectedAmenityTypes.length === 0}>
+                Next <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Step 2: Configure */}
@@ -1104,7 +1219,7 @@ export default function Simulation() {
               </Card>
             )}
 
-            <div className="flex justify-between max-w-6xl mx-auto">
+            <div className="flex justify-between pt-4 border-t">
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
@@ -1115,56 +1230,151 @@ export default function Simulation() {
           </div>
         )}
 
-        {/* Step 3: Review & Run */}
+        {/* Step 3: Review & Configure */}
         {step === 3 && (
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Review Configuration</CardTitle>
-              <CardDescription>Confirm your flood scenario before running simulation</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-semibold">Input Method:</span>
-                  <span className="capitalize">{floodInputMethod}</span>
-                </div>
-                {floodInputMethod === "scenario" && (
+          <div className="max-w-4xl mx-auto space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Review & Edit Configuration</CardTitle>
+                <CardDescription>Review and adjust your settings before running the simulation</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="font-semibold">Scenario:</span>
-                    <span>{selectedScenario}</span>
+                    <span className="font-semibold">Input Method:</span>
+                    <span className="capitalize">{floodInputMethod}</span>
                   </div>
-                )}
-                {floodInputMethod === "manual" && (
+                  {floodInputMethod === "scenario" && (
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Scenario:</span>
+                      <span>{selectedScenario}</span>
+                    </div>
+                  )}
+                  {floodInputMethod === "manual" && (
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Flood Markers:</span>
+                      <span>{floodMarkers.length}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
-                    <span className="font-semibold">Flood Markers:</span>
-                    <span>{floodMarkers.length}</span>
+                    <span className="font-semibold">Roads Blocked:</span>
+                    <span>{floodInputMethod === "manual" ? affectedRoads.filter(r => r.selected).length : floodScenarios.find(s => s.name === selectedScenario)?.roads.length || 0}</span>
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="font-semibold">Roads Blocked:</span>
-                  <span>{floodInputMethod === "manual" ? affectedRoads.filter(r => r.selected).length : floodScenarios.find(s => s.name === selectedScenario)?.roads.length || 0}</span>
+                  <div className="flex justify-between">
+                    <span className="font-semibold">Amenity Types:</span>
+                    <span>{selectedAmenityTypes.length} selected</span>
+                  </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              {busy && (
-                <div className="space-y-2">
+            {/* Edit Amenity Types */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Amenity Types</CardTitle>
+                <CardDescription>Adjust which amenity types to analyze (MOH Hospitals on top)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-48 border rounded-lg p-3">
+                  <div className="space-y-2">
+                    {availableAmenities.map((amenity) => (
+                      <div key={amenity.type} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`step3-amenity-${amenity.type}`}
+                          checked={selectedAmenityTypes.includes(amenity.type)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedAmenityTypes(prev => [...prev, amenity.type]);
+                            } else {
+                              setSelectedAmenityTypes(prev => prev.filter(t => t !== amenity.type));
+                            }
+                          }}
+                        />
+                        <label htmlFor={`step3-amenity-${amenity.type}`} className="text-sm flex-1 cursor-pointer">
+                          {amenity.label} <span className="text-muted-foreground">({amenity.count})</span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Selected: {selectedAmenityTypes.length} type(s)
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Edit Blocked Roads (for manual mode) */}
+            {floodInputMethod === "manual" && affectedRoads.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Edit Blocked Roads</CardTitle>
+                  <CardDescription>Review and adjust which roads are blocked by flooding</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold">Selected: {affectedRoads.filter(r => r.selected).length}/{affectedRoads.length}</span>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: true })))}>All</Button>
+                      <Button size="sm" variant="outline" onClick={() => setAffectedRoads(prev => prev.map(r => ({ ...r, selected: false })))}>None</Button>
+                    </div>
+                  </div>
+                  <div className="relative mb-2">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search roads..."
+                      value={roadSearchTerm}
+                      onChange={(e) => setRoadSearchTerm(e.target.value)}
+                      className="pl-8 h-9"
+                    />
+                  </div>
+                  <ScrollArea className="h-64 border rounded-lg p-3">
+                    <div className="space-y-2">
+                      {filteredAffectedRoads.map((road) => (
+                        <div key={road.rn_id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`step3-road-${road.rn_id}`}
+                            checked={road.selected}
+                            onCheckedChange={() => setAffectedRoads(prev => prev.map(r => r.rn_id === road.rn_id ? { ...r, selected: !r.selected } : r))}
+                          />
+                          <label htmlFor={`step3-road-${road.rn_id}`} className="text-sm flex-1 cursor-pointer">{road.name}</label>
+                        </div>
+                      ))}
+                      {filteredAffectedRoads.length === 0 && (
+                        <div className="text-center text-sm text-muted-foreground py-4">
+                          No roads match your search
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Simulation Progress */}
+            {busy && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Running Simulation...</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
                   <div className="text-sm text-muted-foreground">Computing... {progress.toLocaleString()} nodes visited</div>
                   <div className="h-2 rounded bg-muted overflow-hidden">
                     <div className="h-full bg-primary transition-all" style={{ width: "50%" }} />
                   </div>
-                </div>
-              )}
+                </CardContent>
+              </Card>
+            )}
 
-              <div className="flex justify-between mt-6">
-                <Button variant="outline" onClick={() => setStep(2)} disabled={busy}>
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back
-                </Button>
-                <Button onClick={runSimulation} disabled={!ready || busy}>
-                  <Play className="mr-2 h-4 w-4" /> Run Simulation
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Navigation */}
+            <div className="flex justify-between pt-4 border-t">
+              <Button variant="outline" onClick={() => setStep(2)} disabled={busy}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+              <Button onClick={runSimulation} disabled={!ready || busy || selectedAmenityTypes.length === 0}>
+                <Play className="mr-2 h-4 w-4" /> Run Simulation
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Step 4: Results */}
