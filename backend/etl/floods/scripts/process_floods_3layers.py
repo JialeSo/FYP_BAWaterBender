@@ -365,7 +365,7 @@ def main():
     floods_csv = DATA_DIR / "floods" / "floods_fixed.csv"
     planning_geojson = DATA_DIR / "geojson" / "planning_area.geojson"
     subzone_geojson = DATA_DIR / "geojson" / "subzone_area.geojson"
-    road_network_geojson = DATA_DIR / "roadnetwork" / "road_network_final.geojson"
+    road_network_geojson = DATA_DIR / "roadnetwork" / "road_network.geojson"
 
     # Output paths (save to backend/etl/data/floods/)
     output_dir = DATA_DIR / "floods"

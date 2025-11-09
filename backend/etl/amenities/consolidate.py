@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 from backend.etl.onemap.onemap_extended import OneMapClient
+from backend.common.db import DatabaseConnection
 
 from backend.etl.amenities.core.naming import infer_amenity_name
 
@@ -33,7 +34,7 @@ from backend.etl.amenities.core.naming import infer_amenity_name
 SCRIPT_DIR = Path(__file__).resolve().parent
 # Use etl/data (not project-level data)
 DATA_DIR = SCRIPT_DIR.parent / "data"
-GEOJSON_DIR = DATA_DIR / "geojson"
+GEOJSON_DIR = DATA_DIR / "geojson" / "layers"
 AMENITIES_DIR = DATA_DIR / "amenities"
 
 # Input files
@@ -173,6 +174,15 @@ EXCLUDED_QUERYNAMES = {
     "aed_locations",
 }
 
+# Specific amenities to exclude by (amenity_type, amenity_name pattern)
+# Format: {amenity_type: [list of name patterns to exclude]}
+EXCLUDED_AMENITIES_BY_TYPE = {
+    "moh_hospitals": [
+        "institute of mental health",
+        "woodbridge hospital",
+    ],
+}
+
 NAME_FILL_STATS = {
     "geojson": Counter(),
     "osm": Counter(),
@@ -180,6 +190,33 @@ NAME_FILL_STATS = {
 
 # Broad Singapore-wide bbox extents (lat_min, lon_min, lat_max, lon_max)
 SINGAPORE_EXTENTS = "1.2000,103.6000,1.4700,104.1000"
+
+
+def _should_exclude_amenity(amenity_type: str, amenity_name: str) -> bool:
+    """Check if an amenity should be excluded based on type and name patterns.
+
+    Args:
+        amenity_type: The amenity type (e.g., "moh_hospitals")
+        amenity_name: The amenity name to check
+
+    Returns:
+        True if the amenity should be excluded, False otherwise
+    """
+    if not amenity_type or amenity_type not in EXCLUDED_AMENITIES_BY_TYPE:
+        return False
+
+    if not amenity_name:
+        return False
+
+    name_lower = amenity_name.lower().strip()
+    excluded_patterns = EXCLUDED_AMENITIES_BY_TYPE[amenity_type]
+
+    for pattern in excluded_patterns:
+        pattern_lower = pattern.lower().strip()
+        if pattern_lower in name_lower:
+            return True
+
+    return False
 
 
 def _normalise_amenity_type(props: Dict, source_file: str) -> str:
@@ -448,6 +485,12 @@ def load_geojson_files(include_only: Optional[set[str]] = None) -> List[Dict]:
             # Map each feature to standard structure
             for feature in file_features:
                 mapped = map_geojson_to_standard(feature, geojson_file.name)
+                # Check if this amenity should be excluded based on type and name
+                props = mapped.get('properties', {})
+                amenity_type = props.get('amenity_type', '')
+                amenity_name = props.get('amenity_name', '')
+                if _should_exclude_amenity(amenity_type, amenity_name):
+                    continue
                 features.append(mapped)
 
             file_count += 1
@@ -461,6 +504,84 @@ def load_geojson_files(include_only: Optional[set[str]] = None) -> List[Dict]:
 
     print(f"\n  Total: {file_count} files, {feature_count:,} features")
     return features
+
+
+def load_hotosm_from_supabase() -> List[Dict]:
+    """Load HOTOSM data from Supabase database.
+
+    Returns:
+        List of GeoJSON features from HOTOSM data
+    """
+    print("\nLoading HOTOSM data from Supabase...")
+
+    try:
+        db = DatabaseConnection()
+        client = db._get_connection()
+
+        # Fetch all HOTOSM records from database
+        response = client.table("hdx_amenities").select("*").execute()
+
+        if not response.data:
+            print("  ⚠ No HOTOSM data found in Supabase")
+            return []
+
+        records = response.data
+        print(f"  Loaded {len(records):,} HOTOSM records from Supabase")
+
+        # Convert database records back to GeoJSON features
+        features = []
+        for record in records:
+            try:
+                # Parse geometry JSONB field
+                geometry = json.loads(record['geometry']) if isinstance(record['geometry'], str) else record['geometry']
+
+                # Reconstruct properties from individual columns
+                # Convert DB column names (addr_housenumber) back to OSM format (addr:housenumber)
+                properties = {
+                    'name': record.get('name'),
+                    'amenity': record.get('amenity'),
+                    'addr:housenumber': record.get('addr_housenumber'),
+                    'addr:street': record.get('addr_street'),
+                    'addr:city': record.get('addr_city'),
+                    'osm_id': record.get('osm_id'),
+                    'osm_type': record.get('osm_type'),
+                    'postal_code': record.get('postal_code'),
+                }
+
+                # Remove None values to keep properties clean
+                properties = {k: v for k, v in properties.items() if v is not None}
+
+                # Create GeoJSON feature
+                feature = {
+                    'type': 'Feature',
+                    'geometry': geometry,
+                    'properties': properties
+                }
+
+                # Map to standard structure
+                mapped = map_geojson_to_standard(feature, 'hotosm_new.geojson')
+
+                # Check if this amenity should be excluded based on type and name
+                props = mapped.get('properties', {})
+                amenity_type = props.get('amenity_type', '')
+                amenity_name = props.get('amenity_name', '')
+                if _should_exclude_amenity(amenity_type, amenity_name):
+                    continue
+
+                features.append(mapped)
+
+            except Exception as e:
+                # Skip malformed records
+                continue
+
+        print(f"  ✓ Mapped {len(features):,} HOTOSM features to standard structure")
+        return features
+
+    except Exception as e:
+        print(f"  ✗ Error loading HOTOSM data from Supabase: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 
 
 def load_osm_onemap() -> List[Dict]:
@@ -481,6 +602,12 @@ def load_osm_onemap() -> List[Dict]:
         features = []
         for record in data:
             mapped = map_osm_to_standard(record)
+            # Check if this amenity should be excluded based on type and name
+            props = mapped.get('properties', {})
+            amenity_type = props.get('amenity_type', '')
+            amenity_name = props.get('amenity_name', '')
+            if _should_exclude_amenity(amenity_type, amenity_name):
+                continue
             features.append(mapped)
 
         file_size = OSM_ONEMAP_FILE.stat().st_size / 1024 / 1024
@@ -506,10 +633,10 @@ def consolidate_all() -> Dict:
 
     all_features = []
 
-    # 1. Load local GeoJSON: only HOT OSM export (hotosm_new.geojson)
-    geojson_features = load_geojson_files(include_only={"hotosm_new.geojson"})
-    all_features.extend(geojson_features)
-    print(f"\nGeoJSON subtotal: {len(geojson_features):,} features")
+    # 1. Load HOTOSM data from Supabase (previously from local geojson file)
+    hotosm_features = load_hotosm_from_supabase()
+    all_features.extend(hotosm_features)
+    print(f"\nHOTOSM (from Supabase) subtotal: {len(hotosm_features):,} features")
 
     # 2. OSM OnEMap matched data removed from pipeline
 
@@ -982,6 +1109,11 @@ def fetch_onemap_themes(
                 unified_type = "public_access_aeds"
             else:
                 unified_type = queryname
+
+            # Check if this amenity should be excluded based on type and name
+            if _should_exclude_amenity(unified_type, name):
+                continue
+
             feat = {
                 "type": "Feature",
                 "geometry": geometry,

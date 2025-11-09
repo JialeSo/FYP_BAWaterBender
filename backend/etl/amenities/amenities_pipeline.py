@@ -199,7 +199,7 @@ class AmenitiesThreeLayersStage(PipelineStage):
         self.road_network_geojson = Path(
             self.config.get(
                 "road_network_geojson",
-                etl_data_dir / "roadnetwork" / "road_network_final.geojson"
+                etl_data_dir / "roadnetwork" / "road_network.geojson"
             )
         )
 

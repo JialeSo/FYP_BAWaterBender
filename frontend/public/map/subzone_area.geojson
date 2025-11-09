@@ -9,8 +9,8 @@
         "SZ_ID": 1,
         "PA_ID": 4,
         "area": 0.442298,
-        "population": 6570,
-        "population_density": 14854.255016
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -458,8 +458,8 @@
         "SZ_ID": 2,
         "PA_ID": 4,
         "area": 0.411723,
-        "population": 940,
-        "population_density": 2283.089328
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -672,8 +672,8 @@
         "SZ_ID": 3,
         "PA_ID": 46,
         "area": 0.587223,
-        "population": 9850,
-        "population_density": 16773.875306
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -1831,8 +1831,8 @@
         "SZ_ID": 4,
         "PA_ID": 40,
         "area": 0.039438,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -2030,8 +2030,8 @@
         "SZ_ID": 5,
         "PA_ID": 40,
         "area": 0.188767,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -2534,8 +2534,8 @@
         "SZ_ID": 6,
         "PA_ID": 46,
         "area": 0.133007,
-        "population": 1180,
-        "population_density": 8871.717786
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -2853,8 +2853,8 @@
         "SZ_ID": 7,
         "PA_ID": 4,
         "area": 0.448128,
-        "population": 12130,
-        "population_density": 27068.184198
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -3112,8 +3112,8 @@
         "SZ_ID": 8,
         "PA_ID": 40,
         "area": 0.521201,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -3291,8 +3291,8 @@
         "SZ_ID": 9,
         "PA_ID": 4,
         "area": 0.350788,
-        "population": 14420,
-        "population_density": 41107.500907
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -3400,8 +3400,8 @@
         "SZ_ID": 10,
         "PA_ID": 40,
         "area": 0.261844,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -3694,8 +3694,8 @@
         "SZ_ID": 11,
         "PA_ID": 42,
         "area": 1.63038,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -4478,8 +4478,8 @@
         "SZ_ID": 12,
         "PA_ID": 40,
         "area": 0.614924,
-        "population": 290,
-        "population_density": 471.603301
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -5867,8 +5867,8 @@
         "SZ_ID": 13,
         "PA_ID": 41,
         "area": 1.844042,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -7386,8 +7386,8 @@
         "SZ_ID": 14,
         "PA_ID": 34,
         "area": 0.392563,
-        "population": 4200,
-        "population_density": 10698.910404
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -8235,8 +8235,8 @@
         "SZ_ID": 15,
         "PA_ID": 36,
         "area": 0.506589,
-        "population": 4370,
-        "population_density": 8626.323021
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -9454,8 +9454,8 @@
         "SZ_ID": 16,
         "PA_ID": 31,
         "area": 36.639387,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -18137,8 +18137,8 @@
         "SZ_ID": 17,
         "PA_ID": 43,
         "area": 0.388733,
-        "population": 210,
-        "population_density": 540.216268
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -18826,8 +18826,8 @@
         "SZ_ID": 18,
         "PA_ID": 46,
         "area": 0.561609,
-        "population": 5230,
-        "population_density": 9312.536125
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -19755,8 +19755,8 @@
         "SZ_ID": 19,
         "PA_ID": 36,
         "area": 0.160807,
-        "population": 20,
-        "population_density": 124.37231
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -20014,8 +20014,8 @@
         "SZ_ID": 20,
         "PA_ID": 4,
         "area": 0.595247,
-        "population": 11480,
-        "population_density": 19286.12047
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -20283,8 +20283,8 @@
         "SZ_ID": 21,
         "PA_ID": 4,
         "area": 0.387612,
-        "population": 10980,
-        "population_density": 28327.325912
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -20552,8 +20552,8 @@
         "SZ_ID": 22,
         "PA_ID": 4,
         "area": 1.030379,
-        "population": 12310,
-        "population_density": 11947.062737
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -20871,8 +20871,8 @@
         "SZ_ID": 23,
         "PA_ID": 4,
         "area": 0.551732,
-        "population": 13270,
-        "population_density": 24051.529954
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -21310,8 +21310,8 @@
         "SZ_ID": 24,
         "PA_ID": 36,
         "area": 0.290185,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -21679,8 +21679,8 @@
         "SZ_ID": 25,
         "PA_ID": 17,
         "area": 1.084792,
-        "population": 4660,
-        "population_density": 4295.753124
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -22788,8 +22788,8 @@
         "SZ_ID": 26,
         "PA_ID": 17,
         "area": 0.628893,
-        "population": 140,
-        "population_density": 222.61322
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -23017,8 +23017,8 @@
         "SZ_ID": 27,
         "PA_ID": 39,
         "area": 1.59034,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -24316,8 +24316,8 @@
         "SZ_ID": 336,
         "PA_ID": 31,
         "area": 4.207271,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -27221,8 +27221,8 @@
         "SZ_ID": 337,
         "PA_ID": 31,
         "area": 4.963787,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -32552,8 +32552,8 @@
         "SZ_ID": 30,
         "PA_ID": 27,
         "area": 2.206354,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -39539,8 +39539,8 @@
         "SZ_ID": 31,
         "PA_ID": 27,
         "area": 4.919833,
-        "population": 2650,
-        "population_density": 538.636189
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -48000,8 +48000,8 @@
         "SZ_ID": 32,
         "PA_ID": 4,
         "area": 3.451568,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -50234,8 +50234,8 @@
         "SZ_ID": 33,
         "PA_ID": 40,
         "area": 0.103238,
-        "population": 50,
-        "population_density": 484.315529
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -50678,8 +50678,8 @@
         "SZ_ID": 34,
         "PA_ID": 37,
         "area": 1.127297,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -51212,8 +51212,8 @@
         "SZ_ID": 35,
         "PA_ID": 4,
         "area": 2.698655,
-        "population": 5100,
-        "population_density": 1889.830284
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -57131,8 +57131,8 @@
         "SZ_ID": 36,
         "PA_ID": 4,
         "area": 0.533463,
-        "population": 11400,
-        "population_density": 21369.817217
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -57595,8 +57595,8 @@
         "SZ_ID": 37,
         "PA_ID": 40,
         "area": 0.145519,
-        "population": 900,
-        "population_density": 6184.773664
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -58094,8 +58094,8 @@
         "SZ_ID": 38,
         "PA_ID": 4,
         "area": 0.635704,
-        "population": 7320,
-        "population_density": 11514.792022
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -58393,8 +58393,8 @@
         "SZ_ID": 39,
         "PA_ID": 4,
         "area": 0.276827,
-        "population": 8220,
-        "population_density": 29693.65549
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -58682,8 +58682,8 @@
         "SZ_ID": 40,
         "PA_ID": 40,
         "area": 0.063665,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -59276,8 +59276,8 @@
         "SZ_ID": 41,
         "PA_ID": 40,
         "area": 0.19662,
-        "population": 520,
-        "population_density": 2644.697191
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -59715,8 +59715,8 @@
         "SZ_ID": 42,
         "PA_ID": 4,
         "area": 0.365333,
-        "population": 9700,
-        "population_density": 26551.088141
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -59904,8 +59904,8 @@
         "SZ_ID": 43,
         "PA_ID": 4,
         "area": 1.455033,
-        "population": 18720,
-        "population_density": 12865.687913
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -60478,8 +60478,8 @@
         "SZ_ID": 44,
         "PA_ID": 17,
         "area": 0.853207,
-        "population": 3540,
-        "population_density": 4149.053829
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -61177,8 +61177,8 @@
         "SZ_ID": 45,
         "PA_ID": 40,
         "area": 1.070723,
-        "population": 1450,
-        "population_density": 1354.224812
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -62181,8 +62181,8 @@
         "SZ_ID": 46,
         "PA_ID": 4,
         "area": 0.533013,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -62440,8 +62440,8 @@
         "SZ_ID": 47,
         "PA_ID": 40,
         "area": 0.280175,
-        "population": 1200,
-        "population_density": 4283.040954
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -63114,8 +63114,8 @@
         "SZ_ID": 48,
         "PA_ID": 35,
         "area": 0.21425,
-        "population": 1660,
-        "population_density": 7747.947211
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -63843,8 +63843,8 @@
         "SZ_ID": 49,
         "PA_ID": 34,
         "area": 0.173122,
-        "population": 320,
-        "population_density": 1848.409898
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -64282,8 +64282,8 @@
         "SZ_ID": 50,
         "PA_ID": 39,
         "area": 0.591779,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -65266,8 +65266,8 @@
         "SZ_ID": 51,
         "PA_ID": 17,
         "area": 1.753482,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -66160,8 +66160,8 @@
         "SZ_ID": 52,
         "PA_ID": 34,
         "area": 0.340743,
-        "population": 2220,
-        "population_density": 6515.16766
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -67149,8 +67149,8 @@
         "SZ_ID": 53,
         "PA_ID": 17,
         "area": 0.310534,
-        "population": 6360,
-        "population_density": 20480.848721
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -67468,8 +67468,8 @@
         "SZ_ID": 54,
         "PA_ID": 17,
         "area": 1.380336,
-        "population": 10700,
-        "population_density": 7751.734409
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -68062,8 +68062,8 @@
         "SZ_ID": 55,
         "PA_ID": 48,
         "area": 1.95176,
-        "population": 1430,
-        "population_density": 732.671874
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -68756,8 +68756,8 @@
         "SZ_ID": 56,
         "PA_ID": 44,
         "area": 0.451538,
-        "population": 4370,
-        "population_density": 9678.041479
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -70130,8 +70130,8 @@
         "SZ_ID": 57,
         "PA_ID": 10,
         "area": 0.697502,
-        "population": 14330,
-        "population_density": 20544.752247
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -70554,8 +70554,8 @@
         "SZ_ID": 58,
         "PA_ID": 44,
         "area": 0.172655,
-        "population": 1000,
-        "population_density": 5791.903251
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -71198,8 +71198,8 @@
         "SZ_ID": 59,
         "PA_ID": 1,
         "area": 1.097834,
-        "population": 7310,
-        "population_density": 6658.567658
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -72607,8 +72607,8 @@
         "SZ_ID": 60,
         "PA_ID": 10,
         "area": 1.057996,
-        "population": 19300,
-        "population_density": 18242.027517
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -73316,8 +73316,8 @@
         "SZ_ID": 61,
         "PA_ID": 15,
         "area": 2.796799,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -74905,8 +74905,8 @@
         "SZ_ID": 62,
         "PA_ID": 12,
         "area": 3.050993,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -77409,8 +77409,8 @@
         "SZ_ID": 63,
         "PA_ID": 44,
         "area": 0.336221,
-        "population": 2120,
-        "population_density": 6305.367257
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -78128,8 +78128,8 @@
         "SZ_ID": 64,
         "PA_ID": 22,
         "area": 0.742203,
-        "population": 1690,
-        "population_density": 2277.005
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -78462,8 +78462,8 @@
         "SZ_ID": 65,
         "PA_ID": 17,
         "area": 1.826849,
-        "population": 2460,
-        "population_density": 1346.58124
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -79616,8 +79616,8 @@
         "SZ_ID": 66,
         "PA_ID": 4,
         "area": 0.293695,
-        "population": 3010,
-        "population_density": 10248.72595
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -79920,8 +79920,8 @@
         "SZ_ID": 67,
         "PA_ID": 17,
         "area": 0.557276,
-        "population": 5580,
-        "population_density": 10012.997092
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -81224,8 +81224,8 @@
         "SZ_ID": 68,
         "PA_ID": 35,
         "area": 0.055681,
-        "population": 10,
-        "population_density": 179.593565
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -81488,8 +81488,8 @@
         "SZ_ID": 69,
         "PA_ID": 35,
         "area": 0.11633,
-        "population": 1900,
-        "population_density": 16332.846695
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -81812,8 +81812,8 @@
         "SZ_ID": 70,
         "PA_ID": 17,
         "area": 2.003448,
-        "population": 1280,
-        "population_density": 638.898472
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -83596,8 +83596,8 @@
         "SZ_ID": 71,
         "PA_ID": 22,
         "area": 2.434594,
-        "population": 11540,
-        "population_density": 4740.009985
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -84265,8 +84265,8 @@
         "SZ_ID": 72,
         "PA_ID": 39,
         "area": 1.078992,
-        "population": 9160,
-        "population_density": 8489.404727
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -84859,8 +84859,8 @@
         "SZ_ID": 73,
         "PA_ID": 45,
         "area": 0.46055,
-        "population": 310,
-        "population_density": 673.107612
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -86493,8 +86493,8 @@
         "SZ_ID": 74,
         "PA_ID": 44,
         "area": 0.543484,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -87507,8 +87507,8 @@
         "SZ_ID": 75,
         "PA_ID": 35,
         "area": 0.278304,
-        "population": 2760,
-        "population_density": 9917.229105
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -87786,8 +87786,8 @@
         "SZ_ID": 76,
         "PA_ID": 15,
         "area": 1.770598,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -91280,8 +91280,8 @@
         "SZ_ID": 77,
         "PA_ID": 40,
         "area": 0.886955,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -92789,8 +92789,8 @@
         "SZ_ID": 78,
         "PA_ID": 43,
         "area": 0.218808,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -93723,8 +93723,8 @@
         "SZ_ID": 79,
         "PA_ID": 45,
         "area": 0.329438,
-        "population": 30,
-        "population_density": 91.064194
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -94842,8 +94842,8 @@
         "SZ_ID": 80,
         "PA_ID": 35,
         "area": 0.170664,
-        "population": 1200,
-        "population_density": 7031.347319
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -95306,8 +95306,8 @@
         "SZ_ID": 81,
         "PA_ID": 48,
         "area": 1.346164,
-        "population": 7820,
-        "population_density": 5809.098474
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -96420,8 +96420,8 @@
         "SZ_ID": 82,
         "PA_ID": 35,
         "area": 0.171334,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -96579,8 +96579,8 @@
         "SZ_ID": 83,
         "PA_ID": 35,
         "area": 0.049626,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -97023,8 +97023,8 @@
         "SZ_ID": 84,
         "PA_ID": 35,
         "area": 0.193992,
-        "population": 2090,
-        "population_density": 10773.620974
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -98042,8 +98042,8 @@
         "SZ_ID": 85,
         "PA_ID": 35,
         "area": 0.120171,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -98451,8 +98451,8 @@
         "SZ_ID": 86,
         "PA_ID": 17,
         "area": 1.026562,
-        "population": 23810,
-        "population_density": 23193.928899
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -99015,8 +99015,8 @@
         "SZ_ID": 87,
         "PA_ID": 34,
         "area": 0.200787,
-        "population": 1530,
-        "population_density": 7620.028958
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -99689,8 +99689,8 @@
         "SZ_ID": 88,
         "PA_ID": 40,
         "area": 0.710569,
-        "population": 40,
-        "population_density": 56.292938
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -100558,8 +100558,8 @@
         "SZ_ID": 89,
         "PA_ID": 17,
         "area": 0.748684,
-        "population": 16210,
-        "population_density": 21651.32431
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -100752,8 +100752,8 @@
         "SZ_ID": 90,
         "PA_ID": 34,
         "area": 0.368483,
-        "population": 3930,
-        "population_density": 10665.349895
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -101641,8 +101641,8 @@
         "SZ_ID": 91,
         "PA_ID": 17,
         "area": 7.606208,
-        "population": 60,
-        "population_density": 7.888294
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -103155,8 +103155,8 @@
         "SZ_ID": 92,
         "PA_ID": 43,
         "area": 0.221998,
-        "population": 470,
-        "population_density": 2117.134421
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -104374,8 +104374,8 @@
         "SZ_ID": 93,
         "PA_ID": 53,
         "area": 1.263409,
-        "population": 26290,
-        "population_density": 20808.773401
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -104773,8 +104773,8 @@
         "SZ_ID": 94,
         "PA_ID": 29,
         "area": 0.369771,
-        "population": 9570,
-        "population_density": 25880.914298
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -105047,8 +105047,8 @@
         "SZ_ID": 95,
         "PA_ID": 1,
         "area": 3.203663,
-        "population": 79960,
-        "population_density": 24958.925982
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -105486,8 +105486,8 @@
         "SZ_ID": 96,
         "PA_ID": 29,
         "area": 1.107267,
-        "population": 27340,
-        "population_density": 24691.424125
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -105990,8 +105990,8 @@
         "SZ_ID": 97,
         "PA_ID": 12,
         "area": 0.554624,
-        "population": 410,
-        "population_density": 739.239989
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -106229,8 +106229,8 @@
         "SZ_ID": 98,
         "PA_ID": 6,
         "area": 3.387243,
-        "population": 11640,
-        "population_density": 3436.422995
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -106883,8 +106883,8 @@
         "SZ_ID": 99,
         "PA_ID": 53,
         "area": 1.878001,
-        "population": 13660,
-        "population_density": 7273.689798
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -107377,8 +107377,8 @@
         "SZ_ID": 100,
         "PA_ID": 29,
         "area": 0.86775,
-        "population": 17430,
-        "population_density": 20086.4203
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -107601,8 +107601,8 @@
         "SZ_ID": 101,
         "PA_ID": 29,
         "area": 0.639144,
-        "population": 12410,
-        "population_density": 19416.60778
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -107900,8 +107900,8 @@
         "SZ_ID": 102,
         "PA_ID": 30,
         "area": 3.260151,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -108119,8 +108119,8 @@
         "SZ_ID": 103,
         "PA_ID": 29,
         "area": 0.411404,
-        "population": 9670,
-        "population_density": 23504.879578
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -108413,8 +108413,8 @@
         "SZ_ID": 104,
         "PA_ID": 29,
         "area": 0.418657,
-        "population": 14260,
-        "population_density": 34061.266849
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -108812,8 +108812,8 @@
         "SZ_ID": 105,
         "PA_ID": 13,
         "area": 2.098176,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -109356,8 +109356,8 @@
         "SZ_ID": 106,
         "PA_ID": 13,
         "area": 1.524551,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -109835,8 +109835,8 @@
         "SZ_ID": 107,
         "PA_ID": 35,
         "area": 0.218107,
-        "population": 2360,
-        "population_density": 10820.364026
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -110229,8 +110229,8 @@
         "SZ_ID": 108,
         "PA_ID": 44,
         "area": 0.213519,
-        "population": 290,
-        "population_density": 1358.195069
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -110778,8 +110778,8 @@
         "SZ_ID": 109,
         "PA_ID": 12,
         "area": 2.464857,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -111845,8 +111845,8 @@
         "SZ_ID": 110,
         "PA_ID": 52,
         "area": 0.316882,
-        "population": 4920,
-        "population_density": 15526.28339
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -112159,8 +112159,8 @@
         "SZ_ID": 111,
         "PA_ID": 52,
         "area": 1.046417,
-        "population": 21500,
-        "population_density": 20546.302286
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -112653,8 +112653,8 @@
         "SZ_ID": 112,
         "PA_ID": 21,
         "area": 0.921431,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -112992,8 +112992,8 @@
         "SZ_ID": 335,
         "PA_ID": 49,
         "area": 2.393335,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -113301,8 +113301,8 @@
         "SZ_ID": 114,
         "PA_ID": 2,
         "area": 1.941409,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -116365,8 +116365,8 @@
         "SZ_ID": 115,
         "PA_ID": 2,
         "area": 2.121184,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -118014,8 +118014,8 @@
         "SZ_ID": 116,
         "PA_ID": 17,
         "area": 0.485572,
-        "population": 13120,
-        "population_density": 27019.657164
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -118633,8 +118633,8 @@
         "SZ_ID": 117,
         "PA_ID": 22,
         "area": 0.756926,
-        "population": 9890,
-        "population_density": 13066.007769
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -119167,8 +119167,8 @@
         "SZ_ID": 118,
         "PA_ID": 1,
         "area": 4.297141,
-        "population": 34460,
-        "population_density": 8019.285915
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -119746,8 +119746,8 @@
         "SZ_ID": 119,
         "PA_ID": 10,
         "area": 0.991057,
-        "population": 30400,
-        "population_density": 30674.312364
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -120320,8 +120320,8 @@
         "SZ_ID": 120,
         "PA_ID": 6,
         "area": 2.038512,
-        "population": 7480,
-        "population_density": 3669.342294
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -122259,8 +122259,8 @@
         "SZ_ID": 121,
         "PA_ID": 53,
         "area": 2.578425,
-        "population": 32500,
-        "population_density": 12604.592102
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -122908,8 +122908,8 @@
         "SZ_ID": 122,
         "PA_ID": 12,
         "area": 3.187584,
-        "population": 17090,
-        "population_density": 5361.427212
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -123387,8 +123387,8 @@
         "SZ_ID": 123,
         "PA_ID": 12,
         "area": 2.560996,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -123586,8 +123586,8 @@
         "SZ_ID": 124,
         "PA_ID": 22,
         "area": 0.735502,
-        "population": 10290,
-        "population_density": 13990.440315
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -124170,8 +124170,8 @@
         "SZ_ID": 125,
         "PA_ID": 44,
         "area": 0.351305,
-        "population": 1480,
-        "population_density": 4212.860718
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -124784,8 +124784,8 @@
         "SZ_ID": 126,
         "PA_ID": 10,
         "area": 1.312923,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -125153,8 +125153,8 @@
         "SZ_ID": 127,
         "PA_ID": 17,
         "area": 0.947453,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -125512,8 +125512,8 @@
         "SZ_ID": 128,
         "PA_ID": 10,
         "area": 0.749199,
-        "population": 14100,
-        "population_density": 18820.102436
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -126036,8 +126036,8 @@
         "SZ_ID": 129,
         "PA_ID": 22,
         "area": 1.052032,
-        "population": 10060,
-        "population_density": 9562.444271
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -126525,8 +126525,8 @@
         "SZ_ID": 130,
         "PA_ID": 22,
         "area": 0.410939,
-        "population": 12040,
-        "population_density": 29298.752064
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -127009,8 +127009,8 @@
         "SZ_ID": 131,
         "PA_ID": 22,
         "area": 0.839679,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -127393,8 +127393,8 @@
         "SZ_ID": 132,
         "PA_ID": 6,
         "area": 1.227061,
-        "population": 11250,
-        "population_density": 9168.249369
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -128337,8 +128337,8 @@
         "SZ_ID": 133,
         "PA_ID": 6,
         "area": 0.558761,
-        "population": 7650,
-        "population_density": 13691.017113
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -128961,8 +128961,8 @@
         "SZ_ID": 134,
         "PA_ID": 48,
         "area": 2.096085,
-        "population": 10760,
-        "population_density": 5133.379046
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -130045,8 +130045,8 @@
         "SZ_ID": 135,
         "PA_ID": 10,
         "area": 0.722589,
-        "population": 10250,
-        "population_density": 14185.110233
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -130509,8 +130509,8 @@
         "SZ_ID": 136,
         "PA_ID": 1,
         "area": 2.550462,
-        "population": 8110,
-        "population_density": 3179.816457
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -131938,8 +131938,8 @@
         "SZ_ID": 137,
         "PA_ID": 15,
         "area": 2.042631,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -132132,8 +132132,8 @@
         "SZ_ID": 138,
         "PA_ID": 15,
         "area": 3.260399,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -132506,8 +132506,8 @@
         "SZ_ID": 139,
         "PA_ID": 48,
         "area": 2.15829,
-        "population": 4120,
-        "population_density": 1908.918886
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -133125,8 +133125,8 @@
         "SZ_ID": 140,
         "PA_ID": 25,
         "area": 1.347456,
-        "population": 11800,
-        "population_density": 8757.243205
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -133849,8 +133849,8 @@
         "SZ_ID": 141,
         "PA_ID": 2,
         "area": 2.338909,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -134173,8 +134173,8 @@
         "SZ_ID": 142,
         "PA_ID": 45,
         "area": 0.167537,
-        "population": 660,
-        "population_density": 3939.426768
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -134967,8 +134967,8 @@
         "SZ_ID": 143,
         "PA_ID": 39,
         "area": 1.160017,
-        "population": 27250,
-        "population_density": 23491.02536
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -135396,8 +135396,8 @@
         "SZ_ID": 144,
         "PA_ID": 15,
         "area": 2.349378,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -135880,8 +135880,8 @@
         "SZ_ID": 145,
         "PA_ID": 53,
         "area": 0.963495,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -136334,8 +136334,8 @@
         "SZ_ID": 146,
         "PA_ID": 12,
         "area": 0.485022,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -136533,8 +136533,8 @@
         "SZ_ID": 147,
         "PA_ID": 2,
         "area": 1.881306,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -136967,8 +136967,8 @@
         "SZ_ID": 148,
         "PA_ID": 6,
         "area": 1.425083,
-        "population": 7240,
-        "population_density": 5080.405213
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -137506,8 +137506,8 @@
         "SZ_ID": 149,
         "PA_ID": 1,
         "area": 2.387278,
-        "population": 34730,
-        "population_density": 14547.952444
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -137830,8 +137830,8 @@
         "SZ_ID": 150,
         "PA_ID": 25,
         "area": 1.229894,
-        "population": 3970,
-        "population_density": 3227.919361
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -138224,8 +138224,8 @@
         "SZ_ID": 151,
         "PA_ID": 10,
         "area": 0.963925,
-        "population": 6460,
-        "population_density": 6701.76896
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -138863,8 +138863,8 @@
         "SZ_ID": 152,
         "PA_ID": 6,
         "area": 2.773297,
-        "population": 24160,
-        "population_density": 8711.653501
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -139797,8 +139797,8 @@
         "SZ_ID": 153,
         "PA_ID": 6,
         "area": 3.468506,
-        "population": 6120,
-        "population_density": 1764.448341
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -140476,8 +140476,8 @@
         "SZ_ID": 154,
         "PA_ID": 47,
         "area": 7.655819,
-        "population": 1750,
-        "population_density": 228.584305
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -142760,8 +142760,8 @@
         "SZ_ID": 155,
         "PA_ID": 10,
         "area": 0.948159,
-        "population": 8450,
-        "population_density": 8912.008105
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -143404,8 +143404,8 @@
         "SZ_ID": 156,
         "PA_ID": 25,
         "area": 1.319112,
-        "population": 3250,
-        "population_density": 2463.778073
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -144088,8 +144088,8 @@
         "SZ_ID": 157,
         "PA_ID": 1,
         "area": 2.997307,
-        "population": 47730,
-        "population_density": 15924.292269
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -144412,8 +144412,8 @@
         "SZ_ID": 158,
         "PA_ID": 11,
         "area": 1.974132,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -145621,8 +145621,8 @@
         "SZ_ID": 159,
         "PA_ID": 38,
         "area": 1.972608,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -147686,8 +147686,8 @@
         "SZ_ID": 160,
         "PA_ID": 54,
         "area": 2.259237,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -148130,8 +148130,8 @@
         "SZ_ID": 161,
         "PA_ID": 3,
         "area": 0.859179,
-        "population": 24520,
-        "population_density": 28538.866593
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -148444,8 +148444,8 @@
         "SZ_ID": 162,
         "PA_ID": 11,
         "area": 1.948613,
-        "population": 27410,
-        "population_density": 14066.413962
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -148823,8 +148823,8 @@
         "SZ_ID": 163,
         "PA_ID": 52,
         "area": 1.078622,
-        "population": 24350,
-        "population_density": 22575.093669
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -149282,8 +149282,8 @@
         "SZ_ID": 164,
         "PA_ID": 21,
         "area": 3.023149,
-        "population": 36880,
-        "population_density": 12199.200313
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -150061,8 +150061,8 @@
         "SZ_ID": 165,
         "PA_ID": 11,
         "area": 0.441733,
-        "population": 4630,
-        "population_density": 10481.43423
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -150260,8 +150260,8 @@
         "SZ_ID": 166,
         "PA_ID": 14,
         "area": 0.972128,
-        "population": 2040,
-        "population_density": 2098.488714
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -150584,8 +150584,8 @@
         "SZ_ID": 167,
         "PA_ID": 5,
         "area": 1.235902,
-        "population": 7820,
-        "population_density": 6327.363797
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -151078,8 +151078,8 @@
         "SZ_ID": 168,
         "PA_ID": 14,
         "area": 1.639837,
-        "population": 51020,
-        "population_density": 31112.85522
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -151607,8 +151607,8 @@
         "SZ_ID": 169,
         "PA_ID": 47,
         "area": 2.543107,
-        "population": 35640,
-        "population_density": 14014.355324
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -152166,8 +152166,8 @@
         "SZ_ID": 170,
         "PA_ID": 52,
         "area": 0.95571,
-        "population": 26500,
-        "population_density": 27728.071034
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -152605,8 +152605,8 @@
         "SZ_ID": 171,
         "PA_ID": 52,
         "area": 0.894516,
-        "population": 6820,
-        "population_density": 7624.234633
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -153454,8 +153454,8 @@
         "SZ_ID": 172,
         "PA_ID": 5,
         "area": 0.911208,
-        "population": 29570,
-        "population_density": 32451.416965
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -153858,8 +153858,8 @@
         "SZ_ID": 173,
         "PA_ID": 9,
         "area": 1.143814,
-        "population": 39000,
-        "population_density": 34096.462445
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -154097,8 +154097,8 @@
         "SZ_ID": 174,
         "PA_ID": 22,
         "area": 1.37683,
-        "population": 37370,
-        "population_density": 27142.057313
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -154731,8 +154731,8 @@
         "SZ_ID": 175,
         "PA_ID": 25,
         "area": 1.926622,
-        "population": 31760,
-        "population_density": 16484.811221
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -155400,8 +155400,8 @@
         "SZ_ID": 176,
         "PA_ID": 30,
         "area": 4.137158,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -157294,8 +157294,8 @@
         "SZ_ID": 177,
         "PA_ID": 21,
         "area": 1.061889,
-        "population": 22250,
-        "population_density": 20953.218847
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -157713,8 +157713,8 @@
         "SZ_ID": 178,
         "PA_ID": 51,
         "area": 1.794461,
-        "population": 26900,
-        "population_density": 14990.571582
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -158112,8 +158112,8 @@
         "SZ_ID": 179,
         "PA_ID": 47,
         "area": 3.475253,
-        "population": 87010,
-        "population_density": 25037.027667
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -158641,8 +158641,8 @@
         "SZ_ID": 180,
         "PA_ID": 3,
         "area": 1.231657,
-        "population": 30890,
-        "population_density": 25080.039549
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -159135,8 +159135,8 @@
         "SZ_ID": 181,
         "PA_ID": 21,
         "area": 0.684704,
-        "population": 14990,
-        "population_density": 21892.662261
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -159419,8 +159419,8 @@
         "SZ_ID": 182,
         "PA_ID": 3,
         "area": 1.08508,
-        "population": 12590,
-        "population_density": 11602.830238
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -160238,8 +160238,8 @@
         "SZ_ID": 183,
         "PA_ID": 13,
         "area": 1.974943,
-        "population": 7900,
-        "population_density": 4000.114948
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -160482,8 +160482,8 @@
         "SZ_ID": 184,
         "PA_ID": 5,
         "area": 4.141322,
-        "population": 3940,
-        "population_density": 951.386922
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -161211,8 +161211,8 @@
         "SZ_ID": 185,
         "PA_ID": 47,
         "area": 4.343753,
-        "population": 126370,
-        "population_density": 29092.353745
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -162030,8 +162030,8 @@
         "SZ_ID": 186,
         "PA_ID": 11,
         "area": 1.515534,
-        "population": 31220,
-        "population_density": 20600.001213
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -162349,8 +162349,8 @@
         "SZ_ID": 187,
         "PA_ID": 14,
         "area": 0.944998,
-        "population": 16100,
-        "population_density": 17037.065001
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -162673,8 +162673,8 @@
         "SZ_ID": 188,
         "PA_ID": 3,
         "area": 1.993634,
-        "population": 20480,
-        "population_density": 10272.69997
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -163652,8 +163652,8 @@
         "SZ_ID": 189,
         "PA_ID": 10,
         "area": 2.077969,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -164241,8 +164241,8 @@
         "SZ_ID": 190,
         "PA_ID": 25,
         "area": 3.144928,
-        "population": 710,
-        "population_density": 225.760359
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -164945,8 +164945,8 @@
         "SZ_ID": 191,
         "PA_ID": 6,
         "area": 2.636483,
-        "population": 9600,
-        "population_density": 3641.214094
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -165944,8 +165944,8 @@
         "SZ_ID": 192,
         "PA_ID": 29,
         "area": 1.057165,
-        "population": 7880,
-        "population_density": 7453.896203
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -166368,8 +166368,8 @@
         "SZ_ID": 193,
         "PA_ID": 13,
         "area": 1.28795,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -166672,8 +166672,8 @@
         "SZ_ID": 194,
         "PA_ID": 29,
         "area": 0.439647,
-        "population": 6650,
-        "population_density": 15125.779561
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -167041,8 +167041,8 @@
         "SZ_ID": 195,
         "PA_ID": 12,
         "area": 0.746882,
-        "population": 13590,
-        "population_density": 18195.638684
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -167315,8 +167315,8 @@
         "SZ_ID": 196,
         "PA_ID": 47,
         "area": 2.777497,
-        "population": 37970,
-        "population_density": 13670.583561
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -167879,8 +167879,8 @@
         "SZ_ID": 197,
         "PA_ID": 13,
         "area": 0.906317,
-        "population": 29770,
-        "population_density": 32847.212584
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -168103,8 +168103,8 @@
         "SZ_ID": 198,
         "PA_ID": 3,
         "area": 0.380202,
-        "population": 11770,
-        "population_density": 30957.244059
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -168332,8 +168332,8 @@
         "SZ_ID": 199,
         "PA_ID": 3,
         "area": 0.527472,
-        "population": 14190,
-        "population_density": 26901.918933
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -168766,8 +168766,8 @@
         "SZ_ID": 200,
         "PA_ID": 3,
         "area": 0.800299,
-        "population": 27120,
-        "population_density": 33887.35305
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -169175,8 +169175,8 @@
         "SZ_ID": 201,
         "PA_ID": 21,
         "area": 0.898555,
-        "population": 18270,
-        "population_density": 20332.643462
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -169934,8 +169934,8 @@
         "SZ_ID": 202,
         "PA_ID": 11,
         "area": 1.796156,
-        "population": 13620,
-        "population_density": 7582.861328
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -170728,8 +170728,8 @@
         "SZ_ID": 203,
         "PA_ID": 30,
         "area": 2.251238,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -171402,8 +171402,8 @@
         "SZ_ID": 204,
         "PA_ID": 12,
         "area": 0.776142,
-        "population": 18140,
-        "population_density": 23371.99702
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -172051,8 +172051,8 @@
         "SZ_ID": 205,
         "PA_ID": 29,
         "area": 0.446242,
-        "population": 9530,
-        "population_density": 21356.135112
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -172380,8 +172380,8 @@
         "SZ_ID": 206,
         "PA_ID": 29,
         "area": 0.572502,
-        "population": 9220,
-        "population_density": 16104.7433
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -172764,8 +172764,8 @@
         "SZ_ID": 207,
         "PA_ID": 29,
         "area": 0.813383,
-        "population": 3500,
-        "population_density": 4303.016021
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -173183,8 +173183,8 @@
         "SZ_ID": 208,
         "PA_ID": 13,
         "area": 1.484296,
-        "population": 38660,
-        "population_density": 26046.009472
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -173677,8 +173677,8 @@
         "SZ_ID": 209,
         "PA_ID": 12,
         "area": 1.977071,
-        "population": 270,
-        "population_density": 136.565623
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -175411,8 +175411,8 @@
         "SZ_ID": 210,
         "PA_ID": 29,
         "area": 1.037281,
-        "population": 13980,
-        "population_density": 13477.542466
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -175920,8 +175920,8 @@
         "SZ_ID": 211,
         "PA_ID": 1,
         "area": 2.820951,
-        "population": 34910,
-        "population_density": 12375.259864
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -176779,8 +176779,8 @@
         "SZ_ID": 212,
         "PA_ID": 12,
         "area": 0.924763,
-        "population": 22880,
-        "population_density": 24741.487598
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -177083,8 +177083,8 @@
         "SZ_ID": 213,
         "PA_ID": 3,
         "area": 1.806381,
-        "population": 14360,
-        "population_density": 7949.596985
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -177702,8 +177702,8 @@
         "SZ_ID": 214,
         "PA_ID": 13,
         "area": 1.404537,
-        "population": 60950,
-        "population_density": 43395.094253
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -178046,8 +178046,8 @@
         "SZ_ID": 215,
         "PA_ID": 1,
         "area": 2.379332,
-        "population": 24880,
-        "population_density": 10456.718493
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -178525,8 +178525,8 @@
         "SZ_ID": 216,
         "PA_ID": 55,
         "area": 8.451158,
-        "population": 19040,
-        "population_density": 2252.945669
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -181731,8 +181731,8 @@
         "SZ_ID": 217,
         "PA_ID": 16,
         "area": 1.373408,
-        "population": 24780,
-        "population_density": 18042.714481
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -183595,8 +183595,8 @@
         "SZ_ID": 218,
         "PA_ID": 50,
         "area": 0.143138,
-        "population": 2030,
-        "population_density": 14182.123798
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -183954,8 +183954,8 @@
         "SZ_ID": 219,
         "PA_ID": 55,
         "area": 0.436369,
-        "population": 2860,
-        "population_density": 6554.093108
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -184298,8 +184298,8 @@
         "SZ_ID": 220,
         "PA_ID": 14,
         "area": 1.511487,
-        "population": 31680,
-        "population_density": 20959.486882
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -184957,8 +184957,8 @@
         "SZ_ID": 221,
         "PA_ID": 3,
         "area": 2.456253,
-        "population": 9730,
-        "population_density": 3961.318243
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -185741,8 +185741,8 @@
         "SZ_ID": 222,
         "PA_ID": 54,
         "area": 1.287213,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -186165,8 +186165,8 @@
         "SZ_ID": 223,
         "PA_ID": 11,
         "area": 0.842668,
-        "population": 23490,
-        "population_density": 27875.7594
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -186349,8 +186349,8 @@
         "SZ_ID": 224,
         "PA_ID": 11,
         "area": 1.333533,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -186678,8 +186678,8 @@
         "SZ_ID": 225,
         "PA_ID": 11,
         "area": 1.00741,
-        "population": 34980,
-        "population_density": 34722.70468
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -186952,8 +186952,8 @@
         "SZ_ID": 226,
         "PA_ID": 8,
         "area": 4.803931,
-        "population": 270,
-        "population_density": 56.203967
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -188151,8 +188151,8 @@
         "SZ_ID": 227,
         "PA_ID": 17,
         "area": 0.470675,
-        "population": 11990,
-        "population_density": 25474.066639
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -189400,8 +189400,8 @@
         "SZ_ID": 228,
         "PA_ID": 11,
         "area": 1.328876,
-        "population": 42450,
-        "population_density": 31944.285008
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -189899,8 +189899,8 @@
         "SZ_ID": 229,
         "PA_ID": 54,
         "area": 0.601727,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -190493,8 +190493,8 @@
         "SZ_ID": 230,
         "PA_ID": 5,
         "area": 0.763183,
-        "population": 20820,
-        "population_density": 27280.466525
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -190847,8 +190847,8 @@
         "SZ_ID": 338,
         "PA_ID": 20,
         "area": 0.924866,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -191211,8 +191211,8 @@
         "SZ_ID": 232,
         "PA_ID": 9,
         "area": 0.862737,
-        "population": 33040,
-        "population_density": 38296.719168
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -191510,8 +191510,8 @@
         "SZ_ID": 233,
         "PA_ID": 14,
         "area": 1.58344,
-        "population": 34870,
-        "population_density": 22021.672043
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -192059,8 +192059,8 @@
         "SZ_ID": 234,
         "PA_ID": 52,
         "area": 0.846137,
-        "population": 24130,
-        "population_density": 28517.833841
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -192298,8 +192298,8 @@
         "SZ_ID": 235,
         "PA_ID": 8,
         "area": 0.997938,
-        "population": 360,
-        "population_density": 360.744028
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -193602,8 +193602,8 @@
         "SZ_ID": 236,
         "PA_ID": 20,
         "area": 1.460534,
-        "population": 59520,
-        "population_density": 40752.205721
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -193921,8 +193921,8 @@
         "SZ_ID": 237,
         "PA_ID": 20,
         "area": 1.496681,
-        "population": 52440,
-        "population_density": 35037.519656
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -194180,8 +194180,8 @@
         "SZ_ID": 238,
         "PA_ID": 20,
         "area": 1.667086,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -194969,8 +194969,8 @@
         "SZ_ID": 239,
         "PA_ID": 20,
         "area": 2.391627,
-        "population": 70800,
-        "population_density": 29603.277886
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -195398,8 +195398,8 @@
         "SZ_ID": 240,
         "PA_ID": 16,
         "area": 1.378711,
-        "population": 47960,
-        "population_density": 34786.127151
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -195682,8 +195682,8 @@
         "SZ_ID": 241,
         "PA_ID": 9,
         "area": 0.923215,
-        "population": 39130,
-        "population_density": 42384.504885
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -196206,8 +196206,8 @@
         "SZ_ID": 242,
         "PA_ID": 14,
         "area": 5.325422,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -197460,8 +197460,8 @@
         "SZ_ID": 243,
         "PA_ID": 11,
         "area": 1.744387,
-        "population": 46210,
-        "population_density": 26490.675067
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -198094,8 +198094,8 @@
         "SZ_ID": 244,
         "PA_ID": 9,
         "area": 1.003203,
-        "population": 24190,
-        "population_density": 24112.775942
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -198498,8 +198498,8 @@
         "SZ_ID": 245,
         "PA_ID": 9,
         "area": 1.095688,
-        "population": 21740,
-        "population_density": 19841.415348
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -198862,8 +198862,8 @@
         "SZ_ID": 246,
         "PA_ID": 5,
         "area": 0.668454,
-        "population": 25990,
-        "population_density": 38880.73513
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -199151,8 +199151,8 @@
         "SZ_ID": 247,
         "PA_ID": 5,
         "area": 0.624878,
-        "population": 23300,
-        "population_density": 37287.308305
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -199520,8 +199520,8 @@
         "SZ_ID": 248,
         "PA_ID": 5,
         "area": 0.674992,
-        "population": 24720,
-        "population_density": 36622.656218
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -199969,8 +199969,8 @@
         "SZ_ID": 249,
         "PA_ID": 21,
         "area": 2.330683,
-        "population": 15230,
-        "population_density": 6534.564448
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -200608,8 +200608,8 @@
         "SZ_ID": 250,
         "PA_ID": 20,
         "area": 1.093213,
-        "population": 21830,
-        "population_density": 19968.652218
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -200972,8 +200972,8 @@
         "SZ_ID": 251,
         "PA_ID": 52,
         "area": 1.861872,
-        "population": 4150,
-        "population_density": 2228.939426
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -201411,8 +201411,8 @@
         "SZ_ID": 252,
         "PA_ID": 52,
         "area": 0.909419,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -201660,8 +201660,8 @@
         "SZ_ID": 253,
         "PA_ID": 14,
         "area": 2.106164,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -202194,8 +202194,8 @@
         "SZ_ID": 254,
         "PA_ID": 52,
         "area": 3.334192,
-        "population": 7680,
-        "population_density": 2303.406337
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -203238,8 +203238,8 @@
         "SZ_ID": 255,
         "PA_ID": 14,
         "area": 1.719705,
-        "population": 7890,
-        "population_density": 4587.996522
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -204687,8 +204687,8 @@
         "SZ_ID": 256,
         "PA_ID": 9,
         "area": 1.088638,
-        "population": 30260,
-        "population_density": 27796.200387
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -205146,8 +205146,8 @@
         "SZ_ID": 257,
         "PA_ID": 20,
         "area": 1.569035,
-        "population": 62620,
-        "population_density": 39909.886402
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -205575,8 +205575,8 @@
         "SZ_ID": 258,
         "PA_ID": 52,
         "area": 1.464509,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -206014,8 +206014,8 @@
         "SZ_ID": 259,
         "PA_ID": 13,
         "area": 2.206305,
-        "population": 65000,
-        "population_density": 29461.021813
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -206563,8 +206563,8 @@
         "SZ_ID": 260,
         "PA_ID": 21,
         "area": 1.180126,
-        "population": 8440,
-        "population_density": 7151.778033
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -207122,8 +207122,8 @@
         "SZ_ID": 261,
         "PA_ID": 13,
         "area": 1.793464,
-        "population": 50990,
-        "population_density": 28431.0198
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -208016,8 +208016,8 @@
         "SZ_ID": 262,
         "PA_ID": 18,
         "area": 3.916069,
-        "population": 250,
-        "population_density": 63.839523
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -208600,8 +208600,8 @@
         "SZ_ID": 263,
         "PA_ID": 28,
         "area": 2.17538,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -209364,8 +209364,8 @@
         "SZ_ID": 264,
         "PA_ID": 18,
         "area": 3.623011,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -210093,8 +210093,8 @@
         "SZ_ID": 265,
         "PA_ID": 55,
         "area": 1.432913,
-        "population": 9700,
-        "population_density": 6769.42674
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -210517,8 +210517,8 @@
         "SZ_ID": 266,
         "PA_ID": 50,
         "area": 4.388415,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -211111,8 +211111,8 @@
         "SZ_ID": 267,
         "PA_ID": 16,
         "area": 1.200435,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -211945,8 +211945,8 @@
         "SZ_ID": 268,
         "PA_ID": 55,
         "area": 1.340168,
-        "population": 40960,
-        "population_density": 30563.332623
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -212609,8 +212609,8 @@
         "SZ_ID": 269,
         "PA_ID": 28,
         "area": 3.28413,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -213948,8 +213948,8 @@
         "SZ_ID": 270,
         "PA_ID": 33,
         "area": 2.553464,
-        "population": 98380,
-        "population_density": 38528.058604
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -214562,8 +214562,8 @@
         "SZ_ID": 271,
         "PA_ID": 19,
         "area": 0.961422,
-        "population": 34770,
-        "population_density": 36165.190757
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -214831,8 +214831,8 @@
         "SZ_ID": 272,
         "PA_ID": 33,
         "area": 1.281297,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -215415,8 +215415,8 @@
         "SZ_ID": 273,
         "PA_ID": 19,
         "area": 0.758123,
-        "population": 24750,
-        "population_density": 32646.397727
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -215569,8 +215569,8 @@
         "SZ_ID": 274,
         "PA_ID": 33,
         "area": 0.905921,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -215973,8 +215973,8 @@
         "SZ_ID": 275,
         "PA_ID": 16,
         "area": 1.418033,
-        "population": 52400,
-        "population_density": 36952.60378
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -216497,8 +216497,8 @@
         "SZ_ID": 276,
         "PA_ID": 16,
         "area": 1.489247,
-        "population": 53900,
-        "population_density": 36192.790212
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -216771,8 +216771,8 @@
         "SZ_ID": 277,
         "PA_ID": 28,
         "area": 5.186128,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -217380,8 +217380,8 @@
         "SZ_ID": 278,
         "PA_ID": 22,
         "area": 0.235997,
-        "population": 7570,
-        "population_density": 32076.685453
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -217759,8 +217759,8 @@
         "SZ_ID": 279,
         "PA_ID": 30,
         "area": 5.86424,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -219108,8 +219108,8 @@
         "SZ_ID": 280,
         "PA_ID": 30,
         "area": 4.472029,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -219647,8 +219647,8 @@
         "SZ_ID": 281,
         "PA_ID": 32,
         "area": 0.500139,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -220046,8 +220046,8 @@
         "SZ_ID": 282,
         "PA_ID": 32,
         "area": 0.697637,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -220500,8 +220500,8 @@
         "SZ_ID": 283,
         "PA_ID": 12,
         "area": 1.130952,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -222054,8 +222054,8 @@
         "SZ_ID": 284,
         "PA_ID": 49,
         "area": 1.459159,
-        "population": 4000,
-        "population_density": 2741.305785
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -222508,8 +222508,8 @@
         "SZ_ID": 285,
         "PA_ID": 49,
         "area": 0.784712,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -222742,8 +222742,8 @@
         "SZ_ID": 286,
         "PA_ID": 49,
         "area": 1.046418,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -223106,8 +223106,8 @@
         "SZ_ID": 287,
         "PA_ID": 49,
         "area": 0.899103,
-        "population": 12180,
-        "population_density": 13546.841877
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -223425,8 +223425,8 @@
         "SZ_ID": 288,
         "PA_ID": 49,
         "area": 0.78076,
-        "population": 6800,
-        "population_density": 8709.465856
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -223589,8 +223589,8 @@
         "SZ_ID": 289,
         "PA_ID": 54,
         "area": 0.482857,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -225228,8 +225228,8 @@
         "SZ_ID": 290,
         "PA_ID": 33,
         "area": 2.450948,
-        "population": 11200,
-        "population_density": 4569.661236
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -227927,8 +227927,8 @@
         "SZ_ID": 291,
         "PA_ID": 55,
         "area": 2.209211,
-        "population": 4170,
-        "population_density": 1887.551961
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -228336,8 +228336,8 @@
         "SZ_ID": 292,
         "PA_ID": 16,
         "area": 1.262037,
-        "population": 25060,
-        "population_density": 19856.785267
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -228755,8 +228755,8 @@
         "SZ_ID": 293,
         "PA_ID": 16,
         "area": 1.252408,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -228979,8 +228979,8 @@
         "SZ_ID": 294,
         "PA_ID": 7,
         "area": 37.158689,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -232898,8 +232898,8 @@
         "SZ_ID": 295,
         "PA_ID": 19,
         "area": 1.540734,
-        "population": 2290,
-        "population_density": 1486.304893
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -233547,8 +233547,8 @@
         "SZ_ID": 296,
         "PA_ID": 19,
         "area": 1.635808,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -235461,8 +235461,8 @@
         "SZ_ID": 297,
         "PA_ID": 19,
         "area": 2.241225,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -237290,8 +237290,8 @@
         "SZ_ID": 298,
         "PA_ID": 8,
         "area": 35.669231,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -240649,8 +240649,8 @@
         "SZ_ID": 299,
         "PA_ID": 46,
         "area": 0.091352,
-        "population": 180,
-        "population_density": 1970.391193
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -241158,8 +241158,8 @@
         "SZ_ID": 300,
         "PA_ID": 39,
         "area": 1.711946,
-        "population": 10480,
-        "population_density": 6121.688371
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -241822,8 +241822,8 @@
         "SZ_ID": 301,
         "PA_ID": 53,
         "area": 2.961466,
-        "population": 42540,
-        "population_density": 14364.506578
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -242661,8 +242661,8 @@
         "SZ_ID": 339,
         "PA_ID": 18,
         "area": 1.259743,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -243226,8 +243226,8 @@
         "SZ_ID": 303,
         "PA_ID": 28,
         "area": 3.291406,
-        "population": 640,
-        "population_density": 194.445807
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -243810,8 +243810,8 @@
         "SZ_ID": 304,
         "PA_ID": 33,
         "area": 1.576001,
-        "population": 41640,
-        "population_density": 26421.295055
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -244344,8 +244344,8 @@
         "SZ_ID": 305,
         "PA_ID": 33,
         "area": 1.664187,
-        "population": 32060,
-        "population_density": 19264.659095
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -244988,8 +244988,8 @@
         "SZ_ID": 306,
         "PA_ID": 55,
         "area": 1.769246,
-        "population": 73550,
-        "population_density": 41571.379964
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -245482,8 +245482,8 @@
         "SZ_ID": 307,
         "PA_ID": 32,
         "area": 68.550559,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -253567,8 +253567,8 @@
         "SZ_ID": 340,
         "PA_ID": 18,
         "area": 2.050051,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -254106,8 +254106,8 @@
         "SZ_ID": 341,
         "PA_ID": null,
         "area": 1.611279,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -255555,8 +255555,8 @@
         "SZ_ID": 310,
         "PA_ID": 19,
         "area": 1.261649,
-        "population": 13510,
-        "population_density": 10708.210206
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -255909,8 +255909,8 @@
         "SZ_ID": 311,
         "PA_ID": 23,
         "area": 17.495367,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -264098,8 +264098,8 @@
         "SZ_ID": 342,
         "PA_ID": null,
         "area": 3.450455,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -264942,8 +264942,8 @@
         "SZ_ID": 313,
         "PA_ID": 19,
         "area": 1.74336,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -265291,8 +265291,8 @@
         "SZ_ID": 314,
         "PA_ID": 19,
         "area": 1.394479,
-        "population": 25540,
-        "population_density": 18315.090065
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -265680,8 +265680,8 @@
         "SZ_ID": 343,
         "PA_ID": null,
         "area": 1.074375,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -266409,8 +266409,8 @@
         "SZ_ID": 316,
         "PA_ID": 55,
         "area": 1.517767,
-        "population": 50300,
-        "population_density": 33140.783204
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -267078,8 +267078,8 @@
         "SZ_ID": 317,
         "PA_ID": 33,
         "area": 0.595652,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -267687,8 +267687,8 @@
         "SZ_ID": 318,
         "PA_ID": 24,
         "area": 67.250524,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",
@@ -273932,8 +273932,8 @@
         "SZ_ID": 344,
         "PA_ID": null,
         "area": 2.147082,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -274921,8 +274921,8 @@
         "SZ_ID": 320,
         "PA_ID": 55,
         "area": 1.511,
-        "population": 26690,
-        "population_density": 17663.794564
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -275395,8 +275395,8 @@
         "SZ_ID": 321,
         "PA_ID": 33,
         "area": 0.936416,
-        "population": 33690,
-        "population_density": 35977.617906
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -276044,8 +276044,8 @@
         "SZ_ID": 322,
         "PA_ID": 33,
         "area": 1.64863,
-        "population": 36500,
-        "population_density": 22139.595919
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -276808,8 +276808,8 @@
         "SZ_ID": 323,
         "PA_ID": 19,
         "area": 1.099395,
-        "population": 12040,
-        "population_density": 10951.480643
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -277342,8 +277342,8 @@
         "SZ_ID": 324,
         "PA_ID": 28,
         "area": 3.652031,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -278156,8 +278156,8 @@
         "SZ_ID": 325,
         "PA_ID": 54,
         "area": 7.054259,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -280045,8 +280045,8 @@
         "SZ_ID": 326,
         "PA_ID": 50,
         "area": 7.235755,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -281114,8 +281114,8 @@
         "SZ_ID": 327,
         "PA_ID": 55,
         "area": 2.20675,
-        "population": 940,
-        "population_density": 425.9658
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -281653,8 +281653,8 @@
         "SZ_ID": 328,
         "PA_ID": 51,
         "area": 3.849507,
-        "population": 31280,
-        "population_density": 8125.715898
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -283022,8 +283022,8 @@
         "SZ_ID": 329,
         "PA_ID": 52,
         "area": 0.687914,
-        "population": 17460,
-        "population_density": 25381.091965
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -283561,8 +283561,8 @@
         "SZ_ID": 330,
         "PA_ID": 52,
         "area": 0.546394,
-        "population": 19840,
-        "population_density": 36310.805589
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -283960,8 +283960,8 @@
         "SZ_ID": 331,
         "PA_ID": 51,
         "area": 1.964145,
-        "population": 28730,
-        "population_density": 14627.232697
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "Polygon",
@@ -284499,8 +284499,8 @@
         "SZ_ID": 332,
         "PA_ID": 30,
         "area": 27.710219,
-        "population": 0,
-        "population_density": 0.0
+        "population": null,
+        "population_density": null
       },
       "geometry": {
         "type": "MultiPolygon",

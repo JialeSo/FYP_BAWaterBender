@@ -24,9 +24,9 @@ class MergeFloodsDataStage(PipelineStage):
 
     This stage combines:
     1. PUB weather alerts (fetched from Supabase)
-    2. SG historical flood data (Hui Ying's dataset with postal codes)
+    2. SG historical flood data (fetched from Supabase)
 
-    Input: None (loads from Supabase and file)
+    Input: None (loads from Supabase)
     Output: Merged DataFrame ready for further processing
     """
 
@@ -35,7 +35,7 @@ class MergeFloodsDataStage(PipelineStage):
 
         Args:
             config: Configuration dictionary containing:
-                - sg_csv: Path to SG historical floods CSV
+                - sg_table: Supabase table name for historical SG floods
                 - output_csv: Path to save merged CSV
                 - pub_table: Supabase table name for PUB data
         """
@@ -44,12 +44,7 @@ class MergeFloodsDataStage(PipelineStage):
         # All data in backend/etl/data
         etl_data_dir = Path(__file__).resolve().parents[1] / "data"
 
-        self.sg_csv = Path(
-            self.config.get(
-                "sg_csv",
-                etl_data_dir / "floods" / "SG_postal_codes_resolved.csv"
-            )
-        )
+        self.sg_table = self.config.get("sg_table", "flood_historical_sg")
 
         self.output_csv = Path(
             self.config.get(
@@ -70,9 +65,6 @@ class MergeFloodsDataStage(PipelineStage):
         Raises:
             ValueError: If configuration is invalid
         """
-        if not self.sg_csv.exists():
-            raise ValueError(f"SG CSV not found: {self.sg_csv}")
-
         # Test database connection
         self.db._get_connection()
 
@@ -168,49 +160,73 @@ class MergeFloodsDataStage(PipelineStage):
             logger.error(f"Failed to fetch PUB data from Supabase: {e}")
             raise
 
-        # Load SG dataset, ensure Postal_Code is string
-        logger.info(f"Loading SG historical data from {self.sg_csv}")
-        sg_df = pd.read_csv(self.sg_csv, dtype={"Postal_Code": str})
+        # Load SG historical dataset from Supabase
+        logger.info(f"Fetching SG historical data from Supabase table '{self.sg_table}'")
+        try:
+            sg_response = client.table(self.sg_table).select("*").execute()
+            sg_records = sg_response.data
 
-        # Convert SG["Date"] to datetime.date
-        sg_df["event_date"] = pd.to_datetime(
-            sg_df["Date"],
-            dayfirst=True,
-            errors="coerce"
-        ).dt.date
+            if not sg_records:
+                logger.warning(f"No historical SG records found in table '{self.sg_table}'")
+                sg_df = pd.DataFrame()
+            else:
+                sg_df = pd.DataFrame(sg_records)
+                logger.info(f"✓ Fetched {len(sg_df):,} SG historical flood events from Supabase")
 
-        logger.info(f"✓ Loaded {len(sg_df):,} SG historical flood events")
+                # Ensure postal codes are strings
+                if "start_postal_code" in sg_df.columns:
+                    sg_df["start_postal_code"] = sg_df["start_postal_code"].astype(str)
+
+                # Parse event_date if needed
+                if "event_date" in sg_df.columns:
+                    sg_df["event_date"] = pd.to_datetime(
+                        sg_df["event_date"],
+                        errors="coerce"
+                    ).dt.date
+
+        except Exception as e:
+            logger.error(f"Failed to fetch SG historical data from Supabase: {e}")
+            raise
 
         # Create a dataframe with PUB's schema
-        sg_to_pub = pd.DataFrame({
-            "id": sg_df["id"],
-            "created_at": None,
-            "text": None,
-            "event_date": sg_df["event_date"],
-            "sender_id": None,
-            "msg_id": None,
-            "location": sg_df["Location"],
-            "event": "flash_flood",
-            "start_loc": None,
-            "end_loc": None,
-            "parent_road": None,
-            "cleaned_location": None,
-            "start_lat": sg_df["latitude"],
-            "start_lng": sg_df["longitude"],
-            "start_postal_code": sg_df["Postal_Code"],
-            "end_lat": None,
-            "end_lng": None,
-            "end_postal_code": None,
-        })
+        if sg_df.empty:
+            sg_to_pub = pd.DataFrame()
+        else:
+            sg_to_pub = pd.DataFrame({
+                "id": sg_df["id"],
+                "created_at": None,
+                "text": None,
+                "event_date": sg_df["event_date"],
+                "sender_id": None,
+                "msg_id": None,
+                "location": sg_df["location"],
+                "event": sg_df.get("event", "flash_flood"),
+                "start_loc": None,
+                "end_loc": None,
+                "parent_road": None,
+                "cleaned_location": None,
+                "start_lat": sg_df["start_lat"],
+                "start_lng": sg_df["start_lng"],
+                "start_postal_code": sg_df["start_postal_code"],
+                "end_lat": None,
+                "end_lng": None,
+                "end_postal_code": None,
+            })
 
         # Combine SG + PUB (SG first since it has historical data)
-        if pub_df.empty:
+        if pub_df.empty and sg_to_pub.empty:
+            logger.warning("No data found in either PUB or SG historical sources")
+            merged = pd.DataFrame()
+        elif pub_df.empty:
             merged = sg_to_pub
+        elif sg_to_pub.empty:
+            merged = pub_df
         else:
             merged = pd.concat([sg_to_pub, pub_df], ignore_index=True)
 
         # Sort by event_date (earliest first)
-        merged = merged.sort_values("event_date", ascending=True).reset_index(drop=True)
+        if not merged.empty:
+            merged = merged.sort_values("event_date", ascending=True).reset_index(drop=True)
 
         logger.info(f"✓ Merged {len(merged):,} total flood events")
 
@@ -344,7 +360,7 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
         self.road_network_geojson = Path(
             self.config.get(
                 "road_network_geojson",
-                etl_data_dir / "roadnetwork" / "road_network_final.geojson"
+                etl_data_dir / "roadnetwork" / "road_network.geojson"
             )
         )
 
@@ -714,7 +730,7 @@ class FloodsPipeline(Pipeline):
     """Complete pipeline for processing floods data.
 
     This pipeline processes floods data through these stages:
-    1. Merge Floods Data - Combine PUB data (from Supabase) with SG historical data (from CSV)
+    1. Merge Floods Data - Combine PUB data and SG historical data (both from Supabase)
     2. Three Layers Processing - Match to PA/SZ/RN
     3. Sanitize Data - Clean and format for database
     4. Filter Data - Remove island PAs and subsided events
