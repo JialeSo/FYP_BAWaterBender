@@ -20,6 +20,7 @@ export function MetricSelector({
   onToggleAmenities,
   showFloodedRoads = true,
   onToggleFloodedRoads,
+  selectedPA = null,
 }) {
   const metrics = [
     { value: "delta_time", label: "Travel Time Change" },
@@ -49,40 +50,45 @@ export function MetricSelector({
         ))}
       </div>
 
-      <Separator className="my-3" />
+      {/* Only show layer toggles in global view (not in PA view) */}
+      {!selectedPA && (
+        <>
+          <Separator className="my-3" />
 
-      {/* Layer Toggles */}
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-        Map Layers
-      </div>
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="toggle-amenities"
-            checked={showAmenities}
-            onCheckedChange={onToggleAmenities}
-          />
-          <Label
-            htmlFor="toggle-amenities"
-            className="text-xs cursor-pointer font-normal"
-          >
-            Show Amenities
-          </Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="toggle-flooded-roads"
-            checked={showFloodedRoads}
-            onCheckedChange={onToggleFloodedRoads}
-          />
-          <Label
-            htmlFor="toggle-flooded-roads"
-            className="text-xs cursor-pointer font-normal"
-          >
-            Show Flooded Roads
-          </Label>
-        </div>
-      </div>
+          {/* Layer Toggles */}
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Map Layers
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="toggle-amenities"
+                checked={showAmenities}
+                onCheckedChange={onToggleAmenities}
+              />
+              <Label
+                htmlFor="toggle-amenities"
+                className="text-xs cursor-pointer font-normal"
+              >
+                Show Amenities
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="toggle-flooded-roads"
+                checked={showFloodedRoads}
+                onCheckedChange={onToggleFloodedRoads}
+              />
+              <Label
+                htmlFor="toggle-flooded-roads"
+                className="text-xs cursor-pointer font-normal"
+              >
+                Show Flooded Roads
+              </Label>
+            </div>
+          </div>
+        </>
+      )}
     </Card>
   );
 }

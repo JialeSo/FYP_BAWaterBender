@@ -291,6 +291,7 @@ export default function Simulation() {
   const configContainerRef = useRef(null);
   const popupRef = useRef(null);
   const roadPopupRef = useRef(null);
+  const contentRef = useRef(null);
 
   // Computation state
   const [busy, setBusy] = useState(false);
@@ -316,6 +317,13 @@ export default function Simulation() {
       console.log("Flood scenarios from context:", flood_scenarios.length, flood_scenarios);
     }
   }, [flood_scenarios]);
+
+  // Scroll to top when step changes
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [step]);
 
   // Reset markers when going back to step 1
   useEffect(() => {
@@ -738,10 +746,10 @@ export default function Simulation() {
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header with stepper */}
       <div className="border-b bg-card shadow-sm">
-        <div className="container mx-auto px-6 py-4">
+        <div className="px-6 py-4">
           <h1 className="text-2xl font-bold mb-4 text-center">Flood Impact Simulation</h1>
           <div className="flex items-center justify-center gap-2">
             {[
@@ -782,37 +790,41 @@ export default function Simulation() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto p-6">
+      <div ref={contentRef} className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto p-6 pb-24">{/* pb-24 for footer space */}
         {/* Step 1: Define Flood Input */}
         {step === 1 && (
           <div className="max-w-3xl mx-auto space-y-6">
-            {/* Info Panel */}
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
-                  <AlertCircle className="h-5 w-5" />
-                  What does this simulation do?
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <p className="text-blue-900/90 dark:text-blue-100/90">
-                  This tool simulates the impact of flooding on <strong>accessibility to essential amenities</strong> (hospitals by default) across Singapore's planning areas.
-                </p>
-                <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg p-3 border border-blue-200/50">
-                  <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">How it works:</p>
-                  <ul className="list-disc pl-5 space-y-1 text-blue-900/80 dark:text-blue-100/80">
-                    <li>Define flood locations (manually or using historical scenarios)</li>
-                    <li>Mark which roads become impassable due to flooding</li>
-                    <li>Calculate the <strong>shortest travel time</strong> from each planning area to nearest amenities</li>
-                    <li>Compare baseline accessibility vs. flooded scenario</li>
-                  </ul>
-                </div>
-                <p className="font-semibold text-blue-800 dark:text-blue-300 bg-white/50 dark:bg-gray-900/30 p-2 rounded border border-blue-200/50">
-                  📊 Result: Shows which planning areas are most affected by increased travel times and loss of accessibility.
-                </p>
-              </CardContent>
-            </Card>
+            {/* Info Panel - Accordion */}
+            <Accordion type="single" collapsible defaultValue="info" className="w-full">
+              <AccordionItem value="info" className="border rounded-lg bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200">
+                <AccordionTrigger className="px-4 hover:no-underline">
+                  <div className="flex items-center gap-2 text-blue-900 dark:text-blue-100 font-semibold">
+                    <AlertCircle className="h-5 w-5" />
+                    What does this simulation do?
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <div className="space-y-3 text-sm">
+                    <p className="text-blue-900/90 dark:text-blue-100/90">
+                      This tool simulates the impact of flooding on <strong>accessibility to essential amenities</strong> (hospitals by default) across Singapore's planning areas.
+                    </p>
+                    <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg p-3 border border-blue-200/50">
+                      <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">How it works:</p>
+                      <ul className="list-disc pl-5 space-y-1 text-blue-900/80 dark:text-blue-100/80">
+                        <li>Define flood locations (manually or using historical scenarios)</li>
+                        <li>Mark which roads become impassable due to flooding</li>
+                        <li>Calculate the <strong>shortest travel time</strong> from each planning area to nearest amenities</li>
+                        <li>Compare baseline accessibility vs. flooded scenario</li>
+                      </ul>
+                    </div>
+                    <p className="font-semibold text-blue-800 dark:text-blue-300 bg-white/50 dark:bg-gray-900/30 p-2 rounded border border-blue-200/50">
+                      📊 Result: Shows which planning areas are most affected by increased travel times and loss of accessibility.
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
             {/* Flood Input Method */}
             <Card>
@@ -1017,14 +1029,6 @@ export default function Simulation() {
               </Card>
             )}
 
-            <div className="flex justify-between pt-4 border-t">
-              <Button variant="outline" onClick={() => setStep(1)}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back
-              </Button>
-              <Button onClick={() => setStep(3)} disabled={!canProceedToStep3}>
-                Next <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
           </div>
         )}
 
@@ -1369,15 +1373,6 @@ export default function Simulation() {
               </Card>
             )}
 
-            {/* Navigation */}
-            <div className="flex justify-between pt-4 border-t">
-              <Button variant="outline" onClick={() => setStep(2)} disabled={busy}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back
-              </Button>
-              <Button onClick={runSimulation} disabled={!ready || busy || !selectedAmenityType}>
-                <Play className="mr-2 h-4 w-4" /> Run Simulation
-              </Button>
-            </div>
           </div>
         )}
 
@@ -1453,12 +1448,14 @@ export default function Simulation() {
                   onToggleAmenities={setShowAmenities}
                   showFloodedRoads={showFloodedRoads}
                   onToggleFloodedRoads={setShowFloodedRoads}
+                  selectedPA={selectedPA}
                 />
 
                 <SimulationLegend
                   selectedMetric={selectedMetric}
                   goldenTime={goldenTime}
                   selectedPA={selectedPA}
+                  paDeltas={paDeltas}
                 />
             </div>
 
@@ -1509,13 +1506,38 @@ export default function Simulation() {
               </CardContent>
             </Card>
 
-            <div className="flex justify-start">
-              <Button variant="outline" onClick={() => { setStep(1); setFloodMarkers([]); setAffectedRoads([]); setBaselineStats(null); setFloodedStats(null); setPaDeltas([]); }}>
-                Start New Simulation
-              </Button>
-            </div>
           </div>
         )}
+        </div>
+      </div>
+
+      {/* Sticky Footer with Navigation */}
+      <div className="border-t bg-card shadow-lg">
+        <div className="px-6 py-3 flex items-center justify-between">
+          {step > 1 && (
+            <Button variant="outline" onClick={() => setStep(step - 1)} disabled={busy}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+          )}
+          {step === 1 && <div />}
+
+          <div className="flex gap-2">
+            {step === 4 && (
+              <Button variant="outline" onClick={() => { setStep(1); setFloodMarkers([]); setAffectedRoads([]); setBaselineStats(null); setFloodedStats(null); setPaDeltas([]); setSelectedPA(null); }}>
+                Start New Simulation
+              </Button>
+            )}
+            {step === 2 && (
+              <Button onClick={() => setStep(3)} disabled={!canProceedToStep3}>
+                Next <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+            {step === 3 && (
+              <Button onClick={runSimulation} disabled={!ready || busy || !selectedAmenityType}>
+                <Play className="mr-2 h-4 w-4" /> Run Simulation
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
