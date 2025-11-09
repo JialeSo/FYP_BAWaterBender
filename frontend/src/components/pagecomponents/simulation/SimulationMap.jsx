@@ -3,7 +3,7 @@ import { useRef, useState, useEffect } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { computeBounds } from "@/lib/geo";
-import { useMapData } from "@/context/MapDataContext";
+import { useMapData } from "@/context/mapDataContext";
 
 /* ===== map defaults ===== */
 const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();

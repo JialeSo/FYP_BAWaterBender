@@ -4,8 +4,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import LeftPanel from "@/components/pagecomponents/historicalMap/LeftPanel";
-import RightPanel from "./RightPanel";
+import LeftPanel from "@/components/pagecomponents/historicalMap/leftPanel";
+import RightPanel from "./rightPanel";
 import { PanelLeft, PanelRight } from "lucide-react";
 import { useMapData } from "@/context/MapDataContext";
 

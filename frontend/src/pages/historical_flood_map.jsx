@@ -1,5 +1,5 @@
-﻿import DashboardLayout from "../components/pagecomponents/historicalMap/DashboardLayout";
-import SingaporeHistoricalFloodMap from "../components/pagecomponents/historicalMap/SingaporeHistoricalFloodMap";
+﻿import DashboardLayout from "../components/pagecomponents/historicalMap/dashboardLayout";
+import SingaporeHistoricalFloodMap from "../components/pagecomponents/historicalMap/singaporeHistoricalFloodMap";
 
 export default function HistoricalFloodMapPage() {
   return (
