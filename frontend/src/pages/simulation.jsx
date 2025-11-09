@@ -25,6 +25,12 @@ const mapbox_style = "mapbox://styles/mapbox/light-v11";
 const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
 const toNum = (v) => { const n = +v; return Number.isFinite(n) ? n : null; };
 const fmtM = (s) => (Number.isFinite(s) ? (s / 60).toFixed(1) + "m" : "—");
+const fmtTime = (s) => {
+  if (!Number.isFinite(s)) return "—";
+  const minutes = (s / 60).toFixed(1);
+  const seconds = Math.round(s);
+  return `${minutes}m (${seconds}s)`;
+};
 const dist2 = (a, b) => { if (!a || !b) return Number.POSITIVE_INFINITY; const dx=a[0]-b[0], dy=a[1]-b[1]; return dx*dx+dy*dy; };
 const capitalizeWords = (str) => str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
 
@@ -267,6 +273,7 @@ export default function Simulation() {
   const [amenitySearchTerm, setAmenitySearchTerm] = useState("");
   const [availableAmenities, setAvailableAmenities] = useState([]);
   const [excludedAmenities, setExcludedAmenities] = useState(new Set()); // Set of amenity_ids to exclude
+  const [goldenTime, setGoldenTime] = useState(480); // Target time in seconds (default: 8 minutes = 480s)
 
   // Road filtering (for Step 3)
   const [selectedPlanningArea, setSelectedPlanningArea] = useState("all");
@@ -292,7 +299,7 @@ export default function Simulation() {
   const [paDeltas, setPaDeltas] = useState([]);
   const [selectedPA, setSelectedPA] = useState(null);
   const [hoveredPA, setHoveredPA] = useState(null);
-  const [selectedMetric, setSelectedMetric] = useState("delta_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time"
+  const [selectedMetric, setSelectedMetric] = useState("delta_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time" | "golden_time"
 
   // Scenarios now loaded from context - no need to fetch here
   useEffect(() => {
@@ -719,6 +726,18 @@ export default function Simulation() {
             } else if (metric === "flooded_time") {
               value = delta.flood_avg_s || 0;
               color = getColorForValue(value, maxValue, true); // Flooded uses cool colors
+            } else if (metric === "golden_time") {
+              value = delta.base_avg_s || 0;
+              // Green if within target, red if exceeds target
+              if (value <= goldenTime) {
+                color = "#22c55e"; // Green - meets target
+              } else {
+                // Gradual red scale based on how much it exceeds
+                const exceedRatio = (value - goldenTime) / goldenTime;
+                if (exceedRatio < 0.25) color = "#fbbf24"; // Yellow - slightly over
+                else if (exceedRatio < 0.5) color = "#fb923c"; // Orange - moderately over
+                else color = "#ef4444"; // Red - significantly over
+              }
             }
 
             features.push({
@@ -826,22 +845,22 @@ export default function Simulation() {
 
                   <!-- Min Time -->
                   <div style="font-size: 10px; margin-bottom: 4px;">
-                    <div style="color: #9ca3af;">Min Time: <span style="color: #d1d5db;">${fmtM(props.base_min_s)}</span> → <span style="color: #d1d5db;">${fmtM(props.flood_min_s)}</span> <span style="color: ${deltaMinColor}; font-weight: 600;">(${props.delta_min_s > 0 ? '+' : ''}${fmtM(props.delta_min_s)})</span></div>
+                    <div style="color: #9ca3af;">Min: <span style="color: #d1d5db;">${fmtTime(props.base_min_s)}</span> → <span style="color: #d1d5db;">${fmtTime(props.flood_min_s)}</span> <span style="color: ${deltaMinColor}; font-weight: 600;">(${props.delta_min_s > 0 ? '+' : ''}${fmtTime(props.delta_min_s)})</span></div>
                   </div>
 
                   <!-- Max Time -->
                   <div style="font-size: 10px; margin-bottom: 4px;">
-                    <div style="color: #9ca3af;">Max Time: <span style="color: #d1d5db;">${fmtM(props.base_max_s)}</span> → <span style="color: #d1d5db;">${fmtM(props.flood_max_s)}</span> <span style="color: ${deltaMaxColor}; font-weight: 600;">(${props.delta_max_s > 0 ? '+' : ''}${fmtM(props.delta_max_s)})</span></div>
+                    <div style="color: #9ca3af;">Max: <span style="color: #d1d5db;">${fmtTime(props.base_max_s)}</span> → <span style="color: #d1d5db;">${fmtTime(props.flood_max_s)}</span> <span style="color: ${deltaMaxColor}; font-weight: 600;">(${props.delta_max_s > 0 ? '+' : ''}${fmtTime(props.delta_max_s)})</span></div>
                   </div>
 
                   <!-- Avg Time -->
                   <div style="font-size: 10px; margin-bottom: 4px;">
-                    <div style="color: #9ca3af;">Avg Time: <span style="color: #d1d5db;">${fmtM(props.base_avg_s)}</span> → <span style="color: #d1d5db;">${fmtM(props.flood_avg_s)}</span> <span style="color: ${deltaAvgColor}; font-weight: 600;">(${props.delta_avg_s > 0 ? '+' : ''}${fmtM(props.delta_avg_s)})</span></div>
+                    <div style="color: #9ca3af;">Avg: <span style="color: #d1d5db;">${fmtTime(props.base_avg_s)}</span> → <span style="color: #d1d5db;">${fmtTime(props.flood_avg_s)}</span> <span style="color: ${deltaAvgColor}; font-weight: 600;">(${props.delta_avg_s > 0 ? '+' : ''}${fmtTime(props.delta_avg_s)})</span></div>
                   </div>
 
                   <!-- Unreachable -->
                   <div style="font-size: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #374151;">
-                    <div style="color: #9ca3af;">Unreachable: <span style="color: #d1d5db;">${props.base_unreachable}</span> → <span style="color: #d1d5db;">${props.flood_unreachable}</span> <span style="color: ${deltaUnreachableColor}; font-weight: 600;">(${props.delta_unreachable > 0 ? '+' : ''}${props.delta_unreachable})</span></div>
+                    <div style="color: #9ca3af;">Unreachable Intersections: <span style="color: #d1d5db;">${props.base_unreachable}</span> → <span style="color: #d1d5db;">${props.flood_unreachable}</span> <span style="color: ${deltaUnreachableColor}; font-weight: 600;">(${props.delta_unreachable > 0 ? '+' : ''}${props.delta_unreachable} increased)</span></div>
                   </div>
                 </div>
 
@@ -1082,7 +1101,7 @@ export default function Simulation() {
             }
 
             const deltaTimeStr = Number.isFinite(props.delta_time) && props.delta_time !== Infinity
-              ? fmtM(props.delta_time)
+              ? fmtTime(props.delta_time)
               : 'N/A';
             const deltaColor = props.delta_time > 0 ? '#fbbf24' : '#22c55e';
 
@@ -1093,19 +1112,19 @@ export default function Simulation() {
 
                 <div style="border-top: 1px solid #374151; padding-top: 6px; margin-top: 6px;">
                   <div style="font-size: 11px; font-weight: 600; color: ${deltaColor}; margin-bottom: 4px;">
-                    Δ Time: ${props.delta_time > 0 ? '+' : ''}${deltaTimeStr}
+                    Increased Travel Time: ${props.delta_time > 0 ? '+' : ''}${deltaTimeStr}
                   </div>
 
                   <div style="font-size: 10px; margin-top: 4px;">
-                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Baseline:</strong></div>
-                    <div style="color: #9ca3af; margin-left: 8px; margin-bottom: 1px;">→ ${props.baseline_hospital}</div>
-                    <div style="color: #9ca3af; margin-left: 8px;">Time: ${Number.isFinite(props.baseline_time) ? fmtM(props.baseline_time) : 'N/A'}</div>
+                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Before Flood (Baseline):</strong></div>
+                    <div style="color: #9ca3af; margin-left: 8px; margin-bottom: 1px;">Nearest: ${props.baseline_hospital}</div>
+                    <div style="color: #9ca3af; margin-left: 8px;">Travel Time: ${Number.isFinite(props.baseline_time) ? fmtTime(props.baseline_time) : 'N/A'}</div>
                   </div>
 
                   <div style="font-size: 10px; margin-top: 6px;">
-                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Flooded:</strong></div>
-                    <div style="color: #9ca3af; margin-left: 8px; margin-bottom: 1px;">→ ${props.flooded_hospital}</div>
-                    <div style="color: #9ca3af; margin-left: 8px;">Time: ${Number.isFinite(props.flooded_time) ? fmtM(props.flooded_time) : 'N/A'}</div>
+                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>After Flood:</strong></div>
+                    <div style="color: #9ca3af; margin-left: 8px; margin-bottom: 1px;">Nearest: ${props.flooded_hospital}</div>
+                    <div style="color: #9ca3af; margin-left: 8px;">Travel Time: ${Number.isFinite(props.flooded_time) ? fmtTime(props.flooded_time) : 'N/A'}</div>
                   </div>
                 </div>
 
@@ -1565,6 +1584,10 @@ export default function Simulation() {
                     <span className="font-semibold">Amenity Type:</span>
                     <span className="capitalize">{selectedAmenityType.replace(/_/g, ' ')}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold">Golden Time Target:</span>
+                    <span>{fmtTime(goldenTime)}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1677,6 +1700,40 @@ export default function Simulation() {
                     </AccordionItem>
                   </Accordion>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Golden Time Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Golden Time Target</CardTitle>
+                <CardDescription>Set the target travel time to nearest {selectedAmenityType.replace(/_/g, ' ')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-sm font-medium">Target Time: {fmtTime(goldenTime)}</Label>
+                    <span className="text-xs text-muted-foreground">Planning areas within this time are considered optimal</span>
+                  </div>
+                  <Slider
+                    value={[goldenTime]}
+                    min={60}
+                    max={1800}
+                    step={30}
+                    onValueChange={(v) => setGoldenTime(v[0])}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>1m (60s)</span>
+                    <span>30m (1800s)</span>
+                  </div>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">
+                    The Golden Time metric will color-code planning areas based on whether their <strong>baseline average travel time</strong> meets this target.
+                    Green indicates areas within the target, while red indicates areas exceeding it.
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
@@ -1865,7 +1922,7 @@ export default function Simulation() {
                       className="justify-start text-xs h-8"
                       onClick={() => setSelectedMetric("delta_time")}
                     >
-                      Δ Travel Time
+                      Increased Travel Time
                     </Button>
                     <Button
                       size="sm"
@@ -1873,7 +1930,7 @@ export default function Simulation() {
                       className="justify-start text-xs h-8"
                       onClick={() => setSelectedMetric("unreachable")}
                     >
-                      Unreachable Intersections
+                      Increased Unreachable Intersections
                     </Button>
                     <Button
                       size="sm"
@@ -1881,7 +1938,7 @@ export default function Simulation() {
                       className="justify-start text-xs h-8"
                       onClick={() => setSelectedMetric("baseline_time")}
                     >
-                      Baseline Time
+                      Before Flood (Baseline)
                     </Button>
                     <Button
                       size="sm"
@@ -1889,7 +1946,15 @@ export default function Simulation() {
                       className="justify-start text-xs h-8"
                       onClick={() => setSelectedMetric("flooded_time")}
                     >
-                      Flooded Time
+                      After Flood
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedMetric === "golden_time" ? "default" : "ghost"}
+                      className="justify-start text-xs h-8"
+                      onClick={() => setSelectedMetric("golden_time")}
+                    >
+                      Golden Time Target ({(goldenTime / 60).toFixed(1)}m)
                     </Button>
                   </div>
                 </div>
@@ -1954,6 +2019,26 @@ export default function Simulation() {
                         <div className="flex items-center gap-2">
                           <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
                           <span className="text-xs">Very High (75-100%)</span>
+                        </div>
+                      </>
+                    )}
+                    {selectedMetric === "golden_time" && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
+                          <span className="text-xs">Within Target ({fmtTime(goldenTime)})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fbbf24" }}></div>
+                          <span className="text-xs">Slightly Over (0-25%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
+                          <span className="text-xs">Moderately Over (25-50%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
+                          <span className="text-xs">Significantly Over (&gt;50%)</span>
                         </div>
                       </>
                     )}
