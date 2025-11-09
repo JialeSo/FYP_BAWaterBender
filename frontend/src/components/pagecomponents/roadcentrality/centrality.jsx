@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, ChevronsUpDown, X, Info } from "lucide-react";
-import { NumberInput } from "@/components/NumberInput";
+import { NumberInput } from "@/components/numberInput";
 import {
   PAGE_SIZE,
   PRESETS,
