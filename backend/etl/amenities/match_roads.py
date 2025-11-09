@@ -49,7 +49,7 @@ class RoadMatcherPaths:
         default_factory=lambda: BASE_DIR.parents[1] / "data" / "02_amenities_classified.csv"
     )
     road_network_geojson: Path = field(
-        default_factory=lambda: BASE_DIR.parents[1] / "data" / "roadnetwork" / "road_network_final.geojson"
+        default_factory=lambda: BASE_DIR.parents[1] / "data" / "roadnetwork" / "road_network.geojson"
     )
     output_csv: Path = field(
         default_factory=lambda: BASE_DIR.parents[3] / "frontend" / "public" / "map" / "amenities_3layers.csv"
