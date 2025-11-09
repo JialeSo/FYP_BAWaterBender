@@ -303,5 +303,5 @@ def get_default_geojson_paths() -> dict:
     return {
         'planning_geojson': base_dir / "roadnetwork" / "planning_area.geojson",
         'subzone_geojson': base_dir / "roadnetwork" / "subzone_area.geojson",
-        'road_network_geojson': base_dir / "roadnetwork" / "road_network_final.geojson",
+        'road_network_geojson': base_dir / "roadnetwork" / "road_network.geojson",
     }

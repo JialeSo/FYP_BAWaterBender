@@ -10,9 +10,9 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 9,,,2014-06-25,,,45061 (BUS STOP),flash_flood,,,,,1.407181,103.756063,729678,,,,,,,,
 10,,,2014-07-09,,,45019 (BUS STOP),flash_flood,,,,,1.388299,103.755539,682036,,,,,,,,
 11,,,2014-07-09,,,COMMONWEALTH LANE,flash_flood,,,,,1.304553,103.797475,149547,,,,,,,,
+13,,,2014-07-29,,,KRAMAT LANE,flash_flood,,,,,1.300979,103.842274,228750,,,,,,,,
 14,,,2014-07-29,,,BASSEIN ROAD,flash_flood,,,,,1.323316,103.848088,309838,,,,,,,,
 12,,,2014-07-29,,,MACKENZIE ROAD,flash_flood,,,,,1.305873,103.848002,228708,,,,,,,,
-13,,,2014-07-29,,,KRAMAT LANE,flash_flood,,,,,1.300979,103.842274,228750,,,,,,,,
 15,,,2014-09-03,,,14379 (BUS STOP),flash_flood,,,,,1.272438,103.823794,090109,,,,,,,,
 16,,,2014-09-24,,,2 MANDAI ROAD,flash_flood,,,,,1.402422,103.815417,779403,,,,,,,,
 17,,,2014-10-04,,,21329 (BUS STOP),flash_flood,,,,,1.326915,103.709018,619625,,,,,,,,
@@ -21,19 +21,19 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 20,,,2014-11-06,,,58161 (BUS STOP),flash_flood,,,,,1.460528,103.820374,757443,,,,,,,,
 21,,,2014-11-08,,,42241 (BUS STOP),flash_flood,,,,,1.337118,103.767085,598112,,,,,,,,
 22,,,2014-11-08,,,40099 (BUS STOP),flash_flood,,,,,1.321852,103.82344,259372,,,,,,,,
+25,,,2014-11-13,,,LORONG ONG LYE,flash_flood,,,,,1.347784,103.879043,534965,,,,,,,,
+24,,,2014-11-13,,,LORONG GAMBIR,flash_flood,,,,,1.345476,103.875567,556140,,,,,,,,
 27,,,2014-11-13,,,YISHUN MRT,flash_flood,,,,,1.429525,103.834995,769093,,,,,,,,
 26,,,2014-11-13,,,SEMBAWANG SHOPPING CENTRE,flash_flood,,,,,1.441853,103.82497,758459,,,,,,,,
 23,,,2014-11-13,,,TAN HENG LEE BUILDING,flash_flood,,,,,1.332819,103.884451,369610,,,,,,,,
-24,,,2014-11-13,,,LORONG GAMBIR,flash_flood,,,,,1.345476,103.875567,556140,,,,,,,,
-25,,,2014-11-13,,,LORONG ONG LYE,flash_flood,,,,,1.347784,103.879043,534965,,,,,,,,
 28,,,2014-11-17,,,LORONG GAMBIR,flash_flood,,,,,1.345476,103.875567,556140,,,,,,,,
 29,,,2014-11-17,,,LORONG ONG LYE,flash_flood,,,,,1.347784,103.879043,534965,,,,,,,,
 30,,,2014-11-17,,,63139 (BUS STOP),flash_flood,,,,,1.361202,103.891412,532373,,,,,,,,
 31,,,2014-11-17,,,HOUGANG AVE 1,flash_flood,,,,,1.353703,103.890681,530106,,,,,,,,
 32,,,2014-11-17,,,MACPHERSON ROAD,flash_flood,,,,,1.328704,103.872121,348741,,,,,,,,
 33,,,2014-11-26,,,16 SUNSET DRIVE,flash_flood,,,,,1.325782,103.766715,597092,,,,,,,,
-35,,,2014-12-17,,,11429 (BUS STOP),flash_flood,,,,,1.30454,103.798363,149597,,,,,,,,
 34,,,2014-12-17,,,ENTERPRISE ROAD,flash_flood,,,,,1.333312,103.705117,629840,,,,,,,,
+35,,,2014-12-17,,,11429 (BUS STOP),flash_flood,,,,,1.30454,103.798363,149597,,,,,,,,
 36,,,2014-12-24,,,NATIONAL SHOOTING CENTRE,flash_flood,,,,,1.372792,103.682976,698910,,,,,,,,
 37,,,2015-04-24,,,LORNIE VIADUCT,flash_flood,,,,,1.344614,103.8435,579847,,,,,,,,
 38,,,2015-05-03,,,NATIONAL SHOOTING CENTRE,flash_flood,,,,,1.372792,103.682976,698910,,,,,,,,
@@ -43,28 +43,28 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 42,,,2015-08-12,,,TAMPINES STREET 32,flash_flood,,,,,1.353779,103.957994,520384,,,,,,,,
 43,,,2015-09-09,,,JURONG WEST STREET 51,flash_flood,,,,,1.347889,103.720531,640511,,,,,,,,
 44,,,2015-12-02,,,12111 (BUS STOP),flash_flood,,,,,1.319118,103.77223,120343,,,,,,,,
+46,,,2015-12-05,,,LORONG BUANGKOK,flash_flood,,,,,1.383418,103.877972,805910,,,,,,,,
 47,,,2015-12-05,,,ANG MO KIO STREET 31,flash_flood,,,,,1.365873,103.848056,560320,,,,,,,,
 45,,,2015-12-05,,,CHURCH OF ST VINCENT DE PAUL,flash_flood,,,,,1.382224,103.876411,805910,,,,,,,,
-46,,,2015-12-05,,,LORONG BUANGKOK,flash_flood,,,,,1.383418,103.877972,805910,,,,,,,,
 48,,,2015-12-10,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
 49,,,2015-12-10,,,69 BOON KENG ROAD,flash_flood,,,,,1.317147,103.862497,339772,,,,,,,,
 50,,,2015-12-10,,,MAXWELL FOOD CENTRE,flash_flood,,,,,1.280331,103.844747,088437,,,,,,,,
 51,,,2015-12-10,,,CHANGI FLYOVER,flash_flood,,,,,1.345806,103.982914,819658,,,,,,,,
-56,,,2015-12-11,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
-55,,,2015-12-11,,,69 BOON KENG ROAD,flash_flood,,,,,1.317147,103.862497,339772,,,,,,,,
-57,,,2015-12-11,,,NEO PEE TECK LANE,flash_flood,,,,,1.292623,103.769021,118759,,,,,,,,
-53,,,2015-12-11,,,BALESTIER POINT,flash_flood,,,,,1.322812,103.852026,329735,,,,,,,,
 52,,,2015-12-11,,,PEK KIO CC,flash_flood,,,,,1.313059,103.851374,219458,,,,,,,,
+53,,,2015-12-11,,,BALESTIER POINT,flash_flood,,,,,1.322812,103.852026,329735,,,,,,,,
 54,,,2015-12-11,,,50199 (BUS STOP),flash_flood,,,,,1.324968,103.850509,308231,,,,,,,,
+55,,,2015-12-11,,,69 BOON KENG ROAD,flash_flood,,,,,1.317147,103.862497,339772,,,,,,,,
+56,,,2015-12-11,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
+57,,,2015-12-11,,,NEO PEE TECK LANE,flash_flood,,,,,1.292623,103.769021,118759,,,,,,,,
 58,,,2016-01-22,,,NEO PEE TECK LANE,flash_flood,,,,,1.292623,103.769021,118759,,,,,,,,
 59,,,2016-04-09,,,MARKET & HAWKER CENTRE (BLK 20 GHIM MOH ROAD),flash_flood,,,,,1.277368,103.818652,090011,,,,,,,,
 60,,,2016-04-20,,,2 ENTERPRISE ROAD,flash_flood,,,,,1.333642,103.707847,629814,,,,,,,,
 61,,,2016-05-11,,,45061 (BUS STOP),flash_flood,,,,,1.407181,103.756063,729678,,,,,,,,
 62,,,2016-05-11,,,YISHUN MRT,flash_flood,,,,,1.429525,103.834995,769093,,,,,,,,
 63,,,2016-05-18,,,PSC BUILDING,flash_flood,,,,,1.328863,103.706189,629813,,,,,,,,
+65,,,2016-06-17,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
 66,,,2016-06-17,,,TUAS UNDERPASS,flash_flood,,,,,1.321705,103.663691,638481,,,,,,,,
 64,,,2016-06-17,,,ENTERPRISE ROAD,flash_flood,,,,,1.333312,103.705117,629840,,,,,,,,
-65,,,2016-06-17,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
 67,,,2016-07-08,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
 68,,,2016-07-13,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
 69,,,2016-07-26,,,NEO PEE TECK LANE,flash_flood,,,,,1.292623,103.769021,118759,,,,,,,,
@@ -76,8 +76,8 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 75,,,2016-12-24,,,UPPER THOMSON ROAD,flash_flood,,,,,1.373054,103.828958,574419,,,,,,,,
 76,,,2016-12-24,,,ORCHARD ROAD,flash_flood,,,,,1.303228,103.83668,229921,,,,,,,,
 77,,,2017-01-19,,,53041 (BUS STOP),flash_flood,,,,,1.353078,103.834364,574359,,,,,,,,
-79,,,2017-01-23,,,MAXWELL FOOD CENTRE,flash_flood,,,,,1.280331,103.844747,088437,,,,,,,,
 78,,,2017-01-23,,,134 TANJONG PAGAR ROAD,flash_flood,,,,,1.277471,103.843403,088534,,,,,,,,
+79,,,2017-01-23,,,MAXWELL FOOD CENTRE,flash_flood,,,,,1.280331,103.844747,088437,,,,,,,,
 80,,,2017-02-03,,,TAMPINES STREET 22,flash_flood,,,,,1.349038,103.951095,520272,,,,,,,,
 81,,,2017-02-03,,,LORONG HALUS,flash_flood,,,,,1.386169,103.923226,533850,,,,,,,,
 82,,,2017-02-04,,,TAMPINES FLYOVER,flash_flood,,,,,1.381657,103.917491,520175,,,,,,,,
@@ -86,11 +86,11 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 85,,,2017-02-08,,,TOA PAYOH LORONG 2,flash_flood,,,,,1.336287,103.846514,319640,,,,,,,,
 86,,,2017-02-08,,,ORCHARD MRT EXIT 10,flash_flood,,,,,1.304048,103.831124,238878,,,,,,,,
 87,,,2017-02-08,,,STAMFORD HOUSE,flash_flood,,,,,1.294162,103.850711,179949,,,,,,,,
-92,,,2017-04-18,,,09191 (BUS STOP),flash_flood,,,,,1.304887,103.825498,247918,,,,,,,,
+88,,,2017-04-18,,,MOUNT ELIZABETH MEDICAL CENTRE,flash_flood,,,,,1.322137,103.844361,329562,,,,,,,,
+90,,,2017-04-18,,,69 BOON KENG ROAD,flash_flood,,,,,1.317147,103.862497,339772,,,,,,,,
 91,,,2017-04-18,,,40191 (BUS STOP),flash_flood,,,,,1.312686,103.830427,259978,,,,,,,,
 89,,,2017-04-18,,,UNIVERSITY FLYOVER,flash_flood,,,,,1.303247,103.771674,120611,,,,,,,,
-90,,,2017-04-18,,,69 BOON KENG ROAD,flash_flood,,,,,1.317147,103.862497,339772,,,,,,,,
-88,,,2017-04-18,,,MOUNT ELIZABETH MEDICAL CENTRE,flash_flood,,,,,1.322137,103.844361,329562,,,,,,,,
+92,,,2017-04-18,,,09191 (BUS STOP),flash_flood,,,,,1.304887,103.825498,247918,,,,,,,,
 93,,,2017-04-21,,,UPPER CROSS STREET,flash_flood,,,,,1.285862,103.842811,058288,,,,,,,,
 94,,,2017-04-27,,,KOVAN ROAD,flash_flood,,,,,1.358496,103.881234,548534,,,,,,,,
 95,,,2017-04-27,,,TAI SENG DRIVE,flash_flood,,,,,1.337758,103.893213,535222,,,,,,,,
@@ -100,40 +100,40 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 99,,,2017-07-14,,,09191 (BUS STOP),flash_flood,,,,,1.304887,103.825498,247918,,,,,,,,
 100,,,2017-10-07,,,BISHAN MRT STATION,flash_flood,,,,,1.350706,103.848079,579827,,,,,,,,
 101,,,2017-10-07,,,BRADDEL MRT STATION,flash_flood,,,,,1.340605,103.847231,319758,,,,,,,,
+103,,,2017-10-30,,,VICTORIA STREET,flash_flood,,,,,1.300563,103.855781,188045,,,,,,,,
 104,,,2017-10-30,,,MOUNT ELIZABETH,flash_flood,,,,,1.32211,103.844317,329562,,,,,,,,
 102,,,2017-10-30,,,STAMFORD ROAD,flash_flood,,,,,1.294094,103.850124,178892,,,,,,,,
-103,,,2017-10-30,,,VICTORIA STREET,flash_flood,,,,,1.300563,103.855781,188045,,,,,,,,
 105,,,2017-11-09,,,63139 (BUS STOP),flash_flood,,,,,1.361202,103.891412,532373,,,,,,,,
 106,,,2017-11-18,,,MANDAI ROAD,flash_flood,,,,,1.40743,103.783828,729979,,,,,,,,
 107,,,2017-11-18,,,YISHUN MRT,flash_flood,,,,,1.429525,103.834995,769093,,,,,,,,
 108,,,2017-11-22,,,40191 (BUS STOP),flash_flood,,,,,1.312686,103.830427,259978,,,,,,,,
 109,,,2017-11-22,,,09191 (BUS STOP),flash_flood,,,,,1.304887,103.825498,247918,,,,,,,,
 110,,,2017-12-15,,,PASIR RIS FARMWAY,flash_flood,,,,,1.385908,103.934912,518221,,,,,,,,
-116,,,2018-01-08,,,CHANGI FIRE STATION,flash_flood,,,,,1.33488,103.951353,486123,,,,,,,,
-117,,,2018-01-08,,,TAMPINES AVENUE 12,flash_flood,,,,,1.363297,103.944612,521637,,,,,,,,
-115,,,2018-01-08,,,ARUMUGAM ROAD,flash_flood,,,,,1.325178,103.891377,409961,,,,,,,,
-112,,,2018-01-08,,,THE GLADES,flash_flood,,,,,1.327081,103.947772,469601,,,,,,,,
-113,,,2018-01-08,,,JALAN NIPAH,flash_flood,,,,,1.325939,103.95278,468585,,,,,,,,
 111,,,2018-01-08,,,TAMPINES ROAD,flash_flood,,,,,1.362843,103.966929,509733,,,,,,,,
 114,,,2018-01-08,,,PAYA LEBAR QUARTER,flash_flood,,,,,1.316174,103.893139,437161,,,,,,,,
+113,,,2018-01-08,,,JALAN NIPAH,flash_flood,,,,,1.325939,103.95278,468585,,,,,,,,
+117,,,2018-01-08,,,TAMPINES AVENUE 12,flash_flood,,,,,1.363297,103.944612,521637,,,,,,,,
+115,,,2018-01-08,,,ARUMUGAM ROAD,flash_flood,,,,,1.325178,103.891377,409961,,,,,,,,
+116,,,2018-01-08,,,CHANGI FIRE STATION,flash_flood,,,,,1.33488,103.951353,486123,,,,,,,,
+112,,,2018-01-08,,,THE GLADES,flash_flood,,,,,1.327081,103.947772,469601,,,,,,,,
 118,,,2018-01-09,,,134 TANJONG PAGAR ROAD,flash_flood,,,,,1.277471,103.843403,088534,,,,,,,,
 119,,,2018-01-24,,,CRAIG ROAD,flash_flood,,,,,1.277854,103.842278,089688,,,,,,,,
 120,,,2018-01-24,,,PSC BUILDING,flash_flood,,,,,1.328863,103.706189,629813,,,,,,,,
 121,,,2018-01-30,,,SELETAR NORTH LINK,flash_flood,,,,,1.424892,103.883643,797359,,,,,,,,
 122,,,2018-01-31,,,ANG MO KIO INDUSTRIAL PARK 2,flash_flood,,,,,1.371047,103.862851,569500,,,,,,,,
 123,,,2018-03-17,,,21229,flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
+125,,,2018-03-30,,,CHOA CHU KANG AVENUE 1,flash_flood,,,,,1.37744,103.744383,680253,,,,,,,,
+124,,,2018-03-30,,,BUKIT BATOK ROAD,flash_flood,,,,,1.363244,103.742569,659203,,,,,,,,
 127,,,2018-03-30,,,LIM CHU KANG FARMWAY,flash_flood,,,,,1.428068,103.704222,718921,,,,,,,,
 126,,,2018-03-30,,,CHUA CHU KANG CEMETERY OFFICE,flash_flood,,,,,1.374358,103.693645,698910,,,,,,,,
-124,,,2018-03-30,,,BUKIT BATOK ROAD,flash_flood,,,,,1.363244,103.742569,659203,,,,,,,,
-125,,,2018-03-30,,,CHOA CHU KANG AVENUE 1,flash_flood,,,,,1.37744,103.744383,680253,,,,,,,,
 128,,,2018-04-07,,,MARYMOUNT MRT STATION,flash_flood,,,,,1.348707,103.839423,570302,,,,,,,,
 129,,,2018-04-20,,,TENGAH FLYOVER,flash_flood,,,,,1.363822,103.707043,648170,,,,,,,,
 130,,,2018-04-23,,,40191,flash_flood,,,,,1.312686,103.830427,259978,,,,,,,,
 131,,,2018-04-23,,,GILSTEAD 2,flash_flood,,,,,1.31496,103.838459,307997,,,,,,,,
 132,,,2018-04-27,,,SELETAR NORTH LINK,flash_flood,,,,,1.424892,103.883643,797359,,,,,,,,
 133,,,2018-05-01,,,BLK 448 CLEMENTI AVENUE 3,flash_flood,,,,,1.31332,103.764517,120448,,,,,,,,
-135,,,2018-05-26,,,CAVENAGH ROAD,flash_flood,,,,,1.308095,103.84214,229491,,,,,,,,
 134,,,2018-05-26,,,KRAMAT LANE,flash_flood,,,,,1.300979,103.842274,228750,,,,,,,,
+135,,,2018-05-26,,,CAVENAGH ROAD,flash_flood,,,,,1.308095,103.84214,229491,,,,,,,,
 136,,,2018-06-20,,,21229,flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
 137,,,2018-06-26,,,KISMIS ROAD,flash_flood,,,,,1.335544,103.771203,599430,,,,,,,,
 138,,,2018-06-26,,,TOH TUCK AVENUE,flash_flood,,,,,1.33054,103.758726,596226,,,,,,,,
@@ -152,8 +152,8 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 151,,,2018-12-12,,,42059 (BUS STOP),flash_flood,,,,,1.336445,103.782762,596288,,,,,,,,
 152,,,2018-12-12,,,41069,flash_flood,,,,,1.326528,103.807586,269733,,,,,,,,
 153,,,2018-12-12,,,ORCHID VILLAGE,flash_flood,,,,,1.333111,103.800138,288735,,,,,,,,
-155,,,2018-12-15,,,YUAN CHING ROAD,flash_flood,,,,,1.325468,103.725222,618642,,,,,,,,
 154,,,2018-12-15,,,PSC BUILDING,flash_flood,,,,,1.328863,103.706189,629813,,,,,,,,
+155,,,2018-12-15,,,YUAN CHING ROAD,flash_flood,,,,,1.325468,103.725222,618642,,,,,,,,
 156,,,2018-12-20,,,SEMBAWANG PARK,flash_flood,,,,,1.461362,103.8365,757600,,,,,,,,
 157,,,2019-05-19,,,NEO PEE TECK LANE,flash_flood,,,,,1.292623,103.769021,118759,,,,,,,,
 158,,,2019-06-03,,,OPHIR ROAD,flash_flood,,,,,1.299961,103.859066,307584,,,,,,,,
@@ -161,23 +161,23 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 160,,,2019-06-03,,,CRAIG ROAD,flash_flood,,,,,1.277854,103.842278,089688,,,,,,,,
 161,,,2019-12-02,,,JURONG EAST STREET 32,flash_flood,,,,,1.346948,103.733825,600314,,,,,,,,
 162,,,2019-12-02,,,CHOA CHU KANG AVE 1,flash_flood,,,,,1.37744,103.744383,680253,,,,,,,,
-164,,,2020-04-30,,,LORONG GAMBIR,flash_flood,,,,,1.345476,103.875567,556140,,,,,,,,
 168,,,2020-04-30,,,JALAN TELITI,flash_flood,,,,,1.360393,103.890228,532373,,,,,,,,
+166,,,2020-04-30,,,SERANGOON AVENUE 2,flash_flood,,,,,1.353626,103.867705,550304,,,,,,,,
+165,,,2020-04-30,,,50 HOUGANG AVENUE 1,flash_flood,,,,,1.360305,103.888083,530211,,,,,,,,
+164,,,2020-04-30,,,LORONG GAMBIR,flash_flood,,,,,1.345476,103.875567,556140,,,,,,,,
 167,,,2020-04-30,,,LICHI AVENUE,flash_flood,,,,,1.33316,103.876492,367874,,,,,,,,
 163,,,2020-04-30,,,UPPER PAYA LEBAR ROAD,flash_flood,,,,,1.335184,103.888238,534803,,,,,,,,
-165,,,2020-04-30,,,50 HOUGANG AVENUE 1,flash_flood,,,,,1.360305,103.888083,530211,,,,,,,,
-166,,,2020-04-30,,,SERANGOON AVENUE 2,flash_flood,,,,,1.353626,103.867705,550304,,,,,,,,
 169,,,2020-05-22,,,CRAIG ROAD,flash_flood,,,,,1.277854,103.842278,089688,,,,,,,,
-171,,,2020-06-23,,,CHANGI FIRE STATION,flash_flood,,,,,1.33488,103.951353,486123,,,,,,,,
 170,,,2020-06-23,,,JURONG TOWN HALL ROAD,flash_flood,,,,,1.331977,103.739634,608516,,,,,,,,
+171,,,2020-06-23,,,CHANGI FIRE STATION,flash_flood,,,,,1.33488,103.951353,486123,,,,,,,,
 172,,,2020-06-23,,,NEW UPPER CHANGI ROAD,flash_flood,,,,,1.324064,103.940749,461059,,,,,,,,
 173,,,2020-07-09,,,PSC BUILDING,flash_flood,,,,,1.328863,103.706189,629813,,,,,,,,
 174,,,2020-08-13,,,ALJUNIED ROAD,flash_flood,,,,,1.322313,103.881475,370023,,,,,,,,
-176,,,2020-08-14,,,TANJONG PAGAR ROAD,flash_flood,,,,,1.273715,103.842919,088542,,,,,,,,
 175,,,2020-08-14,,,CRAIG ROAD,flash_flood,,,,,1.277854,103.842278,089688,,,,,,,,
-178,,,2020-11-02,,,LORONG GAMBIR,flash_flood,,,,,1.345476,103.875567,556140,,,,,,,,
+176,,,2020-08-14,,,TANJONG PAGAR ROAD,flash_flood,,,,,1.273715,103.842919,088542,,,,,,,,
 179,,,2020-11-02,,,MOUNT VERNON ROAD,flash_flood,,,,,1.34041,103.879577,361222,,,,,,,,
 177,,,2020-11-02,,,UPPER PAYA LEBAR ROAD,flash_flood,,,,,1.335184,103.888238,534803,,,,,,,,
+178,,,2020-11-02,,,LORONG GAMBIR,flash_flood,,,,,1.345476,103.875567,556140,,,,,,,,
 180,,,2020-11-07,,,ALJUNIED ROAD,flash_flood,,,,,1.322313,103.881475,370023,,,,,,,,
 181,,,2021-01-01,,,LORONG HALUS,flash_flood,,,,,1.386169,103.923226,533850,,,,,,,,
 182,,,2021-01-02,,,PASIR RIS STREET 11,flash_flood,,,,,1.364996,103.958511,510136,,,,,,,,
@@ -212,46 +212,6 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 211,,,2023-11-28,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
 212,,,2024-02-03,,,DUNEARN ROAD,flash_flood,,,,,1.321188,103.825058,297753,,,,,,,,
 213,,,2024-10-14,,,DUNEARN ROAD,flash_flood,,,,,1.321188,103.825058,297753,,,,,,,,
-214,,,2024-12-29,,,DUNEARN ROAD,flash_flood,,,,,1.321188,103.825058,297753,,,,,,,,
-297,2025-09-07T06:01:32.144474+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten Road/Jalan Seaview [13:50 hours]",2025-09-07,-1001620473383,1121.0,Mountbatten Road/Jalan Seaview,flash_flood_risk,Mountbatten Road/Jalan Seaview,,,,,,nan,,,nan,2025-03-20T06:00:46+00:00,,,,
-298,2025-09-07T06:01:32.277088+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: ECP (towards Changi Airport) after Bayshore Rd Exit [13:40 hours]",2025-09-07,-1001620473383,1120.0,ECP (towards Changi Airport) after Bayshore Rd Exit,flash_flood_risk,ECP (towards Changi Airport) after Bayshore Rd Exit,,,,,,nan,,,nan,2025-03-20T06:00:45+00:00,,,,
-299,2025-09-07T06:01:32.450263+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: ECP (towards Changi Airport) at Tanah Merah Coast Road Entrance [10:20 hours]",2025-09-07,-1001620473383,1116.0,ECP (towards Changi Airport) at Tanah Merah Coast Road Entrance,flash_flood_risk,ECP (towards Changi Airport) at Tanah Merah Coast Road Entrance,,,,,,nan,,,nan,2025-03-20T02:28:18+00:00,,,,
-300,2025-09-07T06:01:32.600341+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: PIE (towards Changi Airport) after TPE [07:40 hours]",2025-09-07,-1001620473383,1114.0,PIE (towards Changi Airport) after TPE,flash_flood_risk,PIE (towards Changi Airport) after TPE,,,,,,nan,,,nan,2025-03-19T23:45:17+00:00,,,,
-301,2025-09-07T06:01:32.737076+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten Road / Jalan Seaview [14:45 hours]",2025-09-07,-1001620473383,1113.0,Mountbatten Road / Jalan Seaview,flash_flood_risk,Mountbatten Road / Jalan Seaview,,,,,,nan,,,nan,2025-03-19T06:55:10+00:00,,,,
-302,2025-09-07T06:01:32.894263+00:00,🔽 Flash flood at Ophir Rd (near F1 building) has subsided. [14:50 hours],2025-09-07,-1001620473383,994.0,,,,,,,,,nan,,,nan,2024-11-17T06:55:33+00:00,,,,
-311,2025-09-07T06:01:34.433141+00:00,"With more wet weather ⛈️ heading our way, it’s more important than ever to be flood ready. Here's a set of guidelines and safety tips to help you do just that! Share this with your family and friends to help them stay safe during rainy days. 🥰",2025-09-07,-1001620473383,54.0,,,,,,,,,nan,,,nan,2021-11-26T08:36:31+00:00,,,,
-303,2025-09-07T06:01:33.035333+00:00,"🚨 Flash flood at the following location:
- 
-• Ophir Rd (near F1 building) [14:08 hours]
-
-Please avoid the above areas. PUB officers have been deployed to render assistance.",2025-09-07,-1001620473383,993.0,,,,,,,,,nan,,,nan,2024-11-17T06:13:16+00:00,,,,
-305,2025-09-07T06:01:33.360476+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [15:28 hours]",2025-09-07,-1001620473383,986.0,TPE (Punggol West Flyover),flash_flood_risk,TPE (Punggol West Flyover),,,,,,nan,,,nan,2024-11-16T07:30:47+00:00,,,,
-306,2025-09-07T06:01:33.506111+00:00,"🚨 Flash flood at the following location:
- 
-• Bukit Timah Rd towards Clementi Rd [15:21 hours]
-
-Please avoid the above areas. PUB officers have been deployed to render assistance.",2025-09-07,-1001620473383,985.0,,,,,,,,,nan,,,nan,2024-11-16T07:24:27+00:00,,,,
-307,2025-09-07T06:01:33.718626+00:00,🔽 Flash Flood at Enterprise Rd has subsided. Roads are now passable. [16:35 hours],2025-09-07,-1001620473383,142.0,,,,,,,,,nan,,,nan,2022-03-07T08:39:31+00:00,,,,
-296,2025-09-07T06:01:31.96967+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten Road/Jalan Seaview [01:31 hours]",2025-09-07,-1001620473383,1123.0,Mountbatten Road/Jalan Seaview,flash_flood_risk,Mountbatten Road/Jalan Seaview,,,,,,nan,,,nan,2025-03-22T17:35:39+00:00,,,,
-309,2025-09-07T06:01:34.047566+00:00,"🚨 Flash flood at the following location:
-
-• Enterprise Road [Issued 16:05 hours]
-
-Traffic is not passable. Please avoid the above area. PUB officers have been deployed to render assistance. #sgflood",2025-09-07,-1001620473383,140.0,,,,,,,,,nan,,,nan,2022-03-07T08:11:23+00:00,,,,
 310,2025-09-07T06:01:34.256619+00:00,"🌊 Risk of Flash Floods
 
 Due to heavy rain, water levels in drains have reached 90% in these areas:
@@ -259,12 +219,51 @@ Due to heavy rain, water levels in drains have reached 90% in these areas:
 • TPE Slip Rd (Punggol West Flyover) [20:27 hours]
 
 Please avoid the above areas for the next 1 hour. #sgflood",2025-09-07,-1001620473383,86.0,,,,,,,,,nan,,,nan,2022-02-25T12:29:22+00:00,,,,
-304,2025-09-07T06:01:33.20511+00:00,🔽 Flash flood at Bukit Timah Rd towards Clementi Rd has subsided. [15:30 hours],2025-09-07,-1001620473383,988.0,,,,,,,,,nan,,,nan,2024-11-16T07:36:21+00:00,,,,
+309,2025-09-07T06:01:34.047566+00:00,"🚨 Flash flood at the following location:
+
+• Enterprise Road [Issued 16:05 hours]
+
+Traffic is not passable. Please avoid the above area. PUB officers have been deployed to render assistance. #sgflood",2025-09-07,-1001620473383,140.0,,,,,,,,,nan,,,nan,2022-03-07T08:11:23+00:00,,,,
 308,2025-09-07T06:01:33.871176+00:00,"🌊 Risk of Flash Floods
 
 • KJE (Slip Road to PIE) [16:17 hours]
 
 Please avoid the above areas for the next 1 hour. #sgflood",2025-09-07,-1001620473383,141.0,,,,,,,,,nan,,,nan,2022-03-07T08:26:15+00:00,,,,
+307,2025-09-07T06:01:33.718626+00:00,🔽 Flash Flood at Enterprise Rd has subsided. Roads are now passable. [16:35 hours],2025-09-07,-1001620473383,142.0,,,,,,,,,nan,,,nan,2022-03-07T08:39:31+00:00,,,,
+306,2025-09-07T06:01:33.506111+00:00,"🚨 Flash flood at the following location:
+ 
+• Bukit Timah Rd towards Clementi Rd [15:21 hours]
+
+Please avoid the above areas. PUB officers have been deployed to render assistance.",2025-09-07,-1001620473383,985.0,,,,,,,,,nan,,,nan,2024-11-16T07:24:27+00:00,,,,
+305,2025-09-07T06:01:33.360476+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [15:28 hours]",2025-09-07,-1001620473383,986.0,TPE (Punggol West Flyover),flash_flood_risk,TPE (Punggol West Flyover),,,,,,nan,,,nan,2024-11-16T07:30:47+00:00,,,,
+304,2025-09-07T06:01:33.20511+00:00,🔽 Flash flood at Bukit Timah Rd towards Clementi Rd has subsided. [15:30 hours],2025-09-07,-1001620473383,988.0,,,,,,,,,nan,,,nan,2024-11-16T07:36:21+00:00,,,,
+303,2025-09-07T06:01:33.035333+00:00,"🚨 Flash flood at the following location:
+ 
+• Ophir Rd (near F1 building) [14:08 hours]
+
+Please avoid the above areas. PUB officers have been deployed to render assistance.",2025-09-07,-1001620473383,993.0,,,,,,,,,nan,,,nan,2024-11-17T06:13:16+00:00,,,,
+302,2025-09-07T06:01:32.894263+00:00,🔽 Flash flood at Ophir Rd (near F1 building) has subsided. [14:50 hours],2025-09-07,-1001620473383,994.0,,,,,,,,,nan,,,nan,2024-11-17T06:55:33+00:00,,,,
+301,2025-09-07T06:01:32.737076+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten Road / Jalan Seaview [14:45 hours]",2025-09-07,-1001620473383,1113.0,Mountbatten Road / Jalan Seaview,flash_flood_risk,Mountbatten Road / Jalan Seaview,,,,,,nan,,,nan,2025-03-19T06:55:10+00:00,,,,
+300,2025-09-07T06:01:32.600341+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: PIE (towards Changi Airport) after TPE [07:40 hours]",2025-09-07,-1001620473383,1114.0,PIE (towards Changi Airport) after TPE,flash_flood_risk,PIE (towards Changi Airport) after TPE,,,,,,nan,,,nan,2025-03-19T23:45:17+00:00,,,,
+299,2025-09-07T06:01:32.450263+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: ECP (towards Changi Airport) at Tanah Merah Coast Road Entrance [10:20 hours]",2025-09-07,-1001620473383,1116.0,ECP (towards Changi Airport) at Tanah Merah Coast Road Entrance,flash_flood_risk,ECP (towards Changi Airport) at Tanah Merah Coast Road Entrance,,,,,,nan,,,nan,2025-03-20T02:28:18+00:00,,,,
+298,2025-09-07T06:01:32.277088+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: ECP (towards Changi Airport) after Bayshore Rd Exit [13:40 hours]",2025-09-07,-1001620473383,1120.0,ECP (towards Changi Airport) after Bayshore Rd Exit,flash_flood_risk,ECP (towards Changi Airport) after Bayshore Rd Exit,,,,,,nan,,,nan,2025-03-20T06:00:45+00:00,,,,
+297,2025-09-07T06:01:32.144474+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten Road/Jalan Seaview [13:50 hours]",2025-09-07,-1001620473383,1121.0,Mountbatten Road/Jalan Seaview,flash_flood_risk,Mountbatten Road/Jalan Seaview,,,,,,nan,,,nan,2025-03-20T06:00:46+00:00,,,,
+311,2025-09-07T06:01:34.433141+00:00,"With more wet weather ⛈️ heading our way, it’s more important than ever to be flood ready. Here's a set of guidelines and safety tips to help you do just that! Share this with your family and friends to help them stay safe during rainy days. 🥰",2025-09-07,-1001620473383,54.0,,,,,,,,,nan,,,nan,2021-11-26T08:36:31+00:00,,,,
+296,2025-09-07T06:01:31.96967+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten Road/Jalan Seaview [01:31 hours]",2025-09-07,-1001620473383,1123.0,Mountbatten Road/Jalan Seaview,flash_flood_risk,Mountbatten Road/Jalan Seaview,,,,,,nan,,,nan,2025-03-22T17:35:39+00:00,,,,
 206,2025-09-07T06:01:16.969494+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Orchard Rd (Paterson Rd to Mt Elizabeth) [03:59 hours]",2025-09-07,-1001620473383,1244.0,Orchard Rd (Paterson Rd to Mt Elizabeth),flash_flood_risk,Orchard Rd (Paterson Rd to Mt Elizabeth),,,,,,nan,,,nan,2025-05-10T20:00:54+00:00,,,,
@@ -478,7 +477,7 @@ Due to heavy rain, please avoid this location for the next 1 hour: Junction of Y
 279,2025-09-07T06:01:29.155392+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: KPE(ECP) after Buangkok East Dr Exit [13:53 hours]",2025-09-07,-1001620473383,1151.0,KPE(ECP) after Buangkok East Dr Exit,flash_flood_risk,KPE(ECP) after Buangkok East Dr Exit,,,,,,nan,,,nan,2025-04-13T05:55:33+00:00,,,,
-260,2025-09-07T06:01:26.077298+00:00,"The heavy rain has eased. [Issued by NEA, 18:52 hours]",2025-09-07,-1001620473383,1175.0,,,,,,,,,nan,,,nan,2025-04-18T11:01:47+00:00,,,,
+261,2025-09-07T06:01:26.271964+00:00,Flash flood subsided at Yishun Avenue 7 (near intersection of Yishun St 22). Issued 1655 hours.,2025-09-07,-1001620473383,1172.0,Yishun Avenue 7 (near intersection of Yishun St 22),flood_subsided,Yishun Avenue 7 (near intersection of Yishun St 22),,,,,,nan,,,nan,2025-04-15T09:00:36+00:00,,,,
 277,2025-09-07T06:01:28.861171+00:00,"[FLASH FLOOD OCCURRED]  
 
 Flash flood at Yishun Avenue 7. Please avoid the area. PUB officers have been deployed to render assistance. Issued 1350 hours.",2025-09-07,-1001620473383,1153.0,Yishun Avenue 7,flash_flood,Yishun Avenue 7,,,,,,nan,,,nan,2025-04-13T06:00:30+00:00,,,,
@@ -626,7 +625,7 @@ Thrift Dr (near Jln Usaha);",,,,,,nan,,,nan,2025-04-13T06:05:48+00:00,,,,
 270,2025-09-07T06:01:27.778342+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Bt Timah Rd (Wilby Rd to Blackmore Dr) [14:15 hours]",2025-09-07,-1001620473383,1160.0,Bt Timah Rd (Wilby Rd to Blackmore Dr),flash_flood_risk,Bt Timah Rd (Wilby Rd to Blackmore Dr),,,,,,nan,,,nan,2025-04-13T06:15:55+00:00,,,,
-261,2025-09-07T06:01:26.271964+00:00,Flash flood subsided at Yishun Avenue 7 (near intersection of Yishun St 22). Issued 1655 hours.,2025-09-07,-1001620473383,1172.0,Yishun Avenue 7 (near intersection of Yishun St 22),flood_subsided,Yishun Avenue 7 (near intersection of Yishun St 22),,,,,,nan,,,nan,2025-04-15T09:00:36+00:00,,,,
+260,2025-09-07T06:01:26.077298+00:00,"The heavy rain has eased. [Issued by NEA, 18:52 hours]",2025-09-07,-1001620473383,1175.0,,,,,,,,,nan,,,nan,2025-04-18T11:01:47+00:00,,,,
 259,2025-09-07T06:01:25.903751+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: KPE(ECP) after Buangkok East Dr Exit [16:36 hours]",2025-09-07,-1001620473383,1177.0,KPE(ECP) after Buangkok East Dr Exit,flash_flood_risk,KPE(ECP) after Buangkok East Dr Exit,,,,,,nan,,,nan,2025-04-20T08:40:03+00:00,,,,
@@ -715,3 +714,19 @@ Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol 
 26,2025-10-18T07:14:45+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: KJE Slip Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,kje slip rd,flash_flood_risk,kje slip rd,"kje to woodlands rd, towards senja way",,,1.385923,103.7570677,671634.0,1.366923,103.801292,nan,,,,3.0,4.0
+43,2025-11-05T16:37:34+00:00,"[Risk of Flash Floods]
+[TEST DEPLOYMENT 4]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Serangoon Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,serangoon rd,flash_flood_risk,serangoon rd,"kje to woodlands rd, towards senja way",,,1.3184247,103.8606382,327804.0,1.366923,103.801292,nan,,,,9.0,4.0
+42,2025-11-05T16:37:27+00:00,"[Risk of Flash Floods]
+[TEST DEPLOYMENT 3]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Serangoon Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,serangoon rd,flash_flood_risk,serangoon rd,"kje to woodlands rd, towards senja way",,,1.3184247,103.8606382,327804.0,1.366923,103.801292,nan,,,,9.0,4.0
+41,2025-11-05T16:11:25+00:00,"[Risk of Flash Floods]
+[TEST DEPLOYMENT 2]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Serangoon Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,serangoon rd,flash_flood_risk,serangoon rd,"kje to woodlands rd, towards senja way",,,1.3184247,103.8606382,327804.0,1.366923,103.801292,nan,,,,9.0,4.0
+40,2025-11-05T16:11:20+00:00,"[Risk of Flash Floods]
+[TEST DEPLOYMENT 1]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Serangoon Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,serangoon rd,flash_flood_risk,serangoon rd,"kje to woodlands rd, towards senja way",,,1.3184247,103.8606382,327804.0,1.366923,103.801292,nan,,,,9.0,4.0

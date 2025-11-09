@@ -34,7 +34,7 @@ class AmenityPaths:
 
     planning_areas_geojson: Path = data_dir / "geojson" / "planning_area.geojson"
     subzones_geojson: Path = data_dir / "geojson" / "subzone_area.geojson"
-    road_network_geojson: Path = data_dir / "roadnetwork" / "road_network_final.geojson"
+    road_network_geojson: Path = data_dir / "roadnetwork" / "road_network.geojson"
     postal_codes_csv: Path = data_dir / "onemap" / "onemap_postal_codes.csv"
 
     accessibility_output_dir: Path = data_dir / "amenities"

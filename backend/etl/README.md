@@ -85,7 +85,7 @@ In short: fetch → clean → geocode → spatial match → classify (where need
      - `subzone_area.geojson`
    - If missing, pipelines fall back to `frontend/public/map/{planning_area,subzone_area}.geojson`.
 2) Road Network
-   - Ensure `backend/etl/data/roadnetwork/road_network_final.geojson` exists (used by amenities and floods road matching).
+   - Ensure `backend/etl/data/roadnetwork/road_network.geojson` exists (used by amenities and floods road matching).
    - To upload/refresh road network in DB or storage, consult `backend/etl/data/scripts/road_network_geojson_upload.py` (manual helper).
 3) Postal Codes Lookup
    - Ensure `backend/etl/data/onemap/onemap_postal_codes.csv` exists and is recent; ACRA and amenities geocoding use it for instant matches.
@@ -99,7 +99,7 @@ In short: fetch → clean → geocode → spatial match → classify (where need
   - `geojson/` — planning_area and subzone reference layers
   - `geojson_layers/` — other GIS layers used by scripts
   - `onemap/` — `onemap_postal_codes.csv` lookup
-  - `roadnetwork/` — `road_network_final.geojson` for road matching
+  - `roadnetwork/` — `road_network.geojson` for road matching
   - top-level outputs commonly referenced by pipelines:
     - `amenities_consolidated.geojson`
     - `amenities_3layers.csv`
@@ -212,13 +212,13 @@ In short: fetch → clean → geocode → spatial match → classify (where need
   - `AmenitiesThreeLayersStage` —
     - Geocode: matches each amenity to PA/SZ using planning/subzone GeoJSONs and postal/road refs.
     - Classification: `classify_amenities` assigns categories, groups, and priority scores; persists `data/amenities/amenities_raw.csv`.
-    - Road matching: `match_roads` maps to `road_network_final.geojson` and writes `amenities_3layers.csv`.
+    - Road matching: `match_roads` maps to `road_network.geojson` and writes `amenities_3layers.csv`.
   - `DatabaseWriteStage` — Upserts to `amenity_3layers`; drops `amenity_group_id` and `amenity_group` by default for backward compatibility.
 - Inputs
   - `backend/etl/data/amenities/osm_onemap_matched.json` (optional)
   - `backend/etl/data/geojson/planning_area.geojson`
   - `backend/etl/data/geojson/subzone_area.geojson`
-  - `backend/etl/data/roadnetwork/road_network_final.geojson`
+  - `backend/etl/data/roadnetwork/road_network.geojson`
   - `backend/etl/data/onemap/onemap_postal_codes.csv`
   - Fallbacks: will use `frontend/public/map/{planning_area,subzone_area}.geojson` if backend copies missing.
 - Outputs
@@ -261,13 +261,13 @@ In short: fetch → clean → geocode → spatial match → classify (where need
       - 01 Commerce & Leisure → 5.0, 3.0, 21.0
     - Implemented in `backend/etl/amenities/classify.py`; output persisted to `data/amenities/amenities_raw.csv`.
   - Step 3: Road Matching (OSM)
-    - Base network: `backend/etl/data/roadnetwork/road_network_final.geojson`.
+    - Base network: `backend/etl/data/roadnetwork/road_network.geojson`.
     - Matching uses nearest‑edge snapping with osmnx/geometry helpers in `backend/etl/amenities/match_roads.py`.
     - Current scale reference: ~42,017 amenities matched.
   - Step 4: Upload to Supabase
     - Writes `amenities_3layers.csv` to DB via `DatabaseWriteStage` (upsert on `id`).
 - Maintenance Tips
-  - Keep `road_network_final.geojson` updated if the road network schema changes; matching depends on RN geometry and ID fields.
+  - Keep `road_network.geojson` updated if the road network schema changes; matching depends on RN geometry and ID fields.
   - If planning/subzone boundaries update, refresh the two reference GeoJSONs and rerun.
   - Classification rules live in `backend/etl/amenities/classify.py` and consolidation logic in `backend/etl/amenities/consolidate.py`.
 
@@ -290,7 +290,7 @@ In short: fetch → clean → geocode → spatial match → classify (where need
   - `backend/etl/data/floods/SG_postal_codes_resolved.csv` (historical SG flood data)
   - `backend/etl/data/geojson/planning_area.geojson`
   - `backend/etl/data/geojson/subzone_area.geojson`
-  - `backend/etl/data/roadnetwork/road_network_final.geojson`
+  - `backend/etl/data/roadnetwork/road_network.geojson`
  - Step‑by‑Step Details
   - Step 1: Merge datasets
     - Fetch PUB weather alerts from Supabase and join with geocodes to get coordinates and postal codes for both start and end locations.
@@ -402,7 +402,7 @@ Example cron (server time)
 - Floods (daily, 04:00): `0 4 * * * /usr/bin/python /app/backend/etl/floods/run_floods_pipeline.py >> /var/log/floods.log 2>&1`
 
 **Support Artifacts**
-- Road network GeoJSON lives at `backend/etl/data/roadnetwork/road_network_final.geojson`.
+- Road network GeoJSON lives at `backend/etl/data/roadnetwork/road_network.geojson`.
 - Planning/Subzone layers at `backend/etl/data/geojson/` (pipelines fall back to `frontend/public/map` if not present).
 - Postal code lookup at `backend/etl/data/onemap/onemap_postal_codes.csv`.
 
