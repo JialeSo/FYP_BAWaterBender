@@ -1281,9 +1281,9 @@ export default function Simulation() {
   return (
     <div className="flex flex-col h-screen">
       {/* Header with stepper */}
-      <div className="border-b p-6 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
-        <h1 className="text-2xl font-semibold mb-4">Flood Impact Simulation</h1>
-        <div className="flex items-center gap-1 overflow-x-auto pb-2">
+      <div className="border-b py-3 px-6 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
+        <h1 className="text-xl font-semibold mb-2 text-center">Flood Impact Simulation</h1>
+        <div className="flex items-center justify-center gap-1 overflow-x-auto pb-1">
           {[
             { num: 1, title: "Define Flood Input" },
             { num: 2, title: "Configure Details" },
@@ -1293,7 +1293,7 @@ export default function Simulation() {
             <div key={s.num} className="flex items-center flex-shrink-0">
               <div className="flex flex-col items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
                     s.num === step
                       ? "bg-primary text-primary-foreground shadow-lg scale-110"
                       : s.num < step
@@ -1306,14 +1306,14 @@ export default function Simulation() {
                 >
                   {s.num}
                 </div>
-                <span className={`text-xs mt-1 font-medium whitespace-nowrap ${
+                <span className={`text-xs mt-0.5 font-medium whitespace-nowrap ${
                   s.num === step ? "text-primary" : "text-muted-foreground"
                 }`}>
                   {s.title}
                 </span>
               </div>
               {idx < 3 && (
-                <ChevronRight className="h-5 w-5 mx-2 text-muted-foreground flex-shrink-0" />
+                <ChevronRight className="h-4 w-4 mx-1.5 text-muted-foreground flex-shrink-0" />
               )}
             </div>
           ))}

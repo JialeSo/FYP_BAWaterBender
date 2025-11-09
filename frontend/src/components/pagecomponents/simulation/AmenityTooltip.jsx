@@ -25,7 +25,7 @@ export function generateAmenityTooltipHTML(amenityData) {
   const displayCategory = amenity_category ? capitalizeWords(amenity_category) : null;
 
   const html = `
-    <div style="background: #1f2937; color: #fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid #374151; min-width: 200px;">
+    <div style="background: #1f2937; color: #fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); min-width: 200px;">
       <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #f3f4f6;">${displayName}</div>
 
       ${displayCategory ? `

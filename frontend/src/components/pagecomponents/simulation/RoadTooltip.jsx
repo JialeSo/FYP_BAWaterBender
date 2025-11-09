@@ -47,7 +47,7 @@ export function generateRoadTooltipHTML(props, nearestAmenityData = null) {
 
   // Build HTML
   let html = `
-    <div style="background: #1f2937; color: #fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid #374151; min-width: 240px;">
+    <div style="background: #1f2937; color: #fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); min-width: 240px;">
       <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px; color: #f3f4f6;">${name}</div>
       <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">RN_ID: ${rn_id}</div>
 

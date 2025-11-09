@@ -29,7 +29,7 @@ export function generatePlanningAreaTooltipHTML(paData) {
   } = paData;
 
   const html = `
-    <div style="background: #1f2937; color: #fff; padding: 12px 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid #374151; min-width: 280px;">
+    <div style="background: #1f2937; color: #fff; padding: 12px 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); min-width: 280px;">
       <div style="font-weight: 700; font-size: 15px; margin-bottom: 8px; color: #f9fafb;">${pa_name}</div>
 
       <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">

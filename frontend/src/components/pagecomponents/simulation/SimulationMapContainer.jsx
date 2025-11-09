@@ -4,7 +4,7 @@
  * Handles choropleth visualization, road networks, amenity markers, and all interactions
  */
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
@@ -13,6 +13,7 @@ import {
   getColorForUnreachable,
   fmtTime
 } from "@/lib/simulation/metrics";
+import { calculateNearestAmenitiesForNodes, getNearestAmenityChange } from "@/lib/simulation/amenityUtils";
 import { generateRoadTooltipHTML } from "./RoadTooltip";
 import { generatePlanningAreaTooltipHTML } from "./PlanningAreaTooltip";
 import { generateAmenityTooltipHTML } from "./AmenityTooltip";
@@ -46,6 +47,24 @@ export function SimulationMapContainer({
   const amenityPopupRef = useRef(null);
 
   const [mapReady, setMapReady] = useState(false);
+
+  /**
+   * Calculate nearest amenities for all nodes (baseline and flooded scenarios)
+   */
+  const nearestAmenities = useMemo(() => {
+    if (!graph?.nodes || !baselineNodeDist || !floodedNodeDist || !amenity_fc_enriched) {
+      return { baselineAmenities: new Map(), floodedAmenities: new Map() };
+    }
+
+    return calculateNearestAmenitiesForNodes(
+      graph.nodes,
+      baselineNodeDist,
+      floodedNodeDist,
+      amenity_fc_enriched,
+      selectedAmenityType,
+      excludedAmenities
+    );
+  }, [graph?.nodes, baselineNodeDist, floodedNodeDist, amenity_fc_enriched, selectedAmenityType, excludedAmenities]);
 
   /**
    * Calculate line width based on travel time delta severity
@@ -219,6 +238,13 @@ export function SimulationMapContainer({
 
         const width = calculateLineWidth(delta, status);
 
+        // Get nearest amenity data for this road
+        const amenityChange = getNearestAmenityChange(
+          edge.from,
+          nearestAmenities.baselineAmenities,
+          nearestAmenities.floodedAmenities
+        );
+
         roadsInPA.push({
           type: "Feature",
           properties: {
@@ -232,6 +258,10 @@ export function SimulationMapContainer({
             baseline_time: baselineDist,
             flooded_time: floodedDist,
             delta_time: delta,
+            // Nearest amenity data
+            nearest_amenity_before: amenityChange?.before || null,
+            nearest_amenity_after: amenityChange?.after || null,
+            nearest_amenity_changed: amenityChange?.changed || false,
           },
           geometry: {
             type: "LineString",
@@ -262,7 +292,7 @@ export function SimulationMapContainer({
       }
       map.fitBounds(bounds, { padding: 50, maxZoom: 13 });
     }
-  }, [graph, affectedRoads, baselineNodeDist, floodedNodeDist, calculateLineWidth]);
+  }, [graph, affectedRoads, baselineNodeDist, floodedNodeDist, calculateLineWidth, nearestAmenities]);
 
   /**
    * Initialize map
@@ -507,13 +537,23 @@ export function SimulationMapContainer({
           roadPopupRef.current.remove();
         }
 
+        // Build nearest amenity data if available
+        let nearestAmenityData = null;
+        if (props.nearest_amenity_before || props.nearest_amenity_after) {
+          nearestAmenityData = {
+            before: props.nearest_amenity_before,
+            after: props.nearest_amenity_after,
+            changed: props.nearest_amenity_changed === true || props.nearest_amenity_changed === 'true',
+          };
+        }
+
         roadPopupRef.current = new mapboxgl.Popup({
           closeButton: false,
           closeOnClick: false,
           maxWidth: "280px",
         })
           .setLngLat(e.lngLat)
-          .setHTML(generateRoadTooltipHTML(props))
+          .setHTML(generateRoadTooltipHTML(props, nearestAmenityData))
           .addTo(map);
 
         map.getCanvas().style.cursor = "pointer";
