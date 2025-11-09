@@ -53,14 +53,26 @@ class WeatherAlerts:
         # Defer client creation until needed in async context
         self._client = None
         self._session_path = os.path.join("/tmp", "session")
+        self._loop = None  # Track the event loop
 
-        logger.info(
-            f"Telegram Client subscribed to {self.channel_username}"
-        )
+        logger.info(f"Telegram Client subscribed to {self.channel_username}")
 
     async def _get_client(self) -> TelegramClient:
         """Get or create TelegramClient in the current async context"""
-        if self._client is None:
+        current_loop = asyncio.get_event_loop()
+
+        # Recreate client if event loop has changed or client doesn't exist
+        if self._client is None or self._loop != current_loop:
+            # Disconnect old client if it exists and loop changed
+            if self._client is not None and self._loop != current_loop:
+                logger.info("🔄 Event loop changed, recreating TelegramClient")
+                try:
+                    if self._client.is_connected():
+                        await self._client.disconnect()
+                except Exception as e:
+                    logger.warning(f"Error disconnecting old client: {e}")
+                self._client = None
+
             # Check if session file exists, download if needed
             session_file = f"{self._session_path}.session"
             if not os.path.exists(session_file):
@@ -71,10 +83,14 @@ class WeatherAlerts:
 
             # Create client in the current event loop context
             # Note: api_id is int, api_hash is string (hexadecimal)
+            # These are guaranteed to be non-None by __init__ validation
             self._client = TelegramClient(
-                self._session_path, int(self.api_id), self.api_hash
+                self._session_path,
+                int(self.api_id),  # type: ignore
+                self.api_hash,  # type: ignore
             )
-            logger.info("✅ TelegramClient initialized")
+            self._loop = current_loop
+            logger.info("✅ TelegramClient initialized in current event loop")
 
         return self._client
 

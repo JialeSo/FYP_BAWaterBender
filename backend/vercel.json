@@ -2,7 +2,6 @@
   "version": 2,
   "framework": "fastapi",
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
   "rewrites": [
     {
       "source": "/app/(.*)",
