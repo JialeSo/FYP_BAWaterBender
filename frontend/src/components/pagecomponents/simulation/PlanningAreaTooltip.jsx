@@ -47,22 +47,22 @@ export function generatePlanningAreaTooltipHTML(paData) {
           </div>
 
           <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-            <span style="color: #9ca3af;">Max Travel Time (Baseline):</span>
+            <span style="color: #9ca3af;">Max Travel Time (Dry):</span>
             <span style="color: #e5e7eb;">${fmtM(base_max_s)}</span>
           </div>
 
           <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-            <span style="color: #9ca3af;">Max Travel Time (Flooded):</span>
+            <span style="color: #9ca3af;">Max Travel Time (Flood):</span>
             <span style="color: #e5e7eb;">${fmtM(flood_max_s)}</span>
           </div>
 
           <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-            <span style="color: #9ca3af;">Avg Travel Time (Baseline):</span>
+            <span style="color: #9ca3af;">Avg Travel Time (Dry):</span>
             <span style="color: #e5e7eb;">${fmtM(base_avg_s)}</span>
           </div>
 
           <div style="display: flex; justify-content: space-between; font-size: 10px;">
-            <span style="color: #9ca3af;">Avg Travel Time (Flooded):</span>
+            <span style="color: #9ca3af;">Avg Travel Time (Flood):</span>
             <span style="color: #e5e7eb;">${fmtM(flood_avg_s)}</span>
           </div>
         </div>
@@ -150,22 +150,22 @@ export function PlanningAreaTooltip({ paData }) {
           </div>
 
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">Max Travel Time (Baseline):</span>
+            <span className="text-gray-400">Max Travel Time (Dry):</span>
             <span className="text-gray-200">{fmtM(paData.base_max_s)}</span>
           </div>
 
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">Max Travel Time (Flooded):</span>
+            <span className="text-gray-400">Max Travel Time (Flood):</span>
             <span className="text-gray-200">{fmtM(paData.flood_max_s)}</span>
           </div>
 
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">Avg Travel Time (Baseline):</span>
+            <span className="text-gray-400">Avg Travel Time (Dry):</span>
             <span className="text-gray-200">{fmtM(paData.base_avg_s)}</span>
           </div>
 
           <div className="flex justify-between text-xs">
-            <span className="text-gray-400">Avg Travel Time (Flooded):</span>
+            <span className="text-gray-400">Avg Travel Time (Flood):</span>
             <span className="text-gray-200">{fmtM(paData.flood_avg_s)}</span>
           </div>
         </div>

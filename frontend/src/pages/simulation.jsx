@@ -302,6 +302,10 @@ export default function Simulation() {
   const [hoveredPA, setHoveredPA] = useState(null);
   const [selectedMetric, setSelectedMetric] = useState("delta_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time" | "golden_time"
 
+  // Map layer visibility toggles
+  const [showAmenities, setShowAmenities] = useState(true);
+  const [showFloodedRoads, setShowFloodedRoads] = useState(true);
+
   // Node-level distance data (Map: node_id => travel_time_seconds)
   const [baselineNodeDist, setBaselineNodeDist] = useState(null);
   const [floodedNodeDist, setFloodedNodeDist] = useState(null);
@@ -1435,12 +1439,18 @@ export default function Simulation() {
                   excludedAmenities={excludedAmenities}
                   onPlanningAreaSelect={setSelectedPA}
                   selectedPA={selectedPA}
+                  showAmenities={showAmenities}
+                  showFloodedRoads={showFloodedRoads}
                 />
 
                 <MetricSelector
                   selectedMetric={selectedMetric}
                   onMetricChange={setSelectedMetric}
                   goldenTime={goldenTime}
+                  showAmenities={showAmenities}
+                  onToggleAmenities={setShowAmenities}
+                  showFloodedRoads={showFloodedRoads}
+                  onToggleFloodedRoads={setShowFloodedRoads}
                 />
 
                 <SimulationLegend

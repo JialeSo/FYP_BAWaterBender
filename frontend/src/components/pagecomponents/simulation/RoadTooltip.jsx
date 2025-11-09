@@ -57,12 +57,12 @@ export function generateRoadTooltipHTML(props, nearestAmenityData = null) {
         </div>
 
         <div style="font-size: 11px; margin-top: 6px;">
-          <div style="color: #d1d5db; margin-bottom: 3px; font-weight: 500;">Base Travel Time:</div>
+          <div style="color: #d1d5db; margin-bottom: 3px; font-weight: 500;">Dry (No Flood) Travel Time:</div>
           <div style="color: #e5e7eb; margin-left: 8px;">${baselineTimeStr}</div>
         </div>
 
         <div style="font-size: 11px; margin-top: 6px;">
-          <div style="color: #d1d5db; margin-bottom: 3px; font-weight: 500;">Flooded Travel Time:</div>
+          <div style="color: #d1d5db; margin-bottom: 3px; font-weight: 500;">With Flood Travel Time:</div>
           <div style="color: #e5e7eb; margin-left: 8px;">${floodedTimeStr}</div>
         </div>
 
@@ -119,12 +119,12 @@ export function RoadTooltip({ roadData, nearestAmenityData }) {
         </div>
 
         <div className="text-xs mt-2">
-          <div className="text-gray-300 mb-1 font-medium">Base Travel Time:</div>
+          <div className="text-gray-300 mb-1 font-medium">Dry (No Flood) Travel Time:</div>
           <div className="text-gray-200 ml-2">{roadData.baselineTimeStr}</div>
         </div>
 
         <div className="text-xs mt-2">
-          <div className="text-gray-300 mb-1 font-medium">Flooded Travel Time:</div>
+          <div className="text-gray-300 mb-1 font-medium">With Flood Travel Time:</div>
           <div className="text-gray-200 ml-2">{roadData.floodedTimeStr}</div>
         </div>
 

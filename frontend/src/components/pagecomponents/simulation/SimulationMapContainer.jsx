@@ -39,6 +39,8 @@ export function SimulationMapContainer({
   excludedAmenities = new Set(),
   onPlanningAreaSelect,
   selectedPA,
+  showAmenities = true,
+  showFloodedRoads = true,
 }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
@@ -483,21 +485,28 @@ export function SimulationMapContainer({
         map.setFeatureState({ source: "choropleth", id: paId }, { hover: true });
         map.getCanvas().style.cursor = "pointer";
 
-        // Show tooltip
+        // Check if mouse is over a road - if so, don't show PA tooltip
+        const roadFeatures = map.queryRenderedFeatures(e.point, {
+          layers: ["roads-line", "blocked-roads-line"]
+        });
+
+        // Show tooltip only if NOT hovering over a road
         if (paPopupRef.current) {
           paPopupRef.current.remove();
         }
 
-        const delta = paDeltas.find(d => d.pa_id === paId);
-        if (delta) {
-          paPopupRef.current = new mapboxgl.Popup({
-            closeButton: false,
-            closeOnClick: false,
-            maxWidth: "300px",
-          })
-            .setLngLat(e.lngLat)
-            .setHTML(generatePlanningAreaTooltipHTML(delta))
-            .addTo(map);
+        if (roadFeatures.length === 0) {
+          const delta = paDeltas.find(d => d.pa_id === paId);
+          if (delta) {
+            paPopupRef.current = new mapboxgl.Popup({
+              closeButton: false,
+              closeOnClick: false,
+              maxWidth: "300px",
+            })
+              .setLngLat(e.lngLat)
+              .setHTML(generatePlanningAreaTooltipHTML(delta))
+              .addTo(map);
+          }
         }
       }
     };
@@ -655,6 +664,35 @@ export function SimulationMapContainer({
     updateChoroplethData,
     updateBlockedRoadsLayer,
   ]);
+
+  /**
+   * Toggle amenity markers visibility
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const visibility = showAmenities ? "visible" : "none";
+    if (map.getLayer("amenities-circle")) {
+      map.setLayoutProperty("amenities-circle", "visibility", visibility);
+    }
+  }, [mapReady, showAmenities]);
+
+  /**
+   * Toggle flooded roads visibility
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const visibility = showFloodedRoads ? "visible" : "none";
+    if (map.getLayer("blocked-roads-line")) {
+      map.setLayoutProperty("blocked-roads-line", "visibility", visibility);
+    }
+    if (map.getLayer("roads-line")) {
+      map.setLayoutProperty("roads-line", "visibility", visibility);
+    }
+  }, [mapReady, showFloodedRoads]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 min-h-[500px]" />
