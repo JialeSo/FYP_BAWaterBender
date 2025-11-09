@@ -1,6 +1,6 @@
 // src/pages/centrality.jsx
 "use client";
-
+ // update
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useMapData } from "@/context/MapDataContext";
 
@@ -35,11 +35,11 @@ import {
   format_number,
   to_title_case,
 } from "./shared";
-import { LearnHowToUseDialog } from "./LearnHowToUseDialog";
-import { CentralityMap } from "./CentralityMap";
-import { MultiSelectCombobox } from "./MultiSelectCombobox";
-import { CentralityTable } from "./CentralityTable";
-import { RoadDetailsPanel } from "./RoadDetailsPanel";
+import { LearnHowToUseDialog } from "./learnHowToUseDialog";
+import { CentralityMap } from "./centralityMap";
+import { MultiSelectCombobox } from "./multiSelectCombobox";
+import { CentralityTable } from "./centralityTable";
+import { RoadDetailsPanel } from "./roadDetailsPanel";
 
 const BASE_COLUMNS = [
   { key: "RN_ID", label: "RN ID", type: "number" },
