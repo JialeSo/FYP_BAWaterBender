@@ -353,18 +353,11 @@ class GeocodePostalOneMapStage(PipelineStage):
             "subzone",
         ]
 
-        # Add sequential ID column as the FIRST column
-        # Use DataFrame constructor to ensure id is first
-        id_values = list(range(1, len(df_out) + 1))
-
-        # Build new dataframe with id first, then other columns in order
-        new_data = {'id': id_values}
-        for col in ordered[1:]:  # Skip 'id' since we already added it
-            if col in df_out.columns:
-                new_data[col] = df_out[col].values
-
-        df_out = pd.DataFrame(new_data)
-        logger.info(f"Added sequential ID column (1 to {len(df_out):,}) as first column")
+        # Don't include ID column - let database auto-generate
+        # UEN will be used for upsert conflict resolution
+        ordered_without_id = [col for col in ordered if col != 'id']
+        df_out = df_out[ordered_without_id]
+        logger.info(f"Prepared {len(df_out):,} records for database upsert (ID will be auto-generated)")
 
         # Update CSV with deduplicated data
         try:
