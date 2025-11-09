@@ -1,65 +1,27 @@
-﻿// DashboardLayout.jsx
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import LeftPanel from "@/components/pagecomponents/historicalMap/LeftPanel";
 import RightPanel from "./RightPanel";
 import { PanelLeft, PanelRight } from "lucide-react";
-import { useMapData } from "@/context/MapDataContext";
+
+/** shared parsers */
+import {
+  parseCsv,
+  amenitiesCsvToGeoJSON,
+  floodsCsvToGeoJSON,
+} from "../../../utils/map/parsers";
 
 /* ---------------- utilities for insights ---------------- */
-// ⬇️ Normalise to include *_id fields and use them downstream
 const normaliseFloodRecord = (record) => {
   const planningArea = (record.start_planning_area || record.end_planning_area || "").trim();
-  const planningAreaId =
-    (
-      record.start_planning_area_id ||
-      record.end_planning_area_id ||
-      record.planning_area_id ||
-      ""
-    ).trim();
-
   const subzone = (record.start_subzone || record.end_subzone || "").trim();
-  const subzoneId =
-    (record.start_subzone_id || record.end_subzone_id || record.subzone_id || "").trim();
-
-  const road =
-    (record.start_street_name || record.end_street_name || record.parent_road || "").trim();
-  const roadId =
-    (
-      record.start_street_id ||
-      record.end_street_id ||
-      record.RN_ID ||
-      record.UNIQUE_ID ||
-      ""
-    ).trim();
-
-  const floodType =
-    (record.event || record.flood_type || "unknown").trim().toLowerCase() || "unknown";
-
-  const eventDate = record.event_date
-    ? new Date(record.event_date)
-    : record.date
-    ? new Date(record.date)
-    : null;
-
-  const year =
-    eventDate && Number.isFinite(eventDate.getFullYear())
-      ? eventDate.getFullYear()
-      : null;
-
-  return {
-    ...record,
-    planningArea,
-    planningAreaId,
-    subzone,
-    subzoneId,
-    road,
-    roadId,
-    floodType,
-    eventDate,
-    year,
-  };
+  const road = (record.start_street_name || record.end_street_name || record.parent_road || "").trim();
+  const roadId = (record.start_street_id || record.end_street_id || record.RN_ID || record.UNIQUE_ID || road || "").trim();
+  const floodType = (record.event || "unknown").trim().toLowerCase() || "unknown";
+  const eventDate = record.event_date ? new Date(record.event_date) : null;
+  const year = eventDate && Number.isFinite(eventDate.getFullYear()) ? eventDate.getFullYear() : null;
+  return { ...record, planningArea, subzone, road, roadId, floodType, eventDate, year };
 };
 
 const aggregateCounts = (events, selector) => {
@@ -95,23 +57,8 @@ const withinDate = (value, fromISO, toISO) => {
   return true;
 };
 
-/* ---------------- feature helpers ---------------- */
-const featureProps = (f) => f?.properties ?? {};
-const fcFeatures = (fc) => fc?.features ?? [];
-
 /* ---------------- component ---------------- */
 export default function DashboardLayout({ mapcomponent: MapComponent }) {
-  // pull everything from context
-  const {
-    planningFC,
-    subzoneFC,
-    roadFC,
-    floodsFC,
-    amenityFC,
-    loading: dataLoading,
-    error: dataError,
-  } = useMapData();
-
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [resizeSignal, setResizeSignal] = useState(0);
@@ -119,8 +66,8 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
   const [showAmenities, setShowAmenities] = useState(true);
 
   /* selection state */
-  const [planningAreas, setPlanningAreas] = useState([]); // names for UI
-  const [selectedPlanningAreas, setSelectedPlanningAreas] = useState([]); // names for UI
+  const [planningAreas, setPlanningAreas] = useState([]);
+  const [selectedPlanningAreas, setSelectedPlanningAreas] = useState([]);
   const [selectedSubzone, setSelectedSubzone] = useState(null);
 
   /* amenity filters */
@@ -135,112 +82,142 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
   const [floodDateFrom, setFloodDateFrom] = useState("");
   const [floodDateTo, setFloodDateTo] = useState("");
 
-  /* raw datasets now come from context (as valid GeoJSON FCs) */
-  const planningData = planningFC;
-  const subzoneData = subzoneFC;
-  const roadData = roadFC;
-  const amenityData = amenityFC;
-  const floodData = floodsFC;
+  /* raw datasets */
+  const [planningData, setPlanningData] = useState(null);
+  const [subzoneData, setSubzoneData] = useState(null);
+  const [roadData, setRoadData] = useState(null);
+  const [amenityData, setAmenityData] = useState(null);
+  const [floodData, setFloodData] = useState(null);
 
-  /* insights panel rows (derived from floodsFC) */
+  /* insights panel */
   const [floodRows, setFloodRows] = useState([]);
   const [floodLoading, setFloodLoading] = useState(false);
   const [floodError, setFloodError] = useState(null);
 
-  /* ---------- react to context changes ---------- */
-  useEffect(() => {
-    let cancelled = false;
-    setFloodLoading(true);
-    setFloodError(null);
-
-    try {
-      // planning area list (names for UI)
-      const paNames = Array.from(
-        new Set(
-          fcFeatures(planningData)
-            .map((f) => featureProps(f)?.PLN_AREA_N)
-            .filter(Boolean)
-            .map((s) => String(s).trim())
-        )
-      ).sort();
-      if (!cancelled) setPlanningAreas(paNames);
-
-      // amenity filters
-      const amenCats = Array.from(
-        new Set(
-          fcFeatures(amenityData)
-            .map((f) => featureProps(f)?.amenity_category)
-            .filter(Boolean)
-            .map((s) => String(s).trim())
-        )
-      ).sort();
-      const amenTypes = Array.from(
-        new Set(
-          fcFeatures(amenityData)
-            .map((f) => featureProps(f)?.amenity_type)
-            .filter(Boolean)
-            .map((s) => String(s).trim())
-        )
-      ).sort();
-      if (!cancelled) {
-        setAmenityCategories(amenCats);
-        setAmenityTypesAll(amenTypes);
-      }
-
-      // flood filters + rows
-      const floodTypes = Array.from(
-        new Set(
-          fcFeatures(floodData)
-            .map((f) => featureProps(f))
-            .map((p) =>
-              (p?.event ?? p?.flood_type ?? "").toString().trim().toLowerCase()
-            )
-            .filter(Boolean)
-        )
-      ).sort();
-      const floodRowsObjects = fcFeatures(floodData).map((f) => featureProps(f));
-      if (!cancelled) {
-        setFloodTypesAll(floodTypes);
-        setFloodRows(floodRowsObjects);
-      }
-    } catch (e) {
-      if (!cancelled) {
-        setFloodError(e instanceof Error ? e.message : "unable to prepare datasets");
-        setFloodRows([]);
-        setPlanningAreas([]);
-        setAmenityCategories([]);
-        setAmenityTypesAll([]);
-        setFloodTypesAll([]);
-      }
-    } finally {
-      if (!cancelled) setFloodLoading(false);
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [planningData, amenityData, floodData]);
-
-  /* ---------- derived options ---------- */
+  /* derived options */
   const planningOptions = useMemo(
     () => [...new Set(planningAreas)].sort((a, b) => a.localeCompare(b)),
     [planningAreas]
   );
 
+  // shared pane classes
+  const paneShell = (open) =>
+    cn("min-h-0 transition-all duration-300 ease-in-out",
+      open ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden");
+
+  const paneInner = (open) =>
+    cn("flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300",
+      open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0");
+
+  /* ---------- load ALL files here ---------- */
+  useEffect(() => {
+    let cancelled = false;
+    const loadAll = async () => {
+      try {
+        setFloodLoading(true);
+        setFloodError(null);
+
+        const [planningRes, subzoneRes, roadRes, amenityCsvRes, floodCsvRes] = await Promise.all([
+          fetch("/map/planning_area.geojson"),
+          fetch("/map/subzone_area.geojson"),
+          fetch("/map/road_network.geojson"),
+          fetch("/map/amenities_3layers.csv"),
+          fetch("/map/floodsv2.csv"),
+        ]);
+
+        if (!planningRes.ok) throw new Error(`Failed planning_area.geojson (${planningRes.status})`);
+        if (!subzoneRes.ok) throw new Error(`Failed subzone_area.geojson (${subzoneRes.status})`);
+        if (!roadRes.ok) throw new Error(`Failed road_network.geojson (${roadRes.status})`);
+        if (!amenityCsvRes.ok) throw new Error(`Failed amenities_3layers.csv (${amenityCsvRes.status})`);
+        if (!floodCsvRes.ok) throw new Error(`Failed floodsv2.csv (${floodCsvRes.status})`);
+
+        const [planningJson, subzoneJson, roadJson, amenityCsvText, floodCsvText] = await Promise.all([
+          planningRes.json(),
+          subzoneRes.json(),
+          roadRes.json(),
+          amenityCsvRes.text(),
+          floodCsvRes.text(),
+        ]);
+
+        // amenities -> GeoJSON
+        const amenRows = parseCsv(amenityCsvText);
+        const amenGeo = amenitiesCsvToGeoJSON(amenRows);
+
+        // floods -> GeoJSON + rows
+        const floodRowsObjects = parseCsv(floodCsvText);
+        const floodGeo = floodsCsvToGeoJSON(floodRowsObjects);
+
+        if (cancelled) return;
+
+        setPlanningData(planningJson);
+        setSubzoneData(subzoneJson);
+        setRoadData(roadJson);
+        setAmenityData(amenGeo);
+        setFloodData(floodGeo);
+        setFloodRows(floodRowsObjects);
+
+        const paNames = Array.from(
+          new Set((planningJson?.features ?? [])
+            .map((f) => f?.properties?.PLN_AREA_N?.trim())
+            .filter(Boolean))
+        ).sort();
+        setPlanningAreas(paNames);
+
+        const uniqAmenCats = Array.from(
+          new Set((amenGeo?.features ?? [])
+            .map((f) => String(f?.properties?.amenity_category ?? "").trim())
+            .filter(Boolean))
+        ).sort();
+        setAmenityCategories(uniqAmenCats);
+
+        const uniqAmenTypes = Array.from(
+          new Set((amenGeo?.features ?? [])
+            .map((f) => String(f?.properties?.amenity_type ?? "").trim())
+            .filter(Boolean))
+        ).sort();
+        setAmenityTypesAll(uniqAmenTypes);
+
+        const uniqFloodTypes = Array.from(
+          new Set(floodRowsObjects
+            .map((r) => String(r.event ?? "").trim().toLowerCase())
+            .filter(Boolean))
+        ).sort();
+        setFloodTypesAll(uniqFloodTypes);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setFloodError(err instanceof Error ? err.message : "Unable to load datasets.");
+          setPlanningData(null);
+          setSubzoneData(null);
+          setRoadData(null);
+          setAmenityData(null);
+          setFloodData(null);
+          setFloodRows([]);
+          setPlanningAreas([]);
+          setAmenityCategories([]);
+          setAmenityTypesAll([]);
+          setFloodTypesAll([]);
+        }
+      } finally {
+        if (!cancelled) setFloodLoading(false);
+      }
+    };
+
+    loadAll();
+    return () => { cancelled = true; };
+  }, []);
+
   /* ---------- insights computed from rows ---------- */
   const floodEvents = useMemo(() => floodRows.map(normaliseFloodRecord), [floodRows]);
 
   const filteredFloodEvents = useMemo(() => {
-    // UI still filters by PA NAME; aggregation is by ID
     const paAllowed = new Set(selectedPlanningAreas);
     const base = !paAllowed.size
       ? floodEvents
       : floodEvents.filter((e) => e.planningArea && paAllowed.has(e.planningArea));
 
-    const typeAllowed = new Set(
-      (selectedFloodTypes || []).map((s) => String(s).trim().toLowerCase())
-    );
-    const byType = typeAllowed.size ? base.filter((e) => typeAllowed.has(e.floodType)) : base;
+    const typeAllowed = new Set((selectedFloodTypes || []).map(String));
+    const byType = typeAllowed.size ? base.filter((e) => typeAllowed.has(String(e.floodType))) : base;
 
     return byType.filter((e) => withinDate(e.eventDate, floodDateFrom, floodDateTo));
   }, [floodEvents, selectedPlanningAreas, selectedFloodTypes, floodDateFrom, floodDateTo]);
@@ -269,19 +246,15 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     }
 
     const filtered = filteredFloodEvents;
-
-    // ✅ overall & filtered counts by **ID**
-    const overallPlanningCounts = aggregateCounts(floodEvents, (e) => e.planningAreaId);
-
+    const overallPlanningCounts = aggregateCounts(floodEvents, (e) => e.planningArea);
     const focusSubzoneName = selectedSubzone?.properties?.SUBZONE_N?.trim() || null;
     const subzoneScopedEvents = focusSubzoneName
-      ? filtered.filter((e) => e.subzone === focusSubzoneName) // UI drill stays by name
+      ? filtered.filter((e) => e.subzone === focusSubzoneName)
       : filtered;
 
-    const byPlanningArea = aggregateCounts(filtered, (e) => e.planningAreaId);
-    const bySubzone = aggregateCounts(filtered, (e) => e.subzoneId);
+    const byPlanningArea = aggregateCounts(filtered, (e) => e.planningArea);
+    const bySubzone = aggregateCounts(filtered, (e) => e.subzone);
     const byType = aggregateCounts(filtered, (e) => e.floodType);
-
     const yearSeries = aggregateCounts(
       filtered.filter((e) => Number.isInteger(e.year)),
       (e) => String(e.year)
@@ -289,13 +262,12 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       .map(({ label, count }) => ({ year: Number(label), count }))
       .sort((a, b) => a.year - b.year);
 
-    // roads: prefer ID but keep name for display
     const roadTally = new Map();
     const roadSourceEvents = focusSubzoneName ? subzoneScopedEvents : filtered;
     roadSourceEvents.forEach((e) => {
-      const id = (e.roadId || "").trim();
+      const id = e.roadId?.trim();
       const name = e.road || id || "Unknown";
-      const key = id || name; // id first
+      const key = id || name;
       if (!key) return;
       const entry = roadTally.get(key) || { id: id || null, name, count: 0 };
       entry.count += 1;
@@ -303,48 +275,47 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
       roadTally.set(key, entry);
     });
     const roadEntries = Array.from(roadTally.values()).sort((a, b) => b.count - a.count);
-    const byRoad = roadEntries.map(({ id, name, count }) => ({ label: id || name, name, count }));
-    const topRoads = roadEntries
-      .filter((r) => (r.id || r.name) && (r.name && r.name !== "Unknown"))
-      .slice(0, 5)
+    const byRoad = roadEntries.map(({ name, count }) => ({ label: name, count }));
+    const topRoads = roadEntries.filter((r) => r.name && r.name !== "Unknown").slice(0, 5)
       .map(({ name, count }) => ({ name, count }));
 
     const subzoneSource = focusSubzoneName ? subzoneScopedEvents : filtered;
-    // topSubzones labeled by ID (aggregation key == ID)
-    const topSubzones = aggregateCounts(subzoneSource, (e) => e.subzoneId)
+    const topSubzones = aggregateCounts(subzoneSource, (e) => e.subzone)
       .filter((x) => x.label && x.label !== "Unknown")
       .slice(0, 5)
       .map(({ label, count }) => ({ name: label, count }));
 
     const { map: planningCountMap, max: maxPlanningCount } = countsToMap(byPlanningArea);
-    const { map: overallPlanningCountMap, max: overallMaxPlanningCount } =
-      countsToMap(overallPlanningCounts);
+    const { map: overallPlanningCountMap, max: overallMaxPlanningCount } = countsToMap(overallPlanningCounts);
     const { map: subzoneCountMap, max: maxSubzoneCount } = countsToMap(bySubzone);
-    const { map: roadCountMap, max: maxRoadCount } = countsToMap(byRoad, (e) => e.label);
+    const { map: roadCountMap, max: maxRoadCount } = countsToMap(roadEntries, (entry) => entry.id || entry.name);
 
     const totals = {
       events: filtered.length,
       subzoneEvents: subzoneScopedEvents.length,
-      planningAreas: new Set(filtered.map((e) => e.planningAreaId).filter(Boolean)).size,
-      subzones: new Set(filtered.map((e) => e.subzoneId).filter(Boolean)).size,
-      roads: new Set(filtered.map((e) => e.roadId || e.road).filter(Boolean)).size,
+      planningAreas: new Set(filtered.map((e) => e.planningArea).filter(Boolean)).size,
+      subzones: new Set(filtered.map((e) => e.subzone).filter(Boolean)).size,
+      roads: new Set(filtered.map((e) => (e.roadId || e.road)).filter(Boolean)).size,
       topType: byType[0]?.label ?? null,
     };
+// ---------- AMENITY INSIGHTS ----------
+
+
 
     return {
       totals,
-      byPlanningArea,              // labels are PA_ID
-      bySubzone,                   // labels are SZ_ID
-      byRoad,                      // labels are RN_ID (or name fallback)
+      byPlanningArea,
+      bySubzone,
+      byRoad,
       byType,
       yearSeries,
       topRoads,
-      topSubzones,                 // names are SZ_ID here (since we aggregate by id)
+      topSubzones,
       focusSubzoneName,
-      planningCountMap,            // keyed by PA_ID
-      subzoneCountMap,             // keyed by SZ_ID
-      roadCountMap,                // keyed by RN_ID (or name fallback)
-      overallPlanningCountMap,     // keyed by PA_ID
+      planningCountMap,
+      subzoneCountMap,
+      roadCountMap,
+      overallPlanningCountMap,
       maxPlanningCount,
       maxSubzoneCount,
       maxRoadCount,
@@ -352,9 +323,9 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     };
   }, [filteredFloodEvents, floodEvents, selectedSubzone]);
 
-  /* ---------- derived subzone options (UI still by name) ---------- */
+  /* ---------- derived subzone options ---------- */
   const subzoneOptions = useMemo(() => {
-    const feats = fcFeatures(subzoneData);
+    const feats = subzoneData?.features ?? [];
     const paAllowed = new Set(selectedPlanningAreas);
     const rows = feats
       .filter((f) => {
@@ -387,166 +358,133 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
     return Array.from(new Set(raw)).sort();
   }, [amenityData, selectedAmenityCategories]);
 
-  const amenityFilteredFeatures = useMemo(() => {
-    if (!amenityData?.features?.length) return [];
-    const paAllowed = new Set(selectedPlanningAreas);
-    const cats = new Set(selectedAmenityCategories.map(String));
-    const types = new Set(selectedAmenityTypes.map(String));
+        const amenityFilteredFeatures = useMemo(() => {
+        if (!amenityData?.features?.length) return [];
+        const paAllowed = new Set(selectedPlanningAreas);
+        const cats = new Set(selectedAmenityCategories.map(String));
+        const types = new Set(selectedAmenityTypes.map(String));
 
-    return (amenityData.features || []).filter((f) => {
-      const p = f.properties || {};
-      if (paAllowed.size && !paAllowed.has(String(p.planning_area || "").trim())) return false;
-      if (cats.size) {
-        const cat = String(p.amenity_category ?? "").trim();
-        if (!cat || !cats.has(cat)) return false;
-      }
-      if (types.size) {
-        const t = String(p.amenity_type ?? "").trim();
-        if (!t || !types.has(t)) return false;
-      }
-      return true;
-    });
-  }, [amenityData, selectedPlanningAreas, selectedAmenityCategories, selectedAmenityTypes]);
+        return (amenityData.features || []).filter((f) => {
+          const p = f.properties || {};
+          if (paAllowed.size && !paAllowed.has(String(p.planning_area || "").trim())) return false;
+          if (cats.size) {
+            const cat = String(p.amenity_category ?? "").trim();
+            if (!cat || !cats.has(cat)) return false;
+          }
+          if (types.size) {
+            const t = String(p.amenity_type ?? "").trim();
+            if (!t || !types.has(t)) return false;
+          }
+          return true;
+        });
+      }, [amenityData, selectedPlanningAreas, selectedAmenityCategories, selectedAmenityTypes]);
 
-  const amenityInsights = useMemo(() => {
-    const feats = amenityFilteredFeatures;
-    if (!feats.length) {
-      return {
-        totals: {
-          amenities: 0,
-          planningAreas: 0,
-          subzones: 0,
-          categories: 0,
-          types: 0,
-          topCategory: null,
-          topType: null,
-        },
-        byPlanningArea: [],
-        bySubzone: [],
-        byCategory: [],
-        byType: [],
-        topSubzones: [],
-        topTypes: [],
-      };
-    }
-    const tally = (arr, sel) => {
-      const m = new Map();
-      arr.forEach((f) => {
-        const k = sel(f) || "Unknown";
-        m.set(k, (m.get(k) || 0) + 1);
-      });
-      return Array.from(m, ([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
-    };
+      const amenityInsights = useMemo(() => {
+        const feats = amenityFilteredFeatures;
+        if (!feats.length) {
+          return {
+            totals: { amenities: 0, planningAreas: 0, subzones: 0, categories: 0, types: 0, topCategory: null, topType: null },
+            byPlanningArea: [],
+            bySubzone: [],
+            byCategory: [],
+            byType: [],
+            topSubzones: [],
+            topTypes: [],
+          };
+        }
+        const tally = (arr, sel) => {
+          const m = new Map();
+          arr.forEach((f) => {
+            const k = sel(f) || "Unknown";
+            m.set(k, (m.get(k) || 0) + 1);
+          });
+          return Array.from(m, ([label, count]) => ({ label, count })).sort((a,b)=>b.count-a.count);
+        };
 
-    const byPlanningArea = tally(feats, (f) => String(f.properties?.planning_area || "").trim());
-    const bySubzone = tally(feats, (f) => String(f.properties?.subzone || "").trim());
-    const byCategory = tally(feats, (f) => String(f.properties?.amenity_category || "").trim());
-    const byType = tally(feats, (f) => String(f.properties?.amenity_type || "").trim());
+        const byPlanningArea = tally(feats, (f) => String(f.properties?.planning_area || "").trim());
+        const bySubzone     = tally(feats, (f) => String(f.properties?.subzone || "").trim());
+        const byCategory    = tally(feats, (f) => String(f.properties?.amenity_category || "").trim());
+        const byType        = tally(feats, (f) => String(f.properties?.amenity_type || "").trim());
 
-    const topSubzones = bySubzone
-      .filter((x) => x.label && x.label !== "Unknown")
-      .slice(0, 5)
-      .map(({ label, count }) => ({ name: label, count }));
-    const topTypes = byType.slice(0, 10).map(({ label, count }) => ({ name: label, count }));
+        const topSubzones = bySubzone.filter(x => x.label && x.label!=="Unknown").slice(0,5)
+          .map(({label, count}) => ({ name: label, count }));
+        const topTypes    = byType.slice(0,10).map(({label, count}) => ({ name: label, count }));
 
-    return {
-      totals: {
-        amenities: feats.length,
-        planningAreas: byPlanningArea.filter((x) => x.label && x.label !== "Unknown").length,
-        subzones: bySubzone.filter((x) => x.label && x.label !== "Unknown").length,
-        categories: byCategory.filter((x) => x.label && x.label !== "Unknown").length,
-        types: byType.filter((x) => x.label && x.label !== "Unknown").length,
-        topCategory: byCategory[0]?.label ?? null,
-        topType: byType[0]?.label ?? null,
-      },
-      byPlanningArea,
-      bySubzone,
-      byCategory,
-      byType,
-      topSubzones,
-      topTypes,
-    };
-  }, [amenityFilteredFeatures]);
+        return {
+          totals: {
+            amenities: feats.length,
+            planningAreas: byPlanningArea.filter(x=>x.label && x.label!=="Unknown").length,
+            subzones: bySubzone.filter(x=>x.label && x.label!=="Unknown").length,
+            categories: byCategory.filter(x=>x.label && x.label!=="Unknown").length,
+            types: byType.filter(x=>x.label && x.label!=="Unknown").length,
+            topCategory: byCategory[0]?.label ?? null,
+            topType: byType[0]?.label ?? null,
+          },
+          byPlanningArea,
+          bySubzone,
+          byCategory,
+          byType,
+          topSubzones,
+          topTypes,
+        };
+      }, [amenityFilteredFeatures]);
 
   /* ---------- UI helpers ---------- */
   const triggerResize = useCallback(() => setResizeSignal((v) => v + 1), []);
-  const handleToggleLeft = useCallback(() => {
-    setLeftOpen((o) => !o);
-    triggerResize();
-  }, [triggerResize]);
-  const handleToggleRight = useCallback(() => {
-    setRightOpen((o) => !o);
-    triggerResize();
-  }, [triggerResize]);
+  const handleToggleLeft  = useCallback(() => { setLeftOpen((o) => !o);  triggerResize(); }, [triggerResize]);
+  const handleToggleRight = useCallback(() => { setRightOpen((o) => !o); triggerResize(); }, [triggerResize]);
 
   const handlePlanningAreaSelection = useCallback((areas) => setSelectedPlanningAreas(areas), []);
   const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas([]), []);
   const handlePlanningAreaFromMap = useCallback((areaName) => {
     if (!areaName) return setSelectedPlanningAreas([]);
-    setSelectedPlanningAreas((prev) =>
-      prev.includes(areaName) ? prev.filter((n) => n !== areaName) : [areaName]
-    );
+    setSelectedPlanningAreas((prev) => (prev.includes(areaName) ? prev.filter((n) => n !== areaName) : [areaName]));
   }, []);
 
-  const handleSubzoneSelect = useCallback(
-    (feature) => {
-      setSelectedSubzone(feature);
-      if (feature && !rightOpen) {
-        setRightOpen(true);
-        triggerResize();
-      }
-    },
-    [rightOpen, triggerResize]
-  );
+  const handleSubzoneSelect = useCallback((feature) => {
+    setSelectedSubzone(feature);
+    if (feature && !rightOpen) { setRightOpen(true); triggerResize(); }
+  }, [rightOpen, triggerResize]);
 
-  const handleSubzonePickByName = useCallback(
-    (subzoneName) => {
-      if (!subzoneName) {
-        setSelectedSubzone(null);
-        return;
-      }
-      const feat = (subzoneData?.features || []).find(
-        (f) => String(f?.properties?.SUBZONE_N || "").trim() === subzoneName
-      );
-      setSelectedSubzone(feat || null);
+  const handleSubzonePickByName = useCallback((subzoneName) => {
+    if (!subzoneName) {
+      setSelectedSubzone(null);
+      return;
+    }
+    const feat = (subzoneData?.features || []).find(
+      (f) => String(f?.properties?.SUBZONE_N || "").trim() === subzoneName
+    );
+    setSelectedSubzone(feat || null);
 
-      const pa = feat?.properties?.PLN_AREA_N ? String(feat.properties.PLN_AREA_N).trim() : null;
-      if (pa) setSelectedPlanningAreas([pa]);
-    },
-    [subzoneData]
-  );
+    const pa = feat?.properties?.PLN_AREA_N ? String(feat.properties.PLN_AREA_N).trim() : null;
+    if (pa) setSelectedPlanningAreas([pa]);
+  }, [subzoneData]);
 
   const clearSubzoneSelection = useCallback(() => setSelectedSubzone(null), []);
 
   useEffect(() => {
     if (!selectedPlanningAreas.length) return setSelectedSubzone(null);
-    if (
-      selectedSubzone?.properties?.PLN_AREA_N &&
-      !selectedPlanningAreas.includes(selectedSubzone.properties.PLN_AREA_N)
-    ) {
+    if (selectedSubzone?.properties?.PLN_AREA_N && !selectedPlanningAreas.includes(selectedSubzone.properties.PLN_AREA_N)) {
       setSelectedSubzone(null);
     }
   }, [selectedPlanningAreas, selectedSubzone]);
 
   const mapColumnClass = useMemo(() => {
     if (!leftOpen && !rightOpen) return "md:basis-full md:max-w-full";
-    if (leftOpen && rightOpen) return "md:basis-1/2 md:max-w-[50%]";
+    if (leftOpen && rightOpen)   return "md:basis-1/2 md:max-w-[50%]";
     return "md:basis-3/4 md:max-w-[75%]";
   }, [leftOpen, rightOpen]);
 
   // prevent toolbar clicks from bubbling to the map canvas
-  const stop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
 
   /* ---------- render ---------- */
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 px-4 py-6 md:px-6 lg:px-10">
       <div className="flex flex-1 min-h-0 flex-col gap-6 md:flex-row">
         {/* left filters */}
-        <aside className={cn("min-h-0 transition-all duration-300 ease-in-out", leftOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden")} aria-hidden={!leftOpen}>
-          <div className={cn("flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300", leftOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0")}>
+        <aside className={paneShell(leftOpen)} aria-hidden={!leftOpen}>
+          <div className={paneInner(leftOpen)}>
             <LeftPanel
               options={planningOptions}
               selected={selectedPlanningAreas}
@@ -558,7 +496,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
               amenityCategoriesOptions={amenityCategories}
               selectedAmenityCategories={selectedAmenityCategories}
               onAmenityCategoriesChange={setSelectedAmenityCategories}
-              amenityTypesOptions={amenityTypesAll /* kept for compatibility */}
+              amenityTypesOptions={amenityTypeOptionsScoped}
               selectedAmenityTypes={selectedAmenityTypes}
               onAmenityTypesChange={setSelectedAmenityTypes}
               floodTypeOptions={floodTypesAll}
@@ -573,12 +511,10 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         </aside>
 
         {/* map */}
-        <div
-          className={cn(
-            "relative min-w-0 flex min-h-[24rem] grow min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 ease-in-out",
-            mapColumnClass
-          )}
-        >
+        <div className={cn(
+          "relative min-w-0 flex min-h-[24rem] grow min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 ease-in-out",
+          mapColumnClass
+        )}>
           {/* toolbar */}
           <div className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col gap-2 sm:flex-row">
             <Button
@@ -587,11 +523,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
               className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
               onMouseDown={stop}
               onPointerDown={stop}
-              onClick={(e) => {
-                stop(e);
-                setLeftOpen((o) => !o);
-                setResizeSignal((v) => v + 1);
-              }}
+              onClick={(e) => { stop(e); handleToggleLeft(); }}
             >
               <PanelLeft className="h-4 w-4" />
               <span>{leftOpen ? "Hide filters" : "Show filters"}</span>
@@ -602,11 +534,7 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
               className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
               onMouseDown={stop}
               onPointerDown={stop}
-              onClick={(e) => {
-                stop(e);
-                setRightOpen((o) => !o);
-                setResizeSignal((v) => v + 1);
-              }}
+              onClick={(e) => { stop(e); handleToggleRight(); }}
             >
               <PanelRight className="h-4 w-4" />
               <span>{rightOpen ? "Hide info" : "Show info"}</span>
@@ -621,13 +549,11 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
                 selectedSubzone={selectedSubzone}
                 onPlanningAreaToggle={handlePlanningAreaFromMap}
                 onSubzoneSelect={handleSubzoneSelect}
-                /* datasets from context */
                 planningData={planningData}
                 subzoneData={subzoneData}
                 roadData={roadData}
                 amenityData={amenityData}
                 floodData={floodData}
-                /* filters */
                 selectedAmenityCategories={selectedAmenityCategories}
                 selectedAmenityTypes={selectedAmenityTypes}
                 onAmenityTypesChange={setSelectedAmenityTypes}
@@ -635,12 +561,10 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
                 onFloodTypesChange={setSelectedFloodTypes}
                 floodDateFrom={floodDateFrom}
                 floodDateTo={floodDateTo}
-                /* options / stats */
                 amenityTypes={amenityCategories}
                 floodTypes={floodTypesAll}
                 onPlanningAreasLoaded={setPlanningAreas}
-                floodStats={floodInsights} // ⬅️ maps keyed by IDs now
-                /* toggles */
+                floodStats={floodInsights}
                 showFloods={showFloods}
                 setShowFloods={setShowFloods}
                 showAmenities={showAmenities}
@@ -651,15 +575,15 @@ export default function DashboardLayout({ mapcomponent: MapComponent }) {
         </div>
 
         {/* right info */}
-        <aside className={cn("min-h-0 transition-all duration-300 ease-in-out", rightOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden")} aria-hidden={!rightOpen}>
-          <div className={cn("flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300", rightOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0")}>
+        <aside className={paneShell(rightOpen)} aria-hidden={!rightOpen}>
+          <div className={paneInner(rightOpen)}>
             <RightPanel
               feature={selectedSubzone}
-              onClearSelection={() => setSelectedSubzone(null)}
+              onClearSelection={() => clearSubzoneSelection()}
               stats={floodInsights}
-              amenityStats={amenityInsights}
-              loading={dataLoading || floodLoading}
-              error={dataError || floodError}
+              amenityStats={amenityInsights}   // ← add this
+              loading={floodLoading}
+              error={floodError}
               selectedPlanningAreas={selectedPlanningAreas}
             />
           </div>

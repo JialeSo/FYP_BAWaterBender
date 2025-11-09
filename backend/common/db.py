@@ -4,7 +4,7 @@ import threading
 import logging
 from dotenv import load_dotenv
 
-from config.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+from backend.config.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 load_dotenv()
 
@@ -104,8 +104,15 @@ class DatabaseConnection:
             logger = logging.getLogger(__name__)
             logger.debug(f"Upserting data into table '{table}': {data}")
 
-            # Use upsert with on_conflict parameter
-            response = client.table(table).upsert(data).execute()
+            # Use upsert with on_conflict parameter when supported
+            try:
+                if on_conflict:
+                    response = client.table(table).upsert(data, on_conflict=on_conflict).execute()
+                else:
+                    response = client.table(table).upsert(data).execute()
+            except TypeError:
+                # Older SDKs may not accept on_conflict kwarg
+                response = client.table(table).upsert(data).execute()
 
             logger.debug(
                 f"Upsert successful. Response data count: "

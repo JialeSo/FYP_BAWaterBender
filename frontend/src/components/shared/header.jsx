@@ -22,47 +22,11 @@ export default function Header() {
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            {/* dashboard map */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/dashboard-map">
-                  <Button variant="ghost" size="sm">Dashboard Map</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-
-            {/* flood events */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/flood-events">
-                  <Button variant="ghost" size="sm">Flood Events</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-
-            {/* road centrality */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/road-centrality">
-                  <Button variant="ghost" size="sm">Road Centrality</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-
             {/* singapore historical flood map */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
                 <Link to="/historical-flood-map">
                   <Button variant="ghost" size="sm">Singapore Historical Flood Map</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-
-            {/* simulation */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/simulation">
-                  <Button variant="ghost" size="sm">Simulation</Button>
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
