@@ -33,7 +33,7 @@ from backend.etl.amenities.core.naming import infer_amenity_name
 SCRIPT_DIR = Path(__file__).resolve().parent
 # Use etl/data (not project-level data)
 DATA_DIR = SCRIPT_DIR.parent / "data"
-GEOJSON_DIR = DATA_DIR / "geojson"
+GEOJSON_DIR = DATA_DIR / "geojson" / "layers"
 AMENITIES_DIR = DATA_DIR / "amenities"
 
 # Input files
