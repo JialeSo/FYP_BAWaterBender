@@ -748,7 +748,7 @@ export default function Simulation() {
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header with stepper */}
-      <div className="border-b bg-card shadow-sm">
+      <div className="border-b bg-gray-50 dark:bg-gray-900 shadow-sm">
         <div className="px-6 py-4">
           <h1 className="text-2xl font-bold mb-4 text-center">Flood Impact Simulation</h1>
           <div className="flex items-center justify-center gap-2">

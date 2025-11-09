@@ -234,17 +234,15 @@ export function SimulationMapContainer({
         let color = "#22c55e"; // Green - unaffected
         let status = "unaffected";
 
-        if (!Number.isFinite(floodedDist)) {
-          color = "#ef4444"; // Red - unreachable
+        if (isBlocked) {
+          color = "#ff6b00"; // Orange - blocked road directly flooded
+          status = "blocked";
+        } else if (!Number.isFinite(floodedDist)) {
+          color = "#ef4444"; // Red - unreachable (cut off by blocked roads)
           status = "unreachable";
         } else if (delta && delta > 0) {
-          color = "#fbbf24"; // Yellow - affected
+          color = "#fbbf24"; // Yellow - affected (increased travel time)
           status = "affected";
-        }
-
-        if (isBlocked) {
-          color = "#ef4444"; // Red - blocked
-          status = "blocked";
         }
 
         const width = calculateLineWidth(delta, status);
@@ -330,7 +328,6 @@ export function SimulationMapContainer({
       map.addSource("choropleth", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
-        generateId: true,
       });
 
       map.addSource("roads", {
@@ -461,6 +458,15 @@ export function SimulationMapContainer({
       });
     }
   }, [mapReady, amenity_fc_enriched, selectedAmenityType, excludedAmenities, selectedPA]);
+
+  /**
+   * Update blocked roads layer when affected roads or graph changes
+   */
+  useEffect(() => {
+    if (mapReady && affectedRoads.length > 0 && graph.edges.length > 0 && !selectedPA) {
+      updateBlockedRoadsLayer();
+    }
+  }, [mapReady, affectedRoads, graph.edges, selectedPA, updateBlockedRoadsLayer]);
 
   /**
    * Update choropleth when metric or data changes

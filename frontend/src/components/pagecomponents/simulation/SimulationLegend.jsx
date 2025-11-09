@@ -23,8 +23,12 @@ export function RoadStatusLegend() {
           <span className="text-xs">Affected</span>
         </div>
         <div className="flex items-center gap-2">
+          <div style={{ width: '20px', height: '3px', backgroundColor: '#ff6b00' }}></div>
+          <span className="text-xs">Blocked (Flooded)</span>
+        </div>
+        <div className="flex items-center gap-2">
           <div style={{ width: '20px', height: '3px', backgroundColor: '#ef4444' }}></div>
-          <span className="text-xs">Unreachable/Blocked</span>
+          <span className="text-xs">Unreachable</span>
         </div>
       </div>
     </div>
