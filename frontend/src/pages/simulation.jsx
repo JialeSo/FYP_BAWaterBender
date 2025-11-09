@@ -738,49 +738,52 @@ export default function Simulation() {
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-background">
       {/* Header with stepper */}
-      <div className="border-b py-3 px-6 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
-        <h1 className="text-xl font-semibold mb-2 text-center">Flood Impact Simulation</h1>
-        <div className="flex items-center justify-center gap-1 overflow-x-auto pb-1">
-          {[
-            { num: 1, title: "Define Flood Input" },
-            { num: 2, title: "Configure Details" },
-            { num: 3, title: "Review Setup" },
-            { num: 4, title: "View Results" }
-          ].map((s, idx) => (
-            <div key={s.num} className="flex items-center flex-shrink-0">
-              <div className="flex flex-col items-center">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
-                    s.num === step
-                      ? "bg-primary text-primary-foreground shadow-lg scale-110"
-                      : s.num < step
-                      ? "bg-green-500 text-white cursor-pointer hover:bg-green-600 hover:scale-105"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                  onClick={() => {
-                    if (s.num < step) setStep(s.num);
-                  }}
-                >
-                  {s.num}
+      <div className="border-b bg-card shadow-sm">
+        <div className="container mx-auto px-6 py-4">
+          <h1 className="text-2xl font-bold mb-4 text-center">Flood Impact Simulation</h1>
+          <div className="flex items-center justify-center gap-2">
+            {[
+              { num: 1, title: "Define Flood Input" },
+              { num: 2, title: "Configure Details" },
+              { num: 3, title: "Review Setup" },
+              { num: 4, title: "View Results" }
+            ].map((s, idx) => (
+              <div key={s.num} className="flex items-center">
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
+                      s.num === step
+                        ? "bg-primary text-primary-foreground shadow-lg scale-110"
+                        : s.num < step
+                        ? "bg-green-500 text-white cursor-pointer hover:bg-green-600 hover:scale-105"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                    onClick={() => {
+                      if (s.num < step) setStep(s.num);
+                    }}
+                  >
+                    {s.num < step ? "✓" : s.num}
+                  </div>
+                  <span className={`text-xs font-medium whitespace-nowrap ${
+                    s.num === step ? "text-primary font-semibold" : "text-muted-foreground"
+                  }`}>
+                    {s.title}
+                  </span>
                 </div>
-                <span className={`text-xs mt-0.5 font-medium whitespace-nowrap ${
-                  s.num === step ? "text-primary" : "text-muted-foreground"
-                }`}>
-                  {s.title}
-                </span>
+                {idx < 3 && (
+                  <ChevronRight className="h-5 w-5 mx-2 text-muted-foreground flex-shrink-0" />
+                )}
               </div>
-              {idx < 3 && (
-                <ChevronRight className="h-4 w-4 mx-1.5 text-muted-foreground flex-shrink-0" />
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-y-auto">
+        <div className="container mx-auto p-6">
         {/* Step 1: Define Flood Input */}
         {step === 1 && (
           <div className="max-w-3xl mx-auto space-y-6">
@@ -1380,7 +1383,7 @@ export default function Simulation() {
 
         {/* Step 4: Results */}
         {step === 4 && baselineStats && floodedStats && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Golden Time Configuration */}
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="golden-time-config" className="border rounded-lg px-4">
@@ -1423,8 +1426,7 @@ export default function Simulation() {
             </Accordion>
 
             {/* Unified Map */}
-            <Card>
-              <CardContent className="p-0 relative" style={{ height: "70vh" }}>
+            <div className="relative" style={{ height: "calc(100vh - 400px)", minHeight: "500px" }}>
                 <SimulationMapContainer
                   planning_fc_raw={planning_fc_raw}
                   amenity_fc_enriched={amenity_fc_enriched}
@@ -1458,8 +1460,7 @@ export default function Simulation() {
                   goldenTime={goldenTime}
                   selectedPA={selectedPA}
                 />
-              </CardContent>
-            </Card>
+            </div>
 
             {/* Results table */}
             <Card>
@@ -1515,6 +1516,7 @@ export default function Simulation() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

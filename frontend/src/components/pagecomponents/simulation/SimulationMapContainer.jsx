@@ -467,10 +467,14 @@ export function SimulationMapContainer({
    */
   useEffect(() => {
     if (mapReady && paDeltas.length > 0) {
-      updateChoroplethData(selectedMetric, selectedPA);
-      if (!selectedPA) {
-        updateBlockedRoadsLayer();
-      }
+      // Small delay to ensure map is fully loaded
+      const timer = setTimeout(() => {
+        updateChoroplethData(selectedMetric, selectedPA);
+        if (!selectedPA) {
+          updateBlockedRoadsLayer();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [mapReady, selectedMetric, paDeltas, updateChoroplethData, updateBlockedRoadsLayer, selectedPA]);
 
