@@ -206,7 +206,7 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter,
     unreachable: a.unreachable,
   }));
 
-  return { paStats, amenitiesCount: amenities.length, nodesCount: nodes.size };
+  return { paStats, amenitiesCount: amenities.length, nodesCount: nodes.size, nodeDist: dist };
 }
 
 /* ============================= Color scale ============================ */
@@ -300,6 +300,10 @@ export default function Simulation() {
   const [selectedPA, setSelectedPA] = useState(null);
   const [hoveredPA, setHoveredPA] = useState(null);
   const [selectedMetric, setSelectedMetric] = useState("delta_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time" | "golden_time"
+
+  // Node-level distance data (Map: node_id => travel_time_seconds)
+  const [baselineNodeDist, setBaselineNodeDist] = useState(null);
+  const [floodedNodeDist, setFloodedNodeDist] = useState(null);
 
   // Scenarios now loaded from context - no need to fetch here
   useEffect(() => {
@@ -553,6 +557,7 @@ export default function Simulation() {
         excludedAmenities,
       });
       setBaselineStats(baseline);
+      setBaselineNodeDist(baseline.nodeDist);
 
       // Flooded
       setProgress(0);
@@ -565,6 +570,7 @@ export default function Simulation() {
         excludedAmenities,
       });
       setFloodedStats(flooded);
+      setFloodedNodeDist(flooded.nodeDist);
 
       // Deltas
       const baseByName = new Map();
@@ -582,6 +588,22 @@ export default function Simulation() {
         const delta_min_s = (paFlood.min_s ?? 0) - (paBase.min_s ?? 0);
         const delta_max_s = (paFlood.max_s ?? 0) - (paBase.max_s ?? 0);
 
+        // Compute affected_nodes and unreachable_nodes for this PA
+        let affected_nodes = 0;
+        let unreachable_nodes = 0;
+        for (const n of graph.nodes.values()) {
+          if ((n.paId ?? -1) !== paFlood.pa_id) continue;
+
+          const baseDist = baseline.nodeDist.get(n.id) ?? Infinity;
+          const floodDist = flooded.nodeDist.get(n.id) ?? Infinity;
+
+          if (!Number.isFinite(floodDist)) {
+            unreachable_nodes++;
+          } else if (Number.isFinite(baseDist) && floodDist > baseDist) {
+            affected_nodes++;
+          }
+        }
+
         deltas.push({
           pa_id: paFlood.pa_id,
           pa_name: paFlood.pa_name,
@@ -598,6 +620,8 @@ export default function Simulation() {
           delta_min_s,
           delta_max_s,
           delta_unreachable,
+          affected_nodes,
+          unreachable_nodes,
         });
       }
       setPaDeltas(deltas);
@@ -894,6 +918,12 @@ export default function Simulation() {
             const paId = feature.properties.pa_id;
             const paName = feature.properties.pa_name;
 
+            // Ensure we have node distance data
+            if (!baselineNodeDist || !floodedNodeDist) {
+              console.warn("Node distance data not available");
+              return;
+            }
+
             // Clear previous selection
             if (selectedPA) {
               map.removeFeatureState({ source: "choropleth", id: selectedPA.pa_id });
@@ -920,11 +950,6 @@ export default function Simulation() {
               features: [],
             });
 
-            // Get amenities for calculating accessibility
-            const amenities = snapAmenitiesToNodes(amenity_fc_enriched, graph.nodes, [selectedAmenityType], excludedAmenities);
-            const amenityNodeIds = new Set(amenities.map(a => a.node_id));
-            const amenityByNodeId = new Map(amenities.map(a => [a.node_id, a]));
-
             // Build blocked roads set
             let blockedRnIds = new Set();
             if (floodInputMethod === "manual") {
@@ -936,50 +961,7 @@ export default function Simulation() {
               }
             }
 
-            // Helper function to find nearest amenity from a node using Dijkstra
-            const findNearestAmenity = (startNode, applyBlockedRoads) => {
-              const pq = new MinPQ();
-              const dist = new Map();
-              const visited = new Set();
-
-              dist.set(startNode, 0);
-              pq.insert(startNode, 0);
-
-              while (pq.size() > 0) {
-                const [u, d] = pq.delMin();
-                if (visited.has(u)) continue;
-                visited.add(u);
-
-                // Check if we reached an amenity
-                if (amenityNodeIds.has(u)) {
-                  const amenity = amenityByNodeId.get(u);
-                  return {
-                    hospital: amenity?.amenity_name || 'Unknown Hospital',
-                    time: d
-                  };
-                }
-
-                const neighbors = graph.adj.get(u) || [];
-                for (const { to, w, rn_id } of neighbors) {
-                  if (visited.has(to)) continue;
-
-                  // Apply blocked roads filter if needed
-                  if (applyBlockedRoads && rn_id != null && blockedRnIds.has(rn_id)) {
-                    continue;
-                  }
-
-                  const newDist = d + w;
-                  if (!dist.has(to) || newDist < dist.get(to)) {
-                    dist.set(to, newDist);
-                    pq.insert(to, newDist);
-                  }
-                }
-              }
-
-              return { hospital: 'No hospital reachable', time: Infinity };
-            };
-
-            // Filter roads within this planning area
+            // Filter roads within this planning area and color by node status
             const roadsInPA = [];
             const seenRnIds = new Set();
 
@@ -993,24 +975,39 @@ export default function Simulation() {
 
                   const isBlocked = blockedRnIds.has(edge.rn_id);
 
-                  // Find nearest hospital in baseline (no blocked roads)
-                  const baseline = findNearestAmenity(edge.from, false);
-
-                  // Find nearest hospital in flooded (with blocked roads)
-                  const flooded = findNearestAmenity(edge.from, true);
+                  // Get pre-computed distances for the starting node
+                  const baselineDist = baselineNodeDist.get(edge.from) ?? Infinity;
+                  const floodedDist = floodedNodeDist.get(edge.from) ?? Infinity;
 
                   // Calculate delta
-                  const delta = flooded.time - baseline.time;
+                  const delta = Number.isFinite(floodedDist) && Number.isFinite(baselineDist)
+                    ? floodedDist - baselineDist
+                    : (Number.isFinite(floodedDist) ? 0 : Infinity);
 
-                  // Check if road is accessible (connects to amenity)
-                  const isAccessible = amenityNodeIds.has(edge.from) || amenityNodeIds.has(edge.to);
+                  // Determine node status and color
+                  let color, status;
+                  if (!Number.isFinite(floodedDist)) {
+                    // Unreachable after flood
+                    color = "#ef4444"; // Red
+                    status = "unreachable";
+                  } else if (Number.isFinite(baselineDist) && floodedDist > baselineDist) {
+                    // Affected (travel time increased)
+                    color = "#fbbf24"; // Yellow
+                    status = "affected";
+                  } else {
+                    // Unaffected
+                    color = "#22c55e"; // Green
+                    status = "unaffected";
+                  }
 
-                  // Calculate line width based on travel time (higher time = thicker line)
-                  const travelTime = edge.w || 60;
-                  const width = Math.max(2, Math.min(8, travelTime / 60));
+                  // Override color if road is blocked
+                  if (isBlocked) {
+                    color = "#ef4444"; // Red for blocked roads
+                    status = "blocked";
+                  }
 
-                  // Color: red if blocked/inaccessible, normal otherwise
-                  const color = isBlocked || !isAccessible ? "#ef4444" : "#3b82f6";
+                  // Calculate line width
+                  const width = status === "unreachable" || status === "blocked" ? 4 : 3;
 
                   roadsInPA.push({
                     type: "Feature",
@@ -1019,13 +1016,11 @@ export default function Simulation() {
                       name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
                       travel_time: edge.w,
                       blocked: isBlocked,
-                      accessible: isAccessible,
+                      status,
                       color,
                       width,
-                      baseline_hospital: baseline.hospital,
-                      baseline_time: baseline.time,
-                      flooded_hospital: flooded.hospital,
-                      flooded_time: flooded.time,
+                      baseline_time: baselineDist,
+                      flooded_time: floodedDist,
                       delta_time: delta,
                     },
                     geometry: { type: "LineString", coordinates: edge.coords },
@@ -1100,10 +1095,28 @@ export default function Simulation() {
               roadPopupRef.current.remove();
             }
 
+            // Format travel times
+            const baselineTimeStr = Number.isFinite(props.baseline_time) ? fmtTime(props.baseline_time) : 'Unreachable';
+            const floodedTimeStr = Number.isFinite(props.flooded_time) ? fmtTime(props.flooded_time) : 'Unreachable';
             const deltaTimeStr = Number.isFinite(props.delta_time) && props.delta_time !== Infinity
-              ? fmtTime(props.delta_time)
+              ? (props.delta_time > 0 ? `+${fmtTime(props.delta_time)}` : fmtTime(props.delta_time))
               : 'N/A';
-            const deltaColor = props.delta_time > 0 ? '#fbbf24' : '#22c55e';
+
+            // Determine status message and color
+            let statusMsg, statusColor;
+            if (props.status === 'unreachable') {
+              statusMsg = '🔴 Unreachable';
+              statusColor = '#ef4444';
+            } else if (props.status === 'blocked') {
+              statusMsg = '🔴 Blocked Road';
+              statusColor = '#ef4444';
+            } else if (props.status === 'affected') {
+              statusMsg = '🟡 Affected (Travel time increased)';
+              statusColor = '#fbbf24';
+            } else {
+              statusMsg = '🟢 Unaffected';
+              statusColor = '#22c55e';
+            }
 
             const html = `
               <div style="background: #1f2937; color: #fff; padding: 8px 10px; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #374151;">
@@ -1111,24 +1124,27 @@ export default function Simulation() {
                 <div style="font-size: 10px; color: #9ca3af; margin-bottom: 6px;">RN_ID: ${props.rn_id}</div>
 
                 <div style="border-top: 1px solid #374151; padding-top: 6px; margin-top: 6px;">
-                  <div style="font-size: 11px; font-weight: 600; color: ${deltaColor}; margin-bottom: 4px;">
-                    Increased Travel Time: ${props.delta_time > 0 ? '+' : ''}${deltaTimeStr}
+                  <div style="font-size: 11px; font-weight: 600; color: ${statusColor}; margin-bottom: 6px;">
+                    ${statusMsg}
                   </div>
 
                   <div style="font-size: 10px; margin-top: 4px;">
-                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Before Flood (Baseline):</strong></div>
-                    <div style="color: #9ca3af; margin-left: 8px; margin-bottom: 1px;">Nearest: ${props.baseline_hospital}</div>
-                    <div style="color: #9ca3af; margin-left: 8px;">Travel Time: ${Number.isFinite(props.baseline_time) ? fmtTime(props.baseline_time) : 'N/A'}</div>
+                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Base Travel Time:</strong></div>
+                    <div style="color: #9ca3af; margin-left: 8px;">${baselineTimeStr}</div>
                   </div>
 
                   <div style="font-size: 10px; margin-top: 6px;">
-                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>After Flood:</strong></div>
-                    <div style="color: #9ca3af; margin-left: 8px; margin-bottom: 1px;">Nearest: ${props.flooded_hospital}</div>
-                    <div style="color: #9ca3af; margin-left: 8px;">Travel Time: ${Number.isFinite(props.flooded_time) ? fmtTime(props.flooded_time) : 'N/A'}</div>
+                    <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Flooded Travel Time:</strong></div>
+                    <div style="color: #9ca3af; margin-left: 8px;">${floodedTimeStr}</div>
                   </div>
-                </div>
 
-                ${props.blocked ? '<div style="font-size: 10px; color: #ef4444; margin-top: 6px; padding-top: 6px; border-top: 1px solid #374151;">⚠ Blocked by flood</div>' : ''}
+                  ${Number.isFinite(props.delta_time) && props.delta_time !== 0 ? `
+                    <div style="font-size: 10px; margin-top: 6px;">
+                      <div style="color: #d1d5db; margin-bottom: 2px;"><strong>Change:</strong></div>
+                      <div style="color: ${props.delta_time > 0 ? '#fbbf24' : '#22c55e'}; margin-left: 8px; font-weight: 600;">${deltaTimeStr}</div>
+                    </div>
+                  ` : ''}
+                </div>
               </div>
             `;
 
@@ -1161,14 +1177,14 @@ export default function Simulation() {
       delete window.updateChoroplethData;
       delete window.updateBlockedRoadsLayer;
     };
-  }, [step, baselineStats, floodedStats, paDeltas, planning_fc_raw, graph, selectedAmenityType, excludedAmenities, amenity_fc_enriched, floodInputMethod, affectedRoads, selectedScenario, flood_scenarios]);
+  }, [step, baselineStats, floodedStats, paDeltas, planning_fc_raw, graph, selectedAmenityType, excludedAmenities, amenity_fc_enriched, floodInputMethod, affectedRoads, selectedScenario, flood_scenarios, baselineNodeDist, floodedNodeDist]);
 
-  // Update choropleth when metric changes
+  // Update choropleth when metric or golden time changes
   useEffect(() => {
     if (resultMapRef.current && window.updateChoroplethData) {
       window.updateChoroplethData(selectedMetric);
     }
-  }, [selectedMetric]);
+  }, [selectedMetric, goldenTime]);
 
   const canProceedToStep2 = floodInputMethod === "manual" || (floodInputMethod === "scenario" && selectedScenario);
   const canProceedToStep3 = floodInputMethod === "scenario" ? !!selectedScenario : floodMarkers.length > 0;
@@ -1906,6 +1922,47 @@ export default function Simulation() {
         {/* Step 4: Results */}
         {step === 4 && baselineStats && floodedStats && (
           <div className="space-y-6">
+            {/* Golden Time Configuration */}
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="golden-time-config" className="border rounded-lg px-4">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                  Golden Time Configuration
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-3 pt-2">
+                    <p className="text-sm text-muted-foreground">
+                      Set the acceptable maximum travel time (minutes) to reach an amenity under normal conditions.
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <Label className="text-sm font-medium">Target Time: {fmtTime(goldenTime)}</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {(goldenTime / 60).toFixed(1)} minutes
+                        </span>
+                      </div>
+                      <Slider
+                        value={[goldenTime]}
+                        min={60}
+                        max={1800}
+                        step={30}
+                        onValueChange={(v) => setGoldenTime(v[0])}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>1 min</span>
+                        <span>30 min</span>
+                      </div>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">
+                        The map will update automatically to reflect areas exceeding this threshold when viewing the "Golden Time Target" metric.
+                      </p>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+
             {/* Unified Map */}
             <Card>
               <CardContent className="p-0 relative" style={{ height: "70vh" }}>
@@ -1962,90 +2019,108 @@ export default function Simulation() {
                 {/* Legend - Bottom of Map */}
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3">
                   <div className="flex items-center gap-6">
-                    {selectedMetric === "delta_time" && (
+                    {/* Show Road Status Legend when a Planning Area is selected */}
+                    {selectedPA ? (
                       <>
+                        <div className="text-xs font-semibold mr-2">Road Status:</div>
                         <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
-                          <span className="text-xs">Low (0-25%)</span>
+                          <div style={{ width: '20px', height: '3px', backgroundColor: '#22c55e' }}></div>
+                          <span className="text-xs">🟢 Unaffected</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
-                          <span className="text-xs">Medium (25-50%)</span>
+                          <div style={{ width: '20px', height: '3px', backgroundColor: '#fbbf24' }}></div>
+                          <span className="text-xs">🟡 Affected</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
-                          <span className="text-xs">High (50-75%)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
-                          <span className="text-xs">Very High (75-100%)</span>
+                          <div style={{ width: '20px', height: '3px', backgroundColor: '#ef4444' }}></div>
+                          <span className="text-xs">🔴 Unreachable/Blocked</span>
                         </div>
                       </>
-                    )}
-                    {selectedMetric === "unreachable" && (
+                    ) : (
                       <>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
-                          <span className="text-xs">0 unreachable</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
-                          <span className="text-xs">1-5 unreachable</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
-                          <span className="text-xs">6-15 unreachable</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
-                          <span className="text-xs">&gt;15 unreachable</span>
-                        </div>
-                      </>
-                    )}
-                    {(selectedMetric === "baseline_time" || selectedMetric === "flooded_time") && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
-                          <span className="text-xs">Low time (0-25%)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
-                          <span className="text-xs">Medium (25-50%)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
-                          <span className="text-xs">High (50-75%)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
-                          <span className="text-xs">Very High (75-100%)</span>
-                        </div>
-                      </>
-                    )}
-                    {selectedMetric === "golden_time" && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
-                          <span className="text-xs">Within Target ({fmtTime(goldenTime)})</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fbbf24" }}></div>
-                          <span className="text-xs">Slightly Over (0-25%)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
-                          <span className="text-xs">Moderately Over (25-50%)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
-                          <span className="text-xs">Significantly Over (&gt;50%)</span>
-                        </div>
-                      </>
-                    )}
+                        {/* Planning Area Metric Legends */}
+                        {selectedMetric === "delta_time" && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+                              <span className="text-xs">Low (0-25%)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
+                              <span className="text-xs">Medium (25-50%)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
+                              <span className="text-xs">High (50-75%)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
+                              <span className="text-xs">Very High (75-100%)</span>
+                            </div>
+                          </>
+                        )}
+                        {selectedMetric === "unreachable" && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+                              <span className="text-xs">0 unreachable</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
+                              <span className="text-xs">1-5 unreachable</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
+                              <span className="text-xs">6-15 unreachable</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
+                              <span className="text-xs">&gt;15 unreachable</span>
+                            </div>
+                          </>
+                        )}
+                        {(selectedMetric === "baseline_time" || selectedMetric === "flooded_time") && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+                              <span className="text-xs">Low time (0-25%)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
+                              <span className="text-xs">Medium (25-50%)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
+                              <span className="text-xs">High (50-75%)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
+                              <span className="text-xs">Very High (75-100%)</span>
+                            </div>
+                          </>
+                        )}
+                        {selectedMetric === "golden_time" && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
+                              <span className="text-xs">Within Target ({fmtTime(goldenTime)})</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fbbf24" }}></div>
+                              <span className="text-xs">Slightly Over (0-25%)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
+                              <span className="text-xs">Moderately Over (25-50%)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
+                              <span className="text-xs">Significantly Over (&gt;50%)</span>
+                            </div>
+                          </>
+                        )}
 
-                    {/* Separator and Blocked Roads indicator (only when not viewing a specific planning area) */}
-                    {!selectedPA && (
-                      <>
+                        {/* Separator and Blocked Roads indicator */}
                         <div style={{ width: '1px', height: '24px', backgroundColor: '#d1d5db' }}></div>
                         <div className="flex items-center gap-2">
                           <div style={{ width: '24px', height: '3px', backgroundColor: '#ef4444', opacity: 0.6 }}></div>
