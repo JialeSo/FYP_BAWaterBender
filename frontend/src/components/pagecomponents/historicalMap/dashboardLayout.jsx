@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import LeftPanel from "@/components/pagecomponents/historicalMap/leftPanel";
 import RightPanel from "./rightPanel";
 import { PanelLeft, PanelRight } from "lucide-react";
-import { useMapData } from "@/context/MapDataContext";
+import { useMapData } from "@/context/mapDataContext";
 
 /* ---------------- helpers ---------------- */
 const featureProps = (f) => f?.properties ?? {};

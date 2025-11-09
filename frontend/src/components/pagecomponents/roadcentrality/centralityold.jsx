@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { computeBounds } from "@/lib/geo";
-import { useMapData } from "@/context/MapDataContext";
+import { useMapData } from "@/context/mapDataContext";
 
 /* shadcn ui */
 import { Button } from "@/components/ui/button";
