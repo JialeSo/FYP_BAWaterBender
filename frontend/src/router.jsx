@@ -4,7 +4,7 @@ import { Routes, Route, Navigate } from "react-router-dom"
 import Home from "./pages/home"
 import DashboardMap from "./pages/dashboard_map"
 import FloodEvents from "./pages/floodevents"
-import SingaporeHistoricalFloodMap from "./pages/historical_flood_map"
+import SingaporeHistoricalFloodMap from "./pages/historicalFloodMap"
 import RoadCentrality from "./pages/roadcentrality"
 import Simulation from "./pages/simulation"
 

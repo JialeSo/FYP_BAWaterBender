@@ -2,7 +2,7 @@
 "use client";
  // update
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useMapData } from "@/context/MapDataContext";
+import { useMapData } from "@/context/mapDataContext";
 
 /* shadcn ui */
 import { Button } from "@/components/ui/button";
