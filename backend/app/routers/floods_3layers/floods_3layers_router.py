@@ -7,7 +7,7 @@ from common.db import db
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/floods-3layers", tags=["floods-3layers"])
+router = APIRouter(prefix="/flood-3layers", tags=["flood-3layers"])
 
 # helper functions 
 def validate_date(date_str):
@@ -261,7 +261,7 @@ async def get_floods_by_street_name(street_name: str):
 @router.get("/geojson/")
 async def get_floods_geojson():     
     try:
-        result = db.table("floods_3layers").select("*").execute()
+        result = db.table("flood_3layers").select("*").execute()
         
         if not result.data:
             raise HTTPException(
