@@ -11,20 +11,20 @@ import { fmtTime } from "@/lib/simulation/metrics";
  */
 export function RoadStatusLegend() {
   return (
-    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3">
-      <div className="flex items-center gap-6">
-        <div className="text-xs font-semibold mr-2">Road Status:</div>
+    <div className="absolute bottom-4 right-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3">
+      <div className="flex flex-col gap-2">
+        <div className="text-xs font-semibold mb-1">Road Status</div>
         <div className="flex items-center gap-2">
           <div style={{ width: '20px', height: '3px', backgroundColor: '#22c55e' }}></div>
-          <span className="text-xs">🟢 Unaffected</span>
+          <span className="text-xs">Unaffected</span>
         </div>
         <div className="flex items-center gap-2">
           <div style={{ width: '20px', height: '3px', backgroundColor: '#fbbf24' }}></div>
-          <span className="text-xs">🟡 Affected</span>
+          <span className="text-xs">Affected</span>
         </div>
         <div className="flex items-center gap-2">
           <div style={{ width: '20px', height: '3px', backgroundColor: '#ef4444' }}></div>
-          <span className="text-xs">🔴 Unreachable/Blocked</span>
+          <span className="text-xs">Unreachable/Blocked</span>
         </div>
       </div>
     </div>
@@ -38,7 +38,7 @@ export function DeltaTimeLegend({ maxDeltaTime }) {
   if (!maxDeltaTime || !Number.isFinite(maxDeltaTime) || maxDeltaTime <= 0) {
     // Fallback to percentage labels if no data
     return (
-      <div className="flex items-center gap-3">
+      <>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
           <span className="text-xs">Low (0-25%)</span>
@@ -55,7 +55,7 @@ export function DeltaTimeLegend({ maxDeltaTime }) {
           <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
           <span className="text-xs">Very High (75-100%)</span>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -64,7 +64,7 @@ export function DeltaTimeLegend({ maxDeltaTime }) {
   const q3 = maxDeltaTime * 0.75;
 
   return (
-    <div className="flex items-center gap-3">
+    <>
       <div className="flex items-center gap-2">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
         <span className="text-xs">Low (0-{fmtTime(q1)})</span>
@@ -81,7 +81,7 @@ export function DeltaTimeLegend({ maxDeltaTime }) {
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
         <span className="text-xs">Very High ({fmtTime(q3)}-{fmtTime(maxDeltaTime)})</span>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -92,7 +92,7 @@ export function UnreachableLegend({ maxUnreachable }) {
   if (!maxUnreachable || !Number.isFinite(maxUnreachable) || maxUnreachable <= 0) {
     // Fallback to default ranges if no data
     return (
-      <div className="flex items-center gap-3">
+      <>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
           <span className="text-xs">0 unreachable</span>
@@ -109,7 +109,7 @@ export function UnreachableLegend({ maxUnreachable }) {
           <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
           <span className="text-xs">&gt;15 unreachable</span>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -118,7 +118,7 @@ export function UnreachableLegend({ maxUnreachable }) {
   const q3 = Math.ceil(maxUnreachable * 0.75);
 
   return (
-    <div className="flex items-center gap-3">
+    <>
       <div className="flex items-center gap-2">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
         <span className="text-xs">0 unreachable</span>
@@ -135,7 +135,7 @@ export function UnreachableLegend({ maxUnreachable }) {
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
         <span className="text-xs">&gt;{q2} unreachable</span>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -146,7 +146,7 @@ export function TimeLegend({ maxTime }) {
   if (!maxTime || !Number.isFinite(maxTime) || maxTime <= 0) {
     // Fallback to percentage labels if no data
     return (
-      <div className="flex items-center gap-3">
+      <>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
           <span className="text-xs">Low time (0-25%)</span>
@@ -163,7 +163,7 @@ export function TimeLegend({ maxTime }) {
           <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
           <span className="text-xs">Very High (75-100%)</span>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -172,7 +172,7 @@ export function TimeLegend({ maxTime }) {
   const q3 = maxTime * 0.75;
 
   return (
-    <div className="flex items-center gap-3">
+    <>
       <div className="flex items-center gap-2">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
         <span className="text-xs">Low (0-{fmtTime(q1)})</span>
@@ -189,7 +189,7 @@ export function TimeLegend({ maxTime }) {
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
         <span className="text-xs">Very High ({fmtTime(q3)}-{fmtTime(maxTime)})</span>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -198,7 +198,7 @@ export function TimeLegend({ maxTime }) {
  */
 export function GoldenTimeLegend({ goldenTime }) {
   return (
-    <div className="flex items-center gap-3">
+    <>
       <div className="flex items-center gap-2">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
         <span className="text-xs">Within Target ({fmtTime(goldenTime)})</span>
@@ -215,7 +215,7 @@ export function GoldenTimeLegend({ goldenTime }) {
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
         <span className="text-xs">Significantly Over (&gt;50%)</span>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -251,8 +251,8 @@ export function SimulationLegend({ selectedMetric, goldenTime, selectedPA, paDel
 
   // Show appropriate legend based on metric
   return (
-    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3">
-      <div className="flex items-center gap-6">
+    <div className="absolute bottom-4 right-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 min-w-[200px]">
+      <div className="flex flex-col gap-2">
         {selectedMetric === "delta_time" && <DeltaTimeLegend maxDeltaTime={maxDeltaTime} />}
         {selectedMetric === "unreachable" && <UnreachableLegend maxUnreachable={maxUnreachable} />}
         {selectedMetric === "baseline_time" && <TimeLegend maxTime={maxBaselineTime} />}
@@ -260,9 +260,9 @@ export function SimulationLegend({ selectedMetric, goldenTime, selectedPA, paDel
         {selectedMetric === "golden_time" && <GoldenTimeLegend goldenTime={goldenTime} />}
 
         {/* Separator and Blocked Roads indicator */}
-        <div style={{ width: '1px', height: '24px', backgroundColor: '#d1d5db' }}></div>
+        <div style={{ width: '100%', height: '1px', backgroundColor: '#d1d5db', margin: '4px 0' }}></div>
         <div className="flex items-center gap-2">
-          <div style={{ width: '24px', height: '3px', backgroundColor: '#ef4444', opacity: 0.6 }}></div>
+          <div style={{ width: '20px', height: '3px', backgroundColor: '#ef4444', opacity: 0.6 }}></div>
           <span className="text-xs font-medium">Flooded Roads</span>
         </div>
       </div>

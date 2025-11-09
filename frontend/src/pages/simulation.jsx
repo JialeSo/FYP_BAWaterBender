@@ -797,28 +797,28 @@ export default function Simulation() {
           <div className="max-w-3xl mx-auto space-y-6">
             {/* Info Panel - Accordion */}
             <Accordion type="single" collapsible defaultValue="info" className="w-full">
-              <AccordionItem value="info" className="border rounded-lg bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border-blue-200">
+              <AccordionItem value="info" className="border rounded-lg bg-card border-border">
                 <AccordionTrigger className="px-4 hover:no-underline">
-                  <div className="flex items-center gap-2 text-blue-900 dark:text-blue-100 font-semibold">
+                  <div className="flex items-center gap-2 font-semibold">
                     <AlertCircle className="h-5 w-5" />
                     What does this simulation do?
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4">
                   <div className="space-y-3 text-sm">
-                    <p className="text-blue-900/90 dark:text-blue-100/90">
+                    <p>
                       This tool simulates the impact of flooding on <strong>accessibility to essential amenities</strong> (hospitals by default) across Singapore's planning areas.
                     </p>
-                    <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg p-3 border border-blue-200/50">
-                      <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">How it works:</p>
-                      <ul className="list-disc pl-5 space-y-1 text-blue-900/80 dark:text-blue-100/80">
+                    <div className="bg-muted rounded-lg p-3 border">
+                      <p className="font-semibold mb-2">How it works:</p>
+                      <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                         <li>Define flood locations (manually or using historical scenarios)</li>
                         <li>Mark which roads become impassable due to flooding</li>
                         <li>Calculate the <strong>shortest travel time</strong> from each planning area to nearest amenities</li>
                         <li>Compare baseline accessibility vs. flooded scenario</li>
                       </ul>
                     </div>
-                    <p className="font-semibold text-blue-800 dark:text-blue-300 bg-white/50 dark:bg-gray-900/30 p-2 rounded border border-blue-200/50">
+                    <p className="font-semibold bg-muted p-2 rounded border">
                       📊 Result: Shows which planning areas are most affected by increased travel times and loss of accessibility.
                     </p>
                   </div>
@@ -894,13 +894,6 @@ export default function Simulation() {
                 </CardContent>
               </Card>
             )}
-
-            {/* Navigation */}
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button onClick={() => setStep(2)} disabled={!canProceedToStep2} size="lg">
-                Next: Configure Details <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
           </div>
         )}
 
@@ -1522,9 +1515,9 @@ export default function Simulation() {
           {step === 1 && <div />}
 
           <div className="flex gap-2">
-            {step === 4 && (
-              <Button variant="outline" onClick={() => { setStep(1); setFloodMarkers([]); setAffectedRoads([]); setBaselineStats(null); setFloodedStats(null); setPaDeltas([]); setSelectedPA(null); }}>
-                Start New Simulation
+            {step === 1 && (
+              <Button onClick={() => setStep(2)} disabled={!canProceedToStep2}>
+                Next: Configure Details <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
             {step === 2 && (
@@ -1535,6 +1528,11 @@ export default function Simulation() {
             {step === 3 && (
               <Button onClick={runSimulation} disabled={!ready || busy || !selectedAmenityType}>
                 <Play className="mr-2 h-4 w-4" /> Run Simulation
+              </Button>
+            )}
+            {step === 4 && (
+              <Button variant="outline" onClick={() => { setStep(1); setFloodMarkers([]); setAffectedRoads([]); setBaselineStats(null); setFloodedStats(null); setPaDeltas([]); setSelectedPA(null); }}>
+                Start New Simulation
               </Button>
             )}
           </div>

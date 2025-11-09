@@ -708,19 +708,21 @@ export function SimulationMapContainer({
 
   /**
    * Toggle flooded roads visibility
+   * Always show roads when PA is selected, otherwise respect toggle
    */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
-    const visibility = showFloodedRoads ? "visible" : "none";
+    // Always show roads when in PA view, otherwise respect toggle
+    const visibility = (selectedPA || showFloodedRoads) ? "visible" : "none";
     if (map.getLayer("blocked-roads-line")) {
       map.setLayoutProperty("blocked-roads-line", "visibility", visibility);
     }
     if (map.getLayer("roads-line")) {
       map.setLayoutProperty("roads-line", "visibility", visibility);
     }
-  }, [mapReady, showFloodedRoads]);
+  }, [mapReady, showFloodedRoads, selectedPA]);
 
 
   return (

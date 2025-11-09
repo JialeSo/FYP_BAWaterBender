@@ -5,8 +5,7 @@
  * and toggle map layers
  */
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -30,36 +29,37 @@ export function MetricSelector({
     { value: "golden_time", label: `Golden Time (${(goldenTime / 60).toFixed(1)}m)` },
   ];
 
+  const selectedMetricLabel = metrics.find(m => m.value === selectedMetric)?.label || "Select Metric";
+
   return (
     <Card className="absolute top-4 right-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 max-w-[240px]">
-      {/* Visualization Metric */}
+      {/* Visualization Metric Dropdown */}
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
         Visualization Metric
       </div>
-      <div className="flex flex-col gap-1 mb-3">
-        {metrics.map(metric => (
-          <Button
-            key={metric.value}
-            size="sm"
-            variant={selectedMetric === metric.value ? "default" : "outline"}
-            className="justify-start text-xs h-7 font-normal"
-            onClick={() => onMetricChange(metric.value)}
-          >
-            {metric.label}
-          </Button>
-        ))}
-      </div>
+      <Select value={selectedMetric} onValueChange={onMetricChange}>
+        <SelectTrigger className="h-9 text-xs">
+          <SelectValue placeholder="Select metric">{selectedMetricLabel}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {metrics.map(metric => (
+            <SelectItem key={metric.value} value={metric.value} className="text-xs">
+              {metric.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Only show layer toggles in global view (not in PA view) */}
       {!selectedPA && (
         <>
-          <Separator className="my-3" />
+          <Separator className="my-2" />
 
           {/* Layer Toggles */}
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
             Map Layers
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <Checkbox
                 id="toggle-amenities"
