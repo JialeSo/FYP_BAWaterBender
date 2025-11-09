@@ -1,5 +1,5 @@
 "use client";
-import Centrality from "@/components/pagecomponents/roadcentrality/Centrality";
+import Centrality from "@/components/pagecomponents/roadcentrality/centrality";
 
 export default function RoadCentrality() {
   return (
