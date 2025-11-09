@@ -36,30 +36,15 @@ const ROAD_SOURCE_ID = "road-network";
 const ROAD_LAYER_ID = "road-network-line";
 const AMENITY_SOURCE_ID = "amenities";
 const AMENITY_ICON_LAYER_ID = "amenities-icons";
-
-/* PA flood bubbles (planning-level aggregation) */
-const PA_FLOOD_SOURCE_ID = "pa-flood-bubbles-source";
-const PA_FLOOD_BUBBLE_LAYER_ID = "pa-flood-bubbles";
-const PA_FLOOD_COUNT_LAYER_ID = "pa-flood-counts";
-
-/* Flood inside PA (stacked by exact/snap coordinates) */
-const FLOOD_STACKED_SOURCE_ID = "flood-stacked";         // merged-by-coordinate (within selected PA)
-const FLOOD_STACK_BUBBLE_LAYER_ID = "flood-stack-bubbles";
-const FLOOD_STACK_COUNT_LAYER_ID = "flood-stack-counts";
-const FLOOD_SINGLE_LAYER_ID = "flood-single";
-
-/* Spiderfy (temporary) */
-const FLOOD_SPIDER_SOURCE_ID = "flood-spider-source";
-const FLOOD_SPIDER_EDGES_SOURCE_ID = "flood-spider-edges-source";
-const FLOOD_SPIDER_EDGES_LAYER_ID = "flood-spider-edges";
-const FLOOD_SPIDER_POINTS_LAYER_ID = "flood-spider-points";
+const FLOOD_SOURCE_ID = "flood-events";
+const FLOOD_LAYER_ID = "flood-events-layer";
 
 /* hover outlines */
 const PA_HOVER_OUTLINE_ID = "planning-area-hover-outline";
 const PA_HOVER_OUTLINE_INNER_ID = "planning-area-hover-outline-inner";
 const SZ_HOVER_OUTLINE_ID = "subzone-hover-outline";
-
 /* filters / styling constants */
+const EMPTY_PLANNING_FILTER = ["==", ["get", "PLN_AREA_N"], "__none__"];
 const EMPTY_PA_FILTER = ["==", ["get", "PA_ID"], "__none__"];
 const EMPTY_SUBZONE_HIGHLIGHT = ["==", ["get", "SZ_ID"], "__none__"];
 
@@ -67,7 +52,7 @@ const PLANNING_COLORS = ["#e0f2fe", "#bae6fd", "#93c5fd", "#60a5fa", "#3b82f6", 
 const SUBZONE_COLORS = ["#fee2e2", "#fecaca", "#fca5a5", "#f87171", "#ef4444", "#dc2626"];
 const DEFAULT_PLANNING_COLOR = "#e2e8f0";
 const DEFAULT_SUBZONE_COLOR = "rgba(37, 99, 235, 0.18)";
-const DEFAULT_ROAD_WIDTH = 2.0;
+const DEFAULT_ROAD_WIDTH = 2.0; // thicker baseline
 const HOVER_FILL_COLOR = "#fef08a";
 
 /* amenity icon helpers */
@@ -87,22 +72,19 @@ const loadImageAsync = (map, url) =>
   });
 
 /* flood icon helpers */
-const floodSlug = (s) => (s ?? "").toString().trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+const floodSlug = (s) =>
+  (s ?? "").toString().trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
 const floodIconId = (type) => `flood_${floodSlug(type)}`;
 const floodIconUrl = (type) => `/map/markers/${floodSlug(type)}.png`;
 const FLOOD_ICON_DEFAULT_ID = "flood_default";
 const FLOOD_ICON_DEFAULT_URL = "/map/markers/default.png";
 
-const buildFloodIconExpression = (types) => {
-  const safe = (types || []).map((t) => String(t).trim()).filter(Boolean);
-  if (safe.length === 0) return FLOOD_ICON_DEFAULT_ID;
-  return [
-    "match",
-    ["downcase", ["to-string", ["coalesce", ["get", "event"], ["get", "flood_type"], ""]]],
-    ...safe.flatMap((t) => [t.toLowerCase(), floodIconId(t)]),
-    FLOOD_ICON_DEFAULT_ID,
-  ];
-};
+const buildFloodIconExpression = (types) => [
+  "match",
+  ["coalesce", ["to-string", ["downcase", ["get", "event"]]], ["to-string", ["downcase", ["get", "flood_type"]]], ""],
+  ...types.flatMap((t) => [t.toLowerCase(), floodIconId(t)]),
+  FLOOD_ICON_DEFAULT_ID,
+];
 
 /* preload flood icons used in this session */
 async function loadFloodIcons(map, typeList) {
@@ -142,21 +124,54 @@ async function loadFloodIcons(map, typeList) {
   });
 }
 
-/* ===== helpers for reading props safely ===== */
-const S = (v) => (v == null ? "" : String(v).trim());
-const lower = (v) => S(v).toLowerCase();
-const getFloodType = (props) => lower(props?.event ?? props?.flood_type ?? "");
-const getEventDate = (props) => S(props?.event_date ?? props?.date ?? "");
+/* compute flood counts from FC for choropleths/hover */
+const computeFloodCounts = (floodFc) => {
+  const by_pa = {};
+  const by_sz = {};
+  for (const ft of floodFc?.features ?? []) {
+    const p = ft.properties || {};
+    const pa = (p.planning_area || p.PLAN_AREA || p.planning || "").toString().trim();
+    const sz = (p.subzone || p.SUBZONE_N || "").toString().trim();
+    if (pa) by_pa[pa] = (by_pa[pa] ?? 0) + 1;
+    if (sz) by_sz[sz] = (by_sz[sz] ?? 0) + 1;
+  }
+  return { by_pa, by_sz };
+};
 
-/* Prefer IDs for PA / SZ / Road on flood points */
-const getFloodPlanningId = (p, nameToIdMap) =>
-  S(p.start_planning_area_id ?? p.end_planning_area_id ?? p.planning_area_id ?? nameToIdMap[S(p.planning_area ?? p.PLN_AREA_N)] ?? "");
-const getFloodSubzoneId = (p, nameToIdMap) =>
-  S(p.start_subzone_id ?? p.end_subzone_id ?? p.subzone_id ?? nameToIdMap[S(p.subzone ?? p.SUBZONE_N)] ?? "");
-const getFloodRoadId = (p) =>
-  S(p.start_street_id ?? p.end_street_id ?? p.RN_ID ?? p.UNIQUE_ID ?? p.nearest_road_1_rn_id ?? p.nearest_road_1_id);
+const computeFloodBreakdowns = (floodFc) => {
+  const byPa = {};
+  const bySz = {};
+  for (const ft of floodFc?.features ?? []) {
+    const p = ft.properties || {};
+    const pa = (p.planning_area || p.PLAN_AREA || p.planning || "").toString().trim();
+    const sz = (p.subzone || p.SUBZONE_N || "").toString().trim();
+    const ev = (p.event || "").toString().trim() || "unspecified";
+    if (pa) {
+      byPa[pa] = byPa[pa] || { total: 0, by_category: {} };
+      byPa[pa].total += 1;
+      byPa[pa].by_category[ev] = (byPa[pa].by_category[ev] ?? 0) + 1;
+    }
+    if (sz) {
+      bySz[sz] = bySz[sz] || { total: 0, by_category: {} };
+      bySz[sz].total += 1;
+      bySz[sz].by_category[ev] = (bySz[sz].by_category[ev] ?? 0) + 1;
+    }
+  }
+  return { byPa, bySz };
+};
 
-/* date range helper */
+const normaliseString = (value) => (value ?? "").toString().trim();
+const getPlanningArea = (props) =>
+  normaliseString(
+    props?.planning_area ??
+      props?.PLN_AREA_N ??
+      props?.planning ??
+      props?.start_planning_area ??
+      props?.end_planning_area ??
+      ""
+  );
+const getFloodType = (props) => normaliseString(props?.event ?? props?.flood_type ?? "").toLowerCase();
+const getEventDate = (props) => normaliseString(props?.event_date ?? props?.date ?? "");
 const isWithinDateRange = (value, fromDate, toDate) => {
   if (!fromDate && !toDate) return true;
   if (!value) return false;
@@ -167,7 +182,7 @@ const isWithinDateRange = (value, fromDate, toDate) => {
   return true;
 };
 
-/* ===== pretty hover builders ===== */
+/* ===== local pretty hover builders (no meters, just counts) ===== */
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
 const fmt = (n) => (Number.isFinite(+n) ? Number(n).toLocaleString() : String(n ?? "-"));
 
@@ -210,8 +225,9 @@ function buildNiceFloodHtml(p) {
 }
 
 function buildRoadHoverHtml(props, amenMap, floodMap) {
-  const rnId = S(props?.RN_ID ?? props?.rd_id);
-  const name = S(props?.RD_NAME ?? props?.road_name ?? rnId ?? "Unknown road");
+  const rnId = (props?.RN_ID ?? props?.rd_id ?? "").toString().trim();
+  const name = ( props?.RD_NAME ?? props?.road_name ?? rnId ?? "Unknown road" )?.toString().trim();
+  // favour RN_ID, then name
   const amen = amenMap[rnId] ?? amenMap[name] ?? 0;
   const flood = floodMap[rnId] ?? floodMap[name] ?? 0;
 
@@ -227,18 +243,22 @@ function buildRoadHoverHtml(props, amenMap, floodMap) {
   `;
 }
 
-/* ===== per-road counts ===== */
+/* ===== per-road counts from your schemas ===== */
+const asKey = (v) => (v === undefined || v === null ? "" : String(v).trim());
 const inc = (obj, key, by = 1) => {
-  const k = S(key);
-  if (!k) return;
-  obj[k] = (obj[k] ?? 0) + by;
+  if (!key) return;
+  obj[key] = (obj[key] ?? 0) + by;
 };
 
 const computeRoadAmenityCounts = (fc) => {
   const m = {};
   for (const f of fc?.features ?? []) {
     const p = f.properties || {};
-    const key = S(p.nearest_road_1_rn_id) || S(p.nearest_road_1_id) || S(p.nearest_road_1_name);
+    const key =
+      asKey(p.nearest_road_1_rn_id) ||
+      asKey(p.nearest_road_1_id) ||
+      asKey(p.nearest_road_1_name) ||
+      ""; // prefer RN_ID
     if (!key) continue;
     inc(m, key, 1);
   }
@@ -249,92 +269,21 @@ const computeRoadFloodCounts = (fc) => {
   const m = {};
   for (const f of fc?.features ?? []) {
     const p = f.properties || {};
-    const key = getFloodRoadId(p) || S(p.parent_road) || S(p.start_street_name) || S(p.end_street_name);
+    const key =
+      asKey(p.nearest_road_1_id) ||
+      asKey(p.parent_road) ||
+      asKey(p.start_street_name) ||
+      asKey(p.end_street_name) ||
+      "";
     if (!key) continue;
     inc(m, key, 1);
   }
   return m;
 };
 
-/* ===== flood aggregates by ID ===== */
-const computeFloodCountsById = (floodFc, paNameToId, szNameToId) => {
-  const by_pa_id = {};
-  const by_sz_id = {};
-  for (const ft of floodFc?.features ?? []) {
-    const p = ft.properties || {};
-    const paId = getFloodPlanningId(p, paNameToId);
-    const szId = getFloodSubzoneId(p, szNameToId);
-    if (paId) inc(by_pa_id, paId, 1);
-    if (szId) inc(by_sz_id, szId, 1);
-  }
-  return { by_pa_id, by_sz_id };
-};
-
-const computeFloodBreakdownsById = (floodFc, paNameToId, szNameToId) => {
-  const byPaId = {};
-  const bySzId = {};
-  for (const ft of floodFc?.features ?? []) {
-    const p = ft.properties || {};
-    const paId = getFloodPlanningId(p, paNameToId);
-    const szId = getFloodSubzoneId(p, szNameToId);
-    const ev = S(p.event || p.flood_type) || "unspecified";
-    if (paId) {
-      byPaId[paId] = byPaId[paId] || { total: 0, by_category: {} };
-      byPaId[paId].total += 1;
-      byPaId[paId].by_category[ev] = (byPaId[paId].by_category[ev] ?? 0) + 1;
-    }
-    if (szId) {
-      bySzId[szId] = bySzId[szId] || { total: 0, by_category: {} };
-      bySzId[szId].total += 1;
-      bySzId[szId].by_category[ev] = (bySzId[szId].by_category[ev] ?? 0) + 1;
-    }
-  }
-  return { byPaId, bySzId };
-};
-
-/* ===== grouping helpers (same-location stacks inside PA) ===== */
-// snap to ~1.1m so tiny float noise still stacks
-const coordKey = (coords) => {
-  if (!coords) return "";
-  const [lng, lat] = coords;
-  const r = (v, n = 5) => Math.round(Number(v) * 10 ** n) / 10 ** n;
-  return `${r(lng)},${r(lat)}`;
-};
-
-const buildStackedFromFiltered = (filteredFc) => {
-  const map = new Map(); // key -> {center, members: [Feature]}
-  for (const f of filteredFc.features || []) {
-    const g = f.geometry;
-    if (!g || g.type !== "Point") continue;
-    const k = coordKey(g.coordinates);
-    if (!map.has(k)) map.set(k, { center: g.coordinates, members: [] });
-    map.get(k).members.push(f);
-  }
-  const stackedFeatures = [];
-  for (const [k, group] of map.entries()) {
-    const count = group.members.length;
-    stackedFeatures.push({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: group.center },
-      properties: { stack_key: k, count },
-    });
-  }
-  return {
-    stackedFc: { type: "FeatureCollection", features: stackedFeatures },
-    stackMap: map,
-  };
-};
-
-/* ===== PA bubbles helpers ===== */
-const boundsCenter = (b) => {
-  if (!b) return null;
-  const [[minLng, minLat], [maxLng, maxLat]] = b;
-  return [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
-};
-
 function SingaporeHistoricalFloodMap({
   resizeSignal,
-  selectedPlanningAreas = [],          // names (UI)
+  selectedPlanningAreas = [],
   selectedSubzone,
   onPlanningAreaToggle,
   onPlanningAreasLoaded,
@@ -365,14 +314,11 @@ function SingaporeHistoricalFloodMap({
   const hoverPopupRef = useRef(null);
   const hasLoadedRef = useRef(false);
 
-  /* lookups & refs */
+  /* lookups */
   const planningAreaFeatureRef = useRef({});
-  const planningAreaIdRef = useRef({});     // name -> PA_ID
-  const paIdToNameRef = useRef({});         // PA_ID -> name
-  const subzoneNameToIdRef = useRef({});    // name -> SZ_ID
-  const szIdToNameRef = useRef({});         // SZ_ID -> name
-
-  const paNamesRef = useRef([]);
+  const planningAreaIdRef = useRef({});
+  const paIdToNameRef = useRef({});
+  const paNamesRef = useRef([]); // keep the PA universe for ranking
   const amenityStatsByPARef = useRef({});
   const amenityStatsBySZRef = useRef({});
   const amenityStatsByPAAllRef = useRef({});
@@ -384,7 +330,7 @@ function SingaporeHistoricalFloodMap({
   const subzoneToPARef = useRef(new Map());
   const lastHadSelectionRef = useRef(false);
 
-  /* flood aggregates (by ID) */
+  /* flood aggregates */
   const floodByPaOverallRef = useRef({});
   const floodByPaRef = useRef({});
   const floodBySzRef = useRef({});
@@ -397,20 +343,11 @@ function SingaporeHistoricalFloodMap({
   const roadWeightMapRef = useRef({});
   const roadWeightMaxRef = useRef(0);
 
-  // stacked points memory (inside selected PA view)
-  const floodStackMapRef = useRef(new Map()); // stack_key -> {center, members[]}
-
-  // planning-level PA bubble data in source
-  const [visibleFloodCount, setVisibleFloodCount] = useState(0);
-
   const [error, setError] = useState(null);
 
   /* local ui */
   const [activeSubzoneName, setActiveSubzoneName] = useState(null);
   const [viewMode, setViewMode] = useState("planning"); // 'planning' | 'subzone'
-
-  // spiderfy on/off guard
-  const spiderActiveRef = useRef(false);
 
   useEffect(() => {
     if (selectedPlanningAreas?.length && viewMode !== "subzone") {
@@ -425,10 +362,12 @@ function SingaporeHistoricalFloodMap({
     const map = mapRef.current;
     if (!map || !hasLoadedRef.current) return;
 
-    const name = S(selectedSubzone?.properties?.SUBZONE_N);
+    const name = (selectedSubzone?.properties?.SUBZONE_N ?? "").toString().trim();
     if (!name) return;
 
-    const feat = (subzoneData?.features || []).find((f) => S(f?.properties?.SUBZONE_N) === name);
+    const feat = (subzoneData?.features || []).find(
+      (f) => (f?.properties?.SUBZONE_N ?? "").toString().trim() === name
+    );
     if (!feat) return;
 
     const b = computeFeatureBounds(feat.geometry);
@@ -439,75 +378,96 @@ function SingaporeHistoricalFloodMap({
     }
   }, [selectedSubzone]);
 
-  const [colorMetric, setColorMetric] = useState("floods");
-  const [panelOpen, setPanelOpen] = useState(true);
 
-  /* flood filters (display list separate from parent’s selectedFloodTypes) */
+  const [colorMetric, setColorMetric] = useState("floods"); // 'floods' | 'amenities'
+  const [panelOpen, setPanelOpen] = useState(true);
   const [displayFloodTypes, setDisplayFloodTypes] = useState(floodTypes || []);
+  
   useEffect(() => {
     if ((floodTypes || []).length) {
-      setDisplayFloodTypes((cur) => (cur.length ? cur : floodTypes.map((v) => S(v))));
+      setDisplayFloodTypes(cur =>
+        cur.length ? cur : floodTypes.map(v => String(v ?? "").trim())
+      );
     }
   }, [floodTypes]);
+
+
+  const [visibleFloodCount, setVisibleFloodCount] = useState(0);
+
   const { roadCountMap = {}, maxRoadCount = 0 } = floodStats ?? {};
 
-  // filters from parent
+  // filters from parent (not used for marker toggles)
   const amenityCategoryFilter = useMemo(
-    () => (selectedAmenityCategories || []).map(S).filter(Boolean),
+    () => (selectedAmenityCategories || []).map((v) => normaliseString(v)).filter(Boolean),
     [selectedAmenityCategories]
   );
   const amenityTypeFilter = useMemo(
-    () => (selectedAmenityTypes || []).map(S).filter(Boolean),
+    () => (selectedAmenityTypes || []).map((v) => normaliseString(v)).filter(Boolean),
     [selectedAmenityTypes]
   );
   const floodTypeFilter = useMemo(
-    () => (selectedFloodTypes || []).map(S).filter(Boolean),
+    () => (selectedFloodTypes || []).map((v) => normaliseString(v)).filter(Boolean),
     [selectedFloodTypes]
   );
   const floodTypeFilterLowerList = useMemo(() => floodTypeFilter.map((v) => v.toLowerCase()), [floodTypeFilter]);
+
+  // LOCAL lists (used for marker layers only)
   const displayFloodTypesLowerList = useMemo(
-    () => (displayFloodTypes || []).map(S).filter(Boolean).map((v) => v.toLowerCase()),
+    () => (displayFloodTypes || []).map((v) => normaliseString(v).toLowerCase()).filter(Boolean),
     [displayFloodTypes]
   );
-
+ 
+  
+   // global (catalog) list of amenity categories — independent of PA/subzone
   const globalAmenityCategories = useMemo(() => {
-    if ((amenityTypes || []).length) return amenityTypes.map(S).filter(Boolean).sort();
-    const cats = new Set();
-    for (const f of amenityData?.features ?? []) {
-      const c = S(f?.properties?.amenity_category);
-      if (c) cats.add(c);
-    }
-    return Array.from(cats).sort();
-  }, [amenityTypes, amenityData]);
+   if ((amenityTypes || []).length) {
+     // if you pass the catalog in via props, use it
+     return amenityTypes.map((v) => normaliseString(v)).filter(Boolean).sort();
+   }
+   const cats = new Set();
+   for (const f of amenityData?.features ?? []) {
+     const c = normaliseString(f?.properties?.amenity_category);
+     if (c) cats.add(c);
+   }
+   return Array.from(cats).sort();
+ }, [amenityTypes, amenityData]);
+
 
   const availableAmenityCategories = useMemo(() => {
     if (!amenityData) return [];
-    const paSet = new Set((selectedPlanningAreas || []).map(S).filter(Boolean));
-    const typeSet = new Set((selectedAmenityTypes || []).map(S).filter(Boolean));
-    const catFilterSet = new Set((selectedAmenityCategories || []).map(S).filter(Boolean));
 
-    const effectiveSubzoneName = S(selectedSubzone?.properties?.SUBZONE_N) || (activeSubzoneName || "");
+    const paSet  = new Set((selectedPlanningAreas || []).map((v) => normaliseString(v)).filter(Boolean));
+    const typeSet = new Set((selectedAmenityTypes || []).map((v) => normaliseString(v)).filter(Boolean)); // LeftPanel type filter
+    const catFilterSet = new Set((selectedAmenityCategories || []).map((v) => normaliseString(v)).filter(Boolean)); // LeftPanel category filter
+
+    const effectiveSubzoneName =
+      (selectedSubzone?.properties?.SUBZONE_N ?? "").toString().trim() ||
+      (activeSubzoneName || "");
+
     const cats = new Set();
 
     for (const f of amenityData.features || []) {
-      const p = f.properties || {};
-      const cat = S(p.amenity_category);
-      const typ = S(p.amenity_type);
+      const p   = f.properties || {};
+      const cat = normaliseString(p.amenity_category);
+      const typ = normaliseString(p.amenity_type);
       if (!cat) continue;
 
+      // LeftPanel filters (still respected)
       if (catFilterSet.size && !catFilterSet.has(cat)) continue;
       if (typeSet.size && !typeSet.has(typ)) continue;
 
       if (paSet.size) {
-        const pa = S(p.planning_area);
+        const pa = normaliseString(p.planning_area);
         if (!paSet.has(pa)) continue;
       }
       if (effectiveSubzoneName) {
-        const sz = S(p.subzone);
-        if (sz !== S(effectiveSubzoneName)) continue;
+        const sz = normaliseString(p.subzone);
+        if (sz !== normaliseString(effectiveSubzoneName)) continue;
       }
+
       cats.add(cat);
     }
+
     return Array.from(cats).sort();
   }, [
     amenityData,
@@ -518,16 +478,18 @@ function SingaporeHistoricalFloodMap({
     selectedAmenityTypes,
   ]);
 
-  const [displayAmenityCategories, setDisplayAmenityCategories] = useState([]);
+  
+  const [displayAmenityCategories, setDisplayAmenityCategories] = useState([]); // start empty; will auto-fill from availability
   const displayAmenityCategoriesNorm = useMemo(
-    () => (displayAmenityCategories || []).map(S).filter(Boolean),
+    () => (displayAmenityCategories || []).map((v) => normaliseString(v)).filter(Boolean),
     [displayAmenityCategories]
   );
+
 
   const handleFloodTypesSelectAll = () => setDisplayFloodTypes(floodTypes || []);
   const handleFloodTypesClear = () => setDisplayFloodTypes([]);
   const handleFloodTypeDisplayToggle = (type, shouldEnable) => {
-    const normalized = S(type);
+    const normalized = normaliseString(type);
     if (!normalized) return;
     setDisplayFloodTypes((prev) => {
       const next = new Set(prev);
@@ -537,15 +499,10 @@ function SingaporeHistoricalFloodMap({
     });
   };
 
-  const [displayAmenityTypes, setDisplayAmenityTypes] = useState(amenityTypes || []);
-  const displayAmenityTypesNorm = useMemo(
-    () => (displayAmenityTypes || []).map(S).filter(Boolean),
-    [displayAmenityTypes]
-  );
   const handleAmenityTypesSelectAll = () => setDisplayAmenityTypes(amenityTypes || []);
   const handleAmenityTypesClear = () => setDisplayAmenityTypes([]);
   const handleAmenityTypeDisplayToggle = (type, shouldEnable) => {
-    const normalized = S(type);
+    const normalized = normaliseString(type);
     if (!normalized) return;
     setDisplayAmenityTypes((prev) => {
       const next = new Set(prev);
@@ -556,57 +513,25 @@ function SingaporeHistoricalFloodMap({
   };
 
   useEffect(() => {
-    if (!displayAmenityCategories.length) {
-      setDisplayAmenityCategories(globalAmenityCategories);
-      return;
-    }
-    setDisplayAmenityCategories((prev) => {
-      const cur = new Set(prev.map(S));
-      for (const c of globalAmenityCategories) cur.add(c);
-      return Array.from(cur);
-    });
-  }, [globalAmenityCategories]);
+   // If nothing chosen yet, pick ALL global categories.
+   if (!displayAmenityCategories.length) {
+     setDisplayAmenityCategories(globalAmenityCategories);
+     return;
+   }
+   // Optionally: merge in any *new* categories that appear in the catalog.
+   setDisplayAmenityCategories((prev) => {
+     const cur = new Set(prev.map(normaliseString));
+     for (const c of globalAmenityCategories) cur.add(c);
+     return Array.from(cur);
+   });
+ }, [globalAmenityCategories]);  // note: no PA/subzone dependency here
+
+  const hasSelection = selectedPlanningAreas?.length > 0;
 
   // React popup helpers (hover for polygons)
   const hoverReactRootRef = useRef(null);
   const hoverReactContainerRef = useRef(null);
   const popupCssInjectedRef = useRef(false);
-
-  const loadAmenityIcons = async (map, categories) => {
-    if (AMENITY_ICON_DEFAULT_URL && !map.hasImage(AMENITY_ICON_DEFAULT_ID)) {
-      try {
-        const defImg = await loadImageAsync(map, AMENITY_ICON_DEFAULT_URL);
-        map.addImage(AMENITY_ICON_DEFAULT_ID, defImg, { pixelRatio: 2 });
-      } catch {}
-    }
-    await Promise.allSettled(
-      categories.map(async (cat) => {
-        const id = amenityIconId(cat);
-        if (map.hasImage(id)) return;
-        try {
-          const img = await loadImageAsync(map, amenityIconUrl(cat));
-          map.addImage(id, img, { pixelRatio: 2 });
-        } catch {}
-      })
-    );
-    map.on("styleimagemissing", async (e) => {
-      const id = e?.id || "";
-      if (!id.startsWith("amen_") || map.hasImage(id)) return;
-      try {
-        const img = await loadImageAsync(map, `/map/markers/${id.replace(/^amen_/, "")}.png`);
-        map.addImage(id, img, { pixelRatio: 2 });
-        map.triggerRepaint();
-      } catch {
-        if (AMENITY_ICON_DEFAULT_URL && !map.hasImage(AMENITY_ICON_DEFAULT_ID)) {
-          try {
-            const defImg = await loadImageAsync(map, AMENITY_ICON_DEFAULT_URL);
-            map.addImage(AMENITY_ICON_DEFAULT_ID, defImg, { pixelRatio: 2 });
-            map.triggerRepaint();
-          } catch {}
-        }
-      }
-    });
-  };
 
   function showHoverPopupReact(map, lngLat, jsx) {
     if (!hoverPopupRef.current) {
@@ -693,6 +618,7 @@ function SingaporeHistoricalFloodMap({
       hoverPopupRef.current = null;
     }
   };
+
   const showClickPopup = (map, lngLat, html) => {
     if (!popupRef.current) {
       popupRef.current = new mapboxgl.Popup({
@@ -706,7 +632,66 @@ function SingaporeHistoricalFloodMap({
     popupRef.current.setLngLat(lngLat).setHTML(html).addTo(map);
   };
 
-  /* --------- map init ---------- */
+  const recomputeVisibleFloods = () => {
+    const map = mapRef.current;
+    if (!map || !hasLoadedRef.current || !map.getLayer(FLOOD_LAYER_ID) || !showFloods) {
+      setVisibleFloodCount(0);
+      return;
+    }
+    const features = map.queryRenderedFeatures({ layers: [FLOOD_LAYER_ID] }) || [];
+    setVisibleFloodCount(features.length);
+  };
+
+  const loadAmenityIcons = async (map, categories) => {
+    if (AMENITY_ICON_DEFAULT_URL && !map.hasImage(AMENITY_ICON_DEFAULT_ID)) {
+      try {
+        const defImg = await loadImageAsync(map, AMENITY_ICON_DEFAULT_URL);
+        map.addImage(AMENITY_ICON_DEFAULT_ID, defImg, { pixelRatio: 2 });
+      } catch {}
+    }
+    await Promise.allSettled(
+      categories.map(async (cat) => {
+        const id = amenityIconId(cat);
+        if (map.hasImage(id)) return;
+        try {
+          const img = await loadImageAsync(map, amenityIconUrl(cat));
+          map.addImage(id, img, { pixelRatio: 2 });
+        } catch {}
+      })
+    );
+    map.on("styleimagemissing", async (e) => {
+      const id = e?.id || "";
+      if (!id.startsWith("amen_") || map.hasImage(id)) return;
+      try {
+        const img = await loadImageAsync(map, `/map/markers/${id.replace(/^amen_/, "")}.png`);
+        map.addImage(id, img, { pixelRatio: 2 });
+        map.triggerRepaint();
+      } catch {
+        if (AMENITY_ICON_DEFAULT_URL && !map.hasImage(AMENITY_ICON_DEFAULT_ID)) {
+          try {
+            const defImg = await loadImageAsync(map, AMENITY_ICON_DEFAULT_URL);
+            map.addImage(AMENITY_ICON_DEFAULT_ID, defImg, { pixelRatio: 2 });
+            map.triggerRepaint();
+          } catch {}
+        }
+      }
+    });
+  };
+  const [displayAmenityTypes, setDisplayAmenityTypes] = useState(amenityTypes || []);
+  const displayAmenityTypesNorm = useMemo(
+    () => (displayAmenityTypes || []).map((v) => normaliseString(v)).filter(Boolean),
+    [displayAmenityTypes]
+  );
+
+  
+  const buildAmenityIconExpression = (cats) => {
+    const expr = ["match", ["to-string", ["get", "amenity_category"]]];
+    for (const c of cats) expr.push(c, amenityIconId(c));
+    expr.push(AMENITY_ICON_DEFAULT_ID);
+    return expr;
+  };
+
+  /* --------- map init (no fetching) ---------- */
   useEffect(() => {
     if (mapRef.current) return;
     if (!mapboxgl.supported()) {
@@ -724,21 +709,7 @@ function SingaporeHistoricalFloodMap({
     mapRef.current = map;
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
 
-    const clearSpiderfy = () => {
-      try {
-        if (map.getLayer(FLOOD_SPIDER_POINTS_LAYER_ID)) map.removeLayer(FLOOD_SPIDER_POINTS_LAYER_ID);
-        if (map.getLayer(FLOOD_SPIDER_EDGES_LAYER_ID)) map.removeLayer(FLOOD_SPIDER_EDGES_LAYER_ID);
-        if (map.getSource(FLOOD_SPIDER_SOURCE_ID)) map.removeSource(FLOOD_SPIDER_SOURCE_ID);
-        if (map.getSource(FLOOD_SPIDER_EDGES_SOURCE_ID)) map.removeSource(FLOOD_SPIDER_EDGES_SOURCE_ID);
-      } catch {}
-      spiderActiveRef.current = false;
-    };
-
     const handleBackgroundClick = (event) => {
-      if (spiderActiveRef.current) {
-        clearSpiderfy();
-        return;
-      }
       const features = map.queryRenderedFeatures(event.point, {
         layers: [PLANNING_FILL_LAYER_ID, SUBZONE_FILL_LAYER_ID],
       });
@@ -747,7 +718,6 @@ function SingaporeHistoricalFloodMap({
         setViewMode("planning");
         setActiveSubzoneName(null);
         setShowAmenities(false);
-        clearSpiderfy();
       }
     };
 
@@ -758,52 +728,48 @@ function SingaporeHistoricalFloodMap({
           return;
         }
 
-        /* collect PA & SZ maps FIRST */
+        // amenity aggregates (overall + live)
+        const { byPA, bySZ } = aggregateAmenityStats(amenityData);
+        amenityStatsByPARef.current = byPA; // live (filtered)
+        amenityStatsBySZRef.current = bySZ;
+        amenityStatsByPAAllRef.current = byPA; // overall (frozen)
+        amenityStatsBySZAllRef.current = bySZ;
+
+        // flood counts & breakdowns (overall + live)
+        const { by_pa, by_sz } = computeFloodCounts(floodData);
+        floodByPaOverallRef.current = by_pa;
+        floodByPaRef.current = by_pa; // live
+        floodBySzRef.current = by_sz;
+
+        const { byPa: floodCatsPa, bySz: floodCatsSz } = computeFloodBreakdowns(floodData);
+        floodCatsByPARef.current = floodCatsPa; // live
+        floodCatsBySZRef.current = floodCatsSz;
+        floodCatsByPAOverallRef.current = floodCatsPa; // overall (frozen)
+        floodCatsBySZOverallRef.current = floodCatsSz;
+
+        /* collect planning areas + id map */
         const paNames = [];
         const featureMap = {};
-        const paNameToId = {};
-        const paIdToName = {};
+        const idMap = {};
         for (const feature of planningData.features ?? []) {
-          const name = S(feature?.properties?.PLN_AREA_N);
+          const name = feature?.properties?.PLN_AREA_N?.trim();
           if (!name) continue;
           paNames.push(name);
           featureMap[name] = feature;
           const paId = feature?.properties?.PA_ID;
-          if (paId != null) {
-            paNameToId[name] = S(paId);
-            paIdToName[S(paId)] = name;
-          }
+          if (paId != null) idMap[name] = String(paId);
         }
         planningAreaFeatureRef.current = featureMap;
-        planningAreaIdRef.current = paNameToId;
-        paIdToNameRef.current = paIdToName;
-        paNamesRef.current = paNames;
+        planningAreaIdRef.current = idMap;
+        paIdToNameRef.current = Object.fromEntries(Object.entries(idMap).map(([k, v]) => [v, k]));
         if (paNames.length) onPlanningAreasLoaded?.(paNames);
+        paNamesRef.current = paNames;
 
-        const szNameToId = {};
-        const szIdToName = {};
-        for (const f of subzoneData.features ?? []) {
-          const nm = S(f?.properties?.SUBZONE_N);
-          const id = f?.properties?.SZ_ID;
-          if (!nm || id == null) continue;
-          szNameToId[nm] = S(id);
-          szIdToName[S(id)] = nm;
-        }
-        subzoneNameToIdRef.current = szNameToId;
-        szIdToNameRef.current = szIdToName;
-
-        /* amenity aggregates */
-        const { byPA, bySZ } = aggregateAmenityStats(amenityData);
-        amenityStatsByPARef.current = byPA;
-        amenityStatsBySZRef.current = bySZ;
-        amenityStatsByPAAllRef.current = byPA;
-        amenityStatsBySZAllRef.current = bySZ;
-
-        /* subzone -> PA map (name-based for UI scoping) */
+        /* subzone -> PA map */
         const szToPA = new Map();
         for (const f of subzoneData.features ?? []) {
-          const sz = S(f?.properties?.SUBZONE_N);
-          const pa = S(f?.properties?.PLN_AREA_N);
+          const sz = (f?.properties?.SUBZONE_N ?? "").toString().trim();
+          const pa = (f?.properties?.PLN_AREA_N ?? "").toString().trim();
           if (!sz || !pa) continue;
           if (!szToPA.has(sz)) szToPA.set(sz, new Set());
           szToPA.get(sz).add(pa);
@@ -813,16 +779,10 @@ function SingaporeHistoricalFloodMap({
         /* sources */
         map.addSource(PLANNING_SOURCE_ID, { type: "geojson", data: planningData, generateId: true });
         map.addSource(SUBZONE_SOURCE_ID, { type: "geojson", data: subzoneData, generateId: true });
-        map.addSource(ROAD_SOURCE_ID, { type: "geojson", data: roadData, generateId: true });
+        map.addSource(ROAD_SOURCE_ID, { type: "geojson", data: roadData, generateId: true }); // generateId for safety
         map.addSource(AMENITY_SOURCE_ID, { type: "geojson", data: amenityData, generateId: true });
+        map.addSource(FLOOD_SOURCE_ID, { type: "geojson", data: floodData, generateId: true });
 
-        // planning-level PA bubbles source (empty for now; we will set data in effects)
-        map.addSource(PA_FLOOD_SOURCE_ID, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-
-        // stacked flood source (inside selected PA)
-        map.addSource(FLOOD_STACKED_SOURCE_ID, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-
-        /* derive icon catalogs */
         const derivedFloodTypes =
           floodTypes && floodTypes.length
             ? floodTypes
@@ -854,7 +814,7 @@ function SingaporeHistoricalFloodMap({
           type: "line",
           source: PLANNING_SOURCE_ID,
           paint: { "line-color": "#f97316", "line-width": 3, "line-opacity": 0.9 },
-          filter: ["==", ["get", "PLN_AREA_N"], "__none__"],
+          filter: EMPTY_PLANNING_FILTER,
         });
 
         map.addLayer({
@@ -889,7 +849,7 @@ function SingaporeHistoricalFloodMap({
           filter: EMPTY_PA_FILTER,
         });
 
-        /* amenities icons */
+        /* amenities as SYMBOL icons (hidden by default) */
         const derivedAmenityCats =
           amenityTypes && amenityTypes.length
             ? amenityTypes
@@ -900,6 +860,7 @@ function SingaporeHistoricalFloodMap({
                     .filter(Boolean)
                 )
               ).sort();
+
         await loadAmenityIcons(map, derivedAmenityCats);
 
         map.addLayer({
@@ -908,107 +869,64 @@ function SingaporeHistoricalFloodMap({
           source: AMENITY_SOURCE_ID,
           layout: {
             visibility: "none",
-            "icon-image":
-              derivedAmenityCats.length > 0
-                ? [
-                    "match",
-                    ["to-string", ["get", "amenity_category"]],
-                    ...derivedAmenityCats.flatMap((c) => [c, amenityIconId(c)]),
-                    AMENITY_ICON_DEFAULT_ID,
-                  ]
-                : AMENITY_ICON_DEFAULT_ID,
+            "icon-image": (() => {
+              const expr = ["match", ["to-string", ["get", "amenity_category"]]];
+              for (const c of derivedAmenityCats) expr.push(c, amenityIconId(c));
+              expr.push(AMENITY_ICON_DEFAULT_ID);
+              return expr;
+            })(),
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
             "icon-anchor": "bottom",
-            "icon-size": 0.05,
+            "icon-size": 0.125,
           },
         });
 
-        /* ===== planning-level PA bubbles (circles + count text) ===== */
         map.addLayer({
-          id: PA_FLOOD_BUBBLE_LAYER_ID,
-          type: "circle",
-          source: PA_FLOOD_SOURCE_ID,
-          layout: { visibility: "visible" },
-          paint: {
-            "circle-color": [
-              "step",
-              ["get", "count"],
-              "#86efac", 10,
-              "#22c55e", 50,
-              "#16a34a", 100,
-              "#15803d"
-            ],
-            "circle-radius": [
-              "step",
-              ["get", "count"],
-              10, 10,
-              14, 50,
-              18, 100,
-              22
-            ],
-            "circle-stroke-color": "#0b1220",
-            "circle-stroke-width": 2,
-            "circle-opacity": 0.88,
-          },
-        });
-        map.addLayer({
-          id: PA_FLOOD_COUNT_LAYER_ID,
+          id: FLOOD_LAYER_ID,
           type: "symbol",
-          source: PA_FLOOD_SOURCE_ID,
+          source: FLOOD_SOURCE_ID,
           layout: {
-            "text-field": ["to-string", ["get", "count"]],
-            "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-            "text-size": 12,
-            "text-allow-overlap": true,
-          },
-          paint: { "text-color": "#ffffff" },
-        });
-
-        /* ===== inside-PA stacked flood layers (count>1 bubble + singles) ===== */
-        // hidden by default (only visible in subzone view)
-        map.addLayer({
-          id: FLOOD_STACK_BUBBLE_LAYER_ID,
-          type: "circle",
-          source: FLOOD_STACKED_SOURCE_ID,
-          layout: { visibility: "none" },
-          filter: [">", ["get", "count"], 1],
-          paint: {
-            "circle-color": ["step", ["get", "count"], "#38bdf8", 5, "#0ea5e9", 10, "#0284c7"],
-            "circle-radius": ["step", ["get", "count"], 12, 5, 16, 10, 20],
-            "circle-stroke-color": "#0b1220",
-            "circle-stroke-width": 2,
-            "circle-opacity": 0.9,
-          },
-        });
-        map.addLayer({
-          id: FLOOD_STACK_COUNT_LAYER_ID,
-          type: "symbol",
-          source: FLOOD_STACKED_SOURCE_ID,
-          layout: {
-            visibility: "none",
-            "text-field": ["to-string", ["get", "count"]],
-            "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-            "text-size": 12,
-            "text-allow-overlap": true,
-          },
-          filter: [">", ["get", "count"], 1],
-          paint: { "text-color": "#ffffff" },
-        });
-
-        map.addLayer({
-          id: FLOOD_SINGLE_LAYER_ID,
-          type: "symbol",
-          source: FLOOD_STACKED_SOURCE_ID,
-          layout: {
-            visibility: "none",
+            visibility: "visible",
             "icon-image": buildFloodIconExpression(derivedFloodTypes),
-            "icon-size": 0.1,
+            "icon-size": 0.125,
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
             "icon-anchor": "bottom",
           },
-          filter: ["==", ["get", "count"], 1],
+        });
+
+        /* hover outlines */
+        map.addLayer({
+          id: PA_HOVER_OUTLINE_ID,
+          type: "line",
+          source: PLANNING_SOURCE_ID,
+          paint: {
+            "line-color": ["case", ["boolean", ["feature-state", "hover"], false], "#ffffff", "rgba(0,0,0,0)"],
+            "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 5, 0],
+            "line-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.9, 0],
+          },
+        });
+        map.addLayer({
+          id: PA_HOVER_OUTLINE_INNER_ID,
+          type: "line",
+          source: PLANNING_SOURCE_ID,
+          paint: {
+            "line-color": ["case", ["boolean", ["feature-state", "hover"], false], "#60a5fa", "rgba(0,0,0,0)"],
+            "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 2.5, 0],
+            "line-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.9, 0],
+          },
+        });
+        map.addLayer({
+          id: SZ_HOVER_OUTLINE_ID,
+          type: "line",
+          source: SUBZONE_SOURCE_ID,
+          layout: { visibility: "none" },
+          paint: {
+            "line-color": ["case", ["boolean", ["feature-state", "hover"], false], "#ffffff", "rgba(0,0,0,0)"],
+            "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 4, 0],
+            "line-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.9, 0],
+          },
         });
 
         /* cursors */
@@ -1020,33 +938,24 @@ function SingaporeHistoricalFloodMap({
         map.on("mouseleave", AMENITY_ICON_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
         map.on("mouseenter", ROAD_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", ROAD_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", PA_FLOOD_BUBBLE_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", PA_FLOOD_BUBBLE_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", FLOOD_STACK_BUBBLE_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", FLOOD_STACK_BUBBLE_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
-        map.on("mouseenter", FLOOD_SINGLE_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", FLOOD_SINGLE_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
+        map.on("mouseenter", FLOOD_LAYER_ID, () => (map.getCanvas().style.cursor = "pointer"));
+        map.on("mouseleave", FLOOD_LAYER_ID, () => (map.getCanvas().style.cursor = ""));
 
         /* clicks on polygons */
         map.on("click", PLANNING_FILL_LAYER_ID, (event) => {
-          if (spiderActiveRef.current) { clearSpiderfy(); return; }
           const feature = event.features?.[0];
-          const name = S(feature?.properties?.PLN_AREA_N);
+          const name = feature?.properties?.PLN_AREA_N?.trim();
           if (!name) return;
-
           const fullFeature = planningAreaFeatureRef.current[name] || feature;
           const bounds = computeFeatureBounds(fullFeature.geometry);
           if (bounds) map.fitBounds(bounds, { padding: 48, duration: 800, maxZoom: 13 });
-
           onPlanningAreaToggle?.(name);
           setViewMode("subzone");
           setActiveSubzoneName(null);
           setShowAmenities(true);
-          clearSpiderfy();
         });
 
         map.on("click", SUBZONE_FILL_LAYER_ID, (event) => {
-          if (spiderActiveRef.current) { clearSpiderfy(); return; }
           const feature = event.features?.[0];
           if (!feature) return;
           const properties = feature?.properties ? { ...feature.properties } : null;
@@ -1064,26 +973,8 @@ function SingaporeHistoricalFloodMap({
             curve: 1.2,
           });
           onSubzoneSelect?.(payload);
-          setActiveSubzoneName(S(properties.SUBZONE_N));
+          setActiveSubzoneName((properties.SUBZONE_N ?? "").toString().trim());
           setShowAmenities(true);
-          clearSpiderfy();
-        });
-
-        // Planning-level bubble click acts like clicking the PA polygon
-        map.on("click", PA_FLOOD_BUBBLE_LAYER_ID, (e) => {
-          if (spiderActiveRef.current) return;
-          const f = e.features?.[0];
-          const paName = S(f?.properties?.PLN_AREA_N);
-          if (!paName) return;
-          onPlanningAreaToggle?.(paName);
-          setViewMode("subzone");
-          setActiveSubzoneName(null);
-          setShowAmenities(true);
-
-          // fit to PA
-          const fullFeature = planningAreaFeatureRef.current[paName];
-          const bounds = fullFeature ? computeFeatureBounds(fullFeature.geometry) : null;
-          if (bounds) map.fitBounds(bounds, { padding: 48, duration: 800, maxZoom: 13 });
         });
 
         map.on("click", handleBackgroundClick);
@@ -1100,30 +991,33 @@ function SingaporeHistoricalFloodMap({
           hoveredPlanningIdRef.current = id;
           map.setFeatureState({ source: PLANNING_SOURCE_ID, id }, { hover: true });
 
-          const paId = S(f.properties?.PA_ID);
-          const areaName = paIdToNameRef.current?.[paId] || S(f.properties?.PLN_AREA_N);
+          const area = (f.properties?.PLN_AREA_N ?? "").toString().trim();
 
-          const floodOverall = floodCatsByPAOverallRef.current?.[paId] || { total: 0, by_category: {} };
-          const amenOverall = amenityStatsByPAAllRef.current?.[areaName] || { total: 0, by_category: {} };
+          const floodOverall = floodCatsByPAOverallRef.current?.[area] || { total: 0, by_category: {} };
+          const amenOverall = amenityStatsByPAAllRef.current?.[area] || { total: 0, by_category: {} };
 
-          const rows = Object.entries(floodByPaOverallRef.current || {}).map(([k, v]) => ({
-            id: k,
-            v: Number(v || 0),
-          }));
-          rows.sort((a, b) => b.v - a.v);
-          const floodOf = rows.length || 1;
-          const floodRank = Math.max(1, rows.findIndex((x) => x.id === paId) + 1);
+          const { paRank: floodRank, paOf: floodOf } = (function () {
+            const rows = (paNamesRef.current || []).map((k) => ({
+              k,
+              v: Number((floodByPaOverallRef.current || {})[k] || 0),
+            }));
+            rows.sort((a, b) => b.v - a.v);
+            const idx = rows.findIndex((x) => x.k === area);
+            return { paRank: idx >= 0 ? idx + 1 : rows.length || 1, paOf: rows.length || 1 };
+          })();
 
-          const amenTotalsByName = Object.fromEntries(
-            Object.entries(amenityStatsByPAAllRef.current || {}).map(([k, obj]) => [k, Number(obj?.total || 0)])
-          );
-          const amenRows = (paNamesRef.current || []).map((k) => ({ k, v: Number(amenTotalsByName[k] || 0) }));
-          amenRows.sort((a, b) => b.v - a.v);
-          const amenOf = amenRows.length || 1;
-          const amenRank = Math.max(1, amenRows.findIndex((x) => x.k === areaName) + 1);
+          const { paRank: amenRank, paOf: amenOf } = (function () {
+            const totals = Object.fromEntries(
+              Object.entries(amenityStatsByPAAllRef.current || {}).map(([k, obj]) => [k, Number(obj?.total || 0)])
+            );
+            const rows = (paNamesRef.current || []).map((k) => ({ k, v: Number(totals[k] || 0) }));
+            rows.sort((a, b) => b.v - a.v);
+            const idx = rows.findIndex((x) => x.k === area);
+            return { paRank: idx >= 0 ? idx + 1 : rows.length || 1, paOf: rows.length || 1 };
+          })();
 
           const header = [
-            { label: "PLANNING AREA", value: (areaName || "unknown").toUpperCase() },
+            { label: "PLANNING AREA", value: (area || "unknown").toUpperCase() },
             { label: "Flood rank", value: `#${floodRank} of ${floodOf}` },
             { label: "Amenities rank", value: `#${amenRank} of ${amenOf}` },
           ];
@@ -1161,57 +1055,55 @@ function SingaporeHistoricalFloodMap({
           map.setFeatureState({ source: SUBZONE_SOURCE_ID, id }, { hover: true });
 
           const props = f.properties || {};
-          const szName = S(props.SUBZONE_N);
-          const paName = S(props.PLN_AREA_N);
-          const szId = S(props.SZ_ID);
+          const sub = (props.SUBZONE_N ?? "").toString().trim();
+          const area = (props.PLN_AREA_N ?? "").toString().trim();
 
-          const floodSZOverall = floodCatsBySZOverallRef.current?.[szId] || { total: 0, by_category: {} };
-          const amenSZOverall = amenityStatsBySZAllRef.current?.[szName] || { total: 0, by_category: {} };
+          const floodSZOverall = floodCatsBySZOverallRef.current?.[sub] || { total: 0, by_category: {} };
+          const amenSZOverall = amenityStatsBySZAllRef.current?.[sub] || { total: 0, by_category: {} };
 
-          const getSubzoneFloodRankWithinPA = (targetSzId, pa) => {
+          const getSubzoneFloodRankWithinPA = (targetSub, pa) => {
             const rows = [];
-            for (const [anySzId, v] of Object.entries(floodBySzRef.current || {})) {
-              const name = szIdToNameRef.current?.[anySzId];
-              const set = subzoneToPARef.current.get(name || "");
-              if (set && set.has(pa)) rows.push({ anySzId, v: Number(v || 0) });
+            for (const [sz, v] of Object.entries(floodBySzRef.current || {})) {
+              const set = subzoneToPARef.current.get(sz);
+              if (set && set.has(pa)) rows.push({ sz, v: Number(v || 0) });
             }
             rows.sort((a, b) => b.v - a.v);
             const szOf = rows.length || 1;
-            const idx = rows.findIndex((x) => x.anySzId === targetSzId);
+            const idx = rows.findIndex((x) => x.sz === targetSub);
             return { szRank: idx >= 0 ? idx + 1 : szOf, szOf };
           };
-          const getSubzoneAmenityRankWithinPA = (targetSzName, pa) => {
+          const getSubzoneAmenityRankWithinPA = (targetSub, pa) => {
             const rows = [];
-            for (const [name, obj] of Object.entries(amenityStatsBySZAllRef.current || {})) {
-              const set = subzoneToPARef.current.get(name);
-              if (set && set.has(pa)) rows.push({ name, v: Number(obj?.total || 0) });
+            for (const [sz, obj] of Object.entries(amenityStatsBySZAllRef.current || {})) {
+              const set = subzoneToPARef.current.get(sz);
+              if (set && set.has(pa)) rows.push({ sz, v: Number(obj?.total || 0) });
             }
             rows.sort((a, b) => b.v - a.v);
             const szOf = rows.length || 1;
-            const idx = rows.findIndex((x) => x.name === targetSzName);
+            const idx = rows.findIndex((x) => x.sz === targetSub);
             return { szRank: idx >= 0 ? idx + 1 : szOf, szOf };
           };
 
-          const { szRank: floodRankInPA, szOf: floodOfInPA } = getSubzoneFloodRankWithinPA(szId, paName);
-          const { szRank: amenRankInPA, szOf: amenOfInPA } = getSubzoneAmenityRankWithinPA(szName, paName);
+          const { szRank: floodRankInPA, szOf: floodOfInPA } = getSubzoneFloodRankWithinPA(sub, area);
+          const { szRank: amenRankInPA, szOf: amenOfInPA } = getSubzoneAmenityRankWithinPA(sub, area);
 
           const allSZFlood = floodBySzRef.current || {};
           const floodGlobalRows = Object.entries(allSZFlood)
             .map(([k, v]) => ({ k, v: Number(v || 0) }))
             .sort((a, b) => b.v - a.v);
           const floodGlobalOf = floodGlobalRows.length || 1;
-          const floodGlobalRank = Math.max(1, floodGlobalRows.findIndex((x) => x.k === szId) + 1);
+          const floodGlobalRank = Math.max(1, floodGlobalRows.findIndex((x) => x.k === sub) + 1);
 
           const allSZAmen = amenityStatsBySZAllRef.current || {};
           const amenGlobalRows = Object.entries(allSZAmen)
             .map(([k, obj]) => ({ k, v: Number(obj?.total || 0) }))
             .sort((a, b) => b.v - a.v);
           const amenGlobalOf = amenGlobalRows.length || 1;
-          const amenGlobalRank = Math.max(1, amenGlobalRows.findIndex((x) => x.k === szName) + 1);
+          const amenGlobalRank = Math.max(1, amenGlobalRows.findIndex((x) => x.k === sub) + 1);
 
           const header = [
-            { label: "SUBZONE", value: (szName || "unknown").toUpperCase() },
-            { label: "planning area", value: paName || "-" },
+            { label: "SUBZONE", value: (sub || "unknown").toUpperCase() },
+            { label: "planning area", value: area || "-" },
             { label: "Flood rank (within PA)", value: `#${floodRankInPA} of ${floodOfInPA}` },
             { label: "Flood rank (all subzones)", value: `#${floodGlobalRank} of ${floodGlobalOf}` },
             { label: "Amenities rank (within PA)", value: `#${amenRankInPA} of ${amenOfInPA}` },
@@ -1238,16 +1130,18 @@ function SingaporeHistoricalFloodMap({
           clearHoverPopupReact();
         });
 
-        // Amenity hover (HTML)
+        // Amenity hover (HTML, nicer)
         map.on("mousemove", AMENITY_ICON_LAYER_ID, (e) => {
           const f = e.features?.[0];
           if (!f) return;
           const html = buildNiceAmenityHtml(f.properties || {});
           showHoverPopup(map, e.lngLat, html);
         });
-        map.on("mouseleave", AMENITY_ICON_LAYER_ID, clearHoverPopup);
+        map.on("mouseleave", AMENITY_ICON_LAYER_ID, () => {
+          clearHoverPopup();
+        });
 
-        // Road hover (HTML)
+        // Road hover (HTML) — show plain counts of nearby amenities & floods
         map.on("mousemove", ROAD_LAYER_ID, (e) => {
           const f = e.features?.[0];
           if (!f) return;
@@ -1258,100 +1152,42 @@ function SingaporeHistoricalFloodMap({
           );
           showHoverPopup(map, e.lngLat, html);
         });
-        map.on("mouseleave", ROAD_LAYER_ID, clearHoverPopup);
+        map.on("mouseleave", ROAD_LAYER_ID, () => {
+          clearHoverPopup();
+        });
 
-        // singles hover (HTML) in PA view
-        map.on("mousemove", FLOOD_SINGLE_LAYER_ID, (e) => {
+        // Flood hover ONLY (HTML) — auto-destroys on mouseleave (no click)
+        map.on("mousemove", FLOOD_LAYER_ID, (e) => {
           const f = e.features?.[0];
           if (!f) return;
           const html = buildNiceFloodHtml(f.properties || {});
           showHoverPopup(map, e.lngLat, html);
         });
-        map.on("mouseleave", FLOOD_SINGLE_LAYER_ID, clearHoverPopup);
-
-        // ======== PA-inside bubble click → spiderfy
-        map.on("click", FLOOD_STACK_BUBBLE_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          e.originalEvent?.stopPropagation?.();
-          e.originalEvent && (e.originalEvent.cancelBubble = true);
-
-          // find group by stack_key
-          const stackKey = S(f.properties?.stack_key);
-          const group = floodStackMapRef.current.get(stackKey);
-          if (!group || (group.members || []).length <= 1) return;
-
-          // build spider sources
-          const centerLngLat = { lng: group.center[0], lat: group.center[1] };
-          const centerPx = map.project(centerLngLat);
-          const n = group.members.length;
-          const radius = 36;
-          const angleStep = (2 * Math.PI) / n;
-          const points = [];
-          const edges = [];
-          for (let i = 0; i < n; i++) {
-            const a = i * angleStep;
-            const ptPx = { x: centerPx.x + radius * Math.cos(a), y: centerPx.y + radius * Math.sin(a) };
-            const ptLngLat = map.unproject(ptPx);
-            points.push({
-              type: "Feature",
-              geometry: { type: "Point", coordinates: [ptLngLat.lng, ptLngLat.lat] },
-              properties: { ...group.members[i].properties, __spider__: true, __idx__: i },
-            });
-            edges.push({
-              type: "Feature",
-              geometry: { type: "LineString", coordinates: [[centerLngLat.lng, centerLngLat.lat], [ptLngLat.lng, ptLngLat.lat]] },
-              properties: { __edge__: true },
-            });
-          }
-
-          if (!map.getSource(FLOOD_SPIDER_SOURCE_ID)) {
-            map.addSource(FLOOD_SPIDER_SOURCE_ID, { type: "geojson", data: { type: "FeatureCollection", features: points } });
-          } else {
-            map.getSource(FLOOD_SPIDER_SOURCE_ID).setData({ type: "FeatureCollection", features: points });
-          }
-          if (!map.getSource(FLOOD_SPIDER_EDGES_SOURCE_ID)) {
-            map.addSource(FLOOD_SPIDER_EDGES_SOURCE_ID, { type: "geojson", data: { type: "FeatureCollection", features: edges } });
-          } else {
-            map.getSource(FLOOD_SPIDER_EDGES_SOURCE_ID).setData({ type: "FeatureCollection", features: edges });
-          }
-
-          if (!map.getLayer(FLOOD_SPIDER_EDGES_LAYER_ID)) {
-            map.addLayer({
-              id: FLOOD_SPIDER_EDGES_LAYER_ID,
-              type: "line",
-              source: FLOOD_SPIDER_EDGES_SOURCE_ID,
-              paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6 },
-            });
-          }
-          if (!map.getLayer(FLOOD_SPIDER_POINTS_LAYER_ID)) {
-            map.addLayer({
-              id: FLOOD_SPIDER_POINTS_LAYER_ID,
-              type: "symbol",
-              source: FLOOD_SPIDER_SOURCE_ID,
-              layout: {
-                "icon-image": buildFloodIconExpression(floodTypes?.length ? floodTypes : []),
-                "icon-size": 0.1,
-                "icon-allow-overlap": true,
-                "icon-ignore-placement": true,
-                "icon-anchor": "bottom",
-              },
-            });
-          }
-
-          spiderActiveRef.current = true;
-          map.once("movestart", () => { clearSpiderfy(); });
+        map.on("mouseleave", FLOOD_LAYER_ID, () => {
+          clearHoverPopup();
         });
+        // intentionally no: map.on("click", FLOOD_LAYER_ID, ...)
 
-        // Spider point click -> detail popup
-        map.on("click", FLOOD_SPIDER_POINTS_LAYER_ID, (e) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          const html = buildNiceFloodHtml(f.properties || {});
-          showClickPopup(map, e.lngLat, html);
-          e.originalEvent?.stopPropagation?.();
-          e.originalEvent && (e.originalEvent.cancelBubble = true);
+        // Precompute per-road counts from your schemas
+        const amenCounts = computeRoadAmenityCounts(amenityData);
+        const floodCounts = computeRoadFloodCounts(floodData);
+        roadAmenityCountRef.current = amenCounts;
+        roadFloodCountRef.current = floodCounts;
+
+        // Combine into a weight map (amenities weighted 0.5, floods 1.0) for line width
+        const w = {};
+        const keys = new Set([...Object.keys(amenCounts), ...Object.keys(floodCounts), ...Object.keys(roadCountMap || {})]);
+        keys.forEach((k) => {
+          const base = Number((roadCountMap || {})[k] || 0);
+          const a = Number(amenCounts[k] || 0);
+          const f = Number(floodCounts[k] || 0);
+          w[k] = base + f * 1.0 + a * 0.5;
         });
+        roadWeightMapRef.current = w;
+        roadWeightMaxRef.current = Math.max(1, ...Object.values(w), maxRoadCount || 1);
+
+        map.on("moveend", recomputeVisibleFloods);
+        map.on("idle", recomputeVisibleFloods);
 
         setError(null);
         hasLoadedRef.current = true;
@@ -1383,10 +1219,11 @@ function SingaporeHistoricalFloodMap({
         popupRef.current = null;
       }
       hasLoadedRef.current = false;
-      try { if (map && map.remove) map.remove(); } catch {}
+      try {
+        if (map && map.remove) map.remove();
+      } catch {}
       mapRef.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     planningData,
     subzoneData,
@@ -1400,14 +1237,20 @@ function SingaporeHistoricalFloodMap({
     onSubzoneSelect,
   ]);
 
-  /* resize */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !hasLoadedRef.current) return;
-    try { map.resize(); } catch {}
+
+    // resize now…
+    map.resize();
+
+    // …and once again on the next paint (helps right after CSS transitions)
+    requestAnimationFrame(() => {
+      try { map.resize(); } catch {}
+    });
   }, [resizeSignal]);
 
-  /* amenity aggregates update when filters change (still name-keyed) */
+  /* amenity aggregates update when filters change */
   useEffect(() => {
     if (!amenityData) return;
     const categorySet = new Set(amenityCategoryFilter);
@@ -1416,11 +1259,11 @@ function SingaporeHistoricalFloodMap({
       (amenityData.features || []).filter((feature) => {
         const props = feature?.properties || {};
         if (categorySet.size) {
-          const category = S(props?.amenity_category);
+          const category = normaliseString(props?.amenity_category);
           if (!categorySet.has(category)) return false;
         }
         if (typeSet.size) {
-          const type = S(props?.amenity_type);
+          const type = normaliseString(props?.amenity_type);
           if (!typeSet.has(type)) return false;
         }
         return true;
@@ -1431,120 +1274,43 @@ function SingaporeHistoricalFloodMap({
     amenityStatsBySZRef.current = bySZ;
   }, [amenityData, amenityCategoryFilter, amenityTypeFilter]);
 
-  /* flood aggregates + planning PA bubbles + inside-PA stacks on filters/selection change */
+  /* flood aggregates update when filters change */
   useEffect(() => {
-    if (!floodData || !planningData) return;
-
-    // Build filtered flood features (respect global filters: type/date + optional selected PAs for inside-PA view)
-    const planningSet = new Set((selectedPlanningAreas || []).map(S));
+    if (!floodData) return;
+    const planningSet = new Set((selectedPlanningAreas || []).map((name) => normaliseString(name)));
     const typeSet = new Set(floodTypeFilterLowerList);
     const fromDateRaw = floodDateFrom ? new Date(floodDateFrom) : null;
-    const toDateRaw = floodDateTo ? new Date(floodDateTo) : null;
+       const toDateRaw = floodDateTo ? new Date(floodDateTo) : null;
     const fromDate = fromDateRaw && !Number.isNaN(fromDateRaw.getTime()) ? fromDateRaw : null;
     const toDate = toDateRaw && !Number.isNaN(toDateRaw.getTime()) ? toDateRaw : null;
 
-    // For aggregates we filter by type/date only; for "inside PA" we also scope by selected PAs
-    const featuresFilteredByTypeDate = (floodData.features || []).filter((feature) => {
+    const features = (floodData.features || []).filter((feature) => {
       const props = feature?.properties || {};
-      if (typeSet.size) {
-        const type = getFloodType(props);
-        if (!typeSet.has(type)) return false;
-      }
-      if ((fromDate || toDate) && !isWithinDateRange(getEventDate(props), fromDate, toDate)) return false;
-      return true;
-    });
-
-    const filteredFcTypeDate = { type: "FeatureCollection", features: featuresFilteredByTypeDate };
-
-    // recompute aggregates (by ID) for PA/SZ counts
-    const { by_pa_id, by_sz_id } = computeFloodCountsById(
-      filteredFcTypeDate,
-      planningAreaIdRef.current,
-      subzoneNameToIdRef.current
-    );
-    floodByPaRef.current = by_pa_id; // used for planning-level bubbles
-    floodBySzRef.current = by_sz_id;
-
-    const { byPaId, bySzId } = computeFloodBreakdownsById(
-      filteredFcTypeDate,
-      planningAreaIdRef.current,
-      subzoneNameToIdRef.current
-    );
-    floodCatsByPARef.current = byPaId;
-    floodCatsBySZRef.current = bySzId;
-
-    // ===== PA bubbles: one point per PA polygon center with 'count'
-    const paBubbleFeatures = [];
-    for (const f of (planningData.features || [])) {
-      const props = f.properties || {};
-      const paId = S(props.PA_ID);
-      const paName = S(props.PLN_AREA_N);
-      const count = Number(by_pa_id?.[paId] || 0);
-      const b = computeFeatureBounds(f.geometry);
-      const c = boundsCenter(b);
-      if (!c) continue;
-      paBubbleFeatures.push({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: c },
-        properties: { PA_ID: paId, PLN_AREA_N: paName, count },
-      });
-    }
-    const paBubbleFc = { type: "FeatureCollection", features: paBubbleFeatures };
-
-    const map = mapRef.current;
-    if (map && hasLoadedRef.current) {
-      const paSrc = map.getSource(PA_FLOOD_SOURCE_ID);
-      if (paSrc && paSrc.setData) paSrc.setData(paBubbleFc);
-    }
-
-    // ===== Inside-PA stacked data (only if a PA is selected)
-    const featuresScopedToPA = (floodData.features || []).filter((feature) => {
-      const props = feature?.properties || {};
-      // scope by PA name only if selection exists
       if (planningSet.size) {
-        const paName = S(
-          props.planning_area ?? props.PLN_AREA_N ?? props.planning ?? props.start_planning_area ?? props.end_planning_area
-        );
-        if (!planningSet.has(paName)) return false;
+        const planningArea = getPlanningArea(props);
+        if (!planningSet.has(planningArea)) return false;
       }
-      // and always respect type/date filters
       if (typeSet.size) {
         const type = getFloodType(props);
         if (!typeSet.has(type)) return false;
       }
-      if ((fromDate || toDate) && !isWithinDateRange(getEventDate(props), fromDate, toDate)) return false;
+      if ((fromDate || toDate) && !isWithinDateRange(getEventDate(props), fromDate, toDate)) {
+        return false;
+      }
       return true;
     });
-    const filteredInsidePAFc = { type: "FeatureCollection", features: featuresScopedToPA };
 
-    const { stackedFc, stackMap } = buildStackedFromFiltered(filteredInsidePAFc);
-    floodStackMapRef.current = stackMap;
+    const filteredFc = { type: "FeatureCollection", features };
+    const { by_pa, by_sz } = computeFloodCounts(filteredFc);
+    floodByPaRef.current = by_pa;
+    floodBySzRef.current = by_sz;
 
-    if (map && hasLoadedRef.current) {
-      const src = map.getSource(FLOOD_STACKED_SOURCE_ID);
-      if (src && src.setData) src.setData(stackedFc);
-      // clear spiderfy when membership changes
-      try {
-        if (map.getLayer(FLOOD_SPIDER_POINTS_LAYER_ID)) map.removeLayer(FLOOD_SPIDER_POINTS_LAYER_ID);
-        if (map.getLayer(FLOOD_SPIDER_EDGES_LAYER_ID)) map.removeLayer(FLOOD_SPIDER_EDGES_LAYER_ID);
-        if (map.getSource(FLOOD_SPIDER_SOURCE_ID)) map.removeSource(FLOOD_SPIDER_SOURCE_ID);
-        if (map.getSource(FLOOD_SPIDER_EDGES_SOURCE_ID)) map.removeSource(FLOOD_SPIDER_EDGES_SOURCE_ID);
-      } catch {}
-      spiderActiveRef.current = false;
-    }
+    const { byPa, bySz } = computeFloodBreakdowns(filteredFc);
+    floodCatsByPARef.current = byPa;
+    floodCatsBySZRef.current = bySz;
+  }, [floodData, selectedPlanningAreas, floodTypeFilterLowerList, floodDateFrom, floodDateTo]);
 
-    // visible count (for UI footer)
-    setVisibleFloodCount(featuresScopedToPA.length || featuresFilteredByTypeDate.length);
-  }, [
-    floodData,
-    planningData,
-    selectedPlanningAreas,
-    floodTypeFilterLowerList,
-    floodDateFrom,
-    floodDateTo,
-  ]);
-
-  /* layer visibility + other toggles */
+  /* layer filters & visibility toggles */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !hasLoadedRef.current) return;
@@ -1554,19 +1320,16 @@ function SingaporeHistoricalFloodMap({
 
     const hasSelectionLocal = selectedPlanningAreas?.length > 0;
 
-    // Subzones & highlight: selection is by PA NAME
     const subzoneFilterExpr = buildMatchFilter("PLN_AREA_N", selectedPlanningAreas);
     map.setFilter(SUBZONE_FILL_LAYER_ID, subzoneFilterExpr);
     map.setFilter(SUBZONE_OUTLINE_LAYER_ID, subzoneFilterExpr);
-    map.setFilter(PLANNING_HIGHLIGHT_LAYER_ID, hasSelectionLocal ? subzoneFilterExpr : ["==", ["get", "PLN_AREA_N"], "__none__"]);
+    map.setFilter(PLANNING_HIGHLIGHT_LAYER_ID, hasSelectionLocal ? subzoneFilterExpr : EMPTY_PLANNING_FILTER);
 
-    // Roads: filter by PA_ID list
     const paIds = (selectedPlanningAreas || []).map((name) => planningAreaIdRef.current[name]).filter(Boolean);
     const roadPAFilter = buildMatchFilter("PA_ID", paIds);
     map.setFilter(ROAD_LAYER_ID, roadPAFilter);
     map.setLayoutProperty(ROAD_LAYER_ID, "visibility", hasSelectionLocal && paIds.length > 0 ? "visible" : "none");
 
-    // Subzone visibility (when drilled in)
     const subzoneVisible = viewMode === "subzone" && hasSelectionLocal ? "visible" : "none";
     map.setLayoutProperty(SUBZONE_FILL_LAYER_ID, "visibility", subzoneVisible);
     map.setLayoutProperty(SUBZONE_OUTLINE_LAYER_ID, "visibility", subzoneVisible);
@@ -1575,29 +1338,24 @@ function SingaporeHistoricalFloodMap({
       map.setLayoutProperty(SZ_HOVER_OUTLINE_ID, "visibility", subzoneVisible);
     }
 
-    // PA bubbles visible only in planning mode
-    const planningBubblesVisible = viewMode === "planning" ? "visible" : "none";
-    [PA_FLOOD_BUBBLE_LAYER_ID, PA_FLOOD_COUNT_LAYER_ID].forEach((id) => {
-      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", planningBubblesVisible);
-    });
-
-    // Inside-PA flood markers/stack visible only in subzone mode
-    const insidePAVisible = viewMode === "subzone" && hasSelectionLocal && showFloods ? "visible" : "none";
-    [FLOOD_STACK_BUBBLE_LAYER_ID, FLOOD_STACK_COUNT_LAYER_ID, FLOOD_SINGLE_LAYER_ID].forEach((id) => {
-      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", insidePAVisible);
-    });
-
-    // AMENITY MARKERS
+    // AMENITY MARKERS — local toggle/lists
     if (map.getLayer(AMENITY_ICON_LAYER_ID)) {
-      const subzoneName = S(selectedSubzone?.properties?.SUBZONE_N) || (activeSubzoneName ?? "");
+      const subzoneName =
+        (selectedSubzone?.properties?.SUBZONE_N ?? "").toString().trim() || (activeSubzoneName ?? "");
+
       const amenityClauses = ["all"];
 
+      // PA constraint
       if (hasSelectionLocal) {
         amenityClauses.push(buildMatchFilter("planning_area", selectedPlanningAreas));
       }
+
+      // Subzone constraint
       if (subzoneName) {
         amenityClauses.push(["==", ["to-string", ["coalesce", ["get", "subzone"], ""]], subzoneName]);
       }
+
+      // Category filter from parent (selectedAmenityCategories)
       if (amenityCategoryFilter.length) {
         amenityClauses.push([
           "in",
@@ -1605,6 +1363,8 @@ function SingaporeHistoricalFloodMap({
           ["literal", amenityCategoryFilter],
         ]);
       }
+
+      // Type filter from LeftPanel (still respected)
       if (amenityTypeFilter.length) {
         amenityClauses.push([
           "in",
@@ -1612,6 +1372,8 @@ function SingaporeHistoricalFloodMap({
           ["literal", amenityTypeFilter],
         ]);
       }
+
+      // ✅ Local DISPLAY filter by CATEGORY (replaces the old "display types" filter)
       if (displayAmenityCategoriesNorm.length) {
         amenityClauses.push([
           "in",
@@ -1627,6 +1389,37 @@ function SingaporeHistoricalFloodMap({
         showAmenities && displayAmenityCategoriesNorm.length ? "visible" : "none"
       );
     }
+
+    // FLOOD MARKERS — local toggle/lists
+    if (map.getLayer(FLOOD_LAYER_ID)) {
+      const floodClauses = ["all"];
+      if (hasSelectionLocal) {
+        floodClauses.push(buildMatchFilter("planning_area", selectedPlanningAreas));
+      }
+      if (displayFloodTypesLowerList.length) {
+        floodClauses.push([
+          "in",
+          ["downcase", ["to-string", ["coalesce", ["get", "event"], ["get", "flood_type"], ""]]],
+          ["literal", displayFloodTypesLowerList],
+        ]);
+      }
+      if (floodDateFrom || floodDateTo) {
+        const buildDateExpr = () => ["to-string", ["coalesce", ["get", "event_date"], ["get", "date"], ""]];
+        floodClauses.push(["!=", buildDateExpr(), ""]);
+        if (floodDateFrom) floodClauses.push([">=", buildDateExpr(), floodDateFrom]);
+        if (floodDateTo) floodClauses.push(["<=", buildDateExpr(), floodDateTo]);
+      }
+      map.setFilter(FLOOD_LAYER_ID, floodClauses);
+      map.setLayoutProperty(
+        FLOOD_LAYER_ID,
+        "visibility",
+        showFloods && displayFloodTypesLowerList.length ? "visible" : "none"
+      );
+    }
+
+    const onceIdle = () => recomputeVisibleFloods();
+    map.once("idle", onceIdle);
+    recomputeVisibleFloods();
 
     if (!hasSelectionLocal && lastHadSelectionRef.current) {
       setViewMode("planning");
@@ -1648,6 +1441,12 @@ function SingaporeHistoricalFloodMap({
       }
       if (combinedBounds) map.fitBounds(combinedBounds, { padding: 48, duration: 800, maxZoom: 13 });
     }
+
+    return () => {
+      try {
+        map.off("idle", onceIdle);
+      } catch {}
+    };
   }, [
     selectedPlanningAreas,
     selectedSubzone,
@@ -1656,7 +1455,15 @@ function SingaporeHistoricalFloodMap({
     showAmenities,
     showFloods,
     displayAmenityCategoriesNorm,
+    displayFloodTypesLowerList,
+    floodDateFrom,
+    floodDateTo,
+    floodStats,
   ]);
+
+  useEffect(() => {
+    recomputeVisibleFloods();
+  }, [resizeSignal]);
 
   /* choropleths & road width */
   const getPlanningColoring = () => {
@@ -1664,12 +1471,12 @@ function SingaporeHistoricalFloodMap({
       const mapm = amenityStatsByPARef.current || {};
       const countMap = Object.fromEntries(Object.entries(mapm).map(([k, v]) => [k, v.total || 0]));
       const maxCount = Math.max(1, ...Object.values(countMap), 1);
-      return { countMap, maxCount, keyProp: "PLN_AREA_N" };
+      return { countMap, maxCount };
     }
     const countMap = floodByPaRef.current || {};
     const vals = Object.values(countMap || {});
     const maxCount = vals.length ? Math.max(...vals, 1) : 1;
-    return { countMap, maxCount, keyProp: "PA_ID" };
+    return { countMap, maxCount };
   };
 
   const getSubzoneColoring = () => {
@@ -1678,11 +1485,26 @@ function SingaporeHistoricalFloodMap({
         Object.entries(amenityStatsBySZRef.current || {}).map(([k, v]) => [k, v.total || 0])
       );
       const vals = Object.values(base);
-      return { countMap: base, maxCount: vals.length ? Math.max(...vals, 1) : 1, keyProp: "SUBZONE_N" };
+      return { countMap: base, maxCount: vals.length ? Math.max(...vals, 1) : 1 };
     }
     const base_map = floodBySzRef.current || {};
-    const vals = Object.values(base_map);
-    return { countMap: base_map, maxCount: vals.length ? Math.max(...vals, 1) : 1, keyProp: "SZ_ID" };
+    if (!selectedPlanningAreas?.length) {
+      const vals = Object.values(base_map);
+      return { countMap: base_map, maxCount: vals.length ? Math.max(...vals, 1) : 1 };
+    }
+    const scoped = {};
+    for (const [sz, val] of Object.entries(base_map)) {
+      const pa_set = subzoneToPARef.current.get(sz);
+      if (!pa_set) continue;
+      for (const pa of pa_set) {
+        if (selectedPlanningAreas.includes(pa)) {
+          scoped[sz] = (scoped[sz] ?? 0) + Number(val || 0);
+          break;
+        }
+      }
+    }
+    const vals = Object.values(scoped);
+    return { countMap: scoped, maxCount: vals.length ? Math.max(...vals, 1) : 1 };
   };
 
   useEffect(() => {
@@ -1690,9 +1512,9 @@ function SingaporeHistoricalFloodMap({
     if (!map || !hasLoadedRef.current || !map.getLayer(PLANNING_FILL_LAYER_ID)) return;
 
     // planning choropleth
-    const { countMap: paCounts, maxCount: paMax, keyProp: paKey } = getPlanningColoring();
+    const { countMap: paCounts, maxCount: paMax } = getPlanningColoring();
     const planningExpr = buildChoroplethExpression(
-      paKey,
+      "PLN_AREA_N",
       paCounts,
       paMax,
       PLANNING_COLORS,
@@ -1713,8 +1535,8 @@ function SingaporeHistoricalFloodMap({
     // subzone choropleth
     if (map.getLayer(SUBZONE_FILL_LAYER_ID)) {
       if (viewMode === "subzone" && selectedPlanningAreas.length > 0) {
-        const { countMap: szCounts, maxCount: szMax, keyProp: szKey } = getSubzoneColoring();
-        const subzoneExpr = buildChoroplethExpression(szKey, szCounts, szMax, SUBZONE_COLORS, DEFAULT_SUBZONE_COLOR);
+        const { countMap: szCounts, maxCount: szMax } = getSubzoneColoring();
+        const subzoneExpr = buildChoroplethExpression("SUBZONE_N", szCounts, szMax, SUBZONE_COLORS, DEFAULT_SUBZONE_COLOR);
         map.setPaintProperty(SUBZONE_FILL_LAYER_ID, "fill-color", [
           "case",
           ["boolean", ["feature-state", "hover"], false],
@@ -1733,20 +1555,18 @@ function SingaporeHistoricalFloodMap({
       }
     }
 
-    // roads width
+    // roads width — use combined weight map (floods + amenities) with thicker max
     if (map.getLayer(ROAD_LAYER_ID)) {
-      const weightMap = roadWeightMapRef.current && Object.keys(roadWeightMapRef.current).length
-        ? roadWeightMapRef.current
-        : (floodStats.roadCountMap ?? {});
-      const maxW = roadWeightMaxRef.current || floodStats.maxRoadCount || 1;
+      const weightMap = Object.keys(roadWeightMapRef.current).length ? roadWeightMapRef.current : roadCountMap ?? {};
+      const maxW = roadWeightMaxRef.current || maxRoadCount || 1;
       const roadWidthExpression =
         selectedPlanningAreas.length > 0
           ? buildLineWidthExpression(
               ["coalesce", ["get", "RN_ID"], ["get", "RD_NAME"]],
               weightMap,
               maxW,
-              2,
-              8,
+              2,   // min width
+              8,   // max width (thicker)
               DEFAULT_ROAD_WIDTH
             )
           : DEFAULT_ROAD_WIDTH;
@@ -1779,7 +1599,7 @@ function SingaporeHistoricalFloodMap({
   })();
 
   return (
-    <div className="relative w-full h:[95dvh] h-[95dvh]">
+    <div className="relative w-full h-[95dvh]">
       <div ref={mapContainerRef} className="absolute inset-0 map-container" />
 
       {/* collapse/expand fab */}
@@ -1836,7 +1656,7 @@ function SingaporeHistoricalFloodMap({
                 </div>
                 <div className="max-h-40 overflow-auto pr-1 space-y-1">
                   {floodTypes.map((t) => {
-                    const normalized = S(t);
+                    const normalized = normaliseString(t);
                     const checked = displayFloodTypes.includes(normalized);
                     return (
                       <label key={t} className="flex items-center gap-2">
@@ -1858,7 +1678,9 @@ function SingaporeHistoricalFloodMap({
 
             <label className="inline-flex items-center gap-2 mt-3">
               <input type="checkbox" checked={showAmenities} onChange={(e) => setShowAmenities(e.target.checked)} />
-              <span>Show amenities</span>
+              <span>
+                Show amenities
+              </span>
             </label>
 
             {showAmenities ? (
@@ -1885,7 +1707,7 @@ function SingaporeHistoricalFloodMap({
 
                 <div className="max-h-40 overflow-auto pr-1 space-y-1">
                   {availableAmenityCategories.map((cat) => {
-                    const normalized = S(cat);
+                    const normalized = normaliseString(cat);
                     const checked = displayAmenityCategories.includes(normalized);
                     return (
                       <label key={cat} className="flex items-center gap-2 text-[11px]">
@@ -1918,16 +1740,9 @@ function SingaporeHistoricalFloodMap({
                 )}
               </div>
             ) : null}
-
             {viewMode === "planning" && (
-              <div className="mt-2 text:[11px] text-slate-400">
-                click a planning area (or its green bubble) to drill into floods.
-              </div>
+              <div className="mt-2 text:[11px] text-slate-400">click a planning area to drill into subzones.</div>
             )}
-
-            <div className="mt-3 text-[11px] text-slate-300">
-              visible floods: <span className="font-semibold text-slate-100">{visibleFloodCount}</span>
-            </div>
           </div>
         </div>
       )}
@@ -1950,12 +1765,8 @@ function SingaporeHistoricalFloodMap({
           </div>
 
           <div className="mt-3 flex items-center gap-2">
-            <span className="inline-block h-3 w-3 rounded-full border border-white" style={{ backgroundColor: "#22c55e" }} />
-            <span className="text-slate-300">PA flood count</span>
-          </div>
-          <div className="mt-1 flex items-center gap-2">
             <span className="inline-block h-3 w-3 rounded-full border border-white" style={{ backgroundColor: "#38bdf8" }} />
-            <span className="text-slate-300">flood event (inside PA view)</span>
+            <span className="text-slate-300">flood event</span>
           </div>
         </div>
       </div>

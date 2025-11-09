@@ -22,5 +22,7 @@ etl/data/onemap/raw
 
 
 
+
 # MacOS 
 */.DS_Store
+*/__pycache__

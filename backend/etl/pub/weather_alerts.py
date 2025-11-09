@@ -28,17 +28,17 @@ logger = logging.getLogger(__name__)
 
 class WeatherAlerts:
     def __init__(self):
-        """Initialize Telegram client and load environment variables"""
-        api_id = os.getenv("TELE_API_ID")
-        api_hash = os.getenv("TELE_API_HASH")
+        """Initialize configuration and load environment variables"""
+        self.api_id = os.getenv("TELE_API_ID")
+        self.api_hash = os.getenv("TELE_API_HASH")
         self.bot_token = os.getenv("PUB_TELE_BOT_TOKEN")
         self.channel_username = PUB_CHANNEL_USERNAME
         self.phone = os.getenv("TELE_PHONE_NO")
 
         missing_vars = []
-        if not api_id:
+        if not self.api_id:
             missing_vars.append("TELE_API_ID")
-        if not api_hash:
+        if not self.api_hash:
             missing_vars.append("TELE_API_HASH")
         if not self.channel_username:
             missing_vars.append("PUB_CHANNEL_USERNAME")
@@ -50,37 +50,67 @@ class WeatherAlerts:
                 f"Missing required environment variables: " f"{', '.join(missing_vars)}"
             )
 
-        # At this point we know api_id and api_hash are not None
-        assert api_id is not None
-        assert api_hash is not None
+        # Defer client creation until needed in async context
+        self._client = None
+        self._session_path = os.path.join("/tmp", "session")
+        self._loop = None  # Track the event loop
 
-        # Retrieve tele credentials first
-        logger.info("🔄 Retrieving Telegram credentials from storage...")
-        self.get_credentials_from_storage()
+        logger.info(f"Telegram Client subscribed to {self.channel_username}")
 
-        self.client = TelegramClient("session", int(api_id), api_hash)
+    async def _get_client(self) -> TelegramClient:
+        """Get or create TelegramClient in the current async context"""
+        current_loop = asyncio.get_event_loop()
 
-        logger.info(f"Using channel: {self.channel_username}")
+        # Recreate client if event loop has changed or client doesn't exist
+        if self._client is None or self._loop != current_loop:
+            # Disconnect old client if it exists and loop changed
+            if self._client is not None and self._loop != current_loop:
+                logger.info("🔄 Event loop changed, recreating TelegramClient")
+                try:
+                    if self._client.is_connected():
+                        await self._client.disconnect()
+                except Exception as e:
+                    logger.warning(f"Error disconnecting old client: {e}")
+                self._client = None
 
-        logger.info(
-            f"WeatherAlertsETL initialized. " f"Listening on {self.channel_username}"
-        )
+            # Check if session file exists, download if needed
+            session_file = f"{self._session_path}.session"
+            if not os.path.exists(session_file):
+                logger.info("🔄 Session file not found, " "retrieving from storage...")
+                self.get_credentials_from_storage()
+            else:
+                logger.info("✅ Using cached session file from /tmp")
+
+            # Create client in the current event loop context
+            # Note: api_id is int, api_hash is string (hexadecimal)
+            # These are guaranteed to be non-None by __init__ validation
+            self._client = TelegramClient(
+                self._session_path,
+                int(self.api_id),  # type: ignore
+                self.api_hash,  # type: ignore
+            )
+            self._loop = current_loop
+            logger.info("✅ TelegramClient initialized in current event loop")
+
+        return self._client
 
     async def extract_existing_messages(self, limit: int = 100) -> None:
         """Extract existing messages from a channel"""
         messages = []
-        if not self.client.is_connected():
-            await self.client.connect()
+        client = await self._get_client()
 
-        if not await self.client.is_user_authorized():
+        if not client.is_connected():
+            await client.connect()
+
+        if not await client.is_user_authorized():
             if self.phone:
-                self.client.start(phone=self.phone)
+                await client.start(phone=self.phone)
             else:
                 logger.error("Phone number not provided for authorization")
                 return
 
         try:
-            async for message in self.client.iter_messages(
+            async for message in client.iter_messages(
                 self.channel_username, limit=limit
             ):
                 if message.text:
@@ -106,14 +136,182 @@ class WeatherAlerts:
         except Exception as e:
             logger.error(f"Error extracting messages: {e}")
 
+    async def extract_recent_messages(
+        self, hours: int = 24, webhook_url: Optional[str] = None
+    ) -> list[Dict]:
+        """
+        Extract messages from the last N hours.
+        Perfect for cron jobs to periodically fetch new messages.
+
+        Args:
+            hours: Number of hours to look back (default: 24)
+            webhook_url: Optional webhook URL to forward messages to
+
+        Returns:
+            List of message dictionaries
+        """
+        messages = []
+        client = await self._get_client()
+
+        if not client.is_connected():
+            await client.connect()
+
+        if not await client.is_user_authorized():
+            if self.phone:
+                await client.start(phone=self.phone)
+            else:
+                logger.error("Phone number not provided for authorization")
+                return messages
+
+        try:
+            from datetime import timedelta, timezone
+
+            # Calculate the time threshold (timezone-aware)
+            time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
+            logger.info(
+                f"🔍 Fetching messages from {self.channel_username} "
+                f"since {time_threshold.isoformat()}"
+            )
+
+            # Iterate through messages until we hit the time threshold
+            async for message in client.iter_messages(
+                self.channel_username, limit=None
+            ):
+                # Stop if message is older than threshold
+                if message.date < time_threshold:
+                    break
+
+                if message.text:
+                    message_data = {
+                        "id": message.id,
+                        "text": message.text,
+                        "created_at": message.date.isoformat(),
+                        "sender_id": message.sender_id,
+                    }
+                    messages.append(message_data)
+
+                    # Optionally forward to webhook
+                    if webhook_url:
+                        try:
+                            async with httpx.AsyncClient(timeout=10) as client:
+                                response = await client.post(
+                                    webhook_url, json=message_data
+                                )
+                                response.raise_for_status()
+                                logger.info(
+                                    f"✅ Forwarded message {message.id} " f"to webhook"
+                                )
+                        except Exception as e:
+                            logger.error(
+                                f"❌ Failed to forward message {message.id}: " f"{e}"
+                            )
+
+            logger.info(
+                f"✅ Extracted {len(messages)} messages from last {hours} hours"
+            )
+            return messages
+
+        except Exception as e:
+            logger.error(f"❌ Error extracting recent messages: {e}")
+            return messages
+        # No finally block - keep connection alive for singleton
+
+    async def extract_and_save_recent_messages(self, hours: int = 24) -> list[Dict]:
+        """
+        Extract messages from the last N hours and save them to database.
+        Designed for cron jobs - handles full lifecycle including DB writes.
+
+        Args:
+            hours: Number of hours to look back (default: 24)
+
+        Returns:
+            List of processed message dictionaries
+        """
+        messages = []
+        client = await self._get_client()
+
+        if not client.is_connected():
+            await client.connect()
+
+        if not await client.is_user_authorized():
+            if self.phone:
+                await client.start(phone=self.phone)
+            else:
+                logger.error("Phone number not provided for authorization")
+                return messages
+
+        try:
+            from datetime import timedelta, timezone
+            from etl.pub.weather_alerts_pipeline import (
+                WeatherAlertsPipeline,
+            )
+
+            # Calculate the time threshold (timezone-aware)
+            time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
+            logger.info(
+                f"🔍 Fetching messages from {self.channel_username} "
+                f"since {time_threshold.isoformat()}"
+            )
+
+            # Initialize pipeline for processing
+            config = {
+                "continue_on_error": True,
+                "weather_processing": {},
+                "location_geocoding": {},
+                "database_write": {},
+            }
+            pipeline = WeatherAlertsPipeline(
+                config=config, db_table="PUB_weather_alerts"
+            )
+
+            # Iterate through messages until we hit the time threshold
+            raw_messages = []
+            async for message in client.iter_messages(
+                self.channel_username, limit=None
+            ):
+                # Stop if message is older than threshold
+                if message.date < time_threshold:
+                    break
+
+                if message.text:
+                    message_data = {
+                        "id": message.id,
+                        "text": message.text,
+                        "created_at": message.date.isoformat(),
+                        "sender_id": message.sender_id,
+                    }
+                    raw_messages.append(message_data)
+
+            logger.info(f"📥 Extracted {len(raw_messages)} messages from Telegram")
+
+            # Process all messages through the pipeline
+            if raw_messages:
+                logger.info("🔄 Processing messages through pipeline...")
+                result = await pipeline.process_weather_alerts(raw_messages)
+                messages = raw_messages
+                logger.info(
+                    f"✅ Successfully processed and saved " f"{len(messages)} messages"
+                )
+            else:
+                logger.info("ℹ️  No new messages found in the time range")
+
+            return messages
+
+        except Exception as e:
+            logger.error(f"❌ Error in extract_and_save_recent_messages: {e}")
+            return messages
+        # No finally block - keep connection alive for singleton
+
     async def start_live_monitoring(self):
         """Monitor channel for new messages"""
         url = SERVER_URL or "http://localhost:8000"
         WEBHOOK_URL = f"{url}/weather-alerts/webhook"
 
+        client = await self._get_client()
+
         try:
             # Start the client with phone parameter - this handles authentication automatically
-            await self.client.start(
+            await client.start(
                 phone=self.phone,
                 code_callback=lambda: input(
                     "Please enter the verification code you received: "
@@ -127,7 +325,7 @@ class WeatherAlerts:
             return
 
         # Set up message handler
-        @self.client.on(events.NewMessage(chats=self.channel_username))
+        @client.on(events.NewMessage(chats=self.channel_username))
         async def handler(event):
             data = {
                 "id": event.message.id,
@@ -150,7 +348,7 @@ class WeatherAlerts:
 
         logger.info(f"📡 Now monitoring {self.channel_username} for new messages...")
         # Keep the client running
-        await self.client.run_until_disconnected()
+        await client.run_until_disconnected()
 
     def _save_message(
         self,
@@ -273,12 +471,9 @@ class WeatherAlerts:
             )
 
             if response:
-                # Get the path to the backend directory
-                # (2 levels up from current file)
-                backend_dir = os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), "..", "..")
-                )
-                session_file_path = os.path.join(backend_dir, "session.session")
+                # Use /tmp directory for session file in serverless environments
+                # (read-only filesystem except /tmp in Vercel, AWS Lambda, etc.)
+                session_file_path = os.path.join("/tmp", "session.session")
 
                 # Write the downloaded content to session.session
                 with open(session_file_path, "wb") as f:
