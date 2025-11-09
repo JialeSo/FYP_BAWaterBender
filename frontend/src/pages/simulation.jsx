@@ -300,7 +300,7 @@ export default function Simulation() {
   const [paDeltas, setPaDeltas] = useState([]);
   const [selectedPA, setSelectedPA] = useState(null);
   const [hoveredPA, setHoveredPA] = useState(null);
-  const [selectedMetric, setSelectedMetric] = useState("delta_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time" | "golden_time"
+  const [selectedMetric, setSelectedMetric] = useState("flooded_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time" | "golden_time"
 
   // Map layer visibility toggles
   const [showAmenities, setShowAmenities] = useState(true);

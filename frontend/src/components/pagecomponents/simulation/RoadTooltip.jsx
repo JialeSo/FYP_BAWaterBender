@@ -29,6 +29,12 @@ export function generateRoadTooltipHTML(props, nearestAmenityData = null) {
     ? (delta_time > 0 ? `+${fmtTime(delta_time)}` : fmtTime(delta_time))
     : 'N/A';
 
+  // Calculate percentage increase
+  let percentageIncrease = null;
+  if (Number.isFinite(baseline_time) && Number.isFinite(delta_time) && baseline_time > 0 && delta_time !== 0) {
+    percentageIncrease = ((delta_time / baseline_time) * 100).toFixed(1);
+  }
+
   // Determine status message and color
   let statusMsg, statusColor;
   if (status === 'unreachable') {
@@ -69,7 +75,9 @@ export function generateRoadTooltipHTML(props, nearestAmenityData = null) {
         ${Number.isFinite(delta_time) && delta_time !== 0 ? `
           <div style="font-size: 11px; margin-top: 6px;">
             <div style="color: #d1d5db; margin-bottom: 3px; font-weight: 500;">Change:</div>
-            <div style="color: ${delta_time > 0 ? '#fbbf24' : '#22c55e'}; margin-left: 8px; font-weight: 600;">${deltaTimeStr}</div>
+            <div style="color: ${delta_time > 0 ? '#fbbf24' : '#22c55e'}; margin-left: 8px; font-weight: 600;">
+              ${deltaTimeStr}${percentageIncrease !== null ? ` (${percentageIncrease > 0 ? '+' : ''}${percentageIncrease}%)` : ''}
+            </div>
           </div>
         ` : ''}
   `;

@@ -456,9 +456,11 @@ export function SimulationMapContainer({
    * Update choropleth when metric or data changes
    */
   useEffect(() => {
-    if (mapReady && !selectedPA) {
+    if (mapReady) {
       updateChoroplethData(selectedMetric);
-      updateBlockedRoadsLayer();
+      if (!selectedPA) {
+        updateBlockedRoadsLayer();
+      }
     }
   }, [mapReady, selectedMetric, updateChoroplethData, updateBlockedRoadsLayer, selectedPA]);
 
@@ -694,8 +696,49 @@ export function SimulationMapContainer({
     }
   }, [mapReady, showFloodedRoads]);
 
+  /**
+   * Hide/show choropleth based on planning area selection
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const visibility = selectedPA ? "none" : "visible";
+    if (map.getLayer("choropleth-fill")) {
+      map.setLayoutProperty("choropleth-fill", "visibility", visibility);
+    }
+    if (map.getLayer("choropleth-outline")) {
+      map.setLayoutProperty("choropleth-outline", "visibility", visibility);
+    }
+  }, [mapReady, selectedPA]);
+
   return (
-    <div ref={containerRef} className="absolute inset-0 min-h-[500px]" />
+    <>
+      <div ref={containerRef} className="absolute inset-0 min-h-[500px]" />
+
+      {/* Custom popup styles - dark mode, no borders */}
+      <style>{`
+        .mapboxgl-popup-content {
+          background-color: #1f2937 !important;
+          border-radius: 8px !important;
+          padding: 0 !important;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+          border: none !important;
+        }
+        .mapboxgl-popup-tip {
+          border-top-color: #1f2937 !important;
+        }
+        .mapboxgl-popup-close-button {
+          color: #9ca3af !important;
+          font-size: 18px !important;
+          padding: 4px 8px !important;
+        }
+        .mapboxgl-popup-close-button:hover {
+          background-color: transparent !important;
+          color: #fff !important;
+        }
+      `}</style>
+    </>
   );
 }
 
