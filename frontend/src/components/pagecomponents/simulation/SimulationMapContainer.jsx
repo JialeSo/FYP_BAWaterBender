@@ -90,18 +90,27 @@ export function SimulationMapContainer({
   /**
    * Update choropleth data based on selected metric
    */
-  const updateChoroplethData = useCallback((metric) => {
+  const updateChoroplethData = useCallback((metric, filterPAId = null) => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded() || !planning_fc_raw?.features?.length) return;
 
-    const features = planning_fc_raw.features.map(f => {
-      const paId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
-      const delta = paDeltas.find(d => d.pa_id === paId);
+    const features = planning_fc_raw.features
+      .filter(f => {
+        // If filterPAId is provided, only show that PA
+        if (filterPAId !== null) {
+          const paId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
+          return paId === filterPAId;
+        }
+        return true;
+      })
+      .map(f => {
+        const paId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
+        const delta = paDeltas.find(d => d.pa_id === paId);
 
-      let fillColor = "#d1d5db"; // Default gray
-      let value = null;
+        let fillColor = "#d1d5db"; // Default gray
+        let value = null;
 
-      if (delta) {
+        if (delta) {
         switch (metric) {
           case "delta_time": {
             value = delta.delta_avg_s;
@@ -252,6 +261,7 @@ export function SimulationMapContainer({
           properties: {
             rn_id: edge.rn_id,
             name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+            pa_name: nodeFrom?.paName || nodeTo?.paName || null,
             travel_time: edge.w,
             blocked: isBlocked,
             status,
@@ -456,13 +466,13 @@ export function SimulationMapContainer({
    * Update choropleth when metric or data changes
    */
   useEffect(() => {
-    if (mapReady) {
-      updateChoroplethData(selectedMetric);
+    if (mapReady && paDeltas.length > 0) {
+      updateChoroplethData(selectedMetric, selectedPA);
       if (!selectedPA) {
         updateBlockedRoadsLayer();
       }
     }
-  }, [mapReady, selectedMetric, updateChoroplethData, updateBlockedRoadsLayer, selectedPA]);
+  }, [mapReady, selectedMetric, paDeltas, updateChoroplethData, updateBlockedRoadsLayer, selectedPA]);
 
   /**
    * Setup map interaction handlers
@@ -532,7 +542,19 @@ export function SimulationMapContainer({
         const feature = e.features[0];
         const paId = feature.properties.pa_id;
 
-        // Hide choropleth, show roads
+        // Clear PA popup when clicking
+        if (paPopupRef.current) {
+          paPopupRef.current.remove();
+          paPopupRef.current = null;
+        }
+
+        // Clear hover state
+        if (hoveredPAId !== null) {
+          map.setFeatureState({ source: "choropleth", id: hoveredPAId }, { hover: false });
+          hoveredPAId = null;
+        }
+
+        // Show roads for this PA
         showPlanningAreaRoads(paId, feature);
         onPlanningAreaSelect?.(paId, feature);
       }
@@ -625,7 +647,7 @@ export function SimulationMapContainer({
         }
 
         // Restore choropleth and blocked roads
-        updateChoroplethData(selectedMetric);
+        updateChoroplethData(selectedMetric, null);
         updateBlockedRoadsLayer();
 
         // Reset zoom
@@ -696,21 +718,6 @@ export function SimulationMapContainer({
     }
   }, [mapReady, showFloodedRoads]);
 
-  /**
-   * Hide/show choropleth based on planning area selection
-   */
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-
-    const visibility = selectedPA ? "none" : "visible";
-    if (map.getLayer("choropleth-fill")) {
-      map.setLayoutProperty("choropleth-fill", "visibility", visibility);
-    }
-    if (map.getLayer("choropleth-outline")) {
-      map.setLayoutProperty("choropleth-outline", "visibility", visibility);
-    }
-  }, [mapReady, selectedPA]);
 
   return (
     <>

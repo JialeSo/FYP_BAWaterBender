@@ -16,105 +16,84 @@ export function generatePlanningAreaTooltipHTML(paData) {
     pa_name,
     total_nodes,
     base_avg_s,
+    base_min_s,
     base_max_s,
+    base_unreachable,
     flood_avg_s,
+    flood_min_s,
     flood_max_s,
+    flood_unreachable,
     delta_avg_s,
     delta_max_s,
     pct_avg_increase,
     pct_max_increase,
-    pct_unreachable,
-    affected_nodes,
-    unreachable_nodes,
   } = paData;
 
+  // Calculate min delta and percentage
+  const delta_min_s = Number.isFinite(flood_min_s) && Number.isFinite(base_min_s)
+    ? flood_min_s - base_min_s
+    : null;
+  const pct_min_increase = Number.isFinite(base_min_s) && base_min_s > 0 && Number.isFinite(delta_min_s)
+    ? (delta_min_s / base_min_s) * 100
+    : null;
+
+  // Calculate reachable nodes
+  const base_reachable = total_nodes - (base_unreachable || 0);
+  const flood_reachable = total_nodes - (flood_unreachable || 0);
+  const delta_reachable = flood_reachable - base_reachable;
+  const pct_reachable_change = base_reachable > 0 ? (delta_reachable / base_reachable) * 100 : 0;
+
+  // Helper function to format change with color
+  const formatChange = (delta, pct, isNegativeGood = false) => {
+    if (!Number.isFinite(delta) || !Number.isFinite(pct)) return '';
+    const sign = delta > 0 ? '+' : '';
+    const color = isNegativeGood
+      ? (delta < 0 ? '#22c55e' : delta > 0 ? '#ef4444' : '#9ca3af')
+      : (delta > 0 ? '#fbbf24' : delta < 0 ? '#22c55e' : '#9ca3af');
+    return `<span style="color: ${color}; font-weight: 600;">(${sign}${fmtTime(delta)}, ${sign}${pct.toFixed(1)}%)</span>`;
+  };
+
+  const formatReachableChange = (delta, pct) => {
+    if (!Number.isFinite(delta)) return '';
+    const sign = delta > 0 ? '+' : '';
+    const color = delta < 0 ? '#ef4444' : delta > 0 ? '#22c55e' : '#9ca3af';
+    return `<span style="color: ${color}; font-weight: 600;">(${sign}${delta}, ${sign}${pct.toFixed(1)}%)</span>`;
+  };
+
   const html = `
-    <div style="background: #1f2937; color: #fff; padding: 12px 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); min-width: 280px;">
-      <div style="font-weight: 700; font-size: 15px; margin-bottom: 8px; color: #f9fafb;">${pa_name}</div>
+    <div style="background: #1f2937; color: #fff; padding: 12px 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); min-width: 300px;">
+      <div style="font-weight: 700; font-size: 15px; margin-bottom: 10px; color: #f9fafb;">${pa_name}</div>
 
-      <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">
-        Total Intersections: <span style="color: #e5e7eb; font-weight: 500;">${total_nodes}</span>
-      </div>
-
-      <div style="border-top: 1px solid #4b5563; padding-top: 8px; margin-top: 6px;">
+      <div style="border-top: 1px solid #4b5563; padding-top: 8px;">
         <!-- Travel Time Stats -->
-        <div style="margin-bottom: 10px;">
-          <div style="font-size: 11px; color: #d1d5db; font-weight: 600; margin-bottom: 6px;">Travel Time to Nearest Amenity:</div>
-
-          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-            <span style="color: #9ca3af;">Min Travel Time:</span>
-            <span style="color: #e5e7eb;">${fmtM(base_avg_s)}</span>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-            <span style="color: #9ca3af;">Max Travel Time (Dry):</span>
-            <span style="color: #e5e7eb;">${fmtM(base_max_s)}</span>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-            <span style="color: #9ca3af;">Max Travel Time (Flood):</span>
-            <span style="color: #e5e7eb;">${fmtM(flood_max_s)}</span>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-            <span style="color: #9ca3af;">Avg Travel Time (Dry):</span>
-            <span style="color: #e5e7eb;">${fmtM(base_avg_s)}</span>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; font-size: 10px;">
-            <span style="color: #9ca3af;">Avg Travel Time (Flood):</span>
-            <span style="color: #e5e7eb;">${fmtM(flood_avg_s)}</span>
+        <div style="font-size: 11px; margin-bottom: 4px;">
+          <div style="color: #9ca3af;">Min Travel Time:</div>
+          <div style="color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+            ${fmtTime(base_min_s)} → ${fmtTime(flood_min_s)} ${formatChange(delta_min_s, pct_min_increase)}
           </div>
         </div>
 
-        <!-- Change Stats -->
+        <div style="font-size: 11px; margin-bottom: 4px;">
+          <div style="color: #9ca3af;">Max Travel Time:</div>
+          <div style="color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+            ${fmtTime(base_max_s)} → ${fmtTime(flood_max_s)} ${formatChange(delta_max_s, pct_max_increase)}
+          </div>
+        </div>
+
+        <div style="font-size: 11px; margin-bottom: 4px;">
+          <div style="color: #9ca3af;">Average Travel Time:</div>
+          <div style="color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+            ${fmtTime(base_avg_s)} → ${fmtTime(flood_avg_s)} ${formatChange(delta_avg_s, pct_avg_increase)}
+          </div>
+        </div>
+
         <div style="border-top: 1px solid #4b5563; padding-top: 8px; margin-top: 8px;">
-          <div style="font-size: 11px; color: #d1d5db; font-weight: 600; margin-bottom: 6px;">Impact:</div>
-
-          ${Number.isFinite(pct_max_increase) ? `
-            <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-              <span style="color: #9ca3af;">% Increase (Max Time):</span>
-              <span style="color: ${pct_max_increase > 0 ? '#fbbf24' : '#22c55e'}; font-weight: 600;">
-                ${pct_max_increase > 0 ? '+' : ''}${pct_max_increase.toFixed(1)}%
-              </span>
+          <div style="font-size: 11px;">
+            <div style="color: #9ca3af;">Reachable Intersections:</div>
+            <div style="color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+              ${base_reachable} → ${flood_reachable} ${formatReachableChange(delta_reachable, pct_reachable_change)}
             </div>
-          ` : ''}
-
-          ${Number.isFinite(pct_avg_increase) ? `
-            <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-              <span style="color: #9ca3af;">% Increase (Avg Time):</span>
-              <span style="color: ${pct_avg_increase > 0 ? '#fbbf24' : '#22c55e'}; font-weight: 600;">
-                ${pct_avg_increase > 0 ? '+' : ''}${pct_avg_increase.toFixed(1)}%
-              </span>
-            </div>
-          ` : ''}
-
-          ${affected_nodes != null ? `
-            <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-              <span style="color: #9ca3af;">Affected Intersections:</span>
-              <span style="color: ${affected_nodes > 0 ? '#fbbf24' : '#22c55e'}; font-weight: 600;">
-                ${affected_nodes}
-              </span>
-            </div>
-          ` : ''}
-
-          ${unreachable_nodes != null ? `
-            <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-              <span style="color: #9ca3af;">Unreachable Intersections:</span>
-              <span style="color: ${unreachable_nodes > 0 ? '#ef4444' : '#22c55e'}; font-weight: 600;">
-                ${unreachable_nodes}
-              </span>
-            </div>
-          ` : ''}
-
-          ${Number.isFinite(pct_unreachable) ? `
-            <div style="display: flex; justify-content: space-between; font-size: 10px;">
-              <span style="color: #9ca3af;">% Unreachable:</span>
-              <span style="color: ${pct_unreachable > 0 ? '#ef4444' : '#22c55e'}; font-weight: 600;">
-                ${pct_unreachable.toFixed(1)}%
-              </span>
-            </div>
-          ` : ''}
+          </div>
         </div>
       </div>
 
