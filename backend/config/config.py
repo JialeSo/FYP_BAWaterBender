@@ -49,3 +49,5 @@ SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000/api")
 LOCATIONIQ_KEY = os.getenv("LOCATIONIQ_KEY")
 LOCATIONIQ_FORWARD_URL = "https://us1.locationiq.com/v1/search.php"
 LOCATIONIQ_REVERSE_URL = "https://us1.locationiq.com/v1/reverse.php"
+
+ONE_MAP_API = "https://www.onemap.gov.sg"
