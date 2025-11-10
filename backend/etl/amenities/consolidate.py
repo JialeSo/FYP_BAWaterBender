@@ -520,7 +520,7 @@ def load_geojson_files(include_only: Optional[set[str]] = None) -> List[Dict]:
         except Exception as e:
             logger.error(f"Error loading {geojson_file.name}: {e}")
 
-    print(f"\n  Total: {file_count} files, {feature_count:,} features")
+    logger.info(f"Total: {file_count} files, {feature_count:,} features")
     return features
 
 
@@ -530,7 +530,7 @@ def load_hotosm_from_supabase() -> List[Dict]:
     Returns:
         List of GeoJSON features from HOTOSM data
     """
-    print("\nLoading HOTOSM data from Supabase...")
+    logger.info("Loading HOTOSM data from Supabase...")
 
     try:
         db = DatabaseConnection()
@@ -540,11 +540,11 @@ def load_hotosm_from_supabase() -> List[Dict]:
         response = client.table("hdx_amenities").select("*").execute()
 
         if not response.data:
-            print("  ⚠ No HOTOSM data found in Supabase")
+            logger.warning("No HOTOSM data found in Supabase")
             return []
 
         records = response.data
-        print(f"  Loaded {len(records):,} HOTOSM records from Supabase")
+        logger.info(f"Loaded {len(records):,} HOTOSM records from Supabase")
 
         # Convert database records back to GeoJSON features
         features = []
@@ -596,11 +596,11 @@ def load_hotosm_from_supabase() -> List[Dict]:
                 # Skip malformed records
                 continue
 
-        print(f"  ✓ Mapped {len(features):,} HOTOSM features to standard structure")
+        logger.info(f"Mapped {len(features):,} HOTOSM features to standard structure")
         return features
 
     except Exception as e:
-        print(f"  ✗ Error loading HOTOSM data from Supabase: {e}")
+        logger.error(f"Error loading HOTOSM data from Supabase: {e}")
         import traceback
 
         traceback.print_exc()
@@ -609,17 +609,17 @@ def load_hotosm_from_supabase() -> List[Dict]:
 
 def load_osm_onemap() -> List[Dict]:
     """Load and map OSM OnEMap matched data."""
-    print("\nLoading OSM OnEMap matched data...")
+    logger.info("Loading OSM OnEMap matched data...")
 
     if not OSM_ONEMAP_FILE.exists():
-        print(f"  ⚠ File not found: {OSM_ONEMAP_FILE}")
+        logger.warning(f"File not found: {OSM_ONEMAP_FILE}")
         return []
 
     try:
         with open(OSM_ONEMAP_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        print(f"  Loaded {len(data):,} OSM records")
+        logger.info(f"Loaded {len(data):,} OSM records")
 
         # Map each record to standard structure
         features = []
@@ -634,14 +634,15 @@ def load_osm_onemap() -> List[Dict]:
             features.append(mapped)
 
         file_size = OSM_ONEMAP_FILE.stat().st_size / 1024 / 1024
-        print(
-            f"  ✓ Mapped {len(features):,} OSM features to standard structure ({file_size:.1f} MB)"
+        logger.info(
+            f"Mapped {len(features):,} OSM features to standard structure "
+            f"({file_size:.1f} MB)"
         )
 
         return features
 
     except Exception as e:
-        print(f"  ✗ Error loading OSM data: {e}")
+        logger.error(f"Error loading OSM data: {e}")
         import traceback
 
         traceback.print_exc()
@@ -650,9 +651,9 @@ def load_osm_onemap() -> List[Dict]:
 
 def consolidate_all() -> Dict:
     """Consolidate all sources into single GeoJSON."""
-    print("\n" + "=" * 80)
-    print("CONSOLIDATING AMENITY DATA")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("CONSOLIDATING AMENITY DATA")
+    logger.info("=" * 80)
 
     NAME_FILL_STATS["geojson"].clear()
     NAME_FILL_STATS["osm"].clear()
@@ -662,7 +663,7 @@ def consolidate_all() -> Dict:
     # 1. Load HOTOSM data from Supabase (previously from local geojson file)
     hotosm_features = load_hotosm_from_supabase()
     all_features.extend(hotosm_features)
-    print(f"\nHOTOSM (from Supabase) subtotal: {len(hotosm_features):,} features")
+    logger.info(f"HOTOSM (from Supabase) subtotal: {len(hotosm_features):,} features")
 
     # 2. OSM OnEMap matched data removed from pipeline
 
@@ -670,33 +671,33 @@ def consolidate_all() -> Dict:
     try:
         fetched = fetch_onemap_themes()
         all_features.extend(fetched)
-        print(f"OneMap themes subtotal: {len(fetched):,} features")
+        logger.info(f"OneMap themes subtotal: {len(fetched):,} features")
     except Exception as e:
-        print(f"  ✗ Error fetching OneMap themes: {e}")
+        logger.error(f"Error fetching OneMap themes: {e}")
 
     # 4. Fetch Bus Stops live from LTA DataMall (SLA API key)
     try:
         bus_features = fetch_bus_stops_datamall()
         all_features.extend(bus_features)
-        print(f"BusStops (DataMall) subtotal: {len(bus_features):,} features")
+        logger.info(f"BusStops (DataMall) subtotal: {len(bus_features):,} features")
     except Exception as e:
-        print(f"  ✗ Error fetching BusStops (DataMall): {e}")
+        logger.error(f"Error fetching BusStops (DataMall): {e}")
 
-    print("\nAmenity name enrichment summary:")
+    logger.info("Amenity name enrichment summary:")
     geojson_fills = NAME_FILL_STATS["geojson"]
     osm_fills = NAME_FILL_STATS["osm"]
     if geojson_fills:
         total_geojson = sum(geojson_fills.values())
-        print(f"  • GeoJSON features patched: {total_geojson:,}")
+        logger.info(f"  • GeoJSON features patched: {total_geojson:,}")
         for amenity_type, count in geojson_fills.most_common(5):
-            print(f"      - {amenity_type}: {count:,}")
+            logger.info(f"      - {amenity_type}: {count:,}")
     if osm_fills:
         total_osm = sum(osm_fills.values())
-        print(f"  • OSM features patched: {total_osm:,}")
+        logger.info(f"  • OSM features patched: {total_osm:,}")
         for amenity_type, count in osm_fills.most_common(5):
-            print(f"      - {amenity_type}: {count:,}")
+            logger.info(f"      - {amenity_type}: {count:,}")
     if not geojson_fills and not osm_fills:
-        print("  • No missing amenity names detected.")
+        logger.info("  • No missing amenity names detected.")
 
     remaining_missing = [
         feature
@@ -709,11 +710,11 @@ def consolidate_all() -> Dict:
             for feature in remaining_missing
         )
         total_missing = len(remaining_missing)
-        print(f"\n  ⚠ Remaining entries without amenity_name: {total_missing:,}")
+        logger.warning(f"Remaining entries without amenity_name: {total_missing:,}")
         for amenity_type, count in missing_counts.most_common(5):
-            print(f"      - {amenity_type}: {count:,}")
+            logger.warning(f"      - {amenity_type}: {count:,}")
     else:
-        print("  ✓ All amenities now have amenity_name values.")
+        logger.info("All amenities now have amenity_name values.")
 
     # Create consolidated GeoJSON
     consolidated = {
@@ -721,9 +722,9 @@ def consolidate_all() -> Dict:
         "features": all_features,
     }
 
-    print("\n" + "-" * 80)
-    print(f"TOTAL CONSOLIDATED FEATURES: {len(all_features):,}")
-    print("-" * 80)
+    logger.info("-" * 80)
+    logger.info(f"TOTAL CONSOLIDATED FEATURES: {len(all_features):,}")
+    logger.info("-" * 80)
 
     return consolidated
 
@@ -1100,7 +1101,7 @@ def fetch_onemap_themes(
     local_idx = _load_themes_index()
     if local_idx:
         themes = local_idx
-        print(f"Loaded {len(themes)} themes from local onemap_themes.json")
+        logger.info(f"Loaded {len(themes)} themes from local onemap_themes.json")
     else:
         themes_url = f"{ONE_MAP_API}/api/public/themesvc/getAllThemesInfo"
         r = client.get_auth(themes_url, params={"moreInfo": "Y"})
@@ -1110,7 +1111,7 @@ def fetch_onemap_themes(
         except Exception:
             payload = {}
         themes = payload.get("Theme_Names", []) if isinstance(payload, dict) else []
-        print(f"Found {len(themes)} OneMap themes (before exclusions)")
+        logger.info(f"Found {len(themes)} OneMap themes (before exclusions)")
 
     features: List[Dict] = []
     retrieved_log: List[Dict] = []
@@ -1121,8 +1122,9 @@ def fetch_onemap_themes(
             out_dir = layers_dir or (GEOJSON_DIR / "layers")
             out_dir.mkdir(parents=True, exist_ok=True)
         except Exception as _e:
-            print(
-                f"  ⚠ Failed to prepare layers dir: {out_dir if 'out_dir' in locals() else '<unset>'} => {_e}"
+            logger.warning(
+                f"Failed to prepare layers dir: "
+                f"{out_dir if 'out_dir' in locals() else '<unset>'} => {_e}"
             )
             save_layers = False
     for idx, t in enumerate(themes, start=1):
@@ -1160,7 +1162,7 @@ def fetch_onemap_themes(
                         data2.get("SrchResults", []) if isinstance(data2, dict) else []
                     )
         except Exception as ex:
-            print(f"    ⚠ retrieveTheme failed for {queryname}: {ex}")
+            logger.warning(f"retrieveTheme failed for {queryname}: {ex}")
             rows = []
         # Record retrieval attempt for lookup table
         retrieved_log.append(
@@ -1172,8 +1174,9 @@ def fetch_onemap_themes(
             }
         )
         if idx % 10 == 0:
-            print(
-                f"  Processed {idx}/{len(themes)} themes… (last included: {themename})"
+            logger.info(
+                f"Processed {idx}/{len(themes)} themes… "
+                f"(last included: {themename})"
             )
         # Optionally save raw rows for debugging
         if save_raw_rows:
@@ -1256,11 +1259,12 @@ def fetch_onemap_themes(
                     json.dump(
                         {"type": "FeatureCollection", "features": per_theme_features}, f
                     )
-                print(
-                    f"  ↳ Saved layer: {out_path.name} ({len(per_theme_features):,} features)"
+                logger.info(
+                    f"Saved layer: {out_path.name} "
+                    f"({len(per_theme_features):,} features)"
                 )
             except Exception as e:
-                print(f"  ⚠ Failed to save layer for {queryname}: {e}")
+                logger.warning(f"Failed to save layer for {queryname}: {e}")
     # Persist retrieved themes lookup table
     try:
         onemap_dir = DATA_DIR / "onemap"
@@ -1277,14 +1281,14 @@ def fetch_onemap_themes(
             merged = new_df
         merged.to_csv(out_csv, index=False)
     except Exception as e:
-        print(f"  ⚠ Failed to write retrieved_themes.csv: {e}")
+        logger.warning(f"Failed to write retrieved_themes.csv: {e}")
 
     return features
 
 
 def save_consolidated(geojson_data: Dict, output_file: Path) -> None:
     """Save consolidated GeoJSON to file."""
-    print(f"\nSaving consolidated data to: {output_file}")
+    logger.info(f"Saving consolidated data to: {output_file}")
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1292,7 +1296,7 @@ def save_consolidated(geojson_data: Dict, output_file: Path) -> None:
         json.dump(geojson_data, f)
 
     file_size = output_file.stat().st_size / 1024 / 1024
-    print(f"  ✓ Saved {file_size:.1f} MB")
+    logger.info(f"Saved {file_size:.1f} MB")
 
 
 def consolidate_amenities(

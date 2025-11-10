@@ -50,10 +50,10 @@ def geocode_amenities(
     Returns:
         Geocoded DataFrame with columns: pa_id, sz_id
     """
-    print("Loading amenities...")
+    logger.info("Loading amenities...")
     # Load amenities as GeoDataFrame
     amenities_gdf = gpd.read_file(input_geojson)
-    print(f"  Loaded {len(amenities_gdf):,} amenities")
+    logger.info(f"Loaded {len(amenities_gdf):,} amenities")
 
     # Ensure CRS is WGS84
     if amenities_gdf.crs is None:
@@ -63,7 +63,7 @@ def geocode_amenities(
 
     # Extract lat/lon from geometry if not already present
     if "lat" not in amenities_gdf.columns or "lon" not in amenities_gdf.columns:
-        print("Extracting lat/lon from geometry...")
+        logger.info("Extracting lat/lon from geometry...")
         # Handle different geometry types (Point, Polygon, LineString, etc.)
         # Use centroid for non-Point geometries
         centroids = amenities_gdf.geometry.centroid
@@ -73,20 +73,20 @@ def geocode_amenities(
     # Load planning areas (optional)
     planning_gdf = None
     if planning_geojson and Path(planning_geojson).exists():
-        print("Loading planning areas...")
+        logger.info("Loading planning areas...")
         planning_gdf = gpd.read_file(planning_geojson).to_crs("EPSG:4326")
-        print(f"  Loaded {len(planning_gdf):,} planning areas")
+        logger.info(f"Loaded {len(planning_gdf):,} planning areas")
     else:
-        print("Skipping planning area join (file missing)")
+        logger.warning("Skipping planning area join (file missing)")
 
     # Load subzones (optional)
     subzone_gdf = None
     if subzone_geojson and Path(subzone_geojson).exists():
-        print("Loading subzones...")
+        logger.info("Loading subzones...")
         subzone_gdf = gpd.read_file(subzone_geojson).to_crs("EPSG:4326")
-        print(f"  Loaded {len(subzone_gdf):,} subzones")
+        logger.info(f"Loaded {len(subzone_gdf):,} subzones")
     else:
-        print("Skipping subzone join (file missing)")
+        logger.warning("Skipping subzone join (file missing)")
 
     # Three-layer spatial geocoding via common utility (prefer defaults if paths not provided)
     if not planning_geojson or not subzone_geojson:
@@ -95,7 +95,9 @@ def geocode_amenities(
         subzone_geojson = subzone_geojson or defaults["subzone_geojson"]
         road_network_geojson = road_network_geojson or defaults["road_network_geojson"]
 
-    print("Running three-layer spatial geocoding (planning area, subzone, road)...")
+    logger.info(
+        "Running three-layer spatial geocoding " "(planning area, subzone, road)..."
+    )
     amenities_gdf = add_three_layer_geocoding(
         amenities_gdf,
         lat_col="lat",
@@ -117,7 +119,7 @@ def geocode_amenities(
         and Path(postal_codes_csv).exists()
         and ("postal_code" in amenities_gdf.columns)
     ):
-        print("Loading postal code reference...")
+        logger.info("Loading postal code reference...")
         postal_df = pd.read_csv(postal_codes_csv, dtype=str)
         postal_df.columns = [col.strip().lower() for col in postal_df.columns]
 
@@ -166,10 +168,12 @@ def geocode_amenities(
         if "postal" in amenities_gdf.columns:
             amenities_gdf = amenities_gdf.drop(columns=["postal"])
     elif postal_codes_csv and Path(postal_codes_csv).exists():
-        print("Skipping postal reference merge (no postal_code column in amenities)")
+        logger.warning(
+            "Skipping postal reference merge " "(no postal_code column in amenities)"
+        )
 
     # Convert to DataFrame (drop geometry for CSV output)
-    print("Finalizing...")
+    logger.info("Finalizing...")
     base = amenities_gdf
     if "geometry" in base.columns:
         base = base.drop(columns="geometry")
@@ -228,8 +232,8 @@ def geocode_amenities(
     missing_mask = name_series.eq("")
     missing_count = int(missing_mask.sum())
     if missing_count:
-        print(
-            f"  • Filling amenity_name for {missing_count:,} records without labels..."
+        logger.info(
+            f"Filling amenity_name for {missing_count:,} records " "without labels..."
         )
         df.loc[missing_mask, "amenity_name"] = df[missing_mask].apply(
             lambda row: infer_amenity_name(
@@ -240,18 +244,18 @@ def geocode_amenities(
         )
         remaining = df["amenity_name"].fillna("").astype(str).str.strip().eq("").sum()
         if remaining:
-            print(
-                f"  ⚠ {remaining:,} amenities still missing amenity_name after fallback"
+            logger.warning(
+                f"{remaining:,} amenities still missing amenity_name " "after fallback"
             )
         else:
-            print("  ✓ All amenities now have amenity_name (post-geocoding)")
+            logger.info("All amenities now have amenity_name (post-geocoding)")
     else:
-        print("  ✓ All amenities already had amenity_name")
+        logger.info("All amenities already had amenity_name")
 
     # Save to CSV
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_csv, index=False)
-    print(f"✓ Saved {len(df):,} geocoded amenities to {output_csv}")
+    logger.info(f"Saved {len(df):,} geocoded amenities to {output_csv}")
 
     return df
 
@@ -271,6 +275,6 @@ if __name__ == "__main__":
         postal_codes_csv=DATA_DIR / "onemap_postal_codes.csv",
     )
 
-    print(f"\nGeocoded {len(df):,} amenities")
-    print(f"Planning areas found: {df['planning_area'].notna().sum():,}")
-    print(f"Subzones found: {df['subzone'].notna().sum():,}")
+    logger.info(f"Geocoded {len(df):,} amenities")
+    logger.info(f"Planning areas found: {df['planning_area'].notna().sum():,}")
+    logger.info(f"Subzones found: {df['subzone'].notna().sum():,}")

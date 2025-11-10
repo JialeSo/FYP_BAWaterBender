@@ -83,7 +83,7 @@ class RoadNetworkGraph:
 
     def load(self) -> Tuple[nx.MultiDiGraph, gpd.GeoDataFrame]:
         """Load road network and convert to OSMnx-compatible graph."""
-        print(f"  Loading road network from {self.geojson_path.name}...")
+        logger.info(f"Loading road network from {self.geojson_path.name}...")
 
         # Load GeoJSON
         with self.geojson_path.open("r", encoding="utf-8") as fh:
@@ -165,7 +165,7 @@ class RoadNetworkGraph:
         self._graph = G
         self._gdf_edges = gdf_edges
 
-        print(f"    ✓ Loaded {len(G.nodes)} nodes, {len(G.edges)} edges")
+        logger.info(f"Loaded {len(G.nodes)} nodes, {len(G.edges)} edges")
         return G, gdf_edges
 
 
@@ -233,14 +233,14 @@ class AmenitySnapper:
         Returns:
             DataFrame with nearest road IDs and names
         """
-        print(f"  Snapping {len(amenities_df):,} amenities to road network...")
+        logger.info(f"Snapping {len(amenities_df):,} amenities to road network...")
 
         results = []
 
         for idx, row in amenities_df.iterrows():
             if idx % 1000 == 0 and idx > 0:
-                print(
-                    f"    Progress: {idx:,}/{len(amenities_df):,} amenities processed"
+                logger.info(
+                    f"Progress: {idx:,}/{len(amenities_df):,} " "amenities processed"
                 )
 
             point = Point(row["lon"], row["lat"])
@@ -260,7 +260,7 @@ class AmenitySnapper:
                 }
             )
 
-        print(f"    ✓ Completed snapping {len(results):,} amenities")
+        logger.info(f"Completed snapping {len(results):,} amenities")
         return pd.DataFrame(results)
 
 
@@ -288,16 +288,16 @@ class RoadMatcherPipeline:
         Returns:
             DataFrame with matched amenity-road pairs
         """
-        print("\n" + "=" * 70)
-        print("ROAD NETWORK MATCHING (OSMnx)")
-        print("=" * 70 + "\n")
+        logger.info("=" * 70)
+        logger.info("ROAD NETWORK MATCHING (OSMnx)")
+        logger.info("=" * 70)
 
         # Load road network
         network = RoadNetworkGraph(self.paths.road_network_geojson)
         graph, edges_gdf = network.load()
 
         # Load amenities with postal_code as string to preserve leading zeros
-        print(f"  Loading amenities from {self.paths.amenities_csv.name}...")
+        logger.info(f"Loading amenities from {self.paths.amenities_csv.name}...")
         amenities_df = pd.read_csv(self.paths.amenities_csv, dtype={"postal_code": str})
 
         # Normalize postal codes for most amenities, but DO NOT pad bus stops
@@ -346,7 +346,7 @@ class RoadMatcherPipeline:
                 if fill_mask.any():
                     amenities_df.loc[fill_mask, "amenity_type"] = qn_series[fill_mask]
 
-        print(f"    ✓ Loaded {len(amenities_df):,} amenities")
+        logger.info(f"Loaded {len(amenities_df):,} amenities")
 
         # Snap amenities to roads
         snapper = AmenitySnapper(graph, edges_gdf, max_candidates=4)
@@ -461,9 +461,9 @@ class RoadMatcherPipeline:
             gj_path = target.with_suffix(".geojson")
             with open(gj_path, "w", encoding="utf-8") as fh:
                 _json.dump(geojson, fh)
-            print(f"  ✓ Final amenities_3layers.geojson saved to {gj_path}")
+            logger.info(f"Final amenities_3layers.geojson saved to {gj_path}")
         except Exception as _e:
-            print(f"  ⚠ Failed to write amenities_3layers.geojson: {_e}")
+            logger.warning(f"Failed to write amenities_3layers.geojson: {_e}")
 
         # Also mirror final outputs under backend/etl/data/amenities/
         try:
@@ -507,14 +507,14 @@ class RoadMatcherPipeline:
                             {"type": "FeatureCollection", "features": features}, fh
                         )
             except Exception as _e2:
-                print(f"  ⚠ Failed to mirror GeoJSON to amenities dir: {_e2}")
-            print(f"  ✓ Mirrored final outputs to {amenities_dir}")
+                logger.warning(f"Failed to mirror GeoJSON to amenities dir: {_e2}")
+            logger.info(f"Mirrored final outputs to {amenities_dir}")
         except Exception as _e1:
-            print(f"  ⚠ Failed to mirror outputs under amenities dir: {_e1}")
+            logger.warning(f"Failed to mirror outputs under amenities dir: {_e1}")
 
-        print(f"\n  ✓ Final amenities_3layers.csv saved to {target}")
-        print(f"  Total records: {len(final_df):,}")
-        print(f"  Columns: {', '.join(existing_cols)}\n")
+        logger.info(f"Final amenities_3layers.csv saved to {target}")
+        logger.info(f"Total records: {len(final_df):,}")
+        logger.info(f"Columns: {', '.join(existing_cols)}")
 
         return final_df
 
@@ -582,8 +582,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     pipeline = RoadMatcherPipeline(paths)
     matched_df = pipeline.run(output=args.output)
 
-    print("Sample output:")
-    print(matched_df.head())
+    logger.info("Sample output:")
+    logger.info(matched_df.head().to_string())
 
 
 if __name__ == "__main__":
