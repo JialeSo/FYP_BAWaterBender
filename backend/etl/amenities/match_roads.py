@@ -48,13 +48,22 @@ class RoadMatcherPaths:
 
     # Default paths aligned with core.config.Config
     amenities_csv: Path = field(
-        default_factory=lambda: BASE_DIR.parents[1] / "data" / "02_amenities_classified.csv"
+        default_factory=lambda: BASE_DIR.parents[1]
+        / "data"
+        / "02_amenities_classified.csv"
     )
     road_network_geojson: Path = field(
-        default_factory=lambda: BASE_DIR.parents[1] / "data" / "roadnetwork" / "road_network.geojson"
+        default_factory=lambda: BASE_DIR.parents[1]
+        / "data"
+        / "roadnetwork"
+        / "road_network.geojson"
     )
     output_csv: Path = field(
-        default_factory=lambda: BASE_DIR.parents[3] / "frontend" / "public" / "map" / "amenities_3layers.csv"
+        default_factory=lambda: BASE_DIR.parents[3]
+        / "frontend"
+        / "public"
+        / "map"
+        / "amenities_3layers.csv"
     )
 
 
@@ -139,15 +148,17 @@ class RoadNetworkGraph:
         # Convert to GeoDataFrame of edges for spatial queries
         edges_list = []
         for u, v, k, data in G.edges(keys=True, data=True):
-            edges_list.append({
-                "u": u,
-                "v": v,
-                "key": k,
-                "geometry": data["geometry"],
-                "road_id": data.get("road_id", ""),
-                "road_name": data.get("road_name", ""),
-                "length": data.get("length", 0),
-            })
+            edges_list.append(
+                {
+                    "u": u,
+                    "v": v,
+                    "key": k,
+                    "geometry": data["geometry"],
+                    "road_id": data.get("road_id", ""),
+                    "road_name": data.get("road_name", ""),
+                    "length": data.get("length", 0),
+                }
+            )
 
         gdf_edges = gpd.GeoDataFrame(edges_list, crs="EPSG:4326")
 
@@ -228,22 +239,26 @@ class AmenitySnapper:
 
         for idx, row in amenities_df.iterrows():
             if idx % 1000 == 0 and idx > 0:
-                print(f"    Progress: {idx:,}/{len(amenities_df):,} amenities processed")
+                print(
+                    f"    Progress: {idx:,}/{len(amenities_df):,} amenities processed"
+                )
 
             point = Point(row["lon"], row["lat"])
             nearest = self.snap_amenity(point)
 
-            results.append({
-                "amenity_id": row["amenity_id"],
-                "nearest_road_1_id": nearest[0][0],
-                "nearest_road_1_name": nearest[0][1],
-                "nearest_road_2_id": nearest[1][0],
-                "nearest_road_2_name": nearest[1][1],
-                "nearest_road_3_id": nearest[2][0],
-                "nearest_road_3_name": nearest[2][1],
-                "nearest_road_4_id": nearest[3][0],
-                "nearest_road_4_name": nearest[3][1],
-            })
+            results.append(
+                {
+                    "amenity_id": row["amenity_id"],
+                    "nearest_road_1_id": nearest[0][0],
+                    "nearest_road_1_name": nearest[0][1],
+                    "nearest_road_2_id": nearest[1][0],
+                    "nearest_road_2_name": nearest[1][1],
+                    "nearest_road_3_id": nearest[2][0],
+                    "nearest_road_3_name": nearest[2][1],
+                    "nearest_road_4_id": nearest[3][0],
+                    "nearest_road_4_name": nearest[3][1],
+                }
+            )
 
         print(f"    ✓ Completed snapping {len(results):,} amenities")
         return pd.DataFrame(results)
@@ -273,9 +288,9 @@ class RoadMatcherPipeline:
         Returns:
             DataFrame with matched amenity-road pairs
         """
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("ROAD NETWORK MATCHING (OSMnx)")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         # Load road network
         network = RoadNetworkGraph(self.paths.road_network_geojson)
@@ -283,21 +298,36 @@ class RoadMatcherPipeline:
 
         # Load amenities with postal_code as string to preserve leading zeros
         print(f"  Loading amenities from {self.paths.amenities_csv.name}...")
-        amenities_df = pd.read_csv(self.paths.amenities_csv, dtype={'postal_code': str})
+        amenities_df = pd.read_csv(self.paths.amenities_csv, dtype={"postal_code": str})
 
         # Normalize postal codes for most amenities, but DO NOT pad bus stops
-        if 'postal_code' in amenities_df.columns:
-            amenities_df['postal_code'] = amenities_df['postal_code'].astype(str).str.strip()
-            is_bus = amenities_df.get('amenity_type', '').astype(str).str.lower().eq('bus_stops')
+        if "postal_code" in amenities_df.columns:
+            amenities_df["postal_code"] = (
+                amenities_df["postal_code"].astype(str).str.strip()
+            )
+            is_bus = (
+                amenities_df.get("amenity_type", "")
+                .astype(str)
+                .str.lower()
+                .eq("bus_stops")
+            )
             # Pad to 6 only for non-bus-stop rows
-            mask = (~is_bus) & amenities_df['postal_code'].str.fullmatch(r"\d{1,6}").fillna(False)
-            amenities_df.loc[mask, 'postal_code'] = amenities_df.loc[mask, 'postal_code'].str.zfill(6)
+            mask = (~is_bus) & amenities_df["postal_code"].str.fullmatch(
+                r"\d{1,6}"
+            ).fillna(False)
+            amenities_df.loc[mask, "postal_code"] = amenities_df.loc[
+                mask, "postal_code"
+            ].str.zfill(6)
             # Missing values -> '000000' (leave bus stop codes untouched even if blank)
-            missing_mask = amenities_df['postal_code'].isin(['', 'nan', 'NaN', 'None'])
-            amenities_df.loc[missing_mask & (~is_bus), 'postal_code'] = '000000'
+            missing_mask = amenities_df["postal_code"].isin(["", "nan", "NaN", "None"])
+            amenities_df.loc[missing_mask & (~is_bus), "postal_code"] = "000000"
             # Special-case bus stops: ensure 5-digit code (strip a single leading 0 if present)
-            fix_bus_mask = is_bus & amenities_df['postal_code'].str.fullmatch(r"0\d{5}").fillna(False)
-            amenities_df.loc[fix_bus_mask, 'postal_code'] = amenities_df.loc[fix_bus_mask, 'postal_code'].str.slice(1)
+            fix_bus_mask = is_bus & amenities_df["postal_code"].str.fullmatch(
+                r"0\d{5}"
+            ).fillna(False)
+            amenities_df.loc[fix_bus_mask, "postal_code"] = amenities_df.loc[
+                fix_bus_mask, "postal_code"
+            ].str.slice(1)
 
         # Ensure required columns exist
         required_cols = ["amenity_id", "lat", "lon"]
@@ -306,13 +336,15 @@ class RoadMatcherPipeline:
             raise ValueError(f"Missing required columns: {missing}")
 
         # Guard: ensure amenity_type is populated (fallback from theme_queryname)
-        if 'amenity_type' in amenities_df.columns:
-            at_series = amenities_df['amenity_type'].astype(str).fillna('').str.strip()
-            if 'theme_queryname' in amenities_df.columns:
-                qn_series = amenities_df['theme_queryname'].astype(str).fillna('').str.strip()
-                fill_mask = at_series.eq('') & qn_series.ne('')
+        if "amenity_type" in amenities_df.columns:
+            at_series = amenities_df["amenity_type"].astype(str).fillna("").str.strip()
+            if "theme_queryname" in amenities_df.columns:
+                qn_series = (
+                    amenities_df["theme_queryname"].astype(str).fillna("").str.strip()
+                )
+                fill_mask = at_series.eq("") & qn_series.ne("")
                 if fill_mask.any():
-                    amenities_df.loc[fill_mask, 'amenity_type'] = qn_series[fill_mask]
+                    amenities_df.loc[fill_mask, "amenity_type"] = qn_series[fill_mask]
 
         print(f"    ✓ Loaded {len(amenities_df):,} amenities")
 
@@ -321,18 +353,20 @@ class RoadMatcherPipeline:
         roads_df = snapper.snap_batch(amenities_df)
 
         # Merge the road matching results with the original amenity data
-        matched_df = amenities_df.merge(roads_df, on='amenity_id', how='left')
+        matched_df = amenities_df.merge(roads_df, on="amenity_id", how="left")
 
         # Add road_id column (using nearest_road_1_id as the primary road)
-        matched_df['road_id'] = matched_df['nearest_road_1_id']
+        matched_df["road_id"] = matched_df["nearest_road_1_id"]
 
         # IMPORTANT: Use consistent column naming for DB schema
         # Rename to: pa_id, sz_id, rn_id (DB expects rn_id)
-        matched_df = matched_df.rename(columns={
-            'planning_area_id': 'pa_id',
-            'subzone_id': 'sz_id',
-            'road_id': 'rn_id'
-        })
+        matched_df = matched_df.rename(
+            columns={
+                "planning_area_id": "pa_id",
+                "subzone_id": "sz_id",
+                "road_id": "rn_id",
+            }
+        )
 
         # Select only required columns for amenities_3layers.csv
         required_output_cols = [
@@ -344,48 +378,55 @@ class RoadMatcherPipeline:
             "lon",
             "amenity_category_id",
             "amenity_group_id",
-            "pa_id",   # Consistent naming
-            "sz_id",   # Consistent naming
-            "rn_id"    # DB naming
+            "pa_id",  # Consistent naming
+            "sz_id",  # Consistent naming
+            "rn_id",  # DB naming
         ]
 
         # Handle amenity_category vs amenity_category_id
-        if 'amenity_category' in matched_df.columns and 'amenity_category_id' not in matched_df.columns:
-            matched_df['amenity_category_id'] = matched_df['amenity_category']
+        if (
+            "amenity_category" in matched_df.columns
+            and "amenity_category_id" not in matched_df.columns
+        ):
+            matched_df["amenity_category_id"] = matched_df["amenity_category"]
 
         # Keep only columns that exist
-        existing_cols = [col for col in required_output_cols if col in matched_df.columns]
+        existing_cols = [
+            col for col in required_output_cols if col in matched_df.columns
+        ]
         final_df = matched_df[existing_cols].copy()
 
         # Normalize amenity_name to lowercase as final convention
-        if 'amenity_name' in final_df.columns:
-            final_df['amenity_name'] = (
-                final_df['amenity_name'].astype(str).str.strip().str.lower()
+        if "amenity_name" in final_df.columns:
+            final_df["amenity_name"] = (
+                final_df["amenity_name"].astype(str).str.strip().str.lower()
             )
 
         # Rename postal_code to postalcode (without underscore) for final output
-        if 'postal_code' in final_df.columns:
-            final_df = final_df.rename(columns={'postal_code': 'postalcode'})
+        if "postal_code" in final_df.columns:
+            final_df = final_df.rename(columns={"postal_code": "postalcode"})
             # Update the column list
-            existing_cols = [col if col != 'postal_code' else 'postalcode' for col in existing_cols]
+            existing_cols = [
+                col if col != "postal_code" else "postalcode" for col in existing_cols
+            ]
 
         # Rename amenity_id to id for DB compatibility
-        if 'amenity_id' in final_df.columns:
-            final_df = final_df.rename(columns={'amenity_id': 'id'})
+        if "amenity_id" in final_df.columns:
+            final_df = final_df.rename(columns={"amenity_id": "id"})
 
         # Convert ID columns to integers (not floats)
-        id_columns = ['id', 'amenity_category_id', 'amenity_group_id', 'pa_id', 'sz_id']
+        id_columns = ["id", "amenity_category_id", "amenity_group_id", "pa_id", "sz_id"]
         for col in id_columns:
             if col in final_df.columns:
                 # Convert to int, handling NaN values
-                final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
+                final_df[col] = pd.to_numeric(final_df[col], errors="coerce")
                 final_df[col] = final_df[col].fillna(0).astype(int)
 
         # Convert rd_id (e.g., "R042218") to clean integer (e.g., 42218)
-        if 'rd_id' in final_df.columns:
-            rd_series = final_df['rd_id'].fillna('').astype(str)
+        if "rd_id" in final_df.columns:
+            rd_series = final_df["rd_id"].fillna("").astype(str)
             # Extract the numeric part; default to 0 when missing
-            final_df['rd_id'] = rd_series.str.extract(r"(\d+)").fillna('0').astype(int)
+            final_df["rd_id"] = rd_series.str.extract(r"(\d+)").fillna("0").astype(int)
 
         # Save output
         target = output or self.paths.output_csv
@@ -395,6 +436,7 @@ class RoadMatcherPipeline:
         # Also emit a GeoJSON for quick map inspection before DB upload
         try:
             import json as _json
+
             features = []
             for _, row in final_df.iterrows():
                 try:
@@ -408,11 +450,13 @@ class RoadMatcherPipeline:
                 # Do not duplicate geometry fields inside properties
                 props.pop("lon", None)
                 props.pop("lat", None)
-                features.append({
-                    "type": "Feature",
-                    "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                    "properties": props,
-                })
+                features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                        "properties": props,
+                    }
+                )
             geojson = {"type": "FeatureCollection", "features": features}
             gj_path = target.with_suffix(".geojson")
             with open(gj_path, "w", encoding="utf-8") as fh:
@@ -431,7 +475,8 @@ class RoadMatcherPipeline:
             # Write GeoJSON mirror too if we created gj_path above
             try:
                 import shutil as _shutil
-                if 'gj_path' in locals() and Path(gj_path).exists():
+
+                if "gj_path" in locals() and Path(gj_path).exists():
                     _shutil.copy2(gj_path, mirror_geojson)
                 else:
                     # Build a quick GeoJSON if not already created
@@ -447,13 +492,20 @@ class RoadMatcherPipeline:
                         props = row.to_dict()
                         props.pop("lon", None)
                         props.pop("lat", None)
-                        features.append({
-                            "type": "Feature",
-                            "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                            "properties": props,
-                        })
+                        features.append(
+                            {
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "Point",
+                                    "coordinates": [lon, lat],
+                                },
+                                "properties": props,
+                            }
+                        )
                     with open(mirror_geojson, "w", encoding="utf-8") as fh:
-                        _json.dump({"type": "FeatureCollection", "features": features}, fh)
+                        _json.dump(
+                            {"type": "FeatureCollection", "features": features}, fh
+                        )
             except Exception as _e2:
                 print(f"  ⚠ Failed to mirror GeoJSON to amenities dir: {_e2}")
             print(f"  ✓ Mirrored final outputs to {amenities_dir}")
