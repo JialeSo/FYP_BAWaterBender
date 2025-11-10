@@ -9,6 +9,7 @@ Simple and fast geocoding that:
 4. Outputs consistent column names: pa_id, sz_id
 """
 
+import logging
 from pathlib import Path
 import pandas as pd
 import geopandas as gpd
@@ -20,6 +21,8 @@ from backend.etl.common.spatial_geocoding import (
     add_three_layer_geocoding,
     get_default_geojson_paths,
 )
+
+logger = logging.getLogger(__name__)
 
 # Suppress GeoPandas CRS warnings
 warnings.filterwarnings('ignore', message='.*geographic CRS.*')

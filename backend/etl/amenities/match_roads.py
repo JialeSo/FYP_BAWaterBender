@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +38,7 @@ from shapely.geometry import Point, LineString, shape
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parents[3]))
 
+logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent
 
 

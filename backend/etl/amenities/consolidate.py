@@ -13,6 +13,7 @@ Total: ~46k features (will be deduplicated in later steps)
 """
 
 import json
+import logging
 import os
 import uuid
 from collections import ChainMap, Counter
@@ -30,6 +31,8 @@ from backend.etl.onemap.onemap_extended import OneMapClient
 from backend.common.db import DatabaseConnection
 
 from backend.etl.amenities.core.naming import infer_amenity_name
+
+logger = logging.getLogger(__name__)
 
 # Paths
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -471,7 +474,7 @@ def load_geojson_files(include_only: Optional[set[str]] = None) -> List[Dict]:
 
     If include_only is provided, only files with names in the set are loaded.
     """
-    print("\nLoading GeoJSON amenity files...")
+    logger.info("Loading GeoJSON amenity files...")
 
     features = []
     file_count = 0
@@ -485,7 +488,7 @@ def load_geojson_files(include_only: Optional[set[str]] = None) -> List[Dict]:
             continue
         # Skip reference files in skip list
         if geojson_file.name in SKIP_FILES:
-            print(f"  ⊗ Skipping: {geojson_file.name}")
+            logger.debug(f"Skipping: {geojson_file.name}")
             continue
 
         try:
@@ -509,12 +512,13 @@ def load_geojson_files(include_only: Optional[set[str]] = None) -> List[Dict]:
             feature_count += len(file_features)
 
             file_size = geojson_file.stat().st_size / 1024 / 1024
-            print(
-                f"  ✓ {geojson_file.name:<40} {len(file_features):>6,} features ({file_size:.1f} MB)"
+            logger.info(
+                f"✓ {geojson_file.name:<40} {len(file_features):>6,} "
+                f"features ({file_size:.1f} MB)"
             )
 
         except Exception as e:
-            print(f"  ✗ Error loading {geojson_file.name}: {e}")
+            logger.error(f"Error loading {geojson_file.name}: {e}")
 
     print(f"\n  Total: {file_count} files, {feature_count:,} features")
     return features
