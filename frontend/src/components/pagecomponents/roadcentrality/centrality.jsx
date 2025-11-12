@@ -84,10 +84,16 @@ export default function Centrality() {
 
     // Apply category-specific weights if defined in preset
     if (preset.amenityWeights) {
-      setAmenityWeights(preset.amenityWeights);
+      setAmenityWeights((prev) => ({
+        ...prev,
+        ...preset.amenityWeights
+      }));
     }
     if (preset.floodWeights) {
-      setFloodWeights(preset.floodWeights);
+      setFloodWeights((prev) => ({
+        ...prev,
+        ...preset.floodWeights
+      }));
     }
   };
 
