@@ -22,6 +22,8 @@ import { NumberInput } from "@/components/numberInput";
 import {
   PAGE_SIZE,
   PRESETS,
+  AMENITY_PRESETS,
+  FLOOD_PRESETS,
   MOCK_EXAMPLE,
   EMPTY_COLLECTION,
   clamp,
@@ -67,12 +69,12 @@ export default function Centrality() {
 
   /* ===== mock example for UI ===== */
 
-  /* ===== preset handler ===== */
+  /* ===== preset handlers ===== */
   const applyPreset = useCallback((presetKey) => {
     const preset = PRESETS[presetKey];
     if (!preset) return;
 
-    // Apply component weights and toggles
+    // Apply component weights and toggles only
     set_w_betweenness(preset.weights.betweenness);
     set_w_closeness(preset.weights.closeness);
     set_w_amenity(preset.weights.amenity);
@@ -82,26 +84,32 @@ export default function Centrality() {
     setUseCompCloseness(preset.toggles.closeness);
     setUseCompAmenity(preset.toggles.amenity);
     setUseCompFlood(preset.toggles.flood);
+  }, []);
 
-    // Apply category-specific weights if defined in preset
-    if (preset.amenityWeights) {
-      setAmenityWeights((prev) => {
-        const updated = { ...prev };
-        Object.keys(preset.amenityWeights).forEach(key => {
-          updated[key] = preset.amenityWeights[key];
-        });
-        return updated;
+  const applyAmenityPreset = useCallback((presetKey) => {
+    const preset = AMENITY_PRESETS[presetKey];
+    if (!preset || !preset.weights) return;
+
+    setAmenityWeights((prev) => {
+      const updated = { ...prev };
+      Object.keys(preset.weights).forEach(key => {
+        updated[key] = preset.weights[key];
       });
-    }
-    if (preset.floodWeights) {
-      setFloodWeights((prev) => {
-        const updated = { ...prev };
-        Object.keys(preset.floodWeights).forEach(key => {
-          updated[key] = preset.floodWeights[key];
-        });
-        return updated;
+      return updated;
+    });
+  }, []);
+
+  const applyFloodPreset = useCallback((presetKey) => {
+    const preset = FLOOD_PRESETS[presetKey];
+    if (!preset || !preset.weights) return;
+
+    setFloodWeights((prev) => {
+      const updated = { ...prev };
+      Object.keys(preset.weights).forEach(key => {
+        updated[key] = preset.weights[key];
       });
-    }
+      return updated;
+    });
   }, []);
 
 
@@ -937,6 +945,23 @@ export default function Centrality() {
                     </AccordionItem>
                   </Accordion>
 
+                  {/* Amenity Weight Presets */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Weight Presets</Label>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {Object.entries(AMENITY_PRESETS).map(([key, preset]) => (
+                        <button
+                          key={key}
+                          onClick={() => applyAmenityPreset(key)}
+                          className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <div className="font-semibold text-sm mb-1">{preset.name}</div>
+                          <div className="text-xs text-muted-foreground">{preset.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                     {amenityCategoryKeys.map((cat) => {
                       const val = amenityWeights[cat] ?? 1.0;
@@ -1036,6 +1061,23 @@ export default function Centrality() {
                   </Accordion>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Flood Weight Presets */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Weight Presets</Label>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {Object.entries(FLOOD_PRESETS).map(([key, preset]) => (
+                        <button
+                          key={key}
+                          onClick={() => applyFloodPreset(key)}
+                          className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <div className="font-semibold text-sm mb-1">{preset.name}</div>
+                          <div className="text-xs text-muted-foreground">{preset.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                     {floodTypeKeys.map((type) => {
                       const val = floodWeights[type] ?? 1.0;
