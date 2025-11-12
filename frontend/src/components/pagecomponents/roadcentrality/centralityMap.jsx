@@ -575,8 +575,8 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
   const thicknessLabel = THICKNESS_METRICS.find(m => m.value === thicknessMetric)?.label || "None (Uniform)";
 
   return (
-    <div className="relative h-[60vh] min-h-[26rem] w-full rounded-2xl overflow-hidden bg-slate-950">
-      <div ref={containerRef} className="absolute inset-0 min-h-[560px]" />
+    <div className="relative h-[600px] w-full rounded-2xl overflow-hidden bg-slate-950">
+      <div ref={containerRef} className="absolute inset-0" />
 
       {/* Metric Controls - Top Right */}
       <div className="absolute top-4 right-4 z-10 space-y-2 pointer-events-auto">

@@ -68,10 +68,11 @@ export default function Centrality() {
   /* ===== mock example for UI ===== */
 
   /* ===== preset handler ===== */
-  const applyPreset = (presetKey) => {
+  const applyPreset = useCallback((presetKey) => {
     const preset = PRESETS[presetKey];
     if (!preset) return;
 
+    // Apply component weights and toggles
     set_w_betweenness(preset.weights.betweenness);
     set_w_closeness(preset.weights.closeness);
     set_w_amenity(preset.weights.amenity);
@@ -84,18 +85,24 @@ export default function Centrality() {
 
     // Apply category-specific weights if defined in preset
     if (preset.amenityWeights) {
-      setAmenityWeights((prev) => ({
-        ...prev,
-        ...preset.amenityWeights
-      }));
+      setAmenityWeights((prev) => {
+        const updated = { ...prev };
+        Object.keys(preset.amenityWeights).forEach(key => {
+          updated[key] = preset.amenityWeights[key];
+        });
+        return updated;
+      });
     }
     if (preset.floodWeights) {
-      setFloodWeights((prev) => ({
-        ...prev,
-        ...preset.floodWeights
-      }));
+      setFloodWeights((prev) => {
+        const updated = { ...prev };
+        Object.keys(preset.floodWeights).forEach(key => {
+          updated[key] = preset.floodWeights[key];
+        });
+        return updated;
+      });
     }
-  };
+  }, []);
 
 
   /* ===== derived options ===== */
