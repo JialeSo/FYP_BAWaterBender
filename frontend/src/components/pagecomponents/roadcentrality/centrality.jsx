@@ -949,6 +949,7 @@ export default function Centrality() {
                               decimalScale={1}
                               fixedDecimalScale={true}
                               disabled={!enabled}
+                              hideSteppers={true}
                             />
                           </div>
                         </div>
@@ -1047,6 +1048,7 @@ export default function Centrality() {
                               decimalScale={1}
                               fixedDecimalScale={true}
                               disabled={!enabled}
+                              hideSteppers={true}
                             />
                           </div>
                         </div>
@@ -1138,6 +1140,7 @@ export default function Centrality() {
                           stepper={1}
                           decimalScale={0}
                           disabled={!useCompBetweenness}
+                          hideSteppers={true}
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -1177,6 +1180,7 @@ export default function Centrality() {
                           stepper={1}
                           decimalScale={0}
                           disabled={!useCompCloseness}
+                          hideSteppers={true}
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -1216,6 +1220,7 @@ export default function Centrality() {
                           stepper={1}
                           decimalScale={0}
                           disabled={!useCompAmenity}
+                          hideSteppers={true}
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -1255,6 +1260,7 @@ export default function Centrality() {
                           stepper={1}
                           decimalScale={0}
                           disabled={!useCompFlood}
+                          hideSteppers={true}
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
