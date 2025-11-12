@@ -81,6 +81,14 @@ export default function Centrality() {
     setUseCompCloseness(preset.toggles.closeness);
     setUseCompAmenity(preset.toggles.amenity);
     setUseCompFlood(preset.toggles.flood);
+
+    // Apply category-specific weights if defined in preset
+    if (preset.amenityWeights) {
+      setAmenityWeights(preset.amenityWeights);
+    }
+    if (preset.floodWeights) {
+      setFloodWeights(preset.floodWeights);
+    }
   };
 
 
