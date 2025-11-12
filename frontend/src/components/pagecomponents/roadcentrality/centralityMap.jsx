@@ -115,7 +115,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
   }, [colorMetric, thicknessMetric, colorThresholds]);
 
   useEffect(() => {
-    if (!MAPBOX_TOKEN || mapRef.current || !containerRef.current) return;
+    if (mapRef.current || !containerRef.current) return;
     if (!mapboxgl.supported()) return;
 
     const map = new mapboxgl.Map({
