@@ -116,23 +116,35 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
 
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return;
-    if (!mapboxgl.supported()) return;
+    if (!mapboxgl.supported()) {
+      console.error("MapboxGL is not supported in this browser");
+      return;
+    }
 
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: MAPBOX_STYLE,
-      center: MAP_DEFAULT_CENTER,
-      zoom: MAP_DEFAULT_ZOOM,
-      attributionControl: true,
+    console.log("Initializing centrality map...", {
+      hasContainer: !!containerRef.current,
+      hasToken: !!MAPBOX_TOKEN,
+      tokenLength: MAPBOX_TOKEN?.length
     });
-    mapRef.current = map;
 
-    if (onMapLoad) onMapLoad(map);
+    try {
+      const map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: MAPBOX_STYLE,
+        center: MAP_DEFAULT_CENTER,
+        zoom: MAP_DEFAULT_ZOOM,
+        attributionControl: true,
+      });
+      mapRef.current = map;
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "bottom-right");
-    map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-right");
+      console.log("Map object created");
 
-    const ensureBase = () => {
+      if (onMapLoad) onMapLoad(map);
+
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "bottom-right");
+      map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-right");
+
+      const ensureBase = () => {
       if (!map.getSource("road-network")) {
         map.addSource("road-network", { type: "geojson", data: EMPTY_COLLECTION });
       }
@@ -166,8 +178,9 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
       }
     };
 
-    map.on("load", () => {
-      ensureBase();
+      map.on("load", () => {
+        console.log("Map load event fired");
+        ensureBase();
 
       const canvas = containerRef.current?.querySelector(".mapboxgl-canvas");
       if (canvas) {
@@ -231,7 +244,14 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
           map.resize();
         } catch {}
       });
-    });
+      });
+
+      map.on("error", (e) => {
+        console.error("Map error:", e);
+      });
+    } catch (error) {
+      console.error("Failed to create map:", error);
+    }
 
     return () => {
       try {
