@@ -376,6 +376,60 @@ const default_weight_by_category = {
   transport_services: 3.742,
 };
 
+const AMENITY_WEIGHT_PRESETS = {
+  default: {
+    name: "Default",
+    description: "Custom weighted priorities",
+    weights: {
+      community_spaces: 1,
+      education_institutions: 3.464,
+      emergency_services: 5,
+      essential_services: 2,
+      government_services: 3.162,
+      healthcare_facilities: 4,
+      others: 1,
+      residential: 3.162,
+      retail_services: 1,
+      tourism: 1,
+      transport_services: 3.742,
+    },
+  },
+  balanced: {
+    name: "Balanced",
+    description: "All categories weighted equally",
+    weights: {
+      community_spaces: 1,
+      education_institutions: 1,
+      emergency_services: 1,
+      essential_services: 1,
+      government_services: 1,
+      healthcare_facilities: 1,
+      others: 1,
+      residential: 1,
+      retail_services: 1,
+      tourism: 1,
+      transport_services: 1,
+    },
+  },
+  emergency: {
+    name: "Emergency Focused",
+    description: "Prioritize emergency and healthcare services",
+    weights: {
+      community_spaces: 1,
+      education_institutions: 2,
+      emergency_services: 10,
+      essential_services: 4,
+      government_services: 2,
+      healthcare_facilities: 8,
+      others: 1,
+      residential: 1,
+      retail_services: 1,
+      tourism: 1,
+      transport_services: 4,
+    },
+  },
+};
+
 const AR_IMPACT_PRESETS = {
   centrality_focused: {
     name: "Centrality Focused",
@@ -541,6 +595,19 @@ export default function floodevents() {
     set_to_str("");
     reset_metric_filters();
     set_page(1);
+  };
+
+  const applyAmenityPreset = (presetKey) => {
+    const preset = AMENITY_WEIGHT_PRESETS[presetKey];
+    if (!preset || !preset.weights) return;
+
+    setCatWeights((prev) => {
+      const updated = { ...prev };
+      Object.keys(preset.weights).forEach(key => {
+        updated[key] = preset.weights[key];
+      });
+      return updated;
+    });
   };
 
   const categories = useMemo(() => {
@@ -1571,6 +1638,23 @@ export default function floodevents() {
                           </AccordionItem>
                         </Accordion>
 
+                        {/* Amenity Weight Presets */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Weight Presets</Label>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            {Object.entries(AMENITY_WEIGHT_PRESETS).map(([key, preset]) => (
+                              <button
+                                key={key}
+                                onClick={() => applyAmenityPreset(key)}
+                                className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
+                              >
+                                <div className="font-semibold text-sm mb-1">{preset.name}</div>
+                                <div className="text-xs text-muted-foreground">{preset.description}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
                         {/* Category grid */}
                         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                           {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => {
@@ -1607,6 +1691,7 @@ export default function floodevents() {
                                     decimalScale={0}
                                     fixedDecimalScale={false}
                                     disabled={!enabled}
+                                    hideSteppers={true}
                                   />
                                 </div>
                               </div>
@@ -1678,6 +1763,7 @@ export default function floodevents() {
                                 decimalScale={0}
                                 fixedDecimalScale={false}
                                 disabled={!inner_enabled}
+                                hideSteppers={true}
                               />
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">
@@ -1730,6 +1816,7 @@ export default function floodevents() {
                                 decimalScale={0}
                                 fixedDecimalScale={false}
                                 disabled={!outer_enabled}
+                                hideSteppers={true}
                               />
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">
