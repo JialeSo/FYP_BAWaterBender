@@ -1,7 +1,7 @@
 ﻿// src/components/floodevents.jsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMapData } from "@/context/mapDataContext";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -597,19 +597,6 @@ export default function floodevents() {
     set_page(1);
   };
 
-  const applyAmenityPreset = (presetKey) => {
-    const preset = AMENITY_WEIGHT_PRESETS[presetKey];
-    if (!preset || !preset.weights) return;
-
-    setCatWeights((prev) => {
-      const updated = { ...prev };
-      Object.keys(preset.weights).forEach(key => {
-        updated[key] = preset.weights[key];
-      });
-      return updated;
-    });
-  };
-
   const categories = useMemo(() => {
     const items = Object.values(category_lookup?.by_id || {});
     return items.sort((a, b) => (a.id || 0) - (b.id || 0));
@@ -645,6 +632,20 @@ export default function floodevents() {
   const [w_closeness, set_w_closeness] = useState(0.3);
   const [w_amenity, set_w_amenity] = useState(0.2);
   const [w_roads, set_w_roads] = useState(0.2);
+
+  const applyAmenityPreset = useCallback((presetKey) => {
+    const preset = AMENITY_WEIGHT_PRESETS[presetKey];
+    if (!preset || !preset.weights) return;
+
+    setCatWeights((prev) => {
+      const updated = { ...prev };
+      Object.keys(preset.weights).forEach(key => {
+        updated[key] = preset.weights[key];
+      });
+      console.log("Applied amenity preset:", presetKey, updated);
+      return updated;
+    });
+  }, []);
 
   /* roads index by rn_id for centrality */
   const roads_by_id = useMemo(() => {

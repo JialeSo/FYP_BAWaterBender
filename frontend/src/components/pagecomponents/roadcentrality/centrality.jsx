@@ -67,6 +67,8 @@ export default function Centrality() {
     category_lookup: categoryLookup,
   } = useMapData();
 
+  const [isCalculating, setIsCalculating] = useState(false);
+
   /* ===== mock example for UI ===== */
 
   /* ===== preset handlers ===== */
@@ -256,6 +258,13 @@ export default function Centrality() {
   const [useSLAMapping, setUseSLAMapping] = useState(true);
   const [slaTop1Year, setSlaTop1Year] = useState(10); // Top 10%
   const [slaNext3Year, setSlaNext3Year] = useState(30); // Next 30%
+
+  // Show loading indicator when weights change
+  useEffect(() => {
+    setIsCalculating(true);
+    const timer = setTimeout(() => setIsCalculating(false), 300);
+    return () => clearTimeout(timer);
+  }, [amenityWeights, floodWeights, w_betweenness, w_closeness, w_amenity, w_flood, useCompBetweenness, useCompCloseness, useCompAmenity, useCompFlood]);
 
   const mockExampleCalc = useMemo(() => {
   // Amenity calculation
@@ -734,7 +743,19 @@ export default function Centrality() {
 
   /* ===== ui ===== */
   return (
-    <div className="mx-auto flex w-full flex-col gap-5 p-6">
+    <div className="mx-auto flex w-full flex-col gap-5 p-6 relative">
+      {/* Loading overlay */}
+      {isCalculating && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="rounded-lg border bg-card p-6 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <span className="text-sm font-medium">Recalculating...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* header */}
       <header className="space-y-5">
         <div className="space-y-2">
