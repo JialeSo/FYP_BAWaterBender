@@ -543,6 +543,8 @@ export default function floodevents() {
     lookups,
   } = useMapData();
 
+  const [isCalculating, setIsCalculating] = useState(false);
+
   const map_ref = useRef(null);
   const container_ref = useRef(null);
   const popup_ref = useRef(null);
@@ -646,6 +648,13 @@ export default function floodevents() {
       return updated;
     });
   }, []);
+
+  // Show loading indicator when weights change
+  useEffect(() => {
+    setIsCalculating(true);
+    const timer = setTimeout(() => setIsCalculating(false), 300);
+    return () => clearTimeout(timer);
+  }, [cat_weights, inner_mult, outer_mult, inner_enabled, outer_enabled, w_betweenness, w_closeness, w_amenity, w_roads]);
 
   /* roads index by rn_id for centrality */
   const roads_by_id = useMemo(() => {
@@ -1559,7 +1568,18 @@ export default function floodevents() {
 
   /* ===== ui header with accordions ===== */
   return (
-    <div className="mx-auto flex w-full flex-col gap-5 p-6">
+    <div className="mx-auto flex w-full flex-col gap-5 p-6 relative">
+      {/* Loading overlay */}
+      {isCalculating && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="rounded-lg border bg-card p-6 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <span className="text-sm font-medium">Recalculating...</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <header className="space-y-5">
         <div className="space-y-2">
