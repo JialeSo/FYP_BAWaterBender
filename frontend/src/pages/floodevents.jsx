@@ -1594,50 +1594,6 @@ export default function floodevents() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        {/* Show Example accordion */}
-                        <Accordion type="single" collapsible className="rounded-xl border bg-muted/40">
-                          <AccordionItem value="example" className="border-0">
-                            <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
-                              Show Example Calculation
-                            </AccordionTrigger>
-                            <AccordionContent className="px-4 pb-4">
-                              <div className="space-y-4 text-sm">
-                                <div>
-                                  <div className="font-semibold mb-2">Example: Flood event affecting 12 inner + 8 outer amenities</div>
-                                  <div className="space-y-2">
-                                    <div className="rounded-lg border bg-background px-3 py-2 text-xs">
-                                      <div className="text-muted-foreground mb-1">Inner ring (12 amenities):</div>
-                                      <div className="font-mono ml-2">
-                                        4 × Healthcare (weight {cat_weights.healthcare_facilities ?? 5}) × {inner_mult} = {(4 * (cat_weights.healthcare_facilities ?? 5) * inner_mult).toFixed(1)}
-                                      </div>
-                                      <div className="font-mono ml-2">
-                                        3 × Education (weight {cat_weights.education_institutions ?? 3}) × {inner_mult} = {(3 * (cat_weights.education_institutions ?? 3) * inner_mult).toFixed(1)}
-                                      </div>
-                                      <div className="font-mono ml-2">
-                                        5 × Other categories × {inner_mult} = {(5 * 2 * inner_mult).toFixed(1)}
-                                      </div>
-                                    </div>
-                                    <div className="rounded-lg border bg-background px-3 py-2 text-xs">
-                                      <div className="text-muted-foreground mb-1">Outer ring (8 amenities):</div>
-                                      <div className="font-mono ml-2">
-                                        8 × avg weight 2.5 × {outer_mult} = {(8 * 2.5 * outer_mult).toFixed(1)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="rounded-lg border bg-muted/40 p-3">
-                                  <div className="font-semibold mb-2">Calculation:</div>
-                                  <div className="text-xs space-y-1 font-mono">
-                                    <div>Total weighted impact = inner + outer ≈ {((4 * (cat_weights.healthcare_facilities ?? 5) * inner_mult) + (3 * (cat_weights.education_institutions ?? 3) * inner_mult) + (5 * 2 * inner_mult) + (8 * 2.5 * outer_mult)).toFixed(1)}</div>
-                                    <div>Amenity Score = 1 - e^(-impact / 10)</div>
-                                    <div className="mt-1">This score feeds into AR Impact via the amenity weight.</div>
-                                  </div>
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-
                         {/* Amenity Weight Presets */}
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Weight Presets</Label>
@@ -1824,56 +1780,6 @@ export default function floodevents() {
                             </div>
                           </div>
                         </div>
-
-                        {/* Example visualization */}
-                        <Accordion type="single" collapsible className="rounded-xl border bg-muted/40">
-                          <AccordionItem value="viz" className="border-0">
-                            <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
-                              Show Ring Visualization
-                            </AccordionTrigger>
-                            <AccordionContent className="px-4 pb-4">
-                              <div className="space-y-3">
-                                <div className="text-sm text-muted-foreground">
-                                  Amenities are captured within two concentric rings around each flood location:
-                                </div>
-                                <div className="relative h-48 rounded-lg border bg-background p-4 flex items-center justify-center">
-                                  {/* Simple visualization */}
-                                  <div className="relative">
-                                    {/* Outer circle */}
-                                    <div
-                                      className="absolute inset-0 rounded-full border-4 border-sky-500/30 bg-sky-500/5"
-                                      style={{ width: '160px', height: '160px', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
-                                    />
-                                    {/* Inner circle */}
-                                    <div
-                                      className="absolute inset-0 rounded-full border-4 border-green-500/50 bg-green-500/10"
-                                      style={{ width: '96px', height: '96px', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
-                                    />
-                                    {/* Center point */}
-                                    <div
-                                      className="absolute w-3 h-3 rounded-full bg-red-500"
-                                      style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
-                                    />
-                                  </div>
-                                  {/* Labels */}
-                                  <div className="absolute bottom-2 left-2 text-xs space-y-1">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-4 h-4 rounded-full bg-green-500/30 border-2 border-green-500/50" />
-                                      <span>Inner: {r_inner}m × {inner_mult.toFixed(1)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-4 h-4 rounded-full bg-sky-500/20 border-2 border-sky-500/30" />
-                                      <span>Outer: {r_outer}m × {outer_mult.toFixed(1)}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  The outer radius cannot be smaller than the inner radius. Amenities in the inner ring receive full weight ({inner_mult.toFixed(1)}), while outer amenities receive partial weight ({outer_mult.toFixed(1)}).
-                                </p>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
                       </CardContent>
                     </Card>
                   </AccordionContent>
