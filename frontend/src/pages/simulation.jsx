@@ -1505,124 +1505,48 @@ export default function Simulation() {
                 <div className="border rounded-lg overflow-auto max-h-96">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-muted z-10">
-                      <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
-                        <th
-                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
-                          onClick={() => handleSort("pa_name")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Planning Area
-                            {sortColumn === "pa_name" ? (
-                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
-                          </div>
+                      <tr className="[&>th]:px-2 [&>th]:py-2 text-left text-xs">
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("pa_name")}>
+                          <div className="flex items-center gap-1">Planning Area{sortColumn === "pa_name" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
-                        <th
-                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
-                          onClick={() => handleSort("total_nodes")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Total Intersections
-                            {sortColumn === "total_nodes" ? (
-                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
-                          </div>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("base_min_s")}>
+                          <div className="flex items-center gap-1">Dry Min{sortColumn === "base_min_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
-                        <th
-                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
-                          onClick={() => handleSort("base_avg_s")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Dry Scenario Avg
-                            {sortColumn === "base_avg_s" ? (
-                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
-                          </div>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("base_max_s")}>
+                          <div className="flex items-center gap-1">Dry Max{sortColumn === "base_max_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
-                        <th
-                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
-                          onClick={() => handleSort("base_unreachable")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Dry Unreachable
-                            {sortColumn === "base_unreachable" ? (
-                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
-                          </div>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("base_avg_s")}>
+                          <div className="flex items-center gap-1">Dry Avg{sortColumn === "base_avg_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
-                        <th
-                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
-                          onClick={() => handleSort("flood_avg_s")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Flood Scenario Avg
-                            {sortColumn === "flood_avg_s" ? (
-                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
-                          </div>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("flood_min_s")}>
+                          <div className="flex items-center gap-1">Flood Min{sortColumn === "flood_min_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
-                        <th
-                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
-                          onClick={() => handleSort("flood_unreachable")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Flood Unreachable
-                            {sortColumn === "flood_unreachable" ? (
-                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
-                          </div>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("flood_max_s")}>
+                          <div className="flex items-center gap-1">Flood Max{sortColumn === "flood_max_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
-                        <th
-                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
-                          onClick={() => handleSort("delta_avg_s")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Δ Avg Time
-                            {sortColumn === "delta_avg_s" ? (
-                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
-                          </div>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("flood_avg_s")}>
+                          <div className="flex items-center gap-1">Flood Avg{sortColumn === "flood_avg_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
-                        <th
-                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
-                          onClick={() => handleSort("delta_unreachable")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Δ Unreachable
-                            {sortColumn === "delta_unreachable" ? (
-                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
-                          </div>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("delta_avg_s")}>
+                          <div className="flex items-center gap-1">Δ Time (s){sortColumn === "delta_avg_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                        </th>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("pct_avg_increase")}>
+                          <div className="flex items-center gap-1">Δ Time (%){sortColumn === "pct_avg_increase" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedPaDeltas.map((d, i) => (
-                        <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
+                        <tr key={i} className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50">
                           <td className="font-medium">{d.pa_name}</td>
-                          <td className="text-muted-foreground">{d.total_nodes}</td>
-                          <td>{fmtM(d.base_avg_s)}</td>
-                          <td>{d.base_unreachable}</td>
+                          <td className="text-muted-foreground">{fmtM(d.base_min_s)}</td>
+                          <td className="text-muted-foreground">{fmtM(d.base_max_s)}</td>
+                          <td className="text-muted-foreground">{fmtM(d.base_avg_s)}</td>
+                          <td>{fmtM(d.flood_min_s)}</td>
+                          <td>{fmtM(d.flood_max_s)}</td>
                           <td>{fmtM(d.flood_avg_s)}</td>
-                          <td className={d.flood_unreachable > d.base_unreachable ? "text-red-600 font-semibold" : ""}>{d.flood_unreachable}</td>
-                          <td className={d.delta_avg_s > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_avg_s > 0 ? `+${fmtM(d.delta_avg_s)}` : fmtM(d.delta_avg_s)}</td>
-                          <td className={d.delta_unreachable > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_unreachable > 0 ? `+${d.delta_unreachable}` : d.delta_unreachable}</td>
+                          <td className={d.delta_avg_s > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_avg_s > 0 ? `+${Math.round(d.delta_avg_s)}s` : `${Math.round(d.delta_avg_s)}s`}</td>
+                          <td className={Number.isFinite(d.pct_avg_increase) && d.pct_avg_increase > 0 ? "text-red-600 font-semibold" : ""}>{Number.isFinite(d.pct_avg_increase) ? `${d.pct_avg_increase > 0 ? '+' : ''}${d.pct_avg_increase.toFixed(1)}%` : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
