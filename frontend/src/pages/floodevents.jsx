@@ -1175,11 +1175,19 @@ export default function floodevents() {
         type: "circle",
         source: "amenities-nearby",
         paint: {
-          "circle-radius": 6,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["get", "count"],
+            0, 10,
+            50, 20,
+            100, 30,
+            500, 40
+          ],
           "circle-color": ["match", ["get", "band"], "inner", "#22c55e", "outer", "#0ea5e9", "#6b7280"],
-          "circle-opacity": 0.95,
+          "circle-opacity": 0.7,
           "circle-stroke-color": "#111827",
-          "circle-stroke-width": 1.5,
+          "circle-stroke-width": 2,
         },
         layout: { visibility: "none" },
       });
@@ -1188,17 +1196,17 @@ export default function floodevents() {
         type: "symbol",
         source: "amenities-nearby",
         layout: {
-          "icon-image": "marker-15",
-          "icon-size": 1.0,
-          "icon-allow-overlap": true,
-          "text-field": ["coalesce", ["get", "name_short"], ""],
-          "text-size": 10,
-          "text-offset": [0, 1.2],
-          "text-anchor": "top",
+          "text-field": ["get", "count"],
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+          "text-size": 14,
           "text-allow-overlap": true,
           "visibility": "none",
         },
-        paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 1.1 },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "#000000",
+          "text-halo-width": 2
+        },
       });
 
       /* ensure roads draw above fills so they’re always visible */
@@ -1379,8 +1387,11 @@ export default function floodevents() {
     const feat = (floods_fc?.features || []).find((ft) => String(ft.properties?.id ?? ft.id) === String(id_str));
     if (!feat) return;
     const p = feat.properties || {};
-    const detail = build_flood_detail(p);
-    const center = detail.center;
+
+    // Get center from start coordinates instead of build_flood_detail (removed to reduce lag)
+    const center = [to_num(p.start_lng), to_num(p.start_lat)];
+    if (Number.isNaN(center[0]) || Number.isNaN(center[1])) return;
+
     const map = map_ref.current;
     if (!map || !center) return;
 
@@ -1392,16 +1403,19 @@ export default function floodevents() {
       map.setLayoutProperty("flood-cluster-count", "visibility", "none");
     } catch {}
 
-    const point_features = detail.points.map(pt => ({ type: "Feature", properties: { role: pt.role, label: pt.role.replace("_", " ") }, geometry: { type: "Point", coordinates: pt.coord } }));
-    const line_features  = detail.lines.map(l => ({ type: "Feature", properties: { role: l.role }, geometry: { type: "LineString", coordinates: [l.a, l.b] } }));
+    // REMOVED: Individual flood detail points and lines (causing lag)
+    // const point_features = detail.points.map(pt => ({ ... }));
+    // const line_features  = detail.lines.map(l => ({ ... }));
+
+    // Hide the flood detail layers
     try {
-      map.getSource("flood-selected-points")?.setData({ type: "FeatureCollection", features: point_features });
-      map.getSource("flood-selected-lines")?.setData({ type: "FeatureCollection", features: line_features });
-      map.getSource("flood-selected-labels")?.setData({ type: "FeatureCollection", features: point_features });
-      map.setLayoutProperty("flood-selected-points", "visibility", point_features.length ? "visible" : "none");
-      map.setLayoutProperty("flood-selected-lines-casing", "visibility", line_features.length ? "visible" : "none");
-      map.setLayoutProperty("flood-selected-lines", "visibility", line_features.length ? "visible" : "none");
-      map.setLayoutProperty("flood-selected-labels", "visibility", point_features.length ? "visible" : "none");
+      map.getSource("flood-selected-points")?.setData({ type: "FeatureCollection", features: [] });
+      map.getSource("flood-selected-lines")?.setData({ type: "FeatureCollection", features: [] });
+      map.getSource("flood-selected-labels")?.setData({ type: "FeatureCollection", features: [] });
+      map.setLayoutProperty("flood-selected-points", "visibility", "none");
+      map.setLayoutProperty("flood-selected-lines-casing", "visibility", "none");
+      map.setLayoutProperty("flood-selected-lines", "visibility", "none");
+      map.setLayoutProperty("flood-selected-labels", "visibility", "none");
     } catch {}
 
     /* start road highlight (original) */
@@ -1436,23 +1450,39 @@ export default function floodevents() {
     /* amenities near */
     const near = query_amenities(center[0], center[1], r_out);
     let inner_count = 0, outer_count = 0, impact_inner = 0, impact_outer = 0;
-    const amenity_feats = [];
+
+    // Count amenities by band
     for (const a of near) {
       const band = a._distm <= r_in ? "inner" : "outer";
       const enabled = cat_enabled[a.category] ?? true;
       const w = enabled ? (+cat_weights[a.category] || 0) : 0;
       if (band === "inner") { inner_count++; impact_inner += w * inner_mult; }
       else { outer_count++; impact_outer += w * outer_mult; }
-      amenity_feats.push({
+    }
+
+    // Create bubble markers showing counts (not individual amenities)
+    const amenity_bubbles = [];
+    if (inner_count > 0) {
+      amenity_bubbles.push({
         type: "Feature",
-        properties: { id: a.id, band, name_short: a.name || "", type: a.category || "amenity", distm: Math.round(a._distm) },
-        geometry: { type: "Point", coordinates: [a.lng, a.lat] },
+        properties: { band: "inner", count: inner_count, label: `${inner_count} amenities` },
+        geometry: { type: "Point", coordinates: center },
       });
     }
+    if (outer_count > 0) {
+      // Place outer bubble slightly offset so both are visible
+      const offsetLng = center[0] + 0.0005;
+      amenity_bubbles.push({
+        type: "Feature",
+        properties: { band: "outer", count: outer_count, label: `${outer_count} amenities` },
+        geometry: { type: "Point", coordinates: [offsetLng, center[1]] },
+      });
+    }
+
     try {
-      map.getSource("amenities-nearby")?.setData({ type: "FeatureCollection", features: amenity_feats });
-      map.setLayoutProperty("amenities-nearby", "visibility", "visible");
-      map.setLayoutProperty("amenities-nearby-labels", "visibility", "visible");
+      map.getSource("amenities-nearby")?.setData({ type: "FeatureCollection", features: amenity_bubbles });
+      map.setLayoutProperty("amenities-nearby", "visibility", amenity_bubbles.length > 0 ? "visible" : "none");
+      map.setLayoutProperty("amenities-nearby-labels", "visibility", amenity_bubbles.length > 0 ? "visible" : "none");
     } catch {}
 
     /* roads near (inner/outer) — rendered & for panel */
