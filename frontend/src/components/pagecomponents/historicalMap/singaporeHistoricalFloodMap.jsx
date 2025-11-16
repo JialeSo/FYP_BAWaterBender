@@ -955,8 +955,8 @@ const legendValueMap = useMemo(() => {
       const handleBackgroundClick = (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: [PA_FILL] });
         if (features && features.length) return;
-        // Don't clear selected planning areas when clicking outside
-        // Just close popups
+        // Reset to all planning areas (pass empty array = show all)
+        onPlanningAreaToggle?.(null);
         try { paPopupRef.current?.remove(); } catch {}
         try { szPopupRef.current?.remove(); } catch {}
       };
@@ -1035,7 +1035,10 @@ const legendValueMap = useMemo(() => {
     const filterAll = ["all"];
     const filterNone = ["boolean", false];
     const selectedSubzonesList = (selectedSubzones || []).map(toS).filter(Boolean);
-    const showDetailLayers = hasPASelection && (!isAllPASelected || selectedSubzonesList.length > 0);
+
+    // Only show detail layers (subzones) when exactly 1 planning area is selected
+    // When 0 or multiple PAs selected, stay at planning area level
+    const showDetailLayers = hasPASelection && selectedPlanningAreas.length === 1 && (!isAllPASelected || selectedSubzonesList.length > 0);
 
     const paFilterExpr = !hasPASelection
       ? filterNone
