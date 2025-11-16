@@ -88,7 +88,12 @@ export function generatePlanningAreaTooltipHTML(paData) {
         </div>
 
         <div style="border-top: 1px solid #4b5563; padding-top: 8px; margin-top: 8px;">
-          <div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">Road Network Status:</div>
+          <div style="font-size: 11px; color: #9ca3af; margin-bottom: 6px;">Road Network Status:</div>
+          ${paData.total_roads != null ? `
+            <div style="font-size: 10px; color: #e5e7eb; margin-left: 8px; margin-bottom: 4px;">
+              <span style="color: #9ca3af;">●</span> Total Roads: <span style="font-weight: 600;">${paData.total_roads || 0}</span>
+            </div>
+          ` : ''}
           ${paData.unaffected_roads != null ? `
             <div style="font-size: 10px; color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
               <span style="color: #22c55e;">●</span> Unaffected Roads: <span style="font-weight: 600;">${paData.unaffected_roads || 0}</span>

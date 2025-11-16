@@ -310,6 +310,69 @@ export default function Simulation() {
   const [sortColumn, setSortColumn] = useState("delta_avg_s");
   const [sortDirection, setSortDirection] = useState("desc");
 
+  // Enrich paDeltas with road statistics
+  const enrichedPaDeltas = useMemo(() => {
+    if (!paDeltas.length || !graph?.edges || !graph?.nodes || !affectedRoads.length) return paDeltas;
+
+    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+    const paRoadStats = new Map();
+
+    // Calculate road stats for each PA
+    for (const edge of graph.edges) {
+      const nodeFrom = graph.nodes.get(edge.from);
+      const nodeTo = graph.nodes.get(edge.to);
+      const paId = nodeFrom?.paId || nodeTo?.paId;
+
+      if (paId != null && edge.rn_id != null) {
+        if (!paRoadStats.has(paId)) {
+          paRoadStats.set(paId, {
+            total_roads: new Set(),
+            unaffected_roads: new Set(),
+            affected_roads: new Set(),
+            blocked_roads: new Set(),
+            unreachable_roads: new Set(),
+          });
+        }
+
+        const stats = paRoadStats.get(paId);
+        stats.total_roads.add(edge.rn_id);
+
+        const isBlocked = affectedRoadSet.has(edge.rn_id);
+        const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
+        const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
+        const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+          ? floodedDist - baselineDist
+          : null;
+
+        if (isBlocked) {
+          stats.blocked_roads.add(edge.rn_id);
+        } else if (!Number.isFinite(floodedDist)) {
+          stats.unreachable_roads.add(edge.rn_id);
+        } else if (delta && delta > 0) {
+          stats.affected_roads.add(edge.rn_id);
+        } else {
+          stats.unaffected_roads.add(edge.rn_id);
+        }
+      }
+    }
+
+    // Enrich paDeltas with road counts
+    return paDeltas.map(pa => {
+      const stats = paRoadStats.get(pa.pa_id);
+      if (stats) {
+        return {
+          ...pa,
+          total_roads: stats.total_roads.size,
+          unaffected_roads: stats.unaffected_roads.size,
+          affected_roads: stats.affected_roads.size,
+          blocked_roads: stats.blocked_roads.size,
+          unreachable_roads: stats.unreachable_roads.size,
+        };
+      }
+      return pa;
+    });
+  }, [paDeltas, graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist]);
+
   // Handle table column sorting
   const handleSort = useCallback((column) => {
     if (sortColumn === column) {
@@ -320,11 +383,11 @@ export default function Simulation() {
     }
   }, [sortColumn, sortDirection]);
 
-  // Sort paDeltas based on current sort state
+  // Sort enrichedPaDeltas based on current sort state
   const sortedPaDeltas = useMemo(() => {
-    if (!paDeltas.length) return [];
+    if (!enrichedPaDeltas.length) return [];
 
-    const sorted = [...paDeltas].sort((a, b) => {
+    const sorted = [...enrichedPaDeltas].sort((a, b) => {
       let aVal = a[sortColumn];
       let bVal = b[sortColumn];
 
@@ -344,7 +407,7 @@ export default function Simulation() {
     });
 
     return sorted;
-  }, [paDeltas, sortColumn, sortDirection]);
+  }, [enrichedPaDeltas, sortColumn, sortDirection]);
 
   // Node-level distance data (Map: node_id => travel_time_seconds)
   const [baselineNodeDist, setBaselineNodeDist] = useState(null);
@@ -1413,7 +1476,7 @@ export default function Simulation() {
           <div className="space-y-4">
             {/* Travel Time Configuration */}
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="travel-time-config" className="border rounded-lg px-4">
+              <AccordionItem value="travel-time-config" className="rounded-lg px-4 border" style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
                 <AccordionTrigger className="text-sm font-semibold hover:no-underline">
                   Travel Time Target Configuration
                 </AccordionTrigger>
@@ -1453,7 +1516,7 @@ export default function Simulation() {
             </Accordion>
 
             {/* Unified Map */}
-            <div className="relative w-full" style={{ height: "800px" }}>
+            <div className="relative w-full rounded-lg overflow-hidden" style={{ height: "800px" }}>
                 <SimulationMapContainer
                   planning_fc_raw={planning_fc_raw}
                   amenity_fc_enriched={amenity_fc_enriched}
@@ -1533,6 +1596,18 @@ export default function Simulation() {
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("pct_avg_increase")}>
                           <div className="flex items-center gap-1">Δ Time (%){sortColumn === "pct_avg_increase" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("unaffected_roads")}>
+                          <div className="flex items-center gap-1">Unaffected{sortColumn === "unaffected_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                        </th>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("affected_roads")}>
+                          <div className="flex items-center gap-1">Affected{sortColumn === "affected_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                        </th>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("blocked_roads")}>
+                          <div className="flex items-center gap-1">Blocked{sortColumn === "blocked_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                        </th>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("unreachable_roads")}>
+                          <div className="flex items-center gap-1">Unreachable{sortColumn === "unreachable_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1547,6 +1622,10 @@ export default function Simulation() {
                           <td>{fmtM(d.flood_avg_s)}</td>
                           <td className={d.delta_avg_s > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_avg_s > 0 ? `+${Math.round(d.delta_avg_s)}s` : `${Math.round(d.delta_avg_s)}s`}</td>
                           <td className={Number.isFinite(d.pct_avg_increase) && d.pct_avg_increase > 0 ? "text-red-600 font-semibold" : ""}>{Number.isFinite(d.pct_avg_increase) ? `${d.pct_avg_increase > 0 ? '+' : ''}${d.pct_avg_increase.toFixed(1)}%` : '—'}</td>
+                          <td className="text-green-600">{d.unaffected_roads || 0}</td>
+                          <td className={d.affected_roads > 0 ? "text-yellow-600" : ""}>{d.affected_roads || 0}</td>
+                          <td className={d.blocked_roads > 0 ? "text-orange-600 font-semibold" : ""}>{d.blocked_roads || 0}</td>
+                          <td className={d.unreachable_roads > 0 ? "text-red-600 font-semibold" : ""}>{d.unreachable_roads || 0}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -50,6 +50,72 @@ export function SimulationMapContainer({
   const [mapReady, setMapReady] = useState(false);
 
   /**
+   * Calculate road statistics per planning area
+   */
+  const paRoadStats = useMemo(() => {
+    if (!graph?.edges || !graph?.nodes || !affectedRoads) return new Map();
+
+    const statsMap = new Map();
+    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+
+    // Count unique roads per PA
+    for (const edge of graph.edges) {
+      const nodeFrom = graph.nodes.get(edge.from);
+      const nodeTo = graph.nodes.get(edge.to);
+      const paId = nodeFrom?.paId || nodeTo?.paId;
+
+      if (paId != null && edge.rn_id != null) {
+        if (!statsMap.has(paId)) {
+          statsMap.set(paId, {
+            total_roads: new Set(),
+            unaffected_roads: new Set(),
+            flooded_roads: new Set(),
+            affected_roads: new Set(),
+            blocked_roads: new Set(),
+            unreachable_roads: new Set(),
+          });
+        }
+
+        const stats = statsMap.get(paId);
+        stats.total_roads.add(edge.rn_id);
+
+        const isBlocked = affectedRoadSet.has(edge.rn_id);
+        const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
+        const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
+        const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+          ? floodedDist - baselineDist
+          : null;
+
+        if (isBlocked) {
+          stats.blocked_roads.add(edge.rn_id);
+          stats.flooded_roads.add(edge.rn_id);
+        } else if (!Number.isFinite(floodedDist)) {
+          stats.unreachable_roads.add(edge.rn_id);
+        } else if (delta && delta > 0) {
+          stats.affected_roads.add(edge.rn_id);
+        } else {
+          stats.unaffected_roads.add(edge.rn_id);
+        }
+      }
+    }
+
+    // Convert Sets to counts
+    const result = new Map();
+    for (const [paId, stats] of statsMap.entries()) {
+      result.set(paId, {
+        total_roads: stats.total_roads.size,
+        unaffected_roads: stats.unaffected_roads.size,
+        flooded_roads: stats.flooded_roads.size,
+        affected_roads: stats.affected_roads.size,
+        blocked_roads: stats.blocked_roads.size,
+        unreachable_roads: stats.unreachable_roads.size,
+      });
+    }
+
+    return result;
+  }, [graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist]);
+
+  /**
    * Calculate nearest amenities for all nodes (baseline and flooded scenarios)
    */
   const nearestAmenities = useMemo(() => {
@@ -590,13 +656,20 @@ export function SimulationMapContainer({
         if (roadFeatures.length === 0) {
           const delta = paDeltas.find(d => d.pa_id === paId);
           if (delta) {
+            // Enrich delta with road statistics
+            const roadStats = paRoadStats.get(paId) || {};
+            const enrichedDelta = {
+              ...delta,
+              ...roadStats,
+            };
+
             paPopupRef.current = new mapboxgl.Popup({
               closeButton: false,
               closeOnClick: false,
               maxWidth: "300px",
             })
               .setLngLat(e.lngLat)
-              .setHTML(generatePlanningAreaTooltipHTML(delta))
+              .setHTML(generatePlanningAreaTooltipHTML(enrichedDelta))
               .addTo(map);
           }
         }
@@ -765,6 +838,7 @@ export function SimulationMapContainer({
   }, [
     mapReady,
     paDeltas,
+    paRoadStats,
     showPlanningAreaRoads,
     onPlanningAreaSelect,
     selectedPA,
