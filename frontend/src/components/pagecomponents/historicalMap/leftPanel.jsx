@@ -170,60 +170,6 @@ function MultiSelectCombobox({
   )
 }
 
-/* ----------------------------- subzone multiselect (scoped, user-editable) ----------------------------- */
-function SubzoneMultiSelect({
-  items = [],          // [{ name, planningArea }]
-  selected = [],       // string[]
-  onChange,
-}) {
-  const options = useMemo(
-    () =>
-      items
-        .map((z) => ({
-          name: `${z?.name ?? ""}`.trim(),
-          planningArea: `${z?.planningArea ?? ""}`.trim(),
-        }))
-        .filter((z) => z.name),
-    [items]
-  )
-  const names = useMemo(() => options.map((o) => o.name), [options])
-
-  const renderRow = useCallback(
-    (name, active) => {
-      const pa = options.find((x) => x.name === name)?.planningArea || ""
-      return (
-        <div className="flex items-start gap-2 min-w-0">
-          <Checkbox checked={!!active} readOnly className="mt-0.5" />
-          <div className="min-w-0">
-            <div className="truncate">{name}</div>
-            <div className="text-[11px] text-muted-foreground truncate">{pa}</div>
-          </div>
-        </div>
-      )
-    },
-    [options]
-  )
-
-  return (
-    <MultiSelectCombobox
-      label="Subzones"
-      options={names}
-      selected={selected}
-      onChange={onChange}
-      placeholder="All subzones (in scope)"
-      searchPlaceholder="Search subzones…"
-      emptyText="No subzone found."
-      popoverWidthClass="w-[420px]"
-      showBulkActions
-      showAllRow       // ✅ All row shown
-      allMeansEmpty    // ✅ [] = no filter
-      showRightCheck={false}
-      renderItemLeft={renderRow}
-      renderItemOverridesLabel={true}
-    />
-  )
-}
-
 /* -------------------------------- LeftPanel -------------------------------- */
 export default function LeftPanel({
   /** planning areas */
@@ -232,60 +178,15 @@ export default function LeftPanel({
   onSelectionChange,
   onResetSelection,
 
-  /** subzones */
-  subzoneOptions = [],          // [{ name, planningArea }]
-  selectedSubzones = [],
-  onSelectedSubzonesChange,
-
   /** amenities */
   amenityCategoriesOptions = [],
   selectedAmenityCategories = [],
   onAmenityCategoriesChange,
-  amenityTypesOptions = [],
-  selectedAmenityTypes = [],
-  onAmenityTypesChange,
-
-  /** floods */
-  floodTypeOptions = [],
-  selectedFloodTypes = [],
-  onFloodTypesChange,
-  floodDateFrom = "",
-  floodDateTo = "",
-  onFloodDateFromChange,
-  onFloodDateToChange,
 }) {
   /* ----- planning areas ----- */
-  const paOptions = useMemo(() => options.map((o) => o?.trim?.() ?? "").filter(Boolean), [options])
+  const paOptions = useMemo(() => options.map((o) => pretty(o?.trim?.() ?? "")).filter(Boolean), [options])
   const selectedAreas = useMemo(() => selected.map((v) => v?.trim?.() ?? "").filter(Boolean), [selected])
   const isAll = selectedAreas.length === 0
-
-  /* ----- subzones list scoped by PA (users can still filter inside) ----- */
-  const scopedSubzones = useMemo(() => {
-    if (!subzoneOptions?.length) return []
-    if (isAll) return subzoneOptions
-    const allow = new Set(selectedAreas.map((s) => s.trim()))
-    return subzoneOptions.filter((z) => allow.has(z.planningArea))
-  }, [subzoneOptions, selectedAreas, isAll])
-
-  // When scope changes: drop out-of-scope selections; DON'T auto-select everything.
-  const lastScopeKeyRef = useRef("")
-  useEffect(() => {
-    const scopeKey = (isAll ? "__ALL__" : selectedAreas.join("|"))
-    if (lastScopeKeyRef.current === scopeKey) return
-
-    const scopeSet = new Set(scopedSubzones.map((z) => z.name))
-    const kept = (selectedSubzones || []).filter((n) => scopeSet.has(n))
-    if (kept.length !== (selectedSubzones || []).length) {
-      onSelectedSubzonesChange?.(kept) // if empty after filter → [] = All
-    }
-    lastScopeKeyRef.current = scopeKey
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isAll,
-    selectedAreas.join("|"),
-    scopedSubzones.map((z) => z.name).join("|"),
-    selectedSubzones.join("|"),
-  ])
 
   return (
     <div className="relative z-30 flex h-full min-h-0 flex-col p-6">
@@ -300,7 +201,7 @@ export default function LeftPanel({
         {/* Planning Areas (All by default) */}
         <div className="space-y-2 pt-4">
           <MultiSelectCombobox
-            label="Planning Areas"
+            label="Planning Area"
             options={paOptions}
             selected={selected}
             onChange={onSelectionChange}
@@ -319,21 +220,10 @@ export default function LeftPanel({
 
         <Separator className="my-6" />
 
-        {/* Subzones (scoped list, All by default) */}
-        <div className="space-y-2">
-          <SubzoneMultiSelect
-            items={scopedSubzones}
-            selected={selectedSubzones}
-            onChange={onSelectedSubzonesChange}
-          />
-        </div>
-
-        <Separator className="my-6" />
-
         {/* Amenities (pretty labels, All by default) */}
-        <div className="space-y-4">
+        <div className="space-y-2">
           <MultiSelectCombobox
-            label="Amenity Categories"
+            label="Amenity Category"
             options={amenityCategoriesOptions
               .map((v) => String(v || "").trim())
               .filter(Boolean)
@@ -348,64 +238,6 @@ export default function LeftPanel({
             showAllRow
             allMeansEmpty
           />
-          <MultiSelectCombobox
-            label="Amenity Types"
-            options={amenityTypesOptions
-              .map((v) => String(v || "").trim())
-              .filter(Boolean)
-              .map((v) => ({ value: v, label: pretty(v) }))
-            }
-            selected={selectedAmenityTypes}
-            onChange={onAmenityTypesChange}
-            placeholder="All types"
-            searchPlaceholder="Search types…"
-            emptyText="No type found."
-            showBulkActions
-            showAllRow
-            allMeansEmpty
-          />
-        </div>
-
-        <Separator className="my-6" />
-
-        {/* Floods (All by default) */}
-        <div className="space-y-4">
-          <MultiSelectCombobox
-            label="Flood Event Types"
-            options={floodTypeOptions
-              .map((v) => String(v || "").trim())
-              .filter(Boolean)
-              .map((v) => ({ value: v, label: pretty(v) }))
-            }
-            selected={selectedFloodTypes}
-            onChange={onFloodTypesChange}
-            placeholder="All flood types"
-            searchPlaceholder="Search flood types…"
-            emptyText="No type found."
-            showBulkActions
-            showAllRow
-            allMeansEmpty
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">From date</Label>
-              <input
-                type="date"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                value={floodDateFrom}
-                onChange={(e) => onFloodDateFromChange?.(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">To date</Label>
-              <input
-                type="date"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                value={floodDateTo}
-                onChange={(e) => onFloodDateToChange?.(e.target.value)}
-              />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -417,11 +249,7 @@ export default function LeftPanel({
           onClick={onResetSelection}
           disabled={
             selected.length === 0 &&
-            !(selectedSubzones?.length) &&
-            !selectedAmenityCategories.length &&
-            !selectedAmenityTypes.length &&
-            !selectedFloodTypes.length &&
-            !floodDateFrom && !floodDateTo
+            !selectedAmenityCategories.length
           }
         >
           Reset filters

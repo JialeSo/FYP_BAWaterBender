@@ -18,6 +18,16 @@ import {
 
 const formatNumber = (v) => v?.toLocaleString?.("en-SG", { maximumFractionDigits: 0 }) ?? "0"
 
+// Helper to capitalize and format names (replace underscores, capitalize each word)
+const formatName = (name) => {
+  if (!name) return ""
+  return String(name)
+    .replace(/_/g, " ")           // Replace underscores with spaces
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ")
+}
+
 const chartTooltipStyle = {
   backgroundColor: "var(--card)",
   border: "1px solid var(--border)",
@@ -72,9 +82,9 @@ const RankedList = ({ title, items, emptyLabel }) => (
 )
 
 const determineContextLabel = (selectedPAs) => {
-  if (selectedPAs?.length > 1) return `${selectedPAs.length} planning areas selected`
-  if (selectedPAs?.length === 1) return selectedPAs[0]
-  return "All planning areas"
+  if (selectedPAs?.length > 1) return `${selectedPAs.length} Planning Areas Selected`
+  if (selectedPAs?.length === 1) return formatName(selectedPAs[0])
+  return "All Planning Areas"
 }
 
 export default function RightPanel({
@@ -151,46 +161,48 @@ export default function RightPanel({
   const planningList = useMemo(() => {
     const src = isFloods ? safeFlood.byPlanningArea : safeAmen.byPlanningArea
     if (!Array.isArray(src)) return []
-    return selectedPlanningAreas.length
+    const filtered = selectedPlanningAreas.length
       ? src.filter((item) => selectedPlanningAreas.includes(item.label))
       : src
+    // Format the labels
+    return filtered.map(({ label, count }) => ({ label: formatName(label), count }))
   }, [isFloods, safeFlood.byPlanningArea, safeAmen.byPlanningArea, selectedPlanningAreas])
 
   /* ---------------- Flood helpers ---------------- */
   const floodYearSeries  = safeFlood.yearSeries || []
-  const floodTopSubzones = safeFlood.topSubzones || []
+  const floodTopSubzones = (safeFlood.topSubzones || []).map(({ name, count }) => ({ name: formatName(name), count }))
 
   // Flood types list — same look as subzone chart
   const floodTypesList = useMemo(() => {
-    const rows = (safeFlood.byType || []).map(({ label, count }) => ({ name: label, count }))
+    const rows = (safeFlood.byType || []).map(({ label, count }) => ({ name: formatName(label), count }))
     return rows.sort((a, b) => b.count - a.count)
   }, [safeFlood.byType])
 
   // nation-wide PA breakdown (include zeros)
   const allPAKeys = Object.keys(safeFlood.overallPlanningCountMap || {})
   const currentPAMap = safeFlood.planningCountMap || {}
-  const floodsByPAAll = allPAKeys.map((name) => ({ name, count: currentPAMap[name] ?? 0 }))
+  const floodsByPAAll = allPAKeys.map((name) => ({ name: formatName(name), count: currentPAMap[name] ?? 0 }))
     .sort((a, b) => b.count - a.count)
 
   // subzone breakdown within selected PA
   const floodsBySubzoneInPA = useMemo(() => {
-    const rows = (safeFlood.bySubzone || []).map(({ label, count }) => ({ name: label, count }))
+    const rows = (safeFlood.bySubzone || []).map(({ label, count }) => ({ name: formatName(label), count }))
     return rows.sort((a, b) => b.count - a.count)
   }, [safeFlood.bySubzone])
 
   // roads list (top 10) with PA/Subzone under label
   const topRoadsFlood = (safeFlood.topRoads || []).slice(0, 10).map((r) => {
-    const pa = r.planningArea || planningAreaName || "—"
-    const sub = r.subzone || (feature?.properties?.SUBZONE_N ?? safeFlood.focusSubzoneName) || null
+    const pa = formatName(r.planningArea || planningAreaName || "—")
+    const sub = formatName(r.subzone || (feature?.properties?.SUBZONE_N ?? safeFlood.focusSubzoneName) || null)
     const subLabel = sub ? `${sub} • ${pa}` : pa
-    return { label: r.name, subLabel, count: r.count }
+    return { label: formatName(r.name), subLabel, count: r.count }
   })
 
   // subzone footer list with PA shown
   const subzoneFooterListFlood = useMemo(() => {
     const rows = (safeFlood.bySubzone || []).map(({ label, count, planningArea }) => ({
-      label,
-      subLabel: planningArea || planningAreaName || "—",
+      label: formatName(label),
+      subLabel: formatName(planningArea || planningAreaName || "—"),
       count,
     }))
     return rows.sort((a, b) => b.count - a.count).slice(0, 10)
@@ -199,13 +211,13 @@ export default function RightPanel({
   /* ---------------- Amenities helpers (mirrors floods) ---------------- */
   // amen categories & types as scrollable vertical charts
   const amenCategoriesList = useMemo(() => {
-    const rows = (safeAmen.byCategory || []).map(({ label, count }) => ({ name: label, count }))
+    const rows = (safeAmen.byCategory || []).map(({ label, count }) => ({ name: formatName(label), count }))
     return rows.sort((a, b) => b.count - a.count)
   }, [safeAmen.byCategory])
 
   const amenTypesList = useMemo(() => {
     const rows = (safeAmen.topTypes?.length ? safeAmen.topTypes : safeAmen.byType || [])
-      .map(({ label, name, count }) => ({ name: label ?? name, count }))
+      .map(({ label, name, count }) => ({ name: formatName(label ?? name), count }))
     return rows.sort((a, b) => b.count - a.count)
   }, [safeAmen.topTypes, safeAmen.byType])
 
@@ -213,29 +225,29 @@ export default function RightPanel({
   const allPAKeysAmen = Object.keys(safeAmen.overallPlanningCountMap || {})
   const currentPAMapAmen = safeAmen.planningCountMap || {}
   const amenitiesByPAAll = (allPAKeysAmen.length
-    ? allPAKeysAmen.map((name) => ({ name, count: currentPAMapAmen[name] ?? 0 }))
-    : (safeAmen.byPlanningArea || []).map(({ label, count }) => ({ name: label, count })))
+    ? allPAKeysAmen.map((name) => ({ name: formatName(name), count: currentPAMapAmen[name] ?? 0 }))
+    : (safeAmen.byPlanningArea || []).map(({ label, count }) => ({ name: formatName(label), count })))
     .sort((a, b) => b.count - a.count)
 
   // subzone breakdown within selected PA
   const amenitiesBySubzoneInPA = useMemo(() => {
-    const rows = (safeAmen.bySubzone || []).map(({ label, count }) => ({ name: label, count }))
+    const rows = (safeAmen.bySubzone || []).map(({ label, count }) => ({ name: formatName(label), count }))
     return rows.sort((a, b) => b.count - a.count)
   }, [safeAmen.bySubzone])
 
   // roads list (top 10) with PA/Subzone under label
   const topRoadsAmen = (safeAmen.topRoads || []).slice(0, 10).map((r) => {
-    const pa = r.planningArea || planningAreaName || "—"
-    const sub = r.subzone || (feature?.properties?.SUBZONE_N ?? null)
+    const pa = formatName(r.planningArea || planningAreaName || "—")
+    const sub = formatName(r.subzone || (feature?.properties?.SUBZONE_N ?? null))
     const subLabel = sub ? `${sub} • ${pa}` : pa
-    return { label: r.name, subLabel, count: r.count }
+    return { label: formatName(r.name), subLabel, count: r.count }
   })
 
   // subzone footer list with PA shown
   const subzoneFooterListAmen = useMemo(() => {
     const rows = (safeAmen.bySubzone || []).map(({ label, count, planningArea }) => ({
-      label,
-      subLabel: planningArea || planningAreaName || "—",
+      label: formatName(label),
+      subLabel: formatName(planningArea || planningAreaName || "—"),
       count,
     }))
     return rows.sort((a, b) => b.count - a.count).slice(0, 10)
@@ -267,15 +279,15 @@ export default function RightPanel({
       <div className="grid gap-4 md:grid-cols-3">
         {isFloods ? (
           <>
-            <MetricCard title="Flood events"       value={formatNumber(safeFlood.totals.events)}   subtitle={planningContext} />
-            <MetricCard title="Impacted subzones"  value={formatNumber(safeFlood.totals.subzones)} subtitle="Within selection" />
-            <MetricCard title="Impacted roads"     value={formatNumber(safeFlood.totals.roads)}    subtitle="Unique segments" />
+            <MetricCard title="Flood Events"       value={formatNumber(safeFlood.totals.events)}   subtitle={planningContext} />
+            <MetricCard title="Impacted Subzones"  value={formatNumber(safeFlood.totals.subzones)} subtitle="Within Selection" />
+            <MetricCard title="Impacted Roads"     value={formatNumber(safeFlood.totals.roads)}    subtitle="Unique Segments" />
           </>
         ) : (
           <>
             <MetricCard title="Amenities"          value={formatNumber(safeAmen.totals.amenities)} subtitle={planningContext} />
-            <MetricCard title="Amenity categories" value={formatNumber(safeAmen.totals.categories)} subtitle="Distinct categories" />
-            <MetricCard title="Amenity types"      value={formatNumber(safeAmen.totals.types)}      subtitle="Distinct types" />
+            <MetricCard title="Amenity Categories" value={formatNumber(safeAmen.totals.categories)} subtitle="Distinct Categories" />
+            <MetricCard title="Amenity Types"      value={formatNumber(safeAmen.totals.types)}      subtitle="Distinct Types" />
           </>
         )}
       </div>
@@ -289,7 +301,7 @@ export default function RightPanel({
               <div className="flex items-center gap-2">
                 <LineChartIcon className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <CardTitle className="text-sm font-semibold text-muted-foreground">Flood events over time</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-muted-foreground">Flood Events Over Time</CardTitle>
                   <CardDescription>Yearly counts within the current selection</CardDescription>
                 </div>
               </div>
@@ -318,7 +330,7 @@ export default function RightPanel({
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-semibold text-muted-foreground">Flood types</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-muted-foreground">Flood Types</CardTitle>
                   <CardDescription>Scroll to see all flood types</CardDescription>
                 </div>
               </div>
@@ -348,7 +360,7 @@ export default function RightPanel({
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-semibold text-muted-foreground">Floods by planning area</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-muted-foreground">Floods By Planning Area</CardTitle>
                     <CardDescription>Scroll to see all areas</CardDescription>
                   </div>
                 </div>
@@ -379,9 +391,9 @@ export default function RightPanel({
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-sm font-semibold text-muted-foreground">
-                      Floods by subzone{planningAreaName ? ` – ${planningAreaName}` : ""}
+                      Top 10 Subzones{planningAreaName ? ` – ${formatName(planningAreaName).toUpperCase()}` : ""}
                     </CardTitle>
-                    <CardDescription>Scroll to see all subzones</CardDescription>
+                    <CardDescription>Floods by subzone</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -411,7 +423,7 @@ export default function RightPanel({
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <CardTitle className="text-sm font-semibold text-muted-foreground">Top impacted subzones</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-muted-foreground">Top Impacted Subzones</CardTitle>
                     <CardDescription>By recorded flood events</CardDescription>
                   </div>
                 </div>
@@ -442,7 +454,7 @@ export default function RightPanel({
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-semibold text-muted-foreground">Amenities by category</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-muted-foreground">Amenities By Category</CardTitle>
                   <CardDescription>Scroll to see all categories</CardDescription>
                 </div>
               </div>
@@ -471,7 +483,7 @@ export default function RightPanel({
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-semibold text-muted-foreground">Top amenity types</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-muted-foreground">Top Amenity Types</CardTitle>
                   <CardDescription>Scroll to see all types</CardDescription>
                 </div>
               </div>
@@ -501,7 +513,7 @@ export default function RightPanel({
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-semibold text-muted-foreground">Amenities by planning area</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-muted-foreground">Amenities By Planning Area</CardTitle>
                     <CardDescription>Scroll to see all areas</CardDescription>
                   </div>
                 </div>
@@ -532,9 +544,9 @@ export default function RightPanel({
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-sm font-semibold text-muted-foreground">
-                      Amenities by subzone{planningAreaName ? ` – ${planningAreaName}` : ""}
+                      Top 10 Subzones{planningAreaName ? ` – ${formatName(planningAreaName).toUpperCase()}` : ""}
                     </CardTitle>
-                    <CardDescription>Scroll to see all subzones</CardDescription>
+                    <CardDescription>Amenities by subzone</CardDescription>
                   </div>
                 </div>
               </CardHeader>

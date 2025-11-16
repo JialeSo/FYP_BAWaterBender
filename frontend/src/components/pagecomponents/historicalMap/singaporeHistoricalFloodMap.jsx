@@ -671,18 +671,18 @@ export default function singaporehistoricalfloodmap({
 
         return `
 <div style="min-width:260px;max-width:340px;background:#0b1220;color:#e5e7eb;border-radius:12px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.5);">
-  <div style="font-weight:800;letter-spacing:.2px;font-size:14px;margin-bottom:6px;">planning area: ${name}</div>
-  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">planning area — numbers</div>
+  <div style="font-weight:800;letter-spacing:.2px;font-size:14px;margin-bottom:6px;">Planning Area: ${name}</div>
+  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">Planning Area — Numbers</div>
   <ul style="list-style:none;padding:0;margin:0 0 8px 0;font-size:12px;line-height:1.35;">
-    <li>area: <b>${fmtFloat(area, 2)}</b> km²</li>
-    <li>population: <b>${fmtNum(pop)}</b></li>
-    <li>no. of floods: <b>${fmtNum(floods)}</b> | rank <b>#${rFC}</b> / ${tot}</li>
-    <li>no. of amenities: <b>${fmtNum(amen)}</b> | rank <b>#${rAC}</b> / ${tot}</li>
+    <li>Area: <b>${fmtFloat(area, 2)}</b> km²</li>
+    <li>Population: <b>${fmtNum(pop)}</b></li>
+    <li>No. Of Floods: <b>${fmtNum(floods)}</b> | Rank <b>#${rFC}</b> / ${tot}</li>
+    <li>No. Of Amenities: <b>${fmtNum(amen)}</b> | Rank <b>#${rAC}</b> / ${tot}</li>
   </ul>
-  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">planning area — statistics</div>
+  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">Planning Area — Statistics</div>
   <ul style="list-style:none;padding:0;margin:0;font-size:12px;line-height:1.35;">
-    <li>flood density: <b>${fmtFloat(densF)}</b> / km² | rank <b>#${rFD}</b></li>
-    <li>amenities density: <b>${fmtFloat(densA)}</b> / km² | rank <b>#${rAD}</b></li>
+    <li>Flood Density: <b>${fmtFloat(densF)}</b> / km² | Rank <b>#${rFD}</b></li>
+    <li>Amenities Density: <b>${fmtFloat(densA)}</b> / km² | Rank <b>#${rAD}</b></li>
   </ul>
 </div>`;
       };
@@ -714,18 +714,18 @@ export default function singaporehistoricalfloodmap({
 
         return `
 <div style="min-width:260px;max-width:360px;background:#0b1220;color:#e5e7eb;border-radius:12px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.5);">
-  <div style="font-weight:800;letter-spacing:.2px;font-size:14px;margin-bottom:2px;">subzone: ${szName}</div>
-  <div style="font-size:12px;opacity:.85;margin-bottom:8px;">planning area: ${paName}</div>
-  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">subzone — numbers</div>
+  <div style="font-weight:800;letter-spacing:.2px;font-size:14px;margin-bottom:2px;">Subzone: ${szName}</div>
+  <div style="font-size:12px;opacity:.85;margin-bottom:8px;">Planning Area: ${paName}</div>
+  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">Subzone — Numbers</div>
   <ul style="list-style:none;padding:0;margin:0 0 8px 0;font-size:12px;line-height:1.35;">
-    <li>area: <b>${fmtFloat(area, 2)}</b> km²</li>
-    <li>no. of floods: <b>${fmtNum(floods)}</b> | global <b>#${gFC}</b> / ${gTot} | within pa <b>#${wFC}</b> / ${wTot}</li>
-    <li>no. of amenities: <b>${fmtNum(amen)}</b> | global <b>#${gAC}</b> / ${gTot} | within pa <b>#${wAC}</b> / ${wTot}</li>
+    <li>Area: <b>${fmtFloat(area, 2)}</b> km²</li>
+    <li>No. Of Floods: <b>${fmtNum(floods)}</b> | Global <b>#${gFC}</b> / ${gTot} | Within PA <b>#${wFC}</b> / ${wTot}</li>
+    <li>No. Of Amenities: <b>${fmtNum(amen)}</b> | Global <b>#${gAC}</b> / ${gTot} | Within PA <b>#${wAC}</b> / ${wTot}</li>
   </ul>
-  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">subzone — statistics</div>
+  <div style="opacity:.8;font-size:11px;margin-bottom:6px;">Subzone — Statistics</div>
   <ul style="list-style:none;padding:0;margin:0;font-size:12px;line-height:1.35;">
-    <li>flood density: <b>${fmtFloat(densF)}</b> / km² | global <b>#${gFD}</b> | within pa <b>#${wFD}</b></li>
-    <li>amenities density: <b>${fmtFloat(densA)}</b> / km² | global <b>#${gAD}</b> | within pa <b>#${wAD}</b></li>
+    <li>Flood Density: <b>${fmtFloat(densF)}</b> / km² | Global <b>#${gFD}</b> | Within PA <b>#${wFD}</b></li>
+    <li>Amenities Density: <b>${fmtFloat(densA)}</b> / km² | Global <b>#${gAD}</b> | Within PA <b>#${wAD}</b></li>
   </ul>
 </div>`;
       };
@@ -947,48 +947,48 @@ export default function singaporehistoricalfloodmap({
 
       {/* settings (top-right) */}
       <div className="absolute right-3 top-3 z-10 rounded-lg bg-slate-900/90 border border-white/10 p-2 text-xs text-slate-200 min-w-[280px]">
-        <div className="font-semibold mb-1">settings</div>
+        <div className="font-semibold mb-1">Settings</div>
         <div className="grid grid-cols-1 gap-2">
           <label className="flex items-center justify-between gap-2">
-            <span className="opacity-90">metric</span>
+            <span className="opacity-90">Metric</span>
             <select value={metric} onChange={(e) => setMetric(e.target.value)} className="bg-white/90 text-slate-900 rounded px-2 py-1">
-              <option value="flood_count">flood count</option>
-              <option value="flood_density">flood density</option>
-              <option value="amenity_count">amenity count</option>
-              <option value="amenity_density">amenity density</option>
+              <option value="flood_count">Flood Count</option>
+              <option value="flood_density">Flood Density</option>
+              <option value="amenity_count">Amenity Count</option>
+              <option value="amenity_density">Amenity Density</option>
             </select>
           </label>
 
           <label className="flex items-center justify-between gap-2">
-            <span className="opacity-90">show choropleth</span>
+            <span className="opacity-90">Show Choropleth</span>
             <input type="checkbox" checked={showChoropleth} onChange={(e) => setShowChoropleth(e.target.checked)} className="accent-white" />
           </label>
 
           <label className="flex items-center justify-between gap-2">
-            <span className="opacity-90">show flood markers</span>
+            <span className="opacity-90">Show Flood Markers</span>
             <input type="checkbox" checked={showFloodMarkers} onChange={(e) => setShowFloodMarkers(e.target.checked)} className="accent-white" />
           </label>
 
           <label className="flex items-center justify-between gap-2">
-            <span className="opacity-90">show amenity markers</span>
+            <span className="opacity-90">Show Amenity Markers</span>
             <input type="checkbox" checked={showAmenityMarkers} onChange={(e) => setShowAmenityMarkers(e.target.checked)} className="accent-white" />
           </label>
 
           <div className="h-px bg-white/10 my-1" />
 
           <label className="flex items-center justify-between gap-2">
-            <span className="opacity-90">show kde (flood heat)</span>
+            <span className="opacity-90">Show KDE (Flood Heat)</span>
             <input type="checkbox" checked={showKDE} onChange={(e) => setShowKDE(e.target.checked)} className="accent-white" />
           </label>
 
           <div className={`grid gap-1 ${showKDE ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
             <label className="flex items-center justify-between gap-2">
-              <span className="opacity-90">radius</span>
+              <span className="opacity-90">Radius</span>
               <input type="range" min={6} max={70} value={kdeRadius} onChange={(e) => setKdeRadius(+e.target.value)} className="w-36" />
               <span className="tabular-nums">{kdeRadius}px</span>
             </label>
             <label className="flex items-center justify-between gap-2">
-              <span className="opacity-90">intensity</span>
+              <span className="opacity-90">Intensity</span>
               <input type="range" step={0.05} min={0.1} max={2} value={kdeIntensity} onChange={(e) => setKdeIntensity(+e.target.value)} className="w-36" />
               <span className="tabular-nums">{kdeIntensity.toFixed(2)}</span>
             </label>
@@ -1001,8 +1001,8 @@ export default function singaporehistoricalfloodmap({
         <div className="absolute left-3 bottom-3 z-10 rounded-lg bg-slate-900/90 border border-white/10 px-3 py-2 text-xs text-slate-200">
           <div className="font-semibold">
             {hasSelection
-              ? (metric.includes("amenity") ? "amenities (subzone choropleth)" : "floods (subzone choropleth)")
-              : (metric.includes("amenity") ? "amenities (planning area choropleth)" : "floods (planning area choropleth)")}
+              ? (metric.includes("amenity") ? "Amenities (Subzone Choropleth)" : "Floods (Subzone Choropleth)")
+              : (metric.includes("amenity") ? "Amenities (Planning Area Choropleth)" : "Floods (Planning Area Choropleth)")}
           </div>
           <div className="mt-2 flex flex-col gap-2">
             {legendItems.map((it, idx) => (
@@ -1013,7 +1013,7 @@ export default function singaporehistoricalfloodmap({
             ))}
           </div>
           <div className="mt-2 text-[10px] text-slate-400">
-            filtered to selected planning areas{subzoneFC.features?.length ? (hasSZSelection ? " / subzones" : "") : ""}
+            Filtered To Selected Planning Areas{subzoneFC.features?.length ? (hasSZSelection ? " / Subzones" : "") : ""}
           </div>
         </div>
       )}
@@ -1021,15 +1021,15 @@ export default function singaporehistoricalfloodmap({
       {/* heatmap legend (bottom-right) – only when kde is on */}
       {showKDE && (
         <div className="absolute right-3 bottom-3 z-10 rounded-lg bg-slate-900/90 border border-white/10 p-3 text-xs text-slate-200 w-[220px]">
-          <div className="font-semibold mb-2">flood kde (heatmap)</div>
+          <div className="font-semibold mb-2">Flood KDE (Heatmap)</div>
           <div className="w-full h-3 rounded overflow-hidden" style={{
             background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, #fee2e2 20%, #fecaca 40%, #fca5a5 60%, #ef4444 80%, #991b1b 100%)"
           }} />
           <div className="flex justify-between mt-1 text-[10px]">
-            <span>low</span><span>high</span>
+            <span>Low</span><span>High</span>
           </div>
           <div className="mt-2 text-[10px] text-slate-400">
-            radius {kdeRadius}px · intensity {kdeIntensity.toFixed(2)}
+            Radius {kdeRadius}px · Intensity {kdeIntensity.toFixed(2)}
           </div>
         </div>
       )}
