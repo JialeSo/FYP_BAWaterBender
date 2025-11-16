@@ -1909,9 +1909,23 @@ export default function floodevents() {
                       <CardContent className="space-y-4">
                         <div className="space-y-3">
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <Label className="text-sm">Betweenness Weight</Label>
-                              <span className="text-sm font-semibold">{w_betweenness.toFixed(2)}</span>
+                              <NumberInput
+                                value={w_betweenness * 100}
+                                onValueChange={(numVal) => {
+                                  if (numVal !== undefined) {
+                                    set_w_betweenness(clamp(numVal / 100, 0, 1));
+                                  }
+                                }}
+                                min={0}
+                                max={100}
+                                stepper={5}
+                                decimalScale={0}
+                                fixedDecimalScale={false}
+                                hideSteppers={true}
+                                className="w-16"
+                              />
                             </div>
                             <Slider
                               value={[w_betweenness * 100]}
@@ -1926,9 +1940,23 @@ export default function floodevents() {
                           </div>
 
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <Label className="text-sm">Closeness Weight</Label>
-                              <span className="text-sm font-semibold">{w_closeness.toFixed(2)}</span>
+                              <NumberInput
+                                value={w_closeness * 100}
+                                onValueChange={(numVal) => {
+                                  if (numVal !== undefined) {
+                                    set_w_closeness(clamp(numVal / 100, 0, 1));
+                                  }
+                                }}
+                                min={0}
+                                max={100}
+                                stepper={5}
+                                decimalScale={0}
+                                fixedDecimalScale={false}
+                                hideSteppers={true}
+                                className="w-16"
+                              />
                             </div>
                             <Slider
                               value={[w_closeness * 100]}
@@ -1943,9 +1971,23 @@ export default function floodevents() {
                           </div>
 
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <Label className="text-sm">Amenity Weight</Label>
-                              <span className="text-sm font-semibold">{w_amenity.toFixed(2)}</span>
+                              <NumberInput
+                                value={w_amenity * 100}
+                                onValueChange={(numVal) => {
+                                  if (numVal !== undefined) {
+                                    set_w_amenity(clamp(numVal / 100, 0, 1));
+                                  }
+                                }}
+                                min={0}
+                                max={100}
+                                stepper={5}
+                                decimalScale={0}
+                                fixedDecimalScale={false}
+                                hideSteppers={true}
+                                className="w-16"
+                              />
                             </div>
                             <Slider
                               value={[w_amenity * 100]}
@@ -1960,9 +2002,23 @@ export default function floodevents() {
                           </div>
 
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <Label className="text-sm">Roads Weight</Label>
-                              <span className="text-sm font-semibold">{w_roads.toFixed(2)}</span>
+                              <NumberInput
+                                value={w_roads * 100}
+                                onValueChange={(numVal) => {
+                                  if (numVal !== undefined) {
+                                    set_w_roads(clamp(numVal / 100, 0, 1));
+                                  }
+                                }}
+                                min={0}
+                                max={100}
+                                stepper={5}
+                                decimalScale={0}
+                                fixedDecimalScale={false}
+                                hideSteppers={true}
+                                className="w-16"
+                              />
                             </div>
                             <Slider
                               value={[w_roads * 100]}
