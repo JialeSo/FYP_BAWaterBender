@@ -53,11 +53,26 @@ export function LearnHowToUseDialog() {
     };
   };
 
+  // Build defaultConfig dynamically from MOCK_EXAMPLE to ensure all categories are covered
+  const amenityWeights = {};
+  const amenityEnabled = {};
+  for (const { category } of MOCK_EXAMPLE.amenities) {
+    amenityWeights[category] = 1.0;
+    amenityEnabled[category] = true;
+  }
+
+  const floodWeights = {};
+  const floodEnabled = {};
+  for (const { type } of MOCK_EXAMPLE.floods) {
+    floodWeights[type] = 1.0;
+    floodEnabled[type] = true;
+  }
+
   const defaultConfig = {
-    amenityWeights: { hospital: 1.0, school: 1.0, park: 1.0 },
-    floodWeights: { ponding: 1.0, drain_overflow: 1.0 },
-    amenityEnabled: { hospital: true, school: true, park: true },
-    floodEnabled: { ponding: true, drain_overflow: true },
+    amenityWeights,
+    floodWeights,
+    amenityEnabled,
+    floodEnabled,
     componentWeights: { betweenness: 0.4, closeness: 0.3, amenity: 0.2, flood: 0.1 },
     componentToggles: { betweenness: true, closeness: true, amenity: true, flood: true },
   };
@@ -134,8 +149,8 @@ export function LearnHowToUseDialog() {
                   <div className="font-semibold mb-2">Step 1: Calculate Component Scores (0-100 scale)</div>
                   <div className="space-y-2 ml-4">
                     <div className="font-mono text-xs">
-                      <div>Betweenness: {MOCK_EXAMPLE.betweenness_norm} × 100 = {mockResult.betNorm.toFixed(2)}</div>
-                      <div>Closeness: {MOCK_EXAMPLE.closeness_norm} × 100 = {mockResult.cloNorm.toFixed(2)}</div>
+                      <div>Betweenness: {MOCK_EXAMPLE.betweenness_norm ?? 0} × 100 = {(mockResult.betNorm ?? 0).toFixed(2)}</div>
+                      <div>Closeness: {MOCK_EXAMPLE.closeness_norm ?? 0} × 100 = {(mockResult.cloNorm ?? 0).toFixed(2)}</div>
                     </div>
                   </div>
                 </div>
@@ -144,16 +159,19 @@ export function LearnHowToUseDialog() {
                   <div className="font-semibold mb-2">Step 2a: Calculate Amenity Score</div>
                   <div className="ml-4 space-y-1">
                     <div className="text-xs text-muted-foreground mb-1">Amenities on this road:</div>
-                    {MOCK_EXAMPLE.amenities.map(({ category, count }) => (
-                      <div key={category} className="font-mono text-xs ml-2">
-                        {count} × {to_title_case(category)} (weight: {defaultConfig.amenityWeights[category]}) = {(count * defaultConfig.amenityWeights[category]).toFixed(1)}
-                      </div>
-                    ))}
+                    {MOCK_EXAMPLE.amenities.map(({ category, count }) => {
+                      const weight = defaultConfig.amenityWeights[category] ?? 1.0;
+                      return (
+                        <div key={category} className="font-mono text-xs ml-2">
+                          {count} × {to_title_case(category)} (weight: {weight.toFixed(1)}) = {(count * weight).toFixed(1)}
+                        </div>
+                      );
+                    })}
                     <div className="font-mono text-xs ml-2 pt-1 border-t">
-                      Total weighted = {mockResult.amenityWeighted.toFixed(1)}
+                      Total weighted = {(mockResult.amenityWeighted ?? 0).toFixed(1)}
                     </div>
                     <div className="font-mono text-xs ml-2">
-                      Amenity Score = min(100, 20 × log₁₀(1 + {mockResult.amenityWeighted.toFixed(1)})) = <strong>{mockResult.amenityScore.toFixed(2)}</strong>
+                      Amenity Score = min(100, 20 × log₁₀(1 + {(mockResult.amenityWeighted ?? 0).toFixed(1)})) = <strong>{(mockResult.amenityScore ?? 0).toFixed(2)}</strong>
                     </div>
                   </div>
                 </div>
@@ -162,16 +180,19 @@ export function LearnHowToUseDialog() {
                   <div className="font-semibold mb-2">Step 2b: Calculate Flood Score</div>
                   <div className="ml-4 space-y-1">
                     <div className="text-xs text-muted-foreground mb-1">Flood events on this road:</div>
-                    {MOCK_EXAMPLE.floods.map(({ type, count }) => (
-                      <div key={type} className="font-mono text-xs ml-2">
-                        {count} × {to_title_case(type)} (weight: {defaultConfig.floodWeights[type]}) = {(count * defaultConfig.floodWeights[type]).toFixed(1)}
-                      </div>
-                    ))}
+                    {MOCK_EXAMPLE.floods.map(({ type, count }) => {
+                      const weight = defaultConfig.floodWeights[type] ?? 1.0;
+                      return (
+                        <div key={type} className="font-mono text-xs ml-2">
+                          {count} × {to_title_case(type)} (weight: {weight.toFixed(1)}) = {(count * weight).toFixed(1)}
+                        </div>
+                      );
+                    })}
                     <div className="font-mono text-xs ml-2 pt-1 border-t">
-                      Total weighted = {mockResult.floodWeighted.toFixed(1)}
+                      Total weighted = {(mockResult.floodWeighted ?? 0).toFixed(1)}
                     </div>
                     <div className="font-mono text-xs ml-2">
-                      Flood Score = min(100, 25 × log₁₀(1 + {mockResult.floodWeighted.toFixed(1)})) = <strong>{mockResult.floodScore.toFixed(2)}</strong>
+                      Flood Score = min(100, 25 × log₁₀(1 + {(mockResult.floodWeighted ?? 0).toFixed(1)})) = <strong>{(mockResult.floodScore ?? 0).toFixed(2)}</strong>
                     </div>
                   </div>
                 </div>
@@ -181,19 +202,19 @@ export function LearnHowToUseDialog() {
                   <div className="font-mono text-xs ml-4 space-y-1">
                     <div>Importance = </div>
                     <div className="ml-4">
-                      {defaultConfig.componentWeights.betweenness.toFixed(2)} × {mockResult.betNorm.toFixed(2)} (Betweenness) +
+                      {(defaultConfig.componentWeights.betweenness ?? 0.4).toFixed(2)} × {(mockResult.betNorm ?? 0).toFixed(2)} (Betweenness) +
                     </div>
                     <div className="ml-4">
-                      {defaultConfig.componentWeights.closeness.toFixed(2)} × {mockResult.cloNorm.toFixed(2)} (Closeness) +
+                      {(defaultConfig.componentWeights.closeness ?? 0.3).toFixed(2)} × {(mockResult.cloNorm ?? 0).toFixed(2)} (Closeness) +
                     </div>
                     <div className="ml-4">
-                      {defaultConfig.componentWeights.amenity.toFixed(2)} × {mockResult.amenityScore.toFixed(2)} (Amenity) +
+                      {(defaultConfig.componentWeights.amenity ?? 0.2).toFixed(2)} × {(mockResult.amenityScore ?? 0).toFixed(2)} (Amenity) +
                     </div>
                     <div className="ml-4">
-                      {defaultConfig.componentWeights.flood.toFixed(2)} × {mockResult.floodScore.toFixed(2)} (Flood)
+                      {(defaultConfig.componentWeights.flood ?? 0.1).toFixed(2)} × {(mockResult.floodScore ?? 0).toFixed(2)} (Flood)
                     </div>
                     <div className="mt-2 pt-2 border-t font-semibold">
-                      = <strong className="text-base">{mockResult.importance.toFixed(2)}</strong>
+                      = <strong className="text-base">{(mockResult.importance ?? 0).toFixed(2)}</strong>
                     </div>
                   </div>
                 </div>
@@ -212,7 +233,7 @@ export function LearnHowToUseDialog() {
                   When you toggle a component OFF, it contributes 0 to the final score regardless of its weight.
                 </p>
                 <div className="font-mono text-xs bg-background rounded p-2">
-                  If Amenity is OFF: 0.2 × {mockResult.amenityScore.toFixed(2)} = 0.00
+                  If Amenity is OFF: 0.2 × {(mockResult.amenityScore ?? 0).toFixed(2)} = 0.00
                 </div>
               </div>
 
@@ -223,7 +244,7 @@ export function LearnHowToUseDialog() {
                   Higher weight = more influence.
                 </p>
                 <div className="font-mono text-xs bg-background rounded p-2">
-                  If Betweenness weight = 0.8: 0.8 × {mockResult.betNorm.toFixed(2)} = {(0.8 * mockResult.betNorm).toFixed(2)}
+                  If Betweenness weight = 0.8: 0.8 × {(mockResult.betNorm ?? 0).toFixed(2)} = {(0.8 * (mockResult.betNorm ?? 0)).toFixed(2)}
                 </div>
               </div>
 

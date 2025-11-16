@@ -37,7 +37,6 @@ import {
   format_number,
   to_title_case,
 } from "./shared";
-import { LearnHowToUseDialog } from "./learnHowToUseDialog";
 import { CentralityMap } from "./centralityMap";
 import { MultiSelectCombobox } from "./multiSelectCombobox";
 import { CentralityTable } from "./centralityTable";
@@ -756,16 +755,7 @@ export default function Centrality() {
         </div>
       )}
 
-      {/* header */}
       <header className="space-y-5">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">Road Network Centrality</h1>
-          <LearnHowToUseDialog />
-          <p className="text-sm text-muted-foreground md:text-base">
-            Analyse road importance using weighted components. Each section below is its own accordion. Use per-category toggles to include/exclude categories while setting weights.
-          </p>
-        </div>
-
         {/* Road Centrality Configuration - Unified Parent Accordion */}
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="road-centrality-config" className="overflow-hidden rounded-xl border bg-card shadow-sm">
