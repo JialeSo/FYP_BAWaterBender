@@ -3,10 +3,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import LeftPanel from "@/components/pagecomponents/historicalMap/leftPanel";
 import RightPanel from "./rightPanel";
-import { PanelLeft, PanelRight } from "lucide-react";
 import { useMapData } from "@/context/mapDataContext";
 
 /* ---------------- helpers ---------------- */
@@ -272,8 +270,6 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     Array.isArray(floodData.features);
 
   /* ui state */
-  const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
   const [resizeSignal, setResizeSignal] = useState(0);
   const [showFloods, setShowFloods] = useState(true);
   const [showAmenities, setShowAmenities] = useState(true);
@@ -592,6 +588,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
         topSubzones: [],
         topTypes: [],
         topRoads: [],
+        planningCountMap: {},
+        overallPlanningCountMap: {},
       };
     }
     const tally = (arr, sel) => {
@@ -626,23 +624,38 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
 
     const topTypes = byType.slice(0, 10).map(({ label, count }) => ({ name: label, count }));
 
-    // Road aggregation for amenities
+    // Road aggregation for amenities - improved to handle road IDs
     const roadTally = new Map();
     feats.forEach((f) => {
       const p = f.properties || {};
-      const roadName = String(p.road || p.street_name || p.road_name || "").trim();
+
+      // Try to get road ID first, then fall back to road name
+      const roadId = String(p.road_id || p.rn_id || p.RN_ID || p.UNIQUE_ID || "").trim();
+      const roadNameDirect = String(p.road || p.street_name || p.road_name || p.STREET_NAM || "").trim();
+
+      // Look up road name from roadData if we have an ID
+      const roadNameFromLookup = roadId && floodLookups?.roadNameById?.[roadId] || "";
+      const roadName = roadNameFromLookup || roadNameDirect;
+
       if (!roadName || roadName === "unknown") return;
-      const key = roadName;
-      const entry = roadTally.get(key) || { name: roadName, count: 0, planningArea: null, subzone: null };
+
+      const key = roadId || roadName;
+      const entry = roadTally.get(key) || { id: roadId || null, name: roadName, count: 0, planningArea: null, subzone: null };
       entry.count += 1;
+      if (!entry.name && roadName) entry.name = roadName;
       if (!entry.planningArea && p.planning_area) entry.planningArea = String(p.planning_area).trim();
       if (!entry.subzone && p.subzone) entry.subzone = String(p.subzone).trim();
       roadTally.set(key, entry);
     });
     const topRoads = Array.from(roadTally.values())
+      .filter((r) => r.name && r.name !== "unknown")
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
+      .slice(0, 10)
       .map(({ name, count, planningArea, subzone }) => ({ name, count, planningArea, subzone }));
+
+    // Add planning count maps for amenities (similar to floods)
+    const { map: planningCountMap } = countsToMap(byPlanningArea);
+    const overallPlanningCountMap = planningCountMap; // For amenities, use the same map
 
     return {
       totals: {
@@ -661,13 +674,13 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
       topSubzones,
       topTypes,
       topRoads,
+      planningCountMap,
+      overallPlanningCountMap,
     };
-  }, [amenityFilteredFeatures]);
+  }, [amenityFilteredFeatures, floodLookups]);
 
   /* ---------- ui helpers ---------- */
   const triggerResize = useCallback(() => setResizeSignal((v) => v + 1), []);
-  const handleToggleLeft = useCallback(() => { setLeftOpen((o) => !o); triggerResize(); }, [triggerResize]);
-  const handleToggleRight = useCallback(() => { setRightOpen((o) => !o); triggerResize(); }, [triggerResize]);
 
   const handlePlanningAreaSelection = useCallback((areas) => setSelectedPlanningAreas(areas), []);
   const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas([]), []);
@@ -681,12 +694,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   const handleSubzoneSelect = useCallback(
     (feature) => {
       setSelectedSubzone(feature);
-      if (feature && !rightOpen) {
-        setRightOpen(true);
-        triggerResize();
-      }
     },
-    [rightOpen, triggerResize]
+    []
   );
 
   const handleSubzonePickByName = useCallback(
@@ -715,30 +724,13 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     }
   }, [selectedPlanningAreas, selectedSubzone]);
 
-  const mapColumnClass = useMemo(() => {
-    if (!leftOpen && !rightOpen) return "md:basis-full md:max-w-full";
-    if (leftOpen && rightOpen) return "md:basis-1/2 md:max-w-[50%]";
-    return "md:basis-3/4 md:max-w-[75%]";
-  }, [leftOpen, rightOpen]);
-
-  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
-
   /* ---------- render ---------- */
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 px-4 py-6 md:px-6 lg:px-10">
       <div className="flex min-h-0 flex-1 flex-col gap-6 md:flex-row max-h-[95dvh]">
         {/* left filters (match map height, scroll if needed) */}
-        <aside
-          className={cn(
-            "min-h-0 transition-all duration-300 ease-in-out",
-            leftOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden"
-          )}
-          aria-hidden={!leftOpen}
-        >
-          <div className={cn(
-            "flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300",
-            leftOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-          )}>
+        <aside className="min-h-0 flex flex-col md:basis-1/4 md:max-w-[25%]">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="max-h-[95dvh] h-full overflow-y-auto">
               <LeftPanel
                 options={planningOptions}
@@ -746,8 +738,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
                 onSelectionChange={handlePlanningAreaSelection}
                 onResetSelection={handleResetPlanningAreas}
                 subzoneOptions={subzoneOptions}
-                selectedSubzones={selectedSubzones}                
-                onSelectedSubzonesChange={setSelectedSubzones}    
+                selectedSubzones={selectedSubzones}
+                onSelectedSubzonesChange={setSelectedSubzones}
                 amenityCategoriesOptions={amenityCategories}
                 selectedAmenityCategories={selectedAmenityCategories}
                 onAmenityCategoriesChange={setSelectedAmenityCategories}
@@ -767,47 +759,7 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
         </aside>
 
         {/* map column */}
-        <div
-          className={cn(
-            "relative min-w-0 min-h-0 flex grow flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 ease-in-out",
-            "h-[95dvh]",
-            mapColumnClass
-          )}
-        >
-          {/* toolbar */}
-          <div className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col gap-2 sm:flex-row">
-            <Button
-              type="button"
-              variant="secondary"
-              className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
-              onMouseDown={stop}
-              onPointerDown={stop}
-              onClick={(e) => {
-                stop(e);
-                setLeftOpen((o) => !o);
-                setResizeSignal((v) => v + 1);
-              }}
-            >
-              <PanelLeft className="h-4 w-4" />
-              <span>{leftOpen ? "hide filters" : "show filters"}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
-              onMouseDown={stop}
-              onPointerDown={stop}
-              onClick={(e) => {
-                stop(e);
-                setRightOpen((o) => !o);
-                setResizeSignal((v) => v + 1);
-              }}
-            >
-              <PanelRight className="h-4 w-4" />
-              <span>{rightOpen ? "hide info" : "show info"}</span>
-            </Button>
-          </div>
-
+        <div className="relative min-w-0 min-h-0 flex grow flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm h-[95dvh] md:basis-1/2 md:max-w-[50%]">
           <div className="flex-1 min-h-0">
             {!dataLoading && !dataError && ready && MapComponent ? (
               <MapComponent
@@ -846,17 +798,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
         </div>
 
         {/* right info (match height, scroll if needed) */}
-        <aside
-          className={cn(
-            "min-h-0 transition-all duration-300 ease-in-out",
-            rightOpen ? "flex flex-col md:basis-1/4 md:max-w-[25%]" : "hidden"
-          )}
-          aria-hidden={!rightOpen}
-        >
-          <div className={cn(
-            "flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-opacity duration-300",
-            rightOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-          )}>
+        <aside className="min-h-0 flex flex-col md:basis-1/4 md:max-w-[25%]">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="max-h-[95dvh] h-full overflow-y-auto">
               <RightPanel
                 feature={selectedSubzone}

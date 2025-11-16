@@ -5,14 +5,6 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Check, ChevronsUpDown } from "lucide-react"
@@ -211,17 +203,8 @@ export default function LeftPanel({
   onFloodDateFromChange,
   onFloodDateToChange,
 }) {
-  /* ----- planning areas (single-select) ----- */
+  /* ----- planning areas (multi-select with all by default) ----- */
   const paOptions = useMemo(() => options.map((o) => pretty(o?.trim?.() ?? "")).filter(Boolean), [options])
-  const selectedArea = (selected && selected.length > 0) ? selected[0] : ""
-
-  const handlePAChange = useCallback((val) => {
-    if (val === "__ALL__" || !val) {
-      onSelectionChange?.([])
-    } else {
-      onSelectionChange?.([val])
-    }
-  }, [onSelectionChange])
 
   /* ----- flood types (checkbox list, all by default) ----- */
   const floodTypesList = useMemo(() => floodTypeOptions.map((v) => String(v || "").trim()).filter(Boolean), [floodTypeOptions])
@@ -254,22 +237,23 @@ export default function LeftPanel({
 
       {/* scrollable body */}
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        {/* Planning Area (single-select dropdown) */}
+        {/* Planning Area (multi-select, all by default) */}
         <div className="space-y-2 pt-4">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Planning Area</span>
-          <Select value={selectedArea || "__ALL__"} onValueChange={handlePAChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="All planning areas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="__ALL__">All planning areas</SelectItem>
-                {paOptions.map((pa) => (
-                  <SelectItem key={pa} value={pa}>{pa}</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          <MultiSelectCombobox
+            label="Planning Area"
+            options={paOptions.map((pa) => ({ value: pa, label: pa }))}
+            selected={selected}
+            onChange={onSelectionChange}
+            placeholder="All planning areas"
+            searchPlaceholder="Search planning areas…"
+            emptyText="No planning area found."
+            showBulkActions
+            showAllRow
+            allMeansEmpty
+            renderItemLeft={(value, active) => (
+              <Checkbox checked={active} readOnly />
+            )}
+          />
         </div>
 
         <Separator className="my-6" />
