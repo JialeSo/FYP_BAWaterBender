@@ -123,7 +123,8 @@ const normalizePlanning = (fc) => {
   return { type: "FeatureCollection", features };
 };
 
-function computePACounts(floodFC, selectedTypesLC, fromISO, toISO) {
+function computePACounts(floodFC, selectedPAs, selectedTypesLC, fromISO, toISO) {
+  const sel = new Set((selectedPAs || []).map(toS).filter(Boolean));
   const m = {};
   const hasType = selectedTypesLC && selectedTypesLC.length > 0;
   for (const f of floodFC?.features || []) {
@@ -133,6 +134,7 @@ function computePACounts(floodFC, selectedTypesLC, fromISO, toISO) {
     const dt = p.event_date_iso ?? p.event_date ?? p.start_date ?? p.date ?? p.dt ?? null;
     if (!withinDate(dt, fromISO, toISO)) continue;
     const pa = toS(getProp(p, FLOOD_PA_NAME_KEYS));
+    if (sel.size && !sel.has(pa)) continue;
     if (pa) inc(m, pa, 1);
   }
   return m;
@@ -345,8 +347,8 @@ export default function singaporehistoricalfloodmap({
   }, [subzoneFC]);
 
   const paFloodsCount = useMemo(
-    () => computePACounts(floodFC, selectedFloodTypes.map(toLC), floodDateFrom, floodDateTo),
-    [floodFC, selectedFloodTypes, floodDateFrom, floodDateTo]
+    () => computePACounts(floodFC, selectedPlanningAreas, selectedFloodTypes.map(toLC), floodDateFrom, floodDateTo),
+    [floodFC, selectedPlanningAreas, selectedFloodTypes, floodDateFrom, floodDateTo]
   );
   const szFloodsCount = useMemo(
     () => computeSZCounts(floodFC, selectedPlanningAreas, selectedFloodTypes.map(toLC), floodDateFrom, floodDateTo),
