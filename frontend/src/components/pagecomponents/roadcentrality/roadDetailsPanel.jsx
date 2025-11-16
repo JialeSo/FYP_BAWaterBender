@@ -1,14 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { X, Download, Search } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
 export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {}, allRoads = [], amenityItems = [], floodItems = [], onMarkerClick = null }) {
+  // Search state
+  const [amenitySearch, setAmenitySearch] = useState("");
+  const [floodSearch, setFloodSearch] = useState("");
+
   // Show prompt if no road selected
   if (!road) {
     return (
@@ -109,6 +113,66 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
       .sort((a, b) => b.count - a.count);
   }, [floodCounts, floodEnabled]);
 
+  // Filtered amenities based on search
+  const filteredAmenities = useMemo(() => {
+    if (!amenitySearch.trim()) return amenityItems;
+    const search = amenitySearch.toLowerCase();
+    return amenityItems.filter(item =>
+      item.name?.toLowerCase().includes(search) ||
+      item.category?.toLowerCase().includes(search)
+    );
+  }, [amenityItems, amenitySearch]);
+
+  // Filtered floods based on search
+  const filteredFloods = useMemo(() => {
+    if (!floodSearch.trim()) return floodItems;
+    const search = floodSearch.toLowerCase();
+    return floodItems.filter(item =>
+      item.name?.toLowerCase().includes(search) ||
+      item.type?.toLowerCase().includes(search) ||
+      item.date?.toLowerCase().includes(search)
+    );
+  }, [floodItems, floodSearch]);
+
+  // Export amenities to CSV
+  const exportAmenities = () => {
+    if (!filteredAmenities.length) return;
+    const headers = ["Name", "Category", "Distance (m)"];
+    const rows = filteredAmenities.map(item => [
+      item.name || "",
+      to_title_case(item.category || ""),
+      item._distm?.toFixed(2) || ""
+    ]);
+    const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `amenities_${p.name || "road"}_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export floods to CSV
+  const exportFloods = () => {
+    if (!filteredFloods.length) return;
+    const headers = ["Name", "Type", "Date", "Distance (m)"];
+    const rows = filteredFloods.map(item => [
+      item.name || "",
+      to_title_case(item.type || ""),
+      item.date || "",
+      item._distm?.toFixed(2) || ""
+    ]);
+    const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `flood_events_${p.name || "road"}_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Card className="mb-4 border-2 border-primary">
       <CardHeader className="pb-3">
@@ -125,144 +189,195 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
-        {/* 6 KPI Cards in one row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          {/* Importance */}
-          <div className="rounded-lg border-2 border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5 p-2">
-            <div className="text-[9px] font-medium text-muted-foreground uppercase mb-0.5">Importance</div>
-            {getPercentileLabel(importancePercentile) && (
-              <div className="mb-1">
-                <span className="px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[8px] font-bold">
-                  {getPercentileLabel(importancePercentile)}
-                </span>
-              </div>
-            )}
-            <div className="text-lg font-bold text-primary">{format_number(p.importance, 2) ?? "—"}</div>
-          </div>
+      <CardContent className="space-y-4">
+        {/* Unified KPI Section */}
+        <div className="rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-background p-4">
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Key Performance Indicators</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Importance */}
+            <div className="space-y-1">
+              <div className="text-[9px] font-medium text-muted-foreground uppercase">Importance</div>
+              {getPercentileLabel(importancePercentile) && (
+                <div className="mb-1">
+                  <span className="px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[8px] font-bold">
+                    {getPercentileLabel(importancePercentile)}
+                  </span>
+                </div>
+              )}
+              <div className="text-xl font-bold text-primary">{format_number(p.importance, 2) ?? "—"}</div>
+            </div>
 
-          {/* SLA Category */}
-          <div className="rounded-lg border bg-muted/50 p-2">
-            <div className="text-[9px] font-medium text-muted-foreground uppercase mb-0.5">SLA Category</div>
-            <div className="text-xs font-bold text-green-600 dark:text-green-400 mt-4">{p.sla_priority || "—"}</div>
-          </div>
+            {/* SLA Category */}
+            <div className="space-y-1">
+              <div className="text-[9px] font-medium text-muted-foreground uppercase">SLA Category</div>
+              <div className="text-sm font-bold text-green-600 dark:text-green-400 mt-5">{p.sla_priority || "—"}</div>
+            </div>
 
-          {/* Betweenness */}
-          <div className="rounded-lg border bg-muted/50 p-2">
-            <div className="text-[9px] text-muted-foreground mb-0.5">Betweenness</div>
-            {getPercentileLabel(betweennessPercentile) && (
-              <div className="mb-1">
-                <span className="px-1.5 py-0.5 rounded-full bg-muted-foreground text-background text-[8px] font-bold">
-                  {getPercentileLabel(betweennessPercentile)}
-                </span>
-              </div>
-            )}
-            <div className="text-lg font-bold">{format_number(p.betweenness_norm, 4) ?? "—"}</div>
-          </div>
+            {/* Betweenness */}
+            <div className="space-y-1">
+              <div className="text-[9px] text-muted-foreground uppercase">Betweenness</div>
+              {getPercentileLabel(betweennessPercentile) && (
+                <div className="mb-1">
+                  <span className="px-1.5 py-0.5 rounded-full bg-muted-foreground text-background text-[8px] font-bold">
+                    {getPercentileLabel(betweennessPercentile)}
+                  </span>
+                </div>
+              )}
+              <div className="text-xl font-bold">{format_number(p.betweenness_norm, 4) ?? "—"}</div>
+            </div>
 
-          {/* Closeness */}
-          <div className="rounded-lg border bg-muted/50 p-2">
-            <div className="text-[9px] text-muted-foreground mb-0.5">Closeness</div>
-            {getPercentileLabel(closenessPercentile) && (
-              <div className="mb-1">
-                <span className="px-1.5 py-0.5 rounded-full bg-muted-foreground text-background text-[8px] font-bold">
-                  {getPercentileLabel(closenessPercentile)}
-                </span>
-              </div>
-            )}
-            <div className="text-lg font-bold">{format_number(p.closeness_norm, 4) ?? "—"}</div>
-          </div>
+            {/* Closeness */}
+            <div className="space-y-1">
+              <div className="text-[9px] text-muted-foreground uppercase">Closeness</div>
+              {getPercentileLabel(closenessPercentile) && (
+                <div className="mb-1">
+                  <span className="px-1.5 py-0.5 rounded-full bg-muted-foreground text-background text-[8px] font-bold">
+                    {getPercentileLabel(closenessPercentile)}
+                  </span>
+                </div>
+              )}
+              <div className="text-xl font-bold">{format_number(p.closeness_norm, 4) ?? "—"}</div>
+            </div>
 
-          {/* Amenities */}
-          <div className="rounded-lg border bg-muted/50 p-2">
-            <div className="text-[9px] text-muted-foreground mb-0.5">Amenities</div>
-            {getPercentileLabel(amenityPercentile) && (
-              <div className="mb-1">
-                <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white dark:bg-blue-400 dark:text-black text-[8px] font-bold">
-                  {getPercentileLabel(amenityPercentile)}
-                </span>
-              </div>
-            )}
-            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{p.amenity_count_total || 0}</div>
-          </div>
+            {/* Amenities */}
+            <div className="space-y-1">
+              <div className="text-[9px] text-muted-foreground uppercase">Amenities</div>
+              {getPercentileLabel(amenityPercentile) && (
+                <div className="mb-1">
+                  <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white dark:bg-blue-400 dark:text-black text-[8px] font-bold">
+                    {getPercentileLabel(amenityPercentile)}
+                  </span>
+                </div>
+              )}
+              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{p.amenity_count_total || 0}</div>
+            </div>
 
-          {/* Flood Events */}
-          <div className="rounded-lg border bg-muted/50 p-2">
-            <div className="text-[9px] text-muted-foreground mb-0.5">Flood Events</div>
-            {getPercentileLabel(floodPercentile) && (
-              <div className="mb-1">
-                <span className="px-1.5 py-0.5 rounded-full bg-orange-600 text-white dark:bg-orange-400 dark:text-black text-[8px] font-bold">
-                  {getPercentileLabel(floodPercentile)}
-                </span>
-              </div>
-            )}
-            <div className="text-lg font-bold text-orange-600 dark:text-orange-400">{p.flood_count_total || 0}</div>
+            {/* Flood Events */}
+            <div className="space-y-1">
+              <div className="text-[9px] text-muted-foreground uppercase">Flood Events</div>
+              {getPercentileLabel(floodPercentile) && (
+                <div className="mb-1">
+                  <span className="px-1.5 py-0.5 rounded-full bg-orange-600 text-white dark:bg-orange-400 dark:text-black text-[8px] font-bold">
+                    {getPercentileLabel(floodPercentile)}
+                  </span>
+                </div>
+              )}
+              <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{p.flood_count_total || 0}</div>
+            </div>
           </div>
         </div>
 
-        {/* Accordions for Amenities and Flood Events */}
-        <Accordion type="multiple" className="w-full">
-          <AccordionItem value="amenities">
-            <AccordionTrigger className="text-sm font-semibold">
-              Amenities ({amenityItems.length})
-            </AccordionTrigger>
-            <AccordionContent className="space-y-2">
-              {amenityItems.length > 0 ? (
-                <ScrollArea className="h-56">
-                  <div className="space-y-1.5 pr-3">
-                    {amenityItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => handleAmenityClick(item)}
-                        className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-muted/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer transition-colors border border-transparent hover:border-blue-300 dark:hover:border-blue-700"
-                      >
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium text-foreground">{item.name}</span>
-                          <span className="text-[10px] text-muted-foreground">{to_title_case(item.category)}</span>
-                        </div>
-                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">View on map</span>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4">No amenities nearby</p>
-              )}
-            </AccordionContent>
-          </AccordionItem>
+        {/* 50/50 Amenities and Flood Events */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Amenities Section */}
+          <div className="rounded-lg border-2 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                Amenities ({filteredAmenities.length})
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={exportAmenities}
+                disabled={!filteredAmenities.length}
+                className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Export
+              </Button>
+            </div>
 
-          <AccordionItem value="floods">
-            <AccordionTrigger className="text-sm font-semibold">
-              Flood Events ({floodItems.length})
-            </AccordionTrigger>
-            <AccordionContent className="space-y-2 pt-2">
-              {floodItems.length > 0 ? (
-                <ScrollArea className="h-56">
-                  <div className="space-y-2 pr-3">
-                    {floodItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => handleFloodClick(item)}
-                        className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-muted/50 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer transition-colors border border-transparent hover:border-orange-300 dark:hover:border-orange-700"
-                      >
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium text-foreground">{item.name}</span>
-                          <div className="flex gap-2 text-[10px] text-muted-foreground">
-                            <span>{to_title_case(item.type)}</span>
-                            {item.date && <span>• {item.date}</span>}
-                          </div>
-                        </div>
-                        <span className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold">View on map</span>
+            <div className="relative mb-3">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                placeholder="Search amenities..."
+                value={amenitySearch}
+                onChange={(e) => setAmenitySearch(e.target.value)}
+                className="pl-7 h-8 text-xs"
+              />
+            </div>
+
+            {filteredAmenities.length > 0 ? (
+              <ScrollArea className="h-64">
+                <div className="space-y-1.5 pr-3">
+                  {filteredAmenities.map((item, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handleAmenityClick(item)}
+                      className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-white dark:bg-slate-900 hover:bg-blue-100 dark:hover:bg-blue-900/40 cursor-pointer transition-colors border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-foreground">{item.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{to_title_case(item.category)}</span>
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4">No flood events recorded</p>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">View</span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                {amenitySearch ? "No amenities match your search" : "No amenities nearby"}
+              </p>
+            )}
+          </div>
+
+          {/* Flood Events Section */}
+          <div className="rounded-lg border-2 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-orange-700 dark:text-orange-300">
+                Flood Events ({filteredFloods.length})
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={exportFloods}
+                disabled={!filteredFloods.length}
+                className="h-7 px-2 text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Export
+              </Button>
+            </div>
+
+            <div className="relative mb-3">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                placeholder="Search flood events..."
+                value={floodSearch}
+                onChange={(e) => setFloodSearch(e.target.value)}
+                className="pl-7 h-8 text-xs"
+              />
+            </div>
+
+            {filteredFloods.length > 0 ? (
+              <ScrollArea className="h-64">
+                <div className="space-y-1.5 pr-3">
+                  {filteredFloods.map((item, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handleFloodClick(item)}
+                      className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-white dark:bg-slate-900 hover:bg-orange-100 dark:hover:bg-orange-900/40 cursor-pointer transition-colors border border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-foreground">{item.name}</span>
+                        <div className="flex gap-2 text-[10px] text-muted-foreground">
+                          <span>{to_title_case(item.type)}</span>
+                          {item.date && <span>• {item.date}</span>}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold">View</span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                {floodSearch ? "No flood events match your search" : "No flood events recorded"}
+              </p>
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

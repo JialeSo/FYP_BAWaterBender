@@ -113,6 +113,105 @@ export default function Centrality() {
     });
   }, []);
 
+  // Check if a main preset is currently active
+  const isMainPresetActive = useCallback((presetKey) => {
+    const preset = PRESETS[presetKey];
+    if (!preset) return false;
+
+    // Check if weights match
+    const weightsMatch =
+      Math.abs(w_betweenness - preset.weights.betweenness) < 0.01 &&
+      Math.abs(w_closeness - preset.weights.closeness) < 0.01 &&
+      Math.abs(w_amenity - preset.weights.amenity) < 0.01 &&
+      Math.abs(w_flood - preset.weights.flood) < 0.01;
+
+    // Check if toggles match
+    const togglesMatch =
+      useCompBetweenness === preset.toggles.betweenness &&
+      useCompCloseness === preset.toggles.closeness &&
+      useCompAmenity === preset.toggles.amenity &&
+      useCompFlood === preset.toggles.flood;
+
+    return weightsMatch && togglesMatch;
+  }, [w_betweenness, w_closeness, w_amenity, w_flood, useCompBetweenness, useCompCloseness, useCompAmenity, useCompFlood]);
+
+  // Check if an amenity preset is currently active
+  const isAmenityPresetActive = useCallback((presetKey) => {
+    const preset = AMENITY_PRESETS[presetKey];
+    if (!preset || !preset.weights) return false;
+
+    // Check if all weights match
+    return Object.keys(preset.weights).every(key =>
+      Math.abs((amenityWeights[key] || 0) - preset.weights[key]) < 0.01
+    );
+  }, [amenityWeights]);
+
+  // Check if a flood preset is currently active
+  const isFloodPresetActive = useCallback((presetKey) => {
+    const preset = FLOOD_PRESETS[presetKey];
+    if (!preset || !preset.weights) return false;
+
+    // Check if all weights match
+    return Object.keys(preset.weights).every(key =>
+      Math.abs((floodWeights[key] || 0) - preset.weights[key]) < 0.01
+    );
+  }, [floodWeights]);
+
+  // Check if there are unapplied weight changes
+  const hasUnappliedWeightChanges = useMemo(() => {
+    // Check component weights and toggles
+    const componentChanges =
+      Math.abs(pending_w_betweenness - w_betweenness) > 0.001 ||
+      Math.abs(pending_w_closeness - w_closeness) > 0.001 ||
+      Math.abs(pending_w_amenity - w_amenity) > 0.001 ||
+      Math.abs(pending_w_flood - w_flood) > 0.001 ||
+      pendingUseCompBetweenness !== useCompBetweenness ||
+      pendingUseCompCloseness !== useCompCloseness ||
+      pendingUseCompAmenity !== useCompAmenity ||
+      pendingUseCompFlood !== useCompFlood;
+
+    // Check amenity weights and toggles
+    const amenityChanges = Object.keys(pendingAmenityWeights).some(key =>
+      Math.abs((pendingAmenityWeights[key] || 0) - (amenityWeights[key] || 0)) > 0.01 ||
+      pendingAmenityEnabled[key] !== amenityEnabled[key]
+    );
+
+    // Check flood weights and toggles
+    const floodChanges = Object.keys(pendingFloodWeights).some(key =>
+      Math.abs((pendingFloodWeights[key] || 0) - (floodWeights[key] || 0)) > 0.01 ||
+      pendingFloodEnabled[key] !== floodEnabled[key]
+    );
+
+    return componentChanges || amenityChanges || floodChanges;
+  }, [
+    pending_w_betweenness, w_betweenness, pending_w_closeness, w_closeness,
+    pending_w_amenity, w_amenity, pending_w_flood, w_flood,
+    pendingUseCompBetweenness, useCompBetweenness, pendingUseCompCloseness, useCompCloseness,
+    pendingUseCompAmenity, useCompAmenity, pendingUseCompFlood, useCompFlood,
+    pendingAmenityWeights, amenityWeights, pendingAmenityEnabled, amenityEnabled,
+    pendingFloodWeights, floodWeights, pendingFloodEnabled, floodEnabled
+  ]);
+
+  // Apply pending weights to active weights
+  const applyWeightChanges = useCallback(() => {
+    set_w_betweenness(pending_w_betweenness);
+    set_w_closeness(pending_w_closeness);
+    set_w_amenity(pending_w_amenity);
+    set_w_flood(pending_w_flood);
+    setUseCompBetweenness(pendingUseCompBetweenness);
+    setUseCompCloseness(pendingUseCompCloseness);
+    setUseCompAmenity(pendingUseCompAmenity);
+    setUseCompFlood(pendingUseCompFlood);
+    setAmenityWeights(pendingAmenityWeights);
+    setAmenityEnabled(pendingAmenityEnabled);
+    setFloodWeights(pendingFloodWeights);
+    setFloodEnabled(pendingFloodEnabled);
+  }, [
+    pending_w_betweenness, pending_w_closeness, pending_w_amenity, pending_w_flood,
+    pendingUseCompBetweenness, pendingUseCompCloseness, pendingUseCompAmenity, pendingUseCompFlood,
+    pendingAmenityWeights, pendingAmenityEnabled, pendingFloodWeights, pendingFloodEnabled
+  ]);
+
 
   /* ===== derived options ===== */
   const planningOptions = useMemo(() => {
@@ -174,6 +273,7 @@ export default function Centrality() {
   const [q, setQ] = useState("");
 
   /* ===== advanced filters ===== */
+  // Active filter states (used for actual filtering)
   const [amenityCountMin, setAmenityCountMin] = useState("");
   const [amenityCountMax, setAmenityCountMax] = useState("");
   const [floodCountMin, setFloodCountMin] = useState("");
@@ -185,6 +285,91 @@ export default function Centrality() {
   const [importanceMin, setImportanceMin] = useState("");
   const [importanceMax, setImportanceMax] = useState("");
   const [slaCategories, setSlaCategories] = useState([]); // Array of selected SLA categories
+
+  // Pending filter states (modified by UI, applied on button click)
+  const [pendingAmenityCountMin, setPendingAmenityCountMin] = useState("");
+  const [pendingAmenityCountMax, setPendingAmenityCountMax] = useState("");
+  const [pendingFloodCountMin, setPendingFloodCountMin] = useState("");
+  const [pendingFloodCountMax, setPendingFloodCountMax] = useState("");
+  const [pendingBetweennessMin, setPendingBetweennessMin] = useState("");
+  const [pendingBetweennessMax, setPendingBetweennessMax] = useState("");
+  const [pendingClosenessMin, setPendingClosenessMin] = useState("");
+  const [pendingClosenessMax, setPendingClosenessMax] = useState("");
+  const [pendingImportanceMin, setPendingImportanceMin] = useState("");
+  const [pendingImportanceMax, setPendingImportanceMax] = useState("");
+  const [pendingSlaCategories, setPendingSlaCategories] = useState([]);
+
+  // Check if there are unapplied filter changes
+  const hasUnappliedFilterChanges = useMemo(() => {
+    return (
+      pendingAmenityCountMin !== amenityCountMin ||
+      pendingAmenityCountMax !== amenityCountMax ||
+      pendingFloodCountMin !== floodCountMin ||
+      pendingFloodCountMax !== floodCountMax ||
+      pendingBetweennessMin !== betweennessMin ||
+      pendingBetweennessMax !== betweennessMax ||
+      pendingClosenessMin !== closenessMin ||
+      pendingClosenessMax !== closenessMax ||
+      pendingImportanceMin !== importanceMin ||
+      pendingImportanceMax !== importanceMax ||
+      JSON.stringify(pendingSlaCategories.sort()) !== JSON.stringify(slaCategories.sort())
+    );
+  }, [
+    pendingAmenityCountMin, amenityCountMin, pendingAmenityCountMax, amenityCountMax,
+    pendingFloodCountMin, floodCountMin, pendingFloodCountMax, floodCountMax,
+    pendingBetweennessMin, betweennessMin, pendingBetweennessMax, betweennessMax,
+    pendingClosenessMin, closenessMin, pendingClosenessMax, closenessMax,
+    pendingImportanceMin, importanceMin, pendingImportanceMax, importanceMax,
+    pendingSlaCategories, slaCategories
+  ]);
+
+  // Apply pending filters to active filters
+  const applyTableFilters = useCallback(() => {
+    setAmenityCountMin(pendingAmenityCountMin);
+    setAmenityCountMax(pendingAmenityCountMax);
+    setFloodCountMin(pendingFloodCountMin);
+    setFloodCountMax(pendingFloodCountMax);
+    setBetweennessMin(pendingBetweennessMin);
+    setBetweennessMax(pendingBetweennessMax);
+    setClosenessMin(pendingClosenessMin);
+    setClosenessMax(pendingClosenessMax);
+    setImportanceMin(pendingImportanceMin);
+    setImportanceMax(pendingImportanceMax);
+    setSlaCategories(pendingSlaCategories);
+  }, [
+    pendingAmenityCountMin, pendingAmenityCountMax,
+    pendingFloodCountMin, pendingFloodCountMax,
+    pendingBetweennessMin, pendingBetweennessMax,
+    pendingClosenessMin, pendingClosenessMax,
+    pendingImportanceMin, pendingImportanceMax,
+    pendingSlaCategories
+  ]);
+
+  // Clear all filters (both pending and active)
+  const clearAllTableFilters = useCallback(() => {
+    setAmenityCountMin("");
+    setAmenityCountMax("");
+    setFloodCountMin("");
+    setFloodCountMax("");
+    setBetweennessMin("");
+    setBetweennessMax("");
+    setClosenessMin("");
+    setClosenessMax("");
+    setImportanceMin("");
+    setImportanceMax("");
+    setSlaCategories([]);
+    setPendingAmenityCountMin("");
+    setPendingAmenityCountMax("");
+    setPendingFloodCountMin("");
+    setPendingFloodCountMax("");
+    setPendingBetweennessMin("");
+    setPendingBetweennessMax("");
+    setPendingClosenessMin("");
+    setPendingClosenessMax("");
+    setPendingImportanceMin("");
+    setPendingImportanceMax("");
+    setPendingSlaCategories([]);
+  }, []);
 
   /* ===== multiplier-based weights ===== */
   const amenityCategoryKeys = useMemo(
@@ -199,7 +384,7 @@ export default function Centrality() {
   // Default multipliers and per-category toggles
   const default_amenity_weights = useMemo(() => {
     const w = {};
-    for (const k of amenityCategoryKeys) w[k] = 1.0;
+    for (const k of amenityCategoryKeys) w[k] = 5.0;
     return w;
   }, [amenityCategoryKeys]);
   const default_amenity_enabled = useMemo(() => {
@@ -210,7 +395,7 @@ export default function Centrality() {
 
   const default_flood_weights = useMemo(() => {
     const w = {};
-    for (const k of floodTypeKeys) w[k] = 1.0;
+    for (const k of floodTypeKeys) w[k] = 5.0;
     return w;
   }, [floodTypeKeys]);
   const default_flood_enabled = useMemo(() => {
@@ -219,6 +404,7 @@ export default function Centrality() {
     return e;
   }, [floodTypeKeys]);
 
+  // Active weight states (used for calculations)
   const [amenityWeights, setAmenityWeights] = useState(default_amenity_weights);
   const [amenityEnabled, setAmenityEnabled] = useState(default_amenity_enabled);
   const [floodWeights, setFloodWeights] = useState(default_flood_weights);
@@ -234,6 +420,22 @@ export default function Centrality() {
   const [w_closeness, set_w_closeness] = useState(0.3);
   const [w_amenity, set_w_amenity] = useState(0.2);
   const [w_flood, set_w_flood] = useState(0.1);
+
+  // Pending weight states (modified by UI, applied on button click)
+  const [pendingAmenityWeights, setPendingAmenityWeights] = useState(default_amenity_weights);
+  const [pendingAmenityEnabled, setPendingAmenityEnabled] = useState(default_amenity_enabled);
+  const [pendingFloodWeights, setPendingFloodWeights] = useState(default_flood_weights);
+  const [pendingFloodEnabled, setPendingFloodEnabled] = useState(default_flood_enabled);
+
+  const [pendingUseCompBetweenness, setPendingUseCompBetweenness] = useState(true);
+  const [pendingUseCompCloseness, setPendingUseCompCloseness] = useState(true);
+  const [pendingUseCompAmenity, setPendingUseCompAmenity] = useState(true);
+  const [pendingUseCompFlood, setPendingUseCompFlood] = useState(true);
+
+  const [pending_w_betweenness, set_pending_w_betweenness] = useState(0.4);
+  const [pending_w_closeness, set_pending_w_closeness] = useState(0.3);
+  const [pending_w_amenity, set_pending_w_amenity] = useState(0.2);
+  const [pending_w_flood, set_pending_w_flood] = useState(0.1);
 
   // SLA configuration
   const [useSLAMapping, setUseSLAMapping] = useState(true);
@@ -810,16 +1012,24 @@ export default function Centrality() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Weight Presets</Label>
                     <div className="grid gap-2 sm:grid-cols-3">
-                      {Object.entries(AMENITY_PRESETS).map(([key, preset]) => (
-                        <button
-                          key={key}
-                          onClick={() => applyAmenityPreset(key)}
-                          className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                          <div className="font-semibold text-sm mb-1">{preset.name}</div>
-                          <div className="text-xs text-muted-foreground">{preset.description}</div>
-                        </button>
-                      ))}
+                      {Object.entries(AMENITY_PRESETS).map(([key, preset]) => {
+                        const isActive = isAmenityPresetActive(key);
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => applyAmenityPreset(key)}
+                            className={`rounded-lg border-2 bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
+                              isActive ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30' : 'border-transparent'
+                            }`}
+                          >
+                            <div className="font-semibold text-sm mb-1">
+                              {preset.name}
+                              {isActive && <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">✓</span>}
+                            </div>
+                            <div className="text-xs text-muted-foreground">{preset.description}</div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -926,16 +1136,24 @@ export default function Centrality() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Weight Presets</Label>
                     <div className="grid gap-2 sm:grid-cols-3">
-                      {Object.entries(FLOOD_PRESETS).map(([key, preset]) => (
-                        <button
-                          key={key}
-                          onClick={() => applyFloodPreset(key)}
-                          className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                          <div className="font-semibold text-sm mb-1">{preset.name}</div>
-                          <div className="text-xs text-muted-foreground">{preset.description}</div>
-                        </button>
-                      ))}
+                      {Object.entries(FLOOD_PRESETS).map(([key, preset]) => {
+                        const isActive = isFloodPresetActive(key);
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => applyFloodPreset(key)}
+                            className={`rounded-lg border-2 bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
+                              isActive ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-950/30' : 'border-transparent'
+                            }`}
+                          >
+                            <div className="font-semibold text-sm mb-1">
+                              {preset.name}
+                              {isActive && <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">✓</span>}
+                            </div>
+                            <div className="text-xs text-muted-foreground">{preset.description}</div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1009,19 +1227,27 @@ export default function Centrality() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-3 sm:grid-cols-3">
-                    {Object.entries(PRESETS).map(([key, preset]) => (
-                      <button
-                        key={key}
-                        onClick={() => applyPreset(key)}
-                        className="rounded-lg border bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-                      >
-                        <div className="font-semibold text-sm mb-1">{preset.name}</div>
-                        <div className="text-xs text-muted-foreground">{preset.description}</div>
-                        <div className="mt-2 text-[10px] font-mono text-muted-foreground">
-                          B:{preset.weights.betweenness} C:{preset.weights.closeness} A:{preset.weights.amenity} F:{preset.weights.flood}
-                        </div>
-                      </button>
-                    ))}
+                    {Object.entries(PRESETS).map(([key, preset]) => {
+                      const isActive = isMainPresetActive(key);
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => applyPreset(key)}
+                          className={`rounded-lg border-2 bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
+                            isActive ? 'border-primary bg-primary/10' : 'border-transparent'
+                          }`}
+                        >
+                          <div className="font-semibold text-sm mb-1">
+                            {preset.name}
+                            {isActive && <span className="ml-2 text-xs text-primary">✓ Active</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{preset.description}</div>
+                          <div className="mt-2 text-[10px] font-mono text-muted-foreground">
+                            B:{preset.weights.betweenness} C:{preset.weights.closeness} A:{preset.weights.amenity} F:{preset.weights.flood}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -1456,11 +1682,16 @@ export default function Centrality() {
                 <span className="text-xs text-muted-foreground">
                   ({[amenityCountMin, amenityCountMax, floodCountMin, floodCountMax, betweennessMin, betweennessMax, closenessMin, closenessMax, importanceMin, importanceMax].filter(v => v !== "").length > 0 || slaCategories.length > 0 ? 'Active' : 'None'})
                 </span>
+                {hasUnappliedFilterChanges && (
+                  <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                    • Unapplied Changes
+                  </span>
+                )}
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4">
               <p className="text-sm text-muted-foreground mb-4">
-                Use sliders to filter roads by metric ranges. Filters apply to both table and map.
+                Adjust sliders to set filter ranges, then click "Apply Filters" to update the table and map.
               </p>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1469,7 +1700,7 @@ export default function Centrality() {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Amenity Count</Label>
                       <span className="text-xs text-muted-foreground">
-                        {amenityCountMin || 0} - {amenityCountMax || maxValues.amenity}
+                        {pendingAmenityCountMin || 0} - {pendingAmenityCountMax || maxValues.amenity}
                       </span>
                     </div>
                     <Slider
@@ -1477,12 +1708,12 @@ export default function Centrality() {
                       max={maxValues.amenity}
                       step={1}
                       value={[
-                        amenityCountMin !== "" ? parseFloat(amenityCountMin) : 0,
-                        amenityCountMax !== "" ? parseFloat(amenityCountMax) : maxValues.amenity
+                        pendingAmenityCountMin !== "" ? parseFloat(pendingAmenityCountMin) : 0,
+                        pendingAmenityCountMax !== "" ? parseFloat(pendingAmenityCountMax) : maxValues.amenity
                       ]}
                       onValueChange={([min, max]) => {
-                        setAmenityCountMin(min.toString());
-                        setAmenityCountMax(max.toString());
+                        setPendingAmenityCountMin(min.toString());
+                        setPendingAmenityCountMax(max.toString());
                       }}
                       className="w-full"
                     />
@@ -1493,7 +1724,7 @@ export default function Centrality() {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Flood Count</Label>
                       <span className="text-xs text-muted-foreground">
-                        {floodCountMin || 0} - {floodCountMax || maxValues.flood}
+                        {pendingFloodCountMin || 0} - {pendingFloodCountMax || maxValues.flood}
                       </span>
                     </div>
                     <Slider
@@ -1501,12 +1732,12 @@ export default function Centrality() {
                       max={maxValues.flood}
                       step={1}
                       value={[
-                        floodCountMin !== "" ? parseFloat(floodCountMin) : 0,
-                        floodCountMax !== "" ? parseFloat(floodCountMax) : maxValues.flood
+                        pendingFloodCountMin !== "" ? parseFloat(pendingFloodCountMin) : 0,
+                        pendingFloodCountMax !== "" ? parseFloat(pendingFloodCountMax) : maxValues.flood
                       ]}
                       onValueChange={([min, max]) => {
-                        setFloodCountMin(min.toString());
-                        setFloodCountMax(max.toString());
+                        setPendingFloodCountMin(min.toString());
+                        setPendingFloodCountMax(max.toString());
                       }}
                       className="w-full"
                     />
@@ -1517,7 +1748,7 @@ export default function Centrality() {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Betweenness (Normalized)</Label>
                       <span className="text-xs text-muted-foreground">
-                        {betweennessMin || "0"} - {betweennessMax || maxValues.betweenness.toFixed(4)}
+                        {pendingBetweennessMin || "0"} - {pendingBetweennessMax || maxValues.betweenness.toFixed(4)}
                       </span>
                     </div>
                     <Slider
@@ -1525,12 +1756,12 @@ export default function Centrality() {
                       max={maxValues.betweenness}
                       step={0.0001}
                       value={[
-                        betweennessMin !== "" ? parseFloat(betweennessMin) : 0,
-                        betweennessMax !== "" ? parseFloat(betweennessMax) : maxValues.betweenness
+                        pendingBetweennessMin !== "" ? parseFloat(pendingBetweennessMin) : 0,
+                        pendingBetweennessMax !== "" ? parseFloat(pendingBetweennessMax) : maxValues.betweenness
                       ]}
                       onValueChange={([min, max]) => {
-                        setBetweennessMin(min.toFixed(4));
-                        setBetweennessMax(max.toFixed(4));
+                        setPendingBetweennessMin(min.toFixed(4));
+                        setPendingBetweennessMax(max.toFixed(4));
                       }}
                       className="w-full"
                     />
@@ -1541,7 +1772,7 @@ export default function Centrality() {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Closeness (Normalized)</Label>
                       <span className="text-xs text-muted-foreground">
-                        {closenessMin || "0"} - {closenessMax || maxValues.closeness.toFixed(4)}
+                        {pendingClosenessMin || "0"} - {pendingClosenessMax || maxValues.closeness.toFixed(4)}
                       </span>
                     </div>
                     <Slider
@@ -1549,12 +1780,12 @@ export default function Centrality() {
                       max={maxValues.closeness}
                       step={0.0001}
                       value={[
-                        closenessMin !== "" ? parseFloat(closenessMin) : 0,
-                        closenessMax !== "" ? parseFloat(closenessMax) : maxValues.closeness
+                        pendingClosenessMin !== "" ? parseFloat(pendingClosenessMin) : 0,
+                        pendingClosenessMax !== "" ? parseFloat(pendingClosenessMax) : maxValues.closeness
                       ]}
                       onValueChange={([min, max]) => {
-                        setClosenessMin(min.toFixed(4));
-                        setClosenessMax(max.toFixed(4));
+                        setPendingClosenessMin(min.toFixed(4));
+                        setPendingClosenessMax(max.toFixed(4));
                       }}
                       className="w-full"
                     />
@@ -1565,7 +1796,7 @@ export default function Centrality() {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Importance Score</Label>
                       <span className="text-xs text-muted-foreground">
-                        {importanceMin || 0} - {importanceMax || maxValues.importance.toFixed(2)}
+                        {pendingImportanceMin || 0} - {pendingImportanceMax || maxValues.importance.toFixed(2)}
                       </span>
                     </div>
                     <Slider
@@ -1573,12 +1804,12 @@ export default function Centrality() {
                       max={maxValues.importance}
                       step={0.01}
                       value={[
-                        importanceMin !== "" ? parseFloat(importanceMin) : 0,
-                        importanceMax !== "" ? parseFloat(importanceMax) : maxValues.importance
+                        pendingImportanceMin !== "" ? parseFloat(pendingImportanceMin) : 0,
+                        pendingImportanceMax !== "" ? parseFloat(pendingImportanceMax) : maxValues.importance
                       ]}
                       onValueChange={([min, max]) => {
-                        setImportanceMin(min.toFixed(2));
-                        setImportanceMax(max.toFixed(2));
+                        setPendingImportanceMin(min.toFixed(2));
+                        setPendingImportanceMax(max.toFixed(2));
                       }}
                       className="w-full"
                     />
@@ -1590,34 +1821,31 @@ export default function Centrality() {
                     <MultiSelectCombobox
                       label=""
                       options={["1-Year SLA", "3-Year SLA", "5-Year SLA"]}
-                      selected={slaCategories}
-                      onChange={setSlaCategories}
+                      selected={pendingSlaCategories}
+                      onChange={setPendingSlaCategories}
                       placeholder="All categories"
                       searchPlaceholder="Search categories…"
                     />
                   </div>
                 </div>
 
-                {/* Clear all filters button */}
-                <div className="flex justify-end pt-2">
+                {/* Action buttons */}
+                <div className="flex justify-between items-center pt-2 border-t">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setAmenityCountMin("");
-                      setAmenityCountMax("");
-                      setFloodCountMin("");
-                      setFloodCountMax("");
-                      setBetweennessMin("");
-                      setBetweennessMax("");
-                      setClosenessMin("");
-                      setClosenessMax("");
-                      setImportanceMin("");
-                      setImportanceMax("");
-                      setSlaCategories([]);
-                    }}
+                    onClick={clearAllTableFilters}
                   >
                     Clear All Filters
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={applyTableFilters}
+                    disabled={!hasUnappliedFilterChanges}
+                    className={hasUnappliedFilterChanges ? "bg-primary" : ""}
+                  >
+                    Apply Filters
                   </Button>
                 </div>
               </div>
