@@ -1702,6 +1702,7 @@ export default function floodevents() {
                                     </Label>
                                   </div>
                                   <NumberInput
+                                    key={`${name}-${weight}`}
                                     value={weight}
                                     onValueChange={(numVal) => {
                                       if (numVal !== undefined) {
@@ -1711,7 +1712,7 @@ export default function floodevents() {
                                     min={1}
                                     max={10}
                                     stepper={1}
-                                    decimalScale={0}
+                                    decimalScale={3}
                                     fixedDecimalScale={false}
                                     disabled={!enabled}
                                     hideSteppers={true}
