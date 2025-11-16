@@ -424,15 +424,15 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     }
 
     const filtered = filteredFloodEvents;
-    const overallPlanningCounts = aggregateCounts(floodEvents, (e) => e.planningAreaId);
+    const overallPlanningCounts = aggregateCounts(floodEvents, (e) => e.planningArea);
 
     const focusSubzoneName = selectedSubzone?.properties?.SUBZONE_N?.trim() || null;
     const subzoneScopedEvents = focusSubzoneName
       ? filtered.filter((e) => e.subzone === focusSubzoneName)
       : filtered;
 
-    const byPlanningArea = aggregateCounts(filtered, (e) => e.planningAreaId);
-    const bySubzone = aggregateCounts(filtered, (e) => e.subzoneId);
+    const byPlanningArea = aggregateCounts(filtered, (e) => e.planningArea);
+    const bySubzone = aggregateCounts(filtered, (e) => e.subzone);
     const byType = aggregateCounts(filtered, (e) => e.floodType);
 
     const yearSeries = aggregateCounts(
@@ -449,23 +449,36 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
       const name = e.road || id || "unknown";
       const key = id || name;
       if (!key) return;
-      const entry = roadTally.get(key) || { id: id || null, name, count: 0 };
+      const entry = roadTally.get(key) || { id: id || null, name, count: 0, planningArea: null, subzone: null };
       entry.count += 1;
       if (!entry.name && name) entry.name = name;
+      // Store planning area and subzone from the event
+      if (!entry.planningArea && e.planningArea) entry.planningArea = e.planningArea;
+      if (!entry.subzone && e.subzone) entry.subzone = e.subzone;
       roadTally.set(key, entry);
     });
     const roadEntries = Array.from(roadTally.values()).sort((a, b) => b.count - a.count);
-    const byRoad = roadEntries.map(({ id, name, count }) => ({ label: id || name, name, count }));
+    const byRoad = roadEntries.map(({ id, name, count, planningArea, subzone }) => ({ label: id || name, name, count, planningArea, subzone }));
     const topRoads = roadEntries
       .filter((r) => (r.id || r.name) && r.name && r.name !== "unknown")
       .slice(0, 5)
-      .map(({ name, count }) => ({ name, count }));
+      .map(({ name, count, planningArea, subzone }) => ({ name, count, planningArea, subzone }));
 
     const subzoneSource = focusSubzoneName ? subzoneScopedEvents : filtered;
-    const topSubzones = aggregateCounts(subzoneSource, (e) => e.subzoneId)
-      .filter((x) => x.label && x.label !== "unknown")
+    // Build subzone list with planning area information
+    const subzoneTally = new Map();
+    subzoneSource.forEach((e) => {
+      const szName = String(e.subzone || "").trim();
+      if (!szName || szName === "unknown") return;
+      const entry = subzoneTally.get(szName) || { name: szName, count: 0, planningArea: null };
+      entry.count += 1;
+      if (!entry.planningArea && e.planningArea) entry.planningArea = e.planningArea;
+      subzoneTally.set(szName, entry);
+    });
+    const topSubzones = Array.from(subzoneTally.values())
+      .sort((a, b) => b.count - a.count)
       .slice(0, 5)
-      .map(({ label, count }) => ({ name: label, count }));
+      .map(({ name, count, planningArea }) => ({ name, count, planningArea }));
 
     const { map: planningCountMap, max: maxPlanningCount } = countsToMap(byPlanningArea);
     const { map: overallPlanningCountMap, max: overallMaxPlanningCount } =
@@ -476,9 +489,9 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     const totals = {
       events: filtered.length,
       subzoneEvents: subzoneScopedEvents.length,
-      planningAreas: new Set(filtered.map((e) => e.planningAreaId).filter(Boolean)).size,
-      subzones: new Set(filtered.map((e) => e.subzoneId).filter(Boolean)).size,
-      roads: new Set(filtered.map((e) => e.roadId || e.road).filter(Boolean)).size,
+      planningAreas: new Set(filtered.map((e) => e.planningArea).filter(Boolean)).size,
+      subzones: new Set(filtered.map((e) => e.subzone).filter(Boolean)).size,
+      roads: new Set(filtered.map((e) => e.road).filter(Boolean)).size,
       topType: byType[0]?.label ?? null,
     };
 
@@ -578,6 +591,7 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
         byType: [],
         topSubzones: [],
         topTypes: [],
+        topRoads: [],
       };
     }
     const tally = (arr, sel) => {
@@ -594,12 +608,41 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     const byCategory = tally(feats, (f) => String(f.properties?.amenity_category || "").trim());
     const byType = tally(feats, (f) => String(f.properties?.amenity_type || "").trim());
 
-    const topSubzones = bySubzone
-      .filter((x) => x.label && x.label !== "unknown")
+    // Build subzone list with planning area information
+    const subzoneTally = new Map();
+    feats.forEach((f) => {
+      const p = f.properties || {};
+      const szName = String(p.subzone || "").trim();
+      if (!szName || szName === "unknown") return;
+      const entry = subzoneTally.get(szName) || { name: szName, count: 0, planningArea: null };
+      entry.count += 1;
+      if (!entry.planningArea && p.planning_area) entry.planningArea = String(p.planning_area).trim();
+      subzoneTally.set(szName, entry);
+    });
+    const topSubzones = Array.from(subzoneTally.values())
+      .sort((a, b) => b.count - a.count)
       .slice(0, 5)
-      .map(({ label, count }) => ({ name: label, count }));
+      .map(({ name, count, planningArea }) => ({ name, count, planningArea }));
 
     const topTypes = byType.slice(0, 10).map(({ label, count }) => ({ name: label, count }));
+
+    // Road aggregation for amenities
+    const roadTally = new Map();
+    feats.forEach((f) => {
+      const p = f.properties || {};
+      const roadName = String(p.road || p.street_name || p.road_name || "").trim();
+      if (!roadName || roadName === "unknown") return;
+      const key = roadName;
+      const entry = roadTally.get(key) || { name: roadName, count: 0, planningArea: null, subzone: null };
+      entry.count += 1;
+      if (!entry.planningArea && p.planning_area) entry.planningArea = String(p.planning_area).trim();
+      if (!entry.subzone && p.subzone) entry.subzone = String(p.subzone).trim();
+      roadTally.set(key, entry);
+    });
+    const topRoads = Array.from(roadTally.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map(({ name, count, planningArea, subzone }) => ({ name, count, planningArea, subzone }));
 
     return {
       totals: {
@@ -617,6 +660,7 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
       byType,
       topSubzones,
       topTypes,
+      topRoads,
     };
   }, [amenityFilteredFeatures]);
 

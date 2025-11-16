@@ -5,9 +5,18 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Check, ChevronsUpDown } from "lucide-react"
+import { Input } from "@/components/ui/input"
 
 /* ---------- utils ---------- */
 const pretty = (s = "") =>
@@ -174,53 +183,98 @@ function MultiSelectCombobox({
 export default function LeftPanel({
   /** planning areas */
   options = [],
-  selected = [],                // [] means All (no filter)
+  selected = [],                // now a single-select
   onSelectionChange,
   onResetSelection,
+
+  /** subzones */
+  subzoneOptions = [],
+  selectedSubzones = [],
+  onSelectedSubzonesChange,
 
   /** amenities */
   amenityCategoriesOptions = [],
   selectedAmenityCategories = [],
   onAmenityCategoriesChange,
+  amenityTypesOptions = [],
+  selectedAmenityTypes = [],
+  onAmenityTypesChange,
+
+  /** flood types */
+  floodTypeOptions = [],
+  selectedFloodTypes = [],
+  onFloodTypesChange,
+
+  /** flood date range */
+  floodDateFrom = "",
+  floodDateTo = "",
+  onFloodDateFromChange,
+  onFloodDateToChange,
 }) {
-  /* ----- planning areas ----- */
+  /* ----- planning areas (single-select) ----- */
   const paOptions = useMemo(() => options.map((o) => pretty(o?.trim?.() ?? "")).filter(Boolean), [options])
-  const selectedAreas = useMemo(() => selected.map((v) => v?.trim?.() ?? "").filter(Boolean), [selected])
-  const isAll = selectedAreas.length === 0
+  const selectedArea = (selected && selected.length > 0) ? selected[0] : ""
+
+  const handlePAChange = useCallback((val) => {
+    if (val === "__ALL__" || !val) {
+      onSelectionChange?.([])
+    } else {
+      onSelectionChange?.([val])
+    }
+  }, [onSelectionChange])
+
+  /* ----- flood types (checkbox list, all by default) ----- */
+  const floodTypesList = useMemo(() => floodTypeOptions.map((v) => String(v || "").trim()).filter(Boolean), [floodTypeOptions])
+
+  const handleResetFilters = useCallback(() => {
+    onSelectionChange?.([])
+    onSelectedSubzonesChange?.([])
+    onAmenityCategoriesChange?.([])
+    onAmenityTypesChange?.([])
+    onFloodTypesChange?.([])
+    onFloodDateFromChange?.("")
+    onFloodDateToChange?.("")
+  }, [onSelectionChange, onSelectedSubzonesChange, onAmenityCategoriesChange, onAmenityTypesChange, onFloodTypesChange, onFloodDateFromChange, onFloodDateToChange])
+
+  const hasFilters = selected.length > 0
+    || selectedSubzones.length > 0
+    || selectedAmenityCategories.length > 0
+    || selectedAmenityTypes.length > 0
+    || selectedFloodTypes.length > 0
+    || floodDateFrom
+    || floodDateTo
 
   return (
     <div className="relative z-30 flex h-full min-h-0 flex-col p-6">
       {/* header */}
       <div className="shrink-0 space-y-1">
         <h2 className="text-lg font-semibold text-foreground">Filters</h2>
-        <p className="text-sm text-muted-foreground">Refine what’s displayed on the historical flood map.</p>
+        <p className="text-sm text-muted-foreground">Refine what's displayed on the historical flood map.</p>
       </div>
 
       {/* scrollable body */}
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        {/* Planning Areas (All by default) */}
+        {/* Planning Area (single-select dropdown) */}
         <div className="space-y-2 pt-4">
-          <MultiSelectCombobox
-            label="Planning Area"
-            options={paOptions}
-            selected={selected}
-            onChange={onSelectionChange}
-            placeholder="All planning areas"
-            searchPlaceholder="Search planning areas…"
-            emptyText="No planning area found."
-            popoverWidthClass="w-[360px]"
-            showBulkActions
-            showAllRow
-            allMeansEmpty     // [] = no PA filter
-            renderItemLeft={(o) => (
-              <Checkbox checked={isAll ? false : selectedAreas.includes(o)} readOnly />
-            )}
-          />
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Planning Area</span>
+          <Select value={selectedArea || "__ALL__"} onValueChange={handlePAChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="All planning areas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="__ALL__">All planning areas</SelectItem>
+                {paOptions.map((pa) => (
+                  <SelectItem key={pa} value={pa}>{pa}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
 
         <Separator className="my-6" />
 
-        {/* Amenities (pretty labels, All by default) */}
+        {/* Amenity Categories (all by default) */}
         <div className="space-y-2">
           <MultiSelectCombobox
             label="Amenity Category"
@@ -239,6 +293,53 @@ export default function LeftPanel({
             allMeansEmpty
           />
         </div>
+
+        <Separator className="my-6" />
+
+        {/* Flood Type (checkbox list, all by default) */}
+        <div className="space-y-2">
+          <MultiSelectCombobox
+            label="Flood Type"
+            options={floodTypesList.map((v) => ({ value: v, label: pretty(v) }))}
+            selected={selectedFloodTypes}
+            onChange={onFloodTypesChange}
+            placeholder="All flood types"
+            searchPlaceholder="Search flood types…"
+            emptyText="No flood type found."
+            showBulkActions
+            showAllRow
+            allMeansEmpty
+          />
+        </div>
+
+        <Separator className="my-6" />
+
+        {/* Date Range */}
+        <div className="space-y-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Flood Date Range</span>
+          <div className="space-y-2">
+            <div>
+              <Label htmlFor="date-from" className="text-xs text-muted-foreground">From</Label>
+              <Input
+                id="date-from"
+                type="date"
+                value={floodDateFrom}
+                onChange={(e) => onFloodDateFromChange?.(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <Label htmlFor="date-to" className="text-xs text-muted-foreground">To</Label>
+              <Input
+                id="date-to"
+                type="date"
+                value={floodDateTo}
+                onChange={(e) => onFloodDateToChange?.(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* footer */}
@@ -246,11 +347,8 @@ export default function LeftPanel({
         <Button
           variant="outline"
           className="w-full"
-          onClick={onResetSelection}
-          disabled={
-            selected.length === 0 &&
-            !selectedAmenityCategories.length
-          }
+          onClick={handleResetFilters}
+          disabled={!hasFilters}
         >
           Reset filters
         </Button>
