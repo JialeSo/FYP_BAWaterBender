@@ -75,23 +75,24 @@ export default function Centrality() {
     const preset = PRESETS[presetKey];
     if (!preset) return;
 
-    // Apply component weights and toggles only
-    set_w_betweenness(preset.weights.betweenness);
-    set_w_closeness(preset.weights.closeness);
-    set_w_amenity(preset.weights.amenity);
-    set_w_flood(preset.weights.flood);
+    // Apply to pending states (UI will show changes immediately)
+    set_pending_w_betweenness(preset.weights.betweenness);
+    set_pending_w_closeness(preset.weights.closeness);
+    set_pending_w_amenity(preset.weights.amenity);
+    set_pending_w_flood(preset.weights.flood);
 
-    setUseCompBetweenness(preset.toggles.betweenness);
-    setUseCompCloseness(preset.toggles.closeness);
-    setUseCompAmenity(preset.toggles.amenity);
-    setUseCompFlood(preset.toggles.flood);
+    setPendingUseCompBetweenness(preset.toggles.betweenness);
+    setPendingUseCompCloseness(preset.toggles.closeness);
+    setPendingUseCompAmenity(preset.toggles.amenity);
+    setPendingUseCompFlood(preset.toggles.flood);
   }, []);
 
   const applyAmenityPreset = useCallback((presetKey) => {
     const preset = AMENITY_PRESETS[presetKey];
     if (!preset || !preset.weights) return;
 
-    setAmenityWeights((prev) => {
+    // Apply to pending states
+    setPendingAmenityWeights((prev) => {
       const updated = { ...prev };
       Object.keys(preset.weights).forEach(key => {
         updated[key] = preset.weights[key];
@@ -104,7 +105,8 @@ export default function Centrality() {
     const preset = FLOOD_PRESETS[presetKey];
     if (!preset || !preset.weights) return;
 
-    setFloodWeights((prev) => {
+    // Apply to pending states
+    setPendingFloodWeights((prev) => {
       const updated = { ...prev };
       Object.keys(preset.weights).forEach(key => {
         updated[key] = preset.weights[key];
@@ -1253,8 +1255,17 @@ export default function Centrality() {
               </Card>
               <Card className="border bg-background/80 shadow-none">
                 <CardHeader>
-                  <CardTitle className="text-base">Adjust Component Contribution</CardTitle>
-                  <CardDescription>Turn components on/off and set their weights. Components off contribute 0.</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">Adjust Component Contribution</CardTitle>
+                      <CardDescription>Adjust sliders, then click "Apply Changes" to recalculate importance scores.</CardDescription>
+                    </div>
+                    {hasUnappliedWeightChanges && (
+                      <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                        • Unapplied Changes
+                      </span>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid gap-6 md:grid-cols-2">
@@ -1264,32 +1275,32 @@ export default function Centrality() {
                         <Label>Betweenness Centrality</Label>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
-                            <Switch id="comp-bet" checked={useCompBetweenness} onCheckedChange={setUseCompBetweenness} />
+                            <Switch id="comp-bet" checked={pendingUseCompBetweenness} onCheckedChange={setPendingUseCompBetweenness} />
                             <Label htmlFor="comp-bet" className="text-xs cursor-pointer">enable</Label>
                           </div>
-                          <span className="text-sm font-semibold">{w_betweenness.toFixed(2)}</span>
+                          <span className="text-sm font-semibold">{pending_w_betweenness.toFixed(2)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Slider
-                          value={[w_betweenness * 100]}
+                          value={[pending_w_betweenness * 100]}
                           min={0} max={100} step={1}
-                          onValueChange={(v) => set_w_betweenness((v[0] || 0) / 100)}
-                          disabled={!useCompBetweenness}
+                          onValueChange={(v) => set_pending_w_betweenness((v[0] || 0) / 100)}
+                          disabled={!pendingUseCompBetweenness}
                           className="flex-1"
                         />
                         <NumberInput
-                          value={Math.round(w_betweenness * 100)}
+                          value={Math.round(pending_w_betweenness * 100)}
                           onValueChange={(numVal) => {
                             if (numVal !== undefined) {
-                              set_w_betweenness(numVal / 100);
+                              set_pending_w_betweenness(numVal / 100);
                             }
                           }}
                           min={0}
                           max={100}
                           stepper={1}
                           decimalScale={0}
-                          disabled={!useCompBetweenness}
+                          disabled={!pendingUseCompBetweenness}
                           hideSteppers={true}
                         />
                       </div>
@@ -1304,32 +1315,32 @@ export default function Centrality() {
                         <Label>Closeness Centrality</Label>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
-                            <Switch id="comp-clo" checked={useCompCloseness} onCheckedChange={setUseCompCloseness} />
+                            <Switch id="comp-clo" checked={pendingUseCompCloseness} onCheckedChange={setPendingUseCompCloseness} />
                             <Label htmlFor="comp-clo" className="text-xs cursor-pointer">enable</Label>
                           </div>
-                          <span className="text-sm font-semibold">{w_closeness.toFixed(2)}</span>
+                          <span className="text-sm font-semibold">{pending_w_closeness.toFixed(2)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Slider
-                          value={[w_closeness * 100]}
+                          value={[pending_w_closeness * 100]}
                           min={0} max={100} step={1}
-                          onValueChange={(v) => set_w_closeness((v[0] || 0) / 100)}
-                          disabled={!useCompCloseness}
+                          onValueChange={(v) => set_pending_w_closeness((v[0] || 0) / 100)}
+                          disabled={!pendingUseCompCloseness}
                           className="flex-1"
                         />
                         <NumberInput
-                          value={Math.round(w_closeness * 100)}
+                          value={Math.round(pending_w_closeness * 100)}
                           onValueChange={(numVal) => {
                             if (numVal !== undefined) {
-                              set_w_closeness(numVal / 100);
+                              set_pending_w_closeness(numVal / 100);
                             }
                           }}
                           min={0}
                           max={100}
                           stepper={1}
                           decimalScale={0}
-                          disabled={!useCompCloseness}
+                          disabled={!pendingUseCompCloseness}
                           hideSteppers={true}
                         />
                       </div>
@@ -1344,32 +1355,32 @@ export default function Centrality() {
                         <Label>Amenity Impact</Label>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
-                            <Switch id="comp-amen" checked={useCompAmenity} onCheckedChange={setUseCompAmenity} />
+                            <Switch id="comp-amen" checked={pendingUseCompAmenity} onCheckedChange={setPendingUseCompAmenity} />
                             <Label htmlFor="comp-amen" className="text-xs cursor-pointer">enable</Label>
                           </div>
-                          <span className="text-sm font-semibold">{w_amenity.toFixed(2)}</span>
+                          <span className="text-sm font-semibold">{pending_w_amenity.toFixed(2)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Slider
-                          value={[w_amenity * 100]}
+                          value={[pending_w_amenity * 100]}
                           min={0} max={100} step={1}
-                          onValueChange={(v) => set_w_amenity((v[0] || 0) / 100)}
-                          disabled={!useCompAmenity}
+                          onValueChange={(v) => set_pending_w_amenity((v[0] || 0) / 100)}
+                          disabled={!pendingUseCompAmenity}
                           className="flex-1"
                         />
                         <NumberInput
-                          value={Math.round(w_amenity * 100)}
+                          value={Math.round(pending_w_amenity * 100)}
                           onValueChange={(numVal) => {
                             if (numVal !== undefined) {
-                              set_w_amenity(numVal / 100);
+                              set_pending_w_amenity(numVal / 100);
                             }
                           }}
                           min={0}
                           max={100}
                           stepper={1}
                           decimalScale={0}
-                          disabled={!useCompAmenity}
+                          disabled={!pendingUseCompAmenity}
                           hideSteppers={true}
                         />
                       </div>
@@ -1384,32 +1395,32 @@ export default function Centrality() {
                         <Label>Flood History</Label>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
-                            <Switch id="comp-flood" checked={useCompFlood} onCheckedChange={setUseCompFlood} />
+                            <Switch id="comp-flood" checked={pendingUseCompFlood} onCheckedChange={setPendingUseCompFlood} />
                             <Label htmlFor="comp-flood" className="text-xs cursor-pointer">enable</Label>
                           </div>
-                          <span className="text-sm font-semibold">{w_flood.toFixed(2)}</span>
+                          <span className="text-sm font-semibold">{pending_w_flood.toFixed(2)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Slider
-                          value={[w_flood * 100]}
+                          value={[pending_w_flood * 100]}
                           min={0} max={100} step={1}
-                          onValueChange={(v) => set_w_flood((v[0] || 0) / 100)}
-                          disabled={!useCompFlood}
+                          onValueChange={(v) => set_pending_w_flood((v[0] || 0) / 100)}
+                          disabled={!pendingUseCompFlood}
                           className="flex-1"
                         />
                         <NumberInput
-                          value={Math.round(w_flood * 100)}
+                          value={Math.round(pending_w_flood * 100)}
                           onValueChange={(numVal) => {
                             if (numVal !== undefined) {
-                              set_w_flood(numVal / 100);
+                              set_pending_w_flood(numVal / 100);
                             }
                           }}
                           min={0}
                           max={100}
                           stepper={1}
                           decimalScale={0}
-                          disabled={!useCompFlood}
+                          disabled={!pendingUseCompFlood}
                           hideSteppers={true}
                         />
                       </div>
@@ -1417,6 +1428,18 @@ export default function Centrality() {
                         Number of flood events weighted by per-type multipliers.
                       </p>
                     </div>
+                  </div>
+
+                  {/* Apply Changes Button */}
+                  <div className="flex justify-end pt-4 border-t">
+                    <Button
+                      onClick={applyWeightChanges}
+                      disabled={!hasUnappliedWeightChanges}
+                      size="sm"
+                      className={hasUnappliedWeightChanges ? "bg-primary" : ""}
+                    >
+                      Apply Changes
+                    </Button>
                   </div>
 
                   {/* example calculation */}
