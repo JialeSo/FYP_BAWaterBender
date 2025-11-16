@@ -955,7 +955,8 @@ const legendValueMap = useMemo(() => {
       const handleBackgroundClick = (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: [PA_FILL] });
         if (features && features.length) return;
-        onPlanningAreaToggle?.(null);
+        // Don't clear selected planning areas when clicking outside
+        // Just close popups
         try { paPopupRef.current?.remove(); } catch {}
         try { szPopupRef.current?.remove(); } catch {}
       };
@@ -1261,15 +1262,37 @@ const legendValueMap = useMemo(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
 
-    // If exactly one planning area is selected, zoom to it
-    if (selectedPlanningAreas.length === 1) {
-      const paName = toS(selectedPlanningAreas[0]);
-      const feature = planningFC.features.find(f =>
-        toS(getProp(f.properties, PA_NAME_KEYS)) === paName
-      );
-      if (feature) {
-        const b = computeBounds(feature.geometry);
-        if (b) map.fitBounds(b, { padding: 48, duration: 700, maxZoom: 13 });
+    // If one or more planning areas selected, zoom to them (stay at planning area level)
+    if (selectedPlanningAreas.length >= 1) {
+      const selectedFeatures = planningFC.features.filter(f => {
+        const paName = toS(getProp(f.properties, PA_NAME_KEYS));
+        return selectedPlanningAreas.map(toS).includes(paName);
+      });
+
+      if (selectedFeatures.length > 0) {
+        // Compute combined bounds for all selected planning areas
+        let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+
+        for (const feature of selectedFeatures) {
+          const b = computeBounds(feature.geometry);
+          if (b) {
+            const [[x1, y1], [x2, y2]] = b;
+            if (x1 < minx) minx = x1;
+            if (y1 < miny) miny = y1;
+            if (x2 > maxx) maxx = x2;
+            if (y2 > maxy) maxy = y2;
+          }
+        }
+
+        if (Number.isFinite(minx) && Number.isFinite(maxx)) {
+          // When multiple planning areas selected, stay at planning area level (maxZoom: 13)
+          // Don't zoom into subzone level
+          map.fitBounds([[minx, miny], [maxx, maxy]], {
+            padding: 48,
+            duration: 700,
+            maxZoom: selectedPlanningAreas.length > 1 ? 12 : 13  // Lower zoom for multiple PAs
+          });
+        }
       }
     }
     // If no planning areas selected, reset to default view
