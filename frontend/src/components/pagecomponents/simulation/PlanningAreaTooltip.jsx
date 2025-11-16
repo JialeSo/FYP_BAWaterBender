@@ -88,12 +88,32 @@ export function generatePlanningAreaTooltipHTML(paData) {
         </div>
 
         <div style="border-top: 1px solid #4b5563; padding-top: 8px; margin-top: 8px;">
-          <div style="font-size: 11px;">
-            <div style="color: #9ca3af;">Reachable Intersections:</div>
-            <div style="color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
-              ${base_reachable} → ${flood_reachable} ${formatReachableChange(delta_reachable, pct_reachable_change)}
+          <div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">Road Network Status:</div>
+          ${paData.unaffected_roads != null ? `
+            <div style="font-size: 10px; color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+              <span style="color: #22c55e;">●</span> Unaffected Roads: <span style="font-weight: 600;">${paData.unaffected_roads || 0}</span>
             </div>
-          </div>
+          ` : ''}
+          ${paData.flooded_roads != null ? `
+            <div style="font-size: 10px; color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+              <span style="color: #ef4444;">●</span> Flooded Roads: <span style="font-weight: 600;">${paData.flooded_roads || 0}</span>
+            </div>
+          ` : ''}
+          ${paData.affected_roads != null ? `
+            <div style="font-size: 10px; color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+              <span style="color: #fbbf24;">●</span> Affected Roads: <span style="font-weight: 600;">${paData.affected_roads || 0}</span>
+            </div>
+          ` : ''}
+          ${paData.blocked_roads != null ? `
+            <div style="font-size: 10px; color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+              <span style="color: #ff6b00;">●</span> Blocked Roads: <span style="font-weight: 600;">${paData.blocked_roads || 0}</span>
+            </div>
+          ` : ''}
+          ${paData.unreachable_roads != null ? `
+            <div style="font-size: 10px; color: #e5e7eb; margin-left: 8px; margin-top: 2px;">
+              <span style="color: #ef4444;">●</span> Unreachable Roads: <span style="font-weight: 600;">${paData.unreachable_roads || 0}</span>
+            </div>
+          ` : ''}
         </div>
       </div>
 
