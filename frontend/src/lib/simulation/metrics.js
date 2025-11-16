@@ -31,29 +31,21 @@ export function capitalizeWords(str) {
 
 /**
  * Get color for choropleth based on metric value
+ * ALL metrics use the same green→yellow→orange→red palette
  * @param {number} value - Metric value
  * @param {number} maxValue - Maximum value for normalization
- * @param {boolean} isBaseline - Whether this is baseline data (affects color scheme)
+ * @param {boolean} isBaseline - Ignored, all metrics use same palette
  * @returns {string} - Hex color code
  */
 export function getColorForValue(value, maxValue, isBaseline = false) {
   if (!Number.isFinite(value) || value <= 0) return "#d1d5db"; // Gray for no data
 
-  if (isBaseline) {
-    // Baseline: green (low time) to blue (high time)
-    const ratio = Math.min(1, value / maxValue);
-    if (ratio < 0.25) return "#86efac"; // green-300
-    if (ratio < 0.5) return "#60a5fa";  // blue-400
-    if (ratio < 0.75) return "#3b82f6"; // blue-500
-    return "#1d4ed8"; // blue-700
-  } else {
-    // Delta: green (low increase) to red (high increase)
-    const ratio = Math.min(1, value / maxValue);
-    if (ratio < 0.25) return "#86efac"; // green-300
-    if (ratio < 0.5) return "#fde047";  // yellow-300
-    if (ratio < 0.75) return "#fb923c"; // orange-400
-    return "#ef4444"; // red-500
-  }
+  // All metrics: green (low) → yellow → orange → red (high)
+  const ratio = Math.min(1, value / maxValue);
+  if (ratio < 0.25) return "#22c55e"; // green-500
+  if (ratio < 0.5) return "#fde047";  // yellow-300
+  if (ratio < 0.75) return "#fb923c"; // orange-400
+  return "#ef4444"; // red-500
 }
 
 /**

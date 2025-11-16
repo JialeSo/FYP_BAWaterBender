@@ -44,7 +44,7 @@ export function DeltaTimeLegend({ maxDeltaTime }) {
     return (
       <>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
           <span className="text-xs">Low (0-25%)</span>
         </div>
         <div className="flex items-center gap-2">
@@ -70,7 +70,7 @@ export function DeltaTimeLegend({ maxDeltaTime }) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
         <span className="text-xs">Low (0-{fmtTime(q1)})</span>
       </div>
       <div className="flex items-center gap-2">
@@ -152,19 +152,19 @@ export function TimeLegend({ maxTime }) {
     return (
       <>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
           <span className="text-xs">Low time (0-25%)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
+          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
           <span className="text-xs">Medium (25-50%)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
+          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
           <span className="text-xs">High (50-75%)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
+          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
           <span className="text-xs">Very High (75-100%)</span>
         </div>
       </>
@@ -178,19 +178,19 @@ export function TimeLegend({ maxTime }) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#86efac" }}></div>
+        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
         <span className="text-xs">Low (0-{fmtTime(q1)})</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
+        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fde047" }}></div>
         <span className="text-xs">Medium ({fmtTime(q1)}-{fmtTime(q2)})</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
+        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fb923c" }}></div>
         <span className="text-xs">High ({fmtTime(q2)}-{fmtTime(q3)})</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
+        <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
         <span className="text-xs">Very High ({fmtTime(q3)}-{fmtTime(maxTime)})</span>
       </div>
     </>

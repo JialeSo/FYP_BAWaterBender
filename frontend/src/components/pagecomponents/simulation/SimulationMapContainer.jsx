@@ -40,7 +40,6 @@ export function SimulationMapContainer({
   onPlanningAreaSelect,
   selectedPA,
   showAmenities = true,
-  showFloodedRoads = true,
 }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
@@ -789,7 +788,7 @@ export function SimulationMapContainer({
 
   /**
    * Toggle roads visibility based on view mode
-   * Global view: Show all-roads layer (green/red)
+   * Global view: Always show all-roads layer (green/red)
    * PA view: Show detailed roads-line layer
    */
   useEffect(() => {
@@ -808,10 +807,9 @@ export function SimulationMapContainer({
         map.setLayoutProperty("blocked-roads-line", "visibility", "none");
       }
     } else {
-      // Global view: Show all-roads (if toggle is on), hide detailed roads
-      const visibility = showFloodedRoads ? "visible" : "none";
+      // Global view: Always show all-roads, hide detailed roads
       if (map.getLayer("all-roads-line")) {
-        map.setLayoutProperty("all-roads-line", "visibility", visibility);
+        map.setLayoutProperty("all-roads-line", "visibility", "visible");
       }
       if (map.getLayer("roads-line")) {
         map.setLayoutProperty("roads-line", "visibility", "none");
@@ -820,15 +818,18 @@ export function SimulationMapContainer({
         map.setLayoutProperty("blocked-roads-line", "visibility", "none");
       }
     }
-  }, [mapReady, showFloodedRoads, selectedPA]);
+  }, [mapReady, selectedPA]);
 
 
   return (
     <>
-      <div ref={containerRef} className="absolute inset-0 min-h-[500px]" />
+      <div ref={containerRef} className="absolute inset-0" style={{ height: "800px", minHeight: "800px", maxHeight: "800px" }} />
 
       {/* Custom popup styles - dark mode, no borders */}
       <style>{`
+        .mapboxgl-canvas {
+          height: 800px !important;
+        }
         .mapboxgl-popup-content {
           background-color: #1f2937 !important;
           border-radius: 8px !important;

@@ -305,7 +305,6 @@ export default function Simulation() {
 
   // Map layer visibility toggles
   const [showAmenities, setShowAmenities] = useState(true);
-  const [showFloodedRoads, setShowFloodedRoads] = useState(true);
 
   // Table sorting state
   const [sortColumn, setSortColumn] = useState("delta_avg_s");
@@ -1470,7 +1469,6 @@ export default function Simulation() {
                   onPlanningAreaSelect={setSelectedPA}
                   selectedPA={selectedPA}
                   showAmenities={showAmenities}
-                  showFloodedRoads={showFloodedRoads}
                 />
 
                 <MetricSelector
@@ -1479,8 +1477,6 @@ export default function Simulation() {
                   travelTime={travelTime}
                   showAmenities={showAmenities}
                   onToggleAmenities={setShowAmenities}
-                  showFloodedRoads={showFloodedRoads}
-                  onToggleFloodedRoads={setShowFloodedRoads}
                   selectedPA={selectedPA}
                 />
 

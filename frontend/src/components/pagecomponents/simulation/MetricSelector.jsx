@@ -17,8 +17,6 @@ export function MetricSelector({
   travelTime,
   showAmenities = true,
   onToggleAmenities,
-  showFloodedRoads = true,
-  onToggleFloodedRoads,
   selectedPA = null,
 }) {
   const metrics = [
@@ -34,7 +32,7 @@ export function MetricSelector({
   return (
     <Card className="absolute top-4 right-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 max-w-[240px]">
       {/* Visualization Metric Dropdown */}
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
         Visualization Metric
       </div>
       <Select value={selectedMetric} onValueChange={onMetricChange}>
@@ -71,19 +69,6 @@ export function MetricSelector({
                 className="text-xs cursor-pointer font-normal"
               >
                 Show Amenities
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="toggle-flooded-roads"
-                checked={showFloodedRoads}
-                onCheckedChange={onToggleFloodedRoads}
-              />
-              <Label
-                htmlFor="toggle-flooded-roads"
-                className="text-xs cursor-pointer font-normal"
-              >
-                Show Flooded Roads
               </Label>
             </div>
           </div>
