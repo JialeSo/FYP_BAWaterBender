@@ -9,33 +9,11 @@ import { X, Download, Search } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
 export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {}, allRoads = [], amenityItems = [], floodItems = [], onMarkerClick = null }) {
-  // Search state
+  // Search state - MUST be called before any conditional returns
   const [amenitySearch, setAmenitySearch] = useState("");
   const [floodSearch, setFloodSearch] = useState("");
 
-  // Show prompt if no road selected
-  if (!road) {
-    return (
-      <Card className="mb-4 border-2 border-dashed">
-        <CardHeader>
-          <CardTitle className="text-lg">Road Details</CardTitle>
-          <CardDescription>
-            Click on a row in the table below or hover over a road on the map to view details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8 text-center">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">No road selected</p>
-              <p className="text-xs text-muted-foreground">Select a road to view KPIs, amenity details, and flood information</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const p = road.properties ?? {};
+  const p = road?.properties ?? {};
 
   // Helper function to calculate percentile rank for any metric
   const calculatePercentileRank = (value, metric) => {
@@ -59,12 +37,12 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
     return percentile;
   };
 
-  // Calculate percentile ranks for all metrics
-  const importancePercentile = useMemo(() => calculatePercentileRank(p.importance, 'importance'), [p.importance, allRoads]);
-  const betweennessPercentile = useMemo(() => calculatePercentileRank(p.betweenness_norm, 'betweenness_norm'), [p.betweenness_norm, allRoads]);
-  const closenessPercentile = useMemo(() => calculatePercentileRank(p.closeness_norm, 'closeness_norm'), [p.closeness_norm, allRoads]);
-  const amenityPercentile = useMemo(() => calculatePercentileRank(p.amenity_count_total, 'amenity_count_total'), [p.amenity_count_total, allRoads]);
-  const floodPercentile = useMemo(() => calculatePercentileRank(p.flood_count_total, 'flood_count_total'), [p.flood_count_total, allRoads]);
+  // Calculate percentile ranks for all metrics - MUST be called before any conditional returns
+  const importancePercentile = useMemo(() => road ? calculatePercentileRank(p.importance, 'importance') : null, [p.importance, allRoads, road]);
+  const betweennessPercentile = useMemo(() => road ? calculatePercentileRank(p.betweenness_norm, 'betweenness_norm') : null, [p.betweenness_norm, allRoads, road]);
+  const closenessPercentile = useMemo(() => road ? calculatePercentileRank(p.closeness_norm, 'closeness_norm') : null, [p.closeness_norm, allRoads, road]);
+  const amenityPercentile = useMemo(() => road ? calculatePercentileRank(p.amenity_count_total, 'amenity_count_total') : null, [p.amenity_count_total, allRoads, road]);
+  const floodPercentile = useMemo(() => road ? calculatePercentileRank(p.flood_count_total, 'flood_count_total') : null, [p.flood_count_total, allRoads, road]);
 
   const getPercentileLabel = (percentile) => {
     if (!percentile) return null;
@@ -172,6 +150,28 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // Show prompt if no road selected - MUST come after all hooks
+  if (!road) {
+    return (
+      <Card className="mb-4 border-2 border-dashed">
+        <CardHeader>
+          <CardTitle className="text-lg">Road Details</CardTitle>
+          <CardDescription>
+            Click on a row in the table below or hover over a road on the map to view details
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8 text-center">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">No road selected</p>
+              <p className="text-xs text-muted-foreground">Select a road to view KPIs, amenity details, and flood information</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mb-4 border-2 border-primary">
