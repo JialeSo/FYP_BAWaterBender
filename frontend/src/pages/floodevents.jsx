@@ -607,6 +607,40 @@ export default function floodevents() {
     set_page(1);
   };
 
+  // Calculate bounds for metric sliders
+  const metric_bounds = useMemo(() => {
+    if (!rows.length) {
+      return {
+        inner: { min: 0, max: 100 },
+        total: { min: 0, max: 100 },
+        centrality: { min: 0, max: 1 },
+        impactInner: { min: 0, max: 100 },
+        impactOuter: { min: 0, max: 100 },
+        impactTotal: { min: 0, max: 100 },
+      };
+    }
+
+    const bounds = {};
+    const metrics = {
+      inner: 'ring_inner',
+      total: 'ring_total',
+      centrality: 'centrality',
+      impactInner: 'impact_inner',
+      impactOuter: 'impact_outer',
+      impactTotal: 'impact_total',
+    };
+
+    Object.entries(metrics).forEach(([key, field]) => {
+      const values = rows.map(r => r[field]).filter(v => Number.isFinite(v));
+      bounds[key] = {
+        min: values.length ? Math.min(...values) : 0,
+        max: values.length ? Math.max(...values) : 100,
+      };
+    });
+
+    return bounds;
+  }, [rows]);
+
   const categories = useMemo(() => {
     const items = Object.values(category_lookup?.by_id || {});
     return items.sort((a, b) => (a.id || 0) - (b.id || 0));
@@ -2296,29 +2330,39 @@ export default function floodevents() {
             {METRIC_FILTER_CONFIG.map((metric) => {
               const range = metric_filters[metric.key] || { min: "", max: "" };
               const step = metric.step ?? 1;
-              const inputMode = step < 1 ? "decimal" : "numeric";
+              const bounds = metric_bounds[metric.key] || { min: 0, max: 100 };
+
+              // Parse current filter values, default to bounds if empty
+              const parsedMin = range.min !== "" ? parseFloat(range.min) : bounds.min;
+              const parsedMax = range.max !== "" ? parseFloat(range.max) : bounds.max;
+              const sliderValue = [
+                Number.isFinite(parsedMin) ? parsedMin : bounds.min,
+                Number.isFinite(parsedMax) ? parsedMax : bounds.max
+              ];
+
               return (
                 <div key={metric.key} className="space-y-2">
                   <Label>{metric.label}</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="number"
-                      inputMode={inputMode}
+                  <div className="space-y-3 pt-2">
+                    <Slider
+                      value={sliderValue}
+                      min={bounds.min}
+                      max={bounds.max}
                       step={step}
-                      min="0"
-                      value={range.min}
-                      onChange={(e) => set_metric_range(metric.key, "min", e.target.value)}
-                      placeholder="Min"
+                      onValueChange={(value) => {
+                        if (value && value.length === 2) {
+                          // Only update if values changed from bounds (user is filtering)
+                          const isDefaultRange = value[0] === bounds.min && value[1] === bounds.max;
+                          set_metric_range(metric.key, "min", isDefaultRange ? "" : value[0].toString());
+                          set_metric_range(metric.key, "max", isDefaultRange ? "" : value[1].toString());
+                        }
+                      }}
+                      className="w-full"
                     />
-                    <Input
-                      type="number"
-                      inputMode={inputMode}
-                      step={step}
-                      min="0"
-                      value={range.max}
-                      onChange={(e) => set_metric_range(metric.key, "max", e.target.value)}
-                      placeholder="Max"
-                    />
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{sliderValue[0].toFixed(step < 1 ? 2 : 0)}</span>
+                      <span>{sliderValue[1].toFixed(step < 1 ? 2 : 0)}</span>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground">{metric.description}</p>
                 </div>
