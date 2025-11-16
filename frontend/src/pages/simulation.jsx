@@ -310,7 +310,10 @@ export default function Simulation() {
   // Node-level distance data (Map: node_id => travel_time_seconds)
   const [baselineNodeDist, setBaselineNodeDist] = useState(null);
   const [floodedNodeDist, setFloodedNodeDist] = useState(null);
-
+  
+  // Node-level nearest amenity data (Map: node_id => amenity_id)
+  const [baselineNearestAmenity, setBaselineNearestAmenity] = useState(null);
+  const [floodedNearestAmenity, setFloodedNearestAmenity] = useState(null);
 
   // Computation state
   const [busy, setBusy] = useState(false);
@@ -552,10 +555,6 @@ export default function Simulation() {
     return sorted;
   }, [roadLevelData, roadSortColumn, roadSortDirection]);
 
-
-  // Node-level nearest amenity data (Map: node_id => amenity_id)
-  const [baselineNearestAmenity, setBaselineNearestAmenity] = useState(null);
-  const [floodedNearestAmenity, setFloodedNearestAmenity] = useState(null);
 
   // Scenarios now loaded from context - no need to fetch here
   useEffect(() => {
