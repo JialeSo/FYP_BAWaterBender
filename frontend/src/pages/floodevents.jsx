@@ -338,23 +338,31 @@ function build_flood_detail(p) {
 }
 
 function popup_html(p = {}) {
-  const safe = (x) => (x ?? "N/A");
-  const typ = to_title_case((p.event || "").replace(/_/g, " "));
-  const road = p.start_road || p.parent_road || "N/A";
+  const safe = (x) => (x ?? "—");
+  const coord = (lat, lng) => {
+    const latNum = to_num(lat);
+    const lngNum = to_num(lng);
+    if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
+      return `${latNum.toFixed(5)}, ${lngNum.toFixed(5)}`;
+    }
+    return "—";
+  };
+  const typ = to_title_case((p.event || "").replace(/_/g, " ")) || "—";
+  const road = p.start_road || p.parent_road || "—";
   return `
     <div>
       <div class="text-xs uppercase opacity-70">Flood</div>
       <div><b>ID:</b> ${safe(p.id)}</div>
       <div><b>Date:</b> ${safe(p.event_date)}</div>
-      <div><b>Type:</b> ${safe(typ)}</div>
-      <div><b>Road:</b> ${safe(road)}</div>
+      <div><b>Type:</b> ${typ}</div>
+      <div><b>Road:</b> ${road}</div>
       <div class="mt-1 text-xs opacity-70">
-        Start: ${fmt(p.start_lat)}, ${fmt(p.start_lng)}
+        Start: ${coord(p.start_lat, p.start_lng)}
       </div>
       <div class="mt-1 text-xs opacity-70">
-        Pred A: ${fmt(p.end100_a_lat)}, ${fmt(p.end100_a_lng)}<br/>
-        Pred B: ${fmt(p.end100_b_lat)}, ${fmt(p.end100_b_lng)}<br/>
-        End: ${fmt(p.end_lat)}, ${fmt(p.end_lng)}
+        Pred A: ${coord(p.end100_a_lat, p.end100_a_lng)}<br/>
+        Pred B: ${coord(p.end100_b_lat, p.end100_b_lng)}<br/>
+        End: ${coord(p.end_lat, p.end_lng)}
       </div>
     </div>
   `;
