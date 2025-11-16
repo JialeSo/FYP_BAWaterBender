@@ -690,9 +690,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas([]), []);
   const handlePlanningAreaFromMap = useCallback((areaName) => {
     if (!areaName) return setSelectedPlanningAreas([]);
-    setSelectedPlanningAreas((prev) =>
-      prev.includes(areaName) ? prev.filter((n) => n !== areaName) : [areaName]
-    );
+    // When clicking a PA on the map, select ONLY that PA (zoom in)
+    setSelectedPlanningAreas([areaName]);
   }, []);
 
   const handleSubzoneSelect = useCallback(
