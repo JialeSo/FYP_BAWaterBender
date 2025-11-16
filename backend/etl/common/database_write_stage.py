@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from .pipeline_stage import PipelineStage
-from backend.common.db import DatabaseConnection
+from common.db import DatabaseConnection
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,9 @@ class DatabaseWriteStage(PipelineStage):
         env_dry = os.getenv("ETL_DRY_RUN", "0").lower() in {"1", "true", "yes"}
         self.dry_run: bool = bool(self.config.get("dry_run", env_dry))
         # Optional: where to dump CSV results when dry-run is enabled
-        self.dry_run_output: Optional[str] = self.config.get("dry_run_output") or os.getenv("ETL_DRY_RUN_OUTPUT")
+        self.dry_run_output: Optional[str] = self.config.get(
+            "dry_run_output"
+        ) or os.getenv("ETL_DRY_RUN_OUTPUT")
 
         # Only initialize DB connection when not in dry-run mode
         self.db = self.config.get("db_connection", None)
@@ -64,7 +66,9 @@ class DatabaseWriteStage(PipelineStage):
             logger.warning("No records to write to database")
             return data
         if self.dry_run:
-            logger.info(f"[DRY-RUN] Skipping DB write for table '{self.table_name}' ({len(records)} records)")
+            logger.info(
+                f"[DRY-RUN] Skipping DB write for table '{self.table_name}' ({len(records)} records)"
+            )
             # Optionally dump to CSV for inspection
             try:
                 if self.dry_run_output:
@@ -73,11 +77,15 @@ class DatabaseWriteStage(PipelineStage):
                     out_path = out_dir / f"{self.table_name}.csv"
                     try:
                         import pandas as _pd  # type: ignore
+
                         _pd.DataFrame(records).to_csv(out_path, index=False)
                     except Exception:
                         # Fallback to a simple newline-delimited JSON dump
                         import json
-                        with open(out_path.with_suffix('.ndjson'), 'w', encoding='utf-8') as f:
+
+                        with open(
+                            out_path.with_suffix(".ndjson"), "w", encoding="utf-8"
+                        ) as f:
                             for r in records:
                                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
                     logger.info(f"[DRY-RUN] Wrote output to {out_path} (or .ndjson)")
@@ -88,7 +96,9 @@ class DatabaseWriteStage(PipelineStage):
         logger.info(f"Writing {len(records)} records to table '{self.table_name}'")
         try:
             await self._write_batches(records)
-            logger.info(f"Successfully wrote {len(records)} records to '{self.table_name}'")
+            logger.info(
+                f"Successfully wrote {len(records)} records to '{self.table_name}'"
+            )
         except Exception as e:
             logger.error(f"Failed to write data to table '{self.table_name}': {e}")
             raise
@@ -98,6 +108,7 @@ class DatabaseWriteStage(PipelineStage):
         # Pandas DataFrame support
         try:
             import pandas as _pd  # type: ignore
+
             if isinstance(data, _pd.DataFrame):
                 if data.empty:
                     return []
@@ -155,7 +166,9 @@ class DatabaseWriteStage(PipelineStage):
             safe.append(new_rec)
         return safe
 
-    async def _write_with_retries(self, batch: List[Dict], *, max_retries: int = 5) -> None:
+    async def _write_with_retries(
+        self, batch: List[Dict], *, max_retries: int = 5
+    ) -> None:
         """Write a single batch with retries and exponential backoff.
 
         Falls back to splitting the batch into smaller chunks if repeated failures occur.
@@ -165,11 +178,15 @@ class DatabaseWriteStage(PipelineStage):
             try:
                 # Prefer upsert when on_conflict is configured
                 if self.on_conflict and hasattr(self.db, "upsert"):
-                    self.db.upsert(table=self.table_name, data=batch, on_conflict=self.on_conflict)
+                    self.db.upsert(
+                        table=self.table_name, data=batch, on_conflict=self.on_conflict
+                    )
                 elif hasattr(self.db, "insert"):
                     self.db.insert(table=self.table_name, data=batch)
                 else:
-                    raise Exception("Database connection does not support insert/upsert")
+                    raise Exception(
+                        "Database connection does not support insert/upsert"
+                    )
                 return
             except Exception as e:
                 attempt += 1
@@ -181,13 +198,19 @@ class DatabaseWriteStage(PipelineStage):
                         logger.warning(
                             f"Batch write still failing; splitting into {mid} + {len(batch) - mid} and retrying"
                         )
-                        await self._write_with_retries(batch[:mid], max_retries=max_retries)
-                        await self._write_with_retries(batch[mid:], max_retries=max_retries)
+                        await self._write_with_retries(
+                            batch[:mid], max_retries=max_retries
+                        )
+                        await self._write_with_retries(
+                            batch[mid:], max_retries=max_retries
+                        )
                         return
                     raise e
                 # Exponential backoff with jitter
                 sleep_s = (0.5 * (2 ** (attempt - 1))) + random.uniform(0, 0.25)
-                logger.warning(f"Batch write attempt {attempt}/{max_retries} failed: {e}; retrying in {sleep_s:.2f}s")
+                logger.warning(
+                    f"Batch write attempt {attempt}/{max_retries} failed: {e}; retrying in {sleep_s:.2f}s"
+                )
                 await asyncio.sleep(sleep_s)
 
     async def _write_batches(self, records: List[Dict]) -> None:
@@ -196,7 +219,9 @@ class DatabaseWriteStage(PipelineStage):
             batch = records[i : i + self.batch_size]
             batch_num = (i // self.batch_size) + 1
             total_batches = (total_records + self.batch_size - 1) // self.batch_size
-            logger.debug(f"Writing batch {batch_num}/{total_batches} ({len(batch)} records)")
+            logger.debug(
+                f"Writing batch {batch_num}/{total_batches} ({len(batch)} records)"
+            )
             try:
                 # Ensure batch has no NaN/inf values that break JSON encoding
                 batch = self._sanitize_records(batch)

@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.common.db import DatabaseConnection
+from common.db import DatabaseConnection
 
 # Configure logging
 logging.basicConfig(
@@ -53,10 +53,10 @@ def load_hotosm_geojson() -> List[Dict[str, Any]]:
     if not HOTOSM_FILE.exists():
         raise FileNotFoundError(f"HOTOSM file not found: {HOTOSM_FILE}")
 
-    with open(HOTOSM_FILE, 'r', encoding='utf-8') as f:
+    with open(HOTOSM_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    features = data.get('features', [])
+    features = data.get("features", [])
     logger.info(f"Loaded {len(features):,} features from HOTOSM GeoJSON")
 
     return features
@@ -74,14 +74,14 @@ def prepare_records_for_db(features: List[Dict[str, Any]]) -> List[Dict[str, Any
     records = []
 
     for feature in features:
-        properties = feature.get('properties', {})
-        geometry = feature.get('geometry', {})
+        properties = feature.get("properties", {})
+        geometry = feature.get("geometry", {})
 
         # Extract coordinates
-        coords = geometry.get('coordinates', [])
-        geom_type = geometry.get('type', 'Point')
+        coords = geometry.get("coordinates", [])
+        geom_type = geometry.get("type", "Point")
 
-        if geom_type == 'Point' and len(coords) >= 2:
+        if geom_type == "Point" and len(coords) >= 2:
             lon, lat = coords[0], coords[1]
         elif coords and isinstance(coords[0], list):
             # For non-Point geometries, use first coordinate
@@ -93,19 +93,21 @@ def prepare_records_for_db(features: List[Dict[str, Any]]) -> List[Dict[str, Any
         # OSM uses colons in property names (addr:housenumber), which we convert to underscores for DB
         record = {
             # OSM Properties
-            'name': properties.get('name'),
-            'amenity': properties.get('amenity'),
-            'addr_housenumber': properties.get('addr:housenumber'),
-            'addr_street': properties.get('addr:street'),
-            'addr_city': properties.get('addr:city'),
-            'osm_id': str(properties.get('osm_id')) if properties.get('osm_id') else None,
-            'osm_type': properties.get('osm_type'),
-            'postal_code': properties.get('postal_code'),
+            "name": properties.get("name"),
+            "amenity": properties.get("amenity"),
+            "addr_housenumber": properties.get("addr:housenumber"),
+            "addr_street": properties.get("addr:street"),
+            "addr_city": properties.get("addr:city"),
+            "osm_id": (
+                str(properties.get("osm_id")) if properties.get("osm_id") else None
+            ),
+            "osm_type": properties.get("osm_type"),
+            "postal_code": properties.get("postal_code"),
             # Geometry
-            'geometry': json.dumps(geometry),  # Store full geometry as JSONB
-            'geom_type': geom_type,
-            'lon': lon,
-            'lat': lat,
+            "geometry": json.dumps(geometry),  # Store full geometry as JSONB
+            "geom_type": geom_type,
+            "lon": lon,
+            "lat": lat,
         }
 
         records.append(record)
@@ -132,7 +134,7 @@ async def upload_to_supabase(records: List[Dict[str, Any]], batch_size: int = 50
     # Clear existing data (optional - comment out if you want to append)
     try:
         logger.info(f"Clearing existing data from '{TABLE_NAME}'...")
-        client.table(TABLE_NAME).delete().neq('id', -1).execute()
+        client.table(TABLE_NAME).delete().neq("id", -1).execute()
         logger.info("✓ Existing data cleared")
     except Exception as e:
         logger.warning(f"Could not clear existing data (table may not exist yet): {e}")
@@ -141,11 +143,13 @@ async def upload_to_supabase(records: List[Dict[str, Any]], batch_size: int = 50
     total_batches = (len(records) + batch_size - 1) // batch_size
 
     for i in range(0, len(records), batch_size):
-        batch = records[i:i + batch_size]
+        batch = records[i : i + batch_size]
         batch_num = (i // batch_size) + 1
 
         try:
-            logger.info(f"Uploading batch {batch_num}/{total_batches} ({len(batch)} records)...")
+            logger.info(
+                f"Uploading batch {batch_num}/{total_batches} ({len(batch)} records)..."
+            )
 
             # Use upsert to handle potential conflicts
             client.table(TABLE_NAME).upsert(batch).execute()
@@ -159,14 +163,16 @@ async def upload_to_supabase(records: List[Dict[str, Any]], batch_size: int = 50
             logger.error(f"✗ Failed to upload batch {batch_num}: {e}")
             raise
 
-    logger.info(f"✓ Successfully uploaded all {len(records):,} records to '{TABLE_NAME}'")
+    logger.info(
+        f"✓ Successfully uploaded all {len(records):,} records to '{TABLE_NAME}'"
+    )
 
 
 async def main():
     """Main execution function."""
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("HOTOSM DATA UPLOAD TO SUPABASE")
-    logger.info("="*80)
+    logger.info("=" * 80)
 
     try:
         # Step 1: Load HOTOSM GeoJSON
@@ -178,18 +184,19 @@ async def main():
         # Step 3: Upload to Supabase
         await upload_to_supabase(records)
 
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("✓ HOTOSM UPLOAD COMPLETED SUCCESSFULLY")
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info(f"Table: {TABLE_NAME}")
         logger.info(f"Records: {len(records):,}")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
     except Exception as e:
-        logger.error("="*80)
+        logger.error("=" * 80)
         logger.error(f"✗ HOTOSM UPLOAD FAILED: {e}")
-        logger.error("="*80)
+        logger.error("=" * 80)
         import traceback
+
         traceback.print_exc()
         raise
 

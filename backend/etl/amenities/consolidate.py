@@ -25,10 +25,10 @@ import requests
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
-from backend.etl.onemap.onemap_extended import OneMapClient
-from backend.common.db import DatabaseConnection
+from etl.onemap.onemap_extended import OneMapClient
+from common.db import DatabaseConnection
 
-from backend.etl.amenities.core.naming import infer_amenity_name
+from etl.amenities.core.naming import infer_amenity_name
 
 # Paths
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -45,9 +45,9 @@ OUTPUT_FILE = DATA_DIR / "amenities_consolidated.geojson"
 
 # Files to skip
 SKIP_FILES = [
-    'planning_area.geojson',      # Reference layer
-    'subzone_area.geojson',       # Reference layer
-    'road_network.geojson',       # Reference layer
+    "planning_area.geojson",  # Reference layer
+    "subzone_area.geojson",  # Reference layer
+    "road_network.geojson",  # Reference layer
 ]
 
 # OneMap themes to EXCLUDE (exact matches on THEMENAME)
@@ -221,7 +221,7 @@ def _should_exclude_amenity(amenity_type: str, amenity_name: str) -> bool:
 
 def _normalise_amenity_type(props: Dict, source_file: str) -> str:
     """Return amenity type using source file name as fallback."""
-    value = props.get('amenity_type')
+    value = props.get("amenity_type")
     if value:
         return str(value)
     return Path(source_file).stem
@@ -236,14 +236,14 @@ def _prepare_infer_context(
 ) -> Dict:
     """Context dictionary passed to infer_amenity_name."""
     context = {
-        'amenity_type': amenity_type,
-        'road_name': road_name,
-        'postal_code': postal_code,
+        "amenity_type": amenity_type,
+        "road_name": road_name,
+        "postal_code": postal_code,
     }
     if lon is not None:
-        context['lon'] = lon
+        context["lon"] = lon
     if lat is not None:
-        context['lat'] = lat
+        context["lat"] = lat
     return context
 
 
@@ -292,12 +292,12 @@ def map_geojson_to_standard(feature: Dict, source_file: str) -> Dict:
     Returns:
         Standardized feature dict
     """
-    props = feature.get('properties', {})
-    geom = feature.get('geometry', {})
+    props = feature.get("properties", {})
+    geom = feature.get("geometry", {})
 
     # Extract coordinates
-    coords = geom.get('coordinates', [])
-    if geom.get('type') == 'Point':
+    coords = geom.get("coordinates", [])
+    if geom.get("type") == "Point":
         lon, lat = coords[0], coords[1]
     elif coords:
         # For non-Point geometries, use first coordinate or centroid
@@ -315,9 +315,20 @@ def map_geojson_to_standard(feature: Dict, source_file: str) -> Dict:
         src_lower = str(source_file).lower()
         if "hotosm" in src_lower or "osm" in src_lower:
             for key in [
-                "amenity", "shop", "tourism", "leisure", "healthcare", "office",
-                "craft", "public_transport", "railway", "highway", "man_made",
-                "emergency", "aeroway", "aerialway"
+                "amenity",
+                "shop",
+                "tourism",
+                "leisure",
+                "healthcare",
+                "office",
+                "craft",
+                "public_transport",
+                "railway",
+                "highway",
+                "man_made",
+                "emergency",
+                "aeroway",
+                "aerialway",
             ]:
                 val = props.get(key)
                 if val not in (None, "", "null"):
@@ -328,31 +339,31 @@ def map_geojson_to_standard(feature: Dict, source_file: str) -> Dict:
         pass
 
     road_name = (
-        props.get('road_name')
-        or props.get('ROAD_NAME')
-        or props.get('ADDRESSSTREETNAME')
-        or ''
+        props.get("road_name")
+        or props.get("ROAD_NAME")
+        or props.get("ADDRESSSTREETNAME")
+        or ""
     )
     postal_code = (
-        props.get('postal_code')
-        or props.get('POSTAL')
-        or props.get('POSTAL_CD')
-        or props.get('ADDRESSPOSTALCODE')
-        or ''
+        props.get("postal_code")
+        or props.get("POSTAL")
+        or props.get("POSTAL_CD")
+        or props.get("ADDRESSPOSTALCODE")
+        or ""
     )
 
     # Initial amenity name extraction before applying richer inference.
     amenity_name = (
-        props.get('NAME') or
-        props.get('name') or
-        props.get('amenity_name') or
-        props.get('Name') or
-        ''
+        props.get("NAME")
+        or props.get("name")
+        or props.get("amenity_name")
+        or props.get("Name")
+        or ""
     )
 
     context = _prepare_infer_context(amenity_type, road_name, postal_code, lon, lat)
     if amenity_name:
-        context['amenity_name'] = amenity_name
+        context["amenity_name"] = amenity_name
 
     inferred_name = infer_amenity_name(
         props,
@@ -364,24 +375,24 @@ def map_geojson_to_standard(feature: Dict, source_file: str) -> Dict:
         NAME_FILL_STATS["geojson"][amenity_type] += 1
 
     result = {
-        'type': 'Feature',
-        'geometry': geom,
-        'properties': {
-            'amenity_id': generate_amenity_id(props.get('amenity_id')),
-            'amenity_type': amenity_type,
-            'amenity_name': inferred_name,
-            'road_name': road_name,
-            'postal_code': postal_code,
-            'geom_type': geom.get('type', 'Point'),
-            'lon': lon,
-            'lat': lat,
-            'source_file': source_file,
-        }
+        "type": "Feature",
+        "geometry": geom,
+        "properties": {
+            "amenity_id": generate_amenity_id(props.get("amenity_id")),
+            "amenity_type": amenity_type,
+            "amenity_name": inferred_name,
+            "road_name": road_name,
+            "postal_code": postal_code,
+            "geom_type": geom.get("type", "Point"),
+            "lon": lon,
+            "lat": lat,
+            "source_file": source_file,
+        },
     }
 
     # If derived from OSM tags, expose a theme_queryname to aid classification
     if derived_from_osm:
-        result['properties']['theme_queryname'] = amenity_type
+        result["properties"]["theme_queryname"] = amenity_type
 
     return result
 
@@ -397,37 +408,37 @@ def map_osm_to_standard(osm_record: Dict) -> Dict:
         Standardized GeoJSON feature
     """
     # Extract OnEMap data if available
-    onemap_data = osm_record.get('onemap_data') or {}
+    onemap_data = osm_record.get("onemap_data") or {}
     if not isinstance(onemap_data, dict):
         onemap_data = {}
 
-    lon = osm_record.get('lon')
-    lat = osm_record.get('lat')
+    lon = osm_record.get("lon")
+    lat = osm_record.get("lat")
 
-    amenity_type = osm_record.get('amenity', 'unknown')
+    amenity_type = osm_record.get("amenity", "unknown")
 
     properties = {
-        'amenity_id': generate_amenity_id(),
-        'amenity_type': amenity_type,
-        'road_name': onemap_data.get('ROAD_NAME') or '',
-        'postal_code': onemap_data.get('POSTAL') or '',
-        'geom_type': 'Point',
-        'lon': lon,
-        'lat': lat,
-        'source_file': 'osm_onemap_matched.json',
+        "amenity_id": generate_amenity_id(),
+        "amenity_type": amenity_type,
+        "road_name": onemap_data.get("ROAD_NAME") or "",
+        "postal_code": onemap_data.get("POSTAL") or "",
+        "geom_type": "Point",
+        "lon": lon,
+        "lat": lat,
+        "source_file": "osm_onemap_matched.json",
         # Keep OSM metadata
-        'osm_type': osm_record.get('osm_type'),
-        'osm_id': osm_record.get('osm_id'),
-        'enrichment_status': osm_record.get('enrichment_status'),
+        "osm_type": osm_record.get("osm_type"),
+        "osm_id": osm_record.get("osm_id"),
+        "enrichment_status": osm_record.get("enrichment_status"),
     }
 
     name_context = {
-        'amenity_name': osm_record.get('name') or '',
-        'amenity_type': amenity_type,
-        'road_name': properties['road_name'],
-        'postal_code': properties['postal_code'],
-        'lon': lon,
-        'lat': lat,
+        "amenity_name": osm_record.get("name") or "",
+        "amenity_type": amenity_type,
+        "road_name": properties["road_name"],
+        "postal_code": properties["postal_code"],
+        "lon": lon,
+        "lat": lat,
     }
 
     inferred_name = infer_amenity_name(
@@ -435,22 +446,22 @@ def map_osm_to_standard(osm_record: Dict) -> Dict:
             onemap_data,
             osm_record,
         ),
-        source_file='osm_onemap_matched.json',
+        source_file="osm_onemap_matched.json",
         extra_context=name_context,
     )
 
-    if not name_context['amenity_name'] or name_context['amenity_name'] != inferred_name:
+    if (
+        not name_context["amenity_name"]
+        or name_context["amenity_name"] != inferred_name
+    ):
         NAME_FILL_STATS["osm"][amenity_type] += 1
 
-    properties['amenity_name'] = inferred_name
+    properties["amenity_name"] = inferred_name
 
     return {
-        'type': 'Feature',
-        'geometry': {
-            'type': 'Point',
-            'coordinates': [lon, lat]
-        },
-        'properties': properties,
+        "type": "Feature",
+        "geometry": {"type": "Point", "coordinates": [lon, lat]},
+        "properties": properties,
     }
 
 
@@ -477,18 +488,18 @@ def load_geojson_files(include_only: Optional[set[str]] = None) -> List[Dict]:
             continue
 
         try:
-            with open(geojson_file, 'r', encoding='utf-8') as f:
+            with open(geojson_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            file_features = data.get('features', [])
+            file_features = data.get("features", [])
 
             # Map each feature to standard structure
             for feature in file_features:
                 mapped = map_geojson_to_standard(feature, geojson_file.name)
                 # Check if this amenity should be excluded based on type and name
-                props = mapped.get('properties', {})
-                amenity_type = props.get('amenity_type', '')
-                amenity_name = props.get('amenity_name', '')
+                props = mapped.get("properties", {})
+                amenity_type = props.get("amenity_type", "")
+                amenity_name = props.get("amenity_name", "")
                 if _should_exclude_amenity(amenity_type, amenity_name):
                     continue
                 features.append(mapped)
@@ -497,7 +508,9 @@ def load_geojson_files(include_only: Optional[set[str]] = None) -> List[Dict]:
             feature_count += len(file_features)
 
             file_size = geojson_file.stat().st_size / 1024 / 1024
-            print(f"  ✓ {geojson_file.name:<40} {len(file_features):>6,} features ({file_size:.1f} MB)")
+            print(
+                f"  ✓ {geojson_file.name:<40} {len(file_features):>6,} features ({file_size:.1f} MB)"
+            )
 
         except Exception as e:
             print(f"  ✗ Error loading {geojson_file.name}: {e}")
@@ -533,19 +546,23 @@ def load_hotosm_from_supabase() -> List[Dict]:
         for record in records:
             try:
                 # Parse geometry JSONB field
-                geometry = json.loads(record['geometry']) if isinstance(record['geometry'], str) else record['geometry']
+                geometry = (
+                    json.loads(record["geometry"])
+                    if isinstance(record["geometry"], str)
+                    else record["geometry"]
+                )
 
                 # Reconstruct properties from individual columns
                 # Convert DB column names (addr_housenumber) back to OSM format (addr:housenumber)
                 properties = {
-                    'name': record.get('name'),
-                    'amenity': record.get('amenity'),
-                    'addr:housenumber': record.get('addr_housenumber'),
-                    'addr:street': record.get('addr_street'),
-                    'addr:city': record.get('addr_city'),
-                    'osm_id': record.get('osm_id'),
-                    'osm_type': record.get('osm_type'),
-                    'postal_code': record.get('postal_code'),
+                    "name": record.get("name"),
+                    "amenity": record.get("amenity"),
+                    "addr:housenumber": record.get("addr_housenumber"),
+                    "addr:street": record.get("addr_street"),
+                    "addr:city": record.get("addr_city"),
+                    "osm_id": record.get("osm_id"),
+                    "osm_type": record.get("osm_type"),
+                    "postal_code": record.get("postal_code"),
                 }
 
                 # Remove None values to keep properties clean
@@ -553,18 +570,18 @@ def load_hotosm_from_supabase() -> List[Dict]:
 
                 # Create GeoJSON feature
                 feature = {
-                    'type': 'Feature',
-                    'geometry': geometry,
-                    'properties': properties
+                    "type": "Feature",
+                    "geometry": geometry,
+                    "properties": properties,
                 }
 
                 # Map to standard structure
-                mapped = map_geojson_to_standard(feature, 'hotosm_new.geojson')
+                mapped = map_geojson_to_standard(feature, "hotosm_new.geojson")
 
                 # Check if this amenity should be excluded based on type and name
-                props = mapped.get('properties', {})
-                amenity_type = props.get('amenity_type', '')
-                amenity_name = props.get('amenity_name', '')
+                props = mapped.get("properties", {})
+                amenity_type = props.get("amenity_type", "")
+                amenity_name = props.get("amenity_name", "")
                 if _should_exclude_amenity(amenity_type, amenity_name):
                     continue
 
@@ -580,6 +597,7 @@ def load_hotosm_from_supabase() -> List[Dict]:
     except Exception as e:
         print(f"  ✗ Error loading HOTOSM data from Supabase: {e}")
         import traceback
+
         traceback.print_exc()
         return []
 
@@ -593,7 +611,7 @@ def load_osm_onemap() -> List[Dict]:
         return []
 
     try:
-        with open(OSM_ONEMAP_FILE, 'r', encoding='utf-8') as f:
+        with open(OSM_ONEMAP_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         print(f"  Loaded {len(data):,} OSM records")
@@ -603,30 +621,33 @@ def load_osm_onemap() -> List[Dict]:
         for record in data:
             mapped = map_osm_to_standard(record)
             # Check if this amenity should be excluded based on type and name
-            props = mapped.get('properties', {})
-            amenity_type = props.get('amenity_type', '')
-            amenity_name = props.get('amenity_name', '')
+            props = mapped.get("properties", {})
+            amenity_type = props.get("amenity_type", "")
+            amenity_name = props.get("amenity_name", "")
             if _should_exclude_amenity(amenity_type, amenity_name):
                 continue
             features.append(mapped)
 
         file_size = OSM_ONEMAP_FILE.stat().st_size / 1024 / 1024
-        print(f"  ✓ Mapped {len(features):,} OSM features to standard structure ({file_size:.1f} MB)")
+        print(
+            f"  ✓ Mapped {len(features):,} OSM features to standard structure ({file_size:.1f} MB)"
+        )
 
         return features
 
     except Exception as e:
         print(f"  ✗ Error loading OSM data: {e}")
         import traceback
+
         traceback.print_exc()
         return []
 
 
 def consolidate_all() -> Dict:
     """Consolidate all sources into single GeoJSON."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("CONSOLIDATING AMENITY DATA")
-    print("="*80)
+    print("=" * 80)
 
     NAME_FILL_STATS["geojson"].clear()
     NAME_FILL_STATS["osm"].clear()
@@ -691,13 +712,13 @@ def consolidate_all() -> Dict:
 
     # Create consolidated GeoJSON
     consolidated = {
-        'type': 'FeatureCollection',
-        'features': all_features,
+        "type": "FeatureCollection",
+        "features": all_features,
     }
 
-    print("\n" + "-"*80)
+    print("\n" + "-" * 80)
     print(f"TOTAL CONSOLIDATED FEATURES: {len(all_features):,}")
-    print("-"*80)
+    print("-" * 80)
 
     return consolidated
 
@@ -705,18 +726,42 @@ def consolidate_all() -> Dict:
 def _extract_lat_lon(item: Dict) -> tuple[Optional[float], Optional[float]]:
     # Handle wide variety of OneMap field names
     lat_keys = [
-        "LATITUDE", "Latitude", "LAT", "lat", "Lat", "Y",
+        "LATITUDE",
+        "Latitude",
+        "LAT",
+        "lat",
+        "Lat",
+        "Y",
         # Occasionally present
-        "latitude", "y",
+        "latitude",
+        "y",
         # Address variants
-        "Y_ADDR", "YCOORD", "Y_COORD", "Location_Latitude", "LOCATION_LATITUDE",
+        "Y_ADDR",
+        "YCOORD",
+        "Y_COORD",
+        "Location_Latitude",
+        "LOCATION_LATITUDE",
     ]
     lon_keys = [
-        "LONGITUDE", "Longitude", "LONG", "Long", "LON", "lon", "Lon", "LNG", "Lng", "X",
+        "LONGITUDE",
+        "Longitude",
+        "LONG",
+        "Long",
+        "LON",
+        "lon",
+        "Lon",
+        "LNG",
+        "Lng",
+        "X",
         # Occasionally present
-        "longitude", "x",
+        "longitude",
+        "x",
         # Address variants
-        "X_ADDR", "XCOORD", "X_COORD", "Location_Longitude", "LOCATION_LONGITUDE",
+        "X_ADDR",
+        "XCOORD",
+        "X_COORD",
+        "Location_Longitude",
+        "LOCATION_LONGITUDE",
     ]
     lat = None
     lon = None
@@ -735,7 +780,7 @@ def _extract_lat_lon(item: Dict) -> tuple[Optional[float], Optional[float]]:
             except Exception:
                 pass
     # Combined string like "lat,lon"
-    if (lat is None or lon is None):
+    if lat is None or lon is None:
         for combo_key in ("LatLng", "LATLNG", "latlng", "location", "Location"):
             val = item.get(combo_key)
             if isinstance(val, str) and "," in val:
@@ -750,12 +795,12 @@ def _extract_lat_lon(item: Dict) -> tuple[Optional[float], Optional[float]]:
                 except Exception:
                     pass
     # Very lightweight WKT POINT parser
-    if (lat is None or lon is None):
+    if lat is None or lon is None:
         for wkt_key in ("SHAPE", "WKT", "GeomWKT"):
             val = item.get(wkt_key)
             if isinstance(val, str) and val.upper().startswith("POINT"):
                 try:
-                    inside = val[val.find("(")+1:val.find(")")]
+                    inside = val[val.find("(") + 1 : val.find(")")]
                     lo, la = inside.replace(",", " ").split()
                     lon = float(lo)
                     lat = float(la)
@@ -765,7 +810,9 @@ def _extract_lat_lon(item: Dict) -> tuple[Optional[float], Optional[float]]:
     return lat, lon
 
 
-def _parse_onemap_geometry(item: Dict) -> tuple[Optional[Dict], Optional[float], Optional[float]]:
+def _parse_onemap_geometry(
+    item: Dict,
+) -> tuple[Optional[Dict], Optional[float], Optional[float]]:
     """Parse OneMap row geometry.
 
     Returns (geometry_dict, lon, lat). Geometry may be Point/LineString/Polygon.
@@ -775,7 +822,11 @@ def _parse_onemap_geometry(item: Dict) -> tuple[Optional[Dict], Optional[float],
     gj = item.get("GeoJSON") or item.get("geojson")
     if isinstance(gj, dict):
         geom = gj.get("geometry") if "geometry" in gj else gj
-        if isinstance(geom, dict) and geom.get("type") and geom.get("coordinates") is not None:
+        if (
+            isinstance(geom, dict)
+            and geom.get("type")
+            and geom.get("coordinates") is not None
+        ):
             coords = geom["coordinates"]
             # Some themes return coordinates as a JSON string; parse if needed
             if isinstance(coords, str):
@@ -786,19 +837,26 @@ def _parse_onemap_geometry(item: Dict) -> tuple[Optional[Dict], Optional[float],
                     pass
             lon, lat = None, None
             try:
-                if geom.get("type") == "Point" and isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                if (
+                    geom.get("type") == "Point"
+                    and isinstance(coords, (list, tuple))
+                    and len(coords) >= 2
+                ):
                     lon, lat = float(coords[0]), float(coords[1])
                 else:
                     # Take first numeric pair found as approx centroid
                     def _find_pair(obj):
                         if isinstance(obj, (list, tuple)):
-                            if len(obj) >= 2 and all(isinstance(x, (int, float)) for x in obj[:2]):
+                            if len(obj) >= 2 and all(
+                                isinstance(x, (int, float)) for x in obj[:2]
+                            ):
                                 return float(obj[0]), float(obj[1])
                             for ch in obj:
                                 r = _find_pair(ch)
                                 if r:
                                     return r
                         return None
+
                     pair = _find_pair(coords)
                     if pair:
                         lon, lat = pair
@@ -811,16 +869,30 @@ def _parse_onemap_geometry(item: Dict) -> tuple[Optional[Dict], Optional[float],
     if isinstance(latlng, str) and "[" in latlng and "," in latlng:
         try:
             coords = json.loads(latlng)
+
             # LatLng appears as list of [lon, lat] pairs in examples
             # Build a Polygon if it's a ring, else a LineString
             def _first_pair(obj):
-                if isinstance(obj, list) and obj and isinstance(obj[0], (list, tuple)) and len(obj[0]) >= 2:
+                if (
+                    isinstance(obj, list)
+                    and obj
+                    and isinstance(obj[0], (list, tuple))
+                    and len(obj[0]) >= 2
+                ):
                     return float(obj[0][0]), float(obj[0][1])
                 return None
+
             pair = _first_pair(coords)
-            geom_type = "Polygon" if isinstance(coords, list) and coords and isinstance(coords[0], list) and isinstance(coords[0][0], (list, tuple)) else "LineString"
+            geom_type = (
+                "Polygon"
+                if isinstance(coords, list)
+                and coords
+                and isinstance(coords[0], list)
+                and isinstance(coords[0][0], (list, tuple))
+                else "LineString"
+            )
             geometry = {"type": geom_type, "coordinates": coords}
-            lon, lat = (pair if pair else (None, None))
+            lon, lat = pair if pair else (None, None)
             return geometry, lon, lat
         except Exception:
             pass
@@ -864,11 +936,15 @@ def _get_datamall_key() -> str:
         or os.getenv("DATAMALL_API_KEY")
     )
     if not key:
-        raise RuntimeError("Missing SLA/LTA DataMall API key (SLA_API_KEY / LTA_API_KEY / DATAMALL_API_KEY)")
+        raise RuntimeError(
+            "Missing SLA/LTA DataMall API key (SLA_API_KEY / LTA_API_KEY / DATAMALL_API_KEY)"
+        )
     return key
 
 
-def fetch_bus_stops_datamall(max_pages: Optional[int] = None, page_delay: float = 0.15) -> List[Dict]:
+def fetch_bus_stops_datamall(
+    max_pages: Optional[int] = None, page_delay: float = 0.15
+) -> List[Dict]:
     """Fetch BusStops from DataMall and map to standard GeoJSON features."""
     key = _get_datamall_key()
     url = "https://datamall2.mytransport.sg/ltaodataservice/BusStops"
@@ -918,11 +994,13 @@ def fetch_bus_stops_datamall(max_pages: Optional[int] = None, page_delay: float 
             "lat": lat,
             "source_file": "live:datamall_bus_stops",
         }
-        feats.append({
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [lon, lat]},
-            "properties": props,
-        })
+        feats.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "properties": props,
+            }
+        )
     return feats
 
 
@@ -965,11 +1043,16 @@ def _load_themes_allowlist() -> Set[str]:
     if json_path.exists():
         try:
             import json as _json
+
             data = _json.loads(json_path.read_text(encoding="utf-8"))
             if isinstance(data, list):
                 return {str(x).strip() for x in data if str(x).strip()}
             if isinstance(data, dict):
-                qns = data.get("querynames") or data.get("QueryNames") or data.get("QUERYNAMES")
+                qns = (
+                    data.get("querynames")
+                    or data.get("QueryNames")
+                    or data.get("QUERYNAMES")
+                )
                 if isinstance(qns, list):
                     return {str(x).strip() for x in qns if str(x).strip()}
         except Exception:
@@ -979,7 +1062,11 @@ def _load_themes_allowlist() -> Set[str]:
     txt_path = DATA_DIR / "onemap" / "onemap_themes_allowlist.txt"
     if txt_path.exists():
         try:
-            items = [ln.strip() for ln in txt_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            items = [
+                ln.strip()
+                for ln in txt_path.read_text(encoding="utf-8").splitlines()
+                if ln.strip()
+            ]
             return set(items)
         except Exception:
             pass
@@ -1029,7 +1116,9 @@ def fetch_onemap_themes(
             out_dir = layers_dir or (GEOJSON_DIR / "layers")
             out_dir.mkdir(parents=True, exist_ok=True)
         except Exception as _e:
-            print(f"  ⚠ Failed to prepare layers dir: {out_dir if 'out_dir' in locals() else '<unset>'} => {_e}")
+            print(
+                f"  ⚠ Failed to prepare layers dir: {out_dir if 'out_dir' in locals() else '<unset>'} => {_e}"
+            )
             save_layers = False
     for idx, t in enumerate(themes, start=1):
         themename = (t.get("THEMENAME") or "").strip()
@@ -1054,23 +1143,33 @@ def fetch_onemap_themes(
             rows = data.get("SrchResults", []) if isinstance(data, dict) else []
             # Fallback: if no rows returned and no explicit extents, try SG-wide extents once
             if not rows and not extents:
-                params_fallback = {"queryName": queryname, "extents": SINGAPORE_EXTENTS, "moreInfo": "Y"}
+                params_fallback = {
+                    "queryName": queryname,
+                    "extents": SINGAPORE_EXTENTS,
+                    "moreInfo": "Y",
+                }
                 resp2 = client.get_auth(data_url, params=params_fallback)
                 if resp2.status_code == 200:
                     data2 = resp2.json() if hasattr(resp2, "json") else {}
-                    rows = data2.get("SrchResults", []) if isinstance(data2, dict) else []
+                    rows = (
+                        data2.get("SrchResults", []) if isinstance(data2, dict) else []
+                    )
         except Exception as ex:
             print(f"    ⚠ retrieveTheme failed for {queryname}: {ex}")
             rows = []
         # Record retrieval attempt for lookup table
-        retrieved_log.append({
-            "retrieved_at": datetime.now(timezone.utc).isoformat(),
-            "themename": themename,
-            "queryname": queryname,
-            "count": len(rows),
-        })
+        retrieved_log.append(
+            {
+                "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                "themename": themename,
+                "queryname": queryname,
+                "count": len(rows),
+            }
+        )
         if idx % 10 == 0:
-            print(f"  Processed {idx}/{len(themes)} themes… (last included: {themename})")
+            print(
+                f"  Processed {idx}/{len(themes)} themes… (last included: {themename})"
+            )
         # Optionally save raw rows for debugging
         if save_raw_rows:
             try:
@@ -1098,10 +1197,16 @@ def fetch_onemap_themes(
                 or ""
             )
             postal = (
-                item.get("POSTAL") or item.get("ADDRESSPOSTALCODE") or item.get("POSTAL_CD") or ""
+                item.get("POSTAL")
+                or item.get("ADDRESSPOSTALCODE")
+                or item.get("POSTAL_CD")
+                or ""
             )
             road = (
-                item.get("ROAD_NAME") or item.get("ADDRESSSTREETNAME") or item.get("ROADNAME") or ""
+                item.get("ROAD_NAME")
+                or item.get("ADDRESSSTREETNAME")
+                or item.get("ROADNAME")
+                or ""
             )
             # Unify AED theme ids under a common queryname for stable downstream mapping
             qn_norm = queryname.lower()
@@ -1143,8 +1248,12 @@ def fetch_onemap_themes(
                 out_dir = layers_dir or (GEOJSON_DIR / "layers")
                 out_path = out_dir / f"{queryname}.geojson"
                 with open(out_path, "w", encoding="utf-8") as f:
-                    json.dump({"type": "FeatureCollection", "features": per_theme_features}, f)
-                print(f"  ↳ Saved layer: {out_path.name} ({len(per_theme_features):,} features)")
+                    json.dump(
+                        {"type": "FeatureCollection", "features": per_theme_features}, f
+                    )
+                print(
+                    f"  ↳ Saved layer: {out_path.name} ({len(per_theme_features):,} features)"
+                )
             except Exception as e:
                 print(f"  ⚠ Failed to save layer for {queryname}: {e}")
     # Persist retrieved themes lookup table
@@ -1174,14 +1283,16 @@ def save_consolidated(geojson_data: Dict, output_file: Path) -> None:
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(geojson_data, f)
 
     file_size = output_file.stat().st_size / 1024 / 1024
     print(f"  ✓ Saved {file_size:.1f} MB")
 
 
-def consolidate_amenities(output_file: Path = OUTPUT_FILE, *, save: bool = True) -> Dict:
+def consolidate_amenities(
+    output_file: Path = OUTPUT_FILE, *, save: bool = True
+) -> Dict:
     """
     Main entry point for amenities consolidation.
 
@@ -1199,23 +1310,23 @@ def consolidate_amenities(output_file: Path = OUTPUT_FILE, *, save: bool = True)
 
 def main():
     """Run consolidation as standalone script."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("STEP 00: AMENITIES DATA CONSOLIDATION")
-    print("="*80)
+    print("=" * 80)
     print(f"Data directory: {DATA_DIR}")
     print(f"GeoJSON directory: {GEOJSON_DIR}")
     print(f"Output file: {OUTPUT_FILE}")
-    print("="*80)
+    print("=" * 80)
 
     consolidated_geojson = consolidate_amenities()
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("✓ CONSOLIDATION COMPLETE")
-    print("="*80)
+    print("=" * 80)
     print(f"\nConsolidated file: {OUTPUT_FILE}")
     print(f"Total features: {len(consolidated_geojson['features']):,}")
     print("\nReady for Step 1 (Geocoding)")
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":
