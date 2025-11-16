@@ -139,6 +139,8 @@ const METRIC_SUMMARY_ROWS = [
   },
 ];
 
+
+
 const RANKING_METRICS = [
   { key: "ar_impact", label: "AR Impact", precision: 3 },
   { key: "impact_total", label: "Impact Total", precision: 2 },
@@ -597,6 +599,8 @@ export default function floodevents() {
     set_metric_filters(createMetricFilterState());
   };
 
+
+
   const reset_all_filters = () => {
     set_q("");
     set_event_types_filter([]);
@@ -607,45 +611,6 @@ export default function floodevents() {
     set_page(1);
   };
 
-  // Calculate bounds for metric sliders
-  const metric_bounds = useMemo(() => {
-    if (!rows.length) {
-      return {
-        inner: { min: 0, max: 100 },
-        total: { min: 0, max: 100 },
-        centrality: { min: 0, max: 1 },
-        impactInner: { min: 0, max: 100 },
-        impactOuter: { min: 0, max: 100 },
-        impactTotal: { min: 0, max: 100 },
-      };
-    }
-
-    const bounds = {};
-    const metrics = {
-      inner: 'ring_inner',
-      total: 'ring_total',
-      centrality: 'centrality',
-      impactInner: 'impact_inner',
-      impactOuter: 'impact_outer',
-      impactTotal: 'impact_total',
-    };
-
-    Object.entries(metrics).forEach(([key, field]) => {
-      const values = rows.map(r => r[field]).filter(v => Number.isFinite(v));
-      bounds[key] = {
-        min: values.length ? Math.min(...values) : 0,
-        max: values.length ? Math.max(...values) : 100,
-      };
-    });
-
-    return bounds;
-  }, [rows]);
-
-  const categories = useMemo(() => {
-    const items = Object.values(category_lookup?.by_id || {});
-    return items.sort((a, b) => (a.id || 0) - (b.id || 0));
-  }, [category_lookup]);
-
   const [cat_weights, setCatWeights] = useState(() => {
     const out = { ...default_weight_by_category };
     for (const c of Object.values(category_lookup?.by_id || {})) {
@@ -654,6 +619,34 @@ export default function floodevents() {
     }
     return out;
   });
+
+   /* amenities flat list */
+  const amenity_list = useMemo(() => {
+    const feats = amenity_fc?.features || [];
+    const arr = [];
+    for (const f of feats) {
+      const p = f?.properties || {};
+      const c = f?.geometry?.coordinates || [];
+      const lng = +c[0], lat = +c[1];
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+      const catname =
+        p.amenity_category_name ||
+        category_lookup?.by_id?.[p.amenity_category_id || 0]?.amenity_category ||
+        "others";
+      arr.push({
+        id: p.amenity_id ?? f.id ?? `${Math.random()}`,
+        lng, lat,
+        name: p.amenity_name ?? p.name ?? p.poi_name ?? p.display_name ?? p.place_name ?? "(unnamed)",
+        category: catname,
+      });
+    }
+    return arr;
+  }, [amenity_fc, category_lookup]);
+  const categories = useMemo(() => {
+    const items = Object.values(category_lookup?.by_id || {});
+    return items.sort((a, b) => (a.id || 0) - (b.id || 0));
+  }, [category_lookup]);
+
 
   const [cat_enabled, setCatEnabled] = useState(() => {
     const out = {};
@@ -691,79 +684,7 @@ export default function floodevents() {
     });
   }, []);
 
-  // Show loading indicator when weights change
-  useEffect(() => {
-    setIsCalculating(true);
-    const timer = setTimeout(() => setIsCalculating(false), 300);
-    return () => clearTimeout(timer);
-  }, [cat_weights, inner_mult, outer_mult, inner_enabled, outer_enabled, w_betweenness, w_closeness, w_amenity, w_roads]);
-
-  /* roads index by rn_id for centrality */
-  const roads_by_id = useMemo(() => {
-    const idx = new Map();
-    for (const f of road_fc?.features || []) {
-      const rn = f?.properties?.rn_id ?? f?.properties?.RN_ID ?? null;
-      if (rn == null) continue;
-      const key = String(rn);
-      if (!idx.has(key)) idx.set(key, []);
-      idx.get(key).push(f);
-    }
-    return idx;
-  }, [road_fc]);
-
-  const centrality_scale = useMemo(() => {
-    let bmins = +Infinity, bmaxs = -Infinity, cmins = +Infinity, cmaxs = -Infinity;
-    for (const f of road_fc?.features || []) {
-      const p = f.properties || {};
-      const b = +((p.betweenness_norm ?? p.betweenness ?? p.BETWEENNESS_NORM ?? p.BETWEENNESS) || NaN);
-      const c = +((p.closeness_norm   ?? p.closeness   ?? p.CLOSENESS_NORM   ?? p.CLOSENESS)   || NaN);
-      if (Number.isFinite(b)) { bmins = Math.min(bmins,b); bmaxs = Math.max(bmaxs,b); }
-      if (Number.isFinite(c)) { cmins = Math.min(cmins,c); cmaxs = Math.max(cmaxs,c); }
-    }
-    if (!Number.isFinite(bmins)) { bmins=0; bmaxs=1; }
-    if (!Number.isFinite(cmins)) { cmins=0; cmaxs=1; }
-    return { bmins, bmaxs, cmins, cmaxs };
-  }, [road_fc]);
-
-  /* amenities flat list */
-  const amenity_list = useMemo(() => {
-    const feats = amenity_fc?.features || [];
-    const arr = [];
-    for (const f of feats) {
-      const p = f?.properties || {};
-      const c = f?.geometry?.coordinates || [];
-      const lng = +c[0], lat = +c[1];
-      if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-      const catname =
-        p.amenity_category_name ||
-        category_lookup?.by_id?.[p.amenity_category_id || 0]?.amenity_category ||
-        "others";
-      arr.push({
-        id: p.amenity_id ?? f.id ?? `${Math.random()}`,
-        lng, lat,
-        name: p.amenity_name ?? p.name ?? p.poi_name ?? p.display_name ?? p.place_name ?? "(unnamed)",
-        category: catname,
-      });
-    }
-    return arr;
-  }, [amenity_fc, category_lookup]);
-
-  const query_amenities = (lng, lat, max_m) => {
-    const pad_deg = 0.009;
-    const out = [];
-    for (const a of amenity_list) {
-      if (a.lng < lng - pad_deg || a.lng > lng + pad_deg || a.lat < lat - pad_deg || a.lat > lat + pad_deg) continue;
-      const d = dist_m(lng, lat, a.lng, a.lat);
-      if (d <= max_m) out.push({ ...a, _distm: d });
-    }
-    out.sort((x, y) => x._distm - y._distm);
-    return out;
-  };
-
-  const [selected_stats, set_selected_stats] = useState(null); // includes amenities & index scores
-  const [roads_nearby_state, set_roads_nearby_state] = useState({ inner: [], outer: [] }); // for panel roads
-
-  /* precompute fast amenity counts per flood for table */
+  
   const stats_by_flood_distance = useMemo(() => {
     const out = new Map();
     const floods = floods_fc?.features || [];
@@ -838,22 +759,48 @@ export default function floodevents() {
     }
     return out;
   }, [floods_fc, amenity_list, road_fc, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, inner_enabled, outer_enabled, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity, w_roads]);
+    /* roads index by rn_id for centrality */
+  const roads_by_id = useMemo(() => {
+    const idx = new Map();
+    for (const f of road_fc?.features || []) {
+      const rn = f?.properties?.rn_id ?? f?.properties?.RN_ID ?? null;
+      if (rn == null) continue;
+      const key = String(rn);
+      if (!idx.has(key)) idx.set(key, []);
+      idx.get(key).push(f);
+    }
+    return idx;
+  }, [road_fc]);
 
-  function paint_selected_rings(center, r_in, r_out) {
-  const map = map_ref.current;
-  if (!map || !center) return;
-  const inner = turf.circle(center, r_in,  { steps: 128, units: "meters" });
-  const outer = turf.circle(center, r_out, { steps: 128, units: "meters" });
-  try {
-    map.getSource("rings-selected-inner")?.setData(inner);
-    map.getSource("rings-selected-outer")?.setData(outer);
-    map.setLayoutProperty("rings-selected-inner-fill", "visibility", "visible");
-    map.setLayoutProperty("rings-selected-outer-fill", "visibility", "visible");
-    map.setLayoutProperty("rings-selected-inner-line", "visibility", "visible");
-    map.setLayoutProperty("rings-selected-outer-line", "visibility", "visible");
-  } catch {}
-}
+  const centrality_scale = useMemo(() => {
+    let bmins = +Infinity, bmaxs = -Infinity, cmins = +Infinity, cmaxs = -Infinity;
+    for (const f of road_fc?.features || []) {
+      const p = f.properties || {};
+      const b = +((p.betweenness_norm ?? p.betweenness ?? p.BETWEENNESS_NORM ?? p.BETWEENNESS) || NaN);
+      const c = +((p.closeness_norm   ?? p.closeness   ?? p.CLOSENESS_NORM   ?? p.CLOSENESS)   || NaN);
+      if (Number.isFinite(b)) { bmins = Math.min(bmins,b); bmaxs = Math.max(bmaxs,b); }
+      if (Number.isFinite(c)) { cmins = Math.min(cmins,c); cmaxs = Math.max(cmaxs,c); }
+    }
+    if (!Number.isFinite(bmins)) { bmins=0; bmaxs=1; }
+    if (!Number.isFinite(cmins)) { cmins=0; cmaxs=1; }
+    return { bmins, bmaxs, cmins, cmaxs };
+  }, [road_fc]);
 
+  const query_amenities = (lng, lat, max_m) => {
+    const pad_deg = 0.009;
+    const out = [];
+    for (const a of amenity_list) {
+      if (a.lng < lng - pad_deg || a.lng > lng + pad_deg || a.lat < lat - pad_deg || a.lat > lat + pad_deg) continue;
+      const d = dist_m(lng, lat, a.lng, a.lat);
+      if (d <= max_m) out.push({ ...a, _distm: d });
+    }
+    out.sort((x, y) => x._distm - y._distm);
+    return out;
+  };
+  
+  
+  
+  
   /* rows & filters */
   const rows = useMemo(() => {
     const fc = floods_fc || { type: "featurecollection", features: [] };
@@ -924,6 +871,70 @@ export default function floodevents() {
     return arr;
   }, [floods_fc, stats_by_flood_distance, lookups]);
 
+  // Calculate bounds for metric sliders
+  const metric_bounds = useMemo(() => {
+    if (!rows.length) {
+      return {
+        inner: { min: 0, max: 100 },
+        total: { min: 0, max: 100 },
+        centrality: { min: 0, max: 1 },
+        impactInner: { min: 0, max: 100 },
+        impactOuter: { min: 0, max: 100 },
+        impactTotal: { min: 0, max: 100 },
+      };
+    }
+
+    const bounds = {};
+    const metrics = {
+      inner: 'ring_inner',
+      total: 'ring_total',
+      centrality: 'centrality',
+      impactInner: 'impact_inner',
+      impactOuter: 'impact_outer',
+      impactTotal: 'impact_total',
+    };
+
+    Object.entries(metrics).forEach(([key, field]) => {
+      const values = rows.map(r => r[field]).filter(v => Number.isFinite(v));
+      bounds[key] = {
+        min: values.length ? Math.min(...values) : 0,
+        max: values.length ? Math.max(...values) : 100,
+      };
+    });
+
+    return bounds;
+  }, [rows]);
+
+  // Show loading indicator when weights change
+  useEffect(() => {
+    setIsCalculating(true);
+    const timer = setTimeout(() => setIsCalculating(false), 300);
+    return () => clearTimeout(timer);
+  }, [cat_weights, inner_mult, outer_mult, inner_enabled, outer_enabled, w_betweenness, w_closeness, w_amenity, w_roads]);
+
+
+
+  const [selected_stats, set_selected_stats] = useState(null); // includes amenities & index scores
+  const [roads_nearby_state, set_roads_nearby_state] = useState({ inner: [], outer: [] }); // for panel roads
+
+  /* precompute fast amenity counts per flood for table */
+ 
+  function paint_selected_rings(center, r_in, r_out) {
+  const map = map_ref.current;
+  if (!map || !center) return;
+  const inner = turf.circle(center, r_in,  { steps: 128, units: "meters" });
+  const outer = turf.circle(center, r_out, { steps: 128, units: "meters" });
+  try {
+    map.getSource("rings-selected-inner")?.setData(inner);
+    map.getSource("rings-selected-outer")?.setData(outer);
+    map.setLayoutProperty("rings-selected-inner-fill", "visibility", "visible");
+    map.setLayoutProperty("rings-selected-outer-fill", "visibility", "visible");
+    map.setLayoutProperty("rings-selected-inner-line", "visibility", "visible");
+    map.setLayoutProperty("rings-selected-outer-line", "visibility", "visible");
+  } catch {}
+}
+
+ 
   const event_type_options = rows._options?.event_types || ["all"];
   const pa_options = rows._options?.planning_areas || [];
 
