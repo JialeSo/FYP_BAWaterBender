@@ -329,6 +329,26 @@ export default function singaporehistoricalfloodmap({
   const paUniverse = useMemo(() => (planningFC.features || []).map(f => toS(getProp(f.properties, PA_NAME_KEYS))), [planningFC]);
   const szUniverse = useMemo(() => (subzoneFC.features || []).map(f => toS(getProp(f.properties, SZ_NAME_KEYS))), [subzoneFC]);
 
+  // Filtered PA universe for rankings (respects selectedPlanningAreas filter)
+  const paUniverseFiltered = useMemo(() => {
+    const selected = new Set((selectedPlanningAreas || []).map(toS).filter(Boolean));
+    if (selected.size === 0) return paUniverse; // No filter = all PAs
+    return paUniverse.filter(pa => selected.has(pa)); // Only selected PAs
+  }, [paUniverse, selectedPlanningAreas]);
+
+  // Filtered SZ universe for rankings (respects selectedPlanningAreas filter)
+  const szUniverseFiltered = useMemo(() => {
+    const selected = new Set((selectedPlanningAreas || []).map(toS).filter(Boolean));
+    if (selected.size === 0) return szUniverse; // No filter = all SZs
+    // Filter subzones that belong to selected planning areas
+    return (subzoneFC.features || [])
+      .filter(f => {
+        const pa = toS(getProp(f.properties, PA_NAME_KEYS));
+        return selected.has(pa);
+      })
+      .map(f => toS(getProp(f.properties, SZ_NAME_KEYS)));
+  }, [szUniverse, subzoneFC, selectedPlanningAreas]);
+
   const paArea = useMemo(() => {
     const m = {};
     for (const f of planningFC.features || []) {
@@ -399,22 +419,25 @@ export default function singaporehistoricalfloodmap({
     return m;
   }, [szAmenCount, szArea]);
 
-  const paRankFloodsCount   = useMemo(() => rankComplete(paUniverse, paFloodsCount),   [paUniverse, paFloodsCount]);
-  const paRankFloodsDensity = useMemo(() => rankComplete(paUniverse, paFloodsDensity), [paUniverse, paFloodsDensity]);
-  const paRankAmenCount     = useMemo(() => rankComplete(paUniverse, paAmenCount),     [paUniverse, paAmenCount]);
-  const paRankAmenDensity   = useMemo(() => rankComplete(paUniverse, paAmenDensity),   [paUniverse, paAmenDensity]);
+  const paRankFloodsCount   = useMemo(() => rankComplete(paUniverseFiltered, paFloodsCount),   [paUniverseFiltered, paFloodsCount]);
+  const paRankFloodsDensity = useMemo(() => rankComplete(paUniverseFiltered, paFloodsDensity), [paUniverseFiltered, paFloodsDensity]);
+  const paRankAmenCount     = useMemo(() => rankComplete(paUniverseFiltered, paAmenCount),     [paUniverseFiltered, paAmenCount]);
+  const paRankAmenDensity   = useMemo(() => rankComplete(paUniverseFiltered, paAmenDensity),   [paUniverseFiltered, paAmenDensity]);
 
-  const szRankFloodsCount   = useMemo(() => rankComplete(szUniverse, szFloodsCount),   [szUniverse, szFloodsCount]);
-  const szRankFloodsDensity = useMemo(() => rankComplete(szUniverse, szFloodsDensity), [szUniverse, szFloodsDensity]);
-  const szRankAmenCount     = useMemo(() => rankComplete(szUniverse, szAmenCount),     [szUniverse, szAmenCount]);
-  const szRankAmenDensity   = useMemo(() => rankComplete(szUniverse, szAmenDensity),   [szUniverse, szAmenDensity]);
+  const szRankFloodsCount   = useMemo(() => rankComplete(szUniverseFiltered, szFloodsCount),   [szUniverseFiltered, szFloodsCount]);
+  const szRankFloodsDensity = useMemo(() => rankComplete(szUniverseFiltered, szFloodsDensity), [szUniverseFiltered, szFloodsDensity]);
+  const szRankAmenCount     = useMemo(() => rankComplete(szUniverseFiltered, szAmenCount),     [szUniverseFiltered, szAmenCount]);
+  const szRankAmenDensity   = useMemo(() => rankComplete(szUniverseFiltered, szAmenDensity),   [szUniverseFiltered, szAmenDensity]);
 
   const perPA_SZ_Ranks = useMemo(() => {
+    const selected = new Set((selectedPlanningAreas || []).map(toS).filter(Boolean));
     const paToSZ = {};
     for (const f of subzoneFC.features || []) {
       const sz = toS(getProp(f.properties, SZ_NAME_KEYS));
       const pa = toS(getProp(f.properties, PA_NAME_KEYS));
       if (!sz || !pa) continue;
+      // Only include PAs that are selected (or all if none selected)
+      if (selected.size > 0 && !selected.has(pa)) continue;
       (paToSZ[pa] ||= []).push(sz);
     }
     const build = (names, map) => {
@@ -432,7 +455,7 @@ export default function singaporehistoricalfloodmap({
       };
     }
     return out;
-  }, [subzoneFC, szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity]);
+  }, [subzoneFC, szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity, selectedPlanningAreas]);
 
   const paCentroidsBase = useMemo(
     () => buildCentroids(planningFC, "PLN_AREA_N", paFloodsCount, (f) => ({
