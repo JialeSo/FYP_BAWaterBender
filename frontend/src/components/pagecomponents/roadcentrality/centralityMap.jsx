@@ -39,18 +39,21 @@ const THICKNESS_METRICS = [
 
 // Calculate color thresholds based on max value (5 equal buckets)
 const calculateColorThresholds = (data, metric) => {
-  if (!data?.features?.length) return [0, 0, 0, 0, 0, 0];
+  if (!data?.features?.length) return [0, 0.001, 0.002, 0.003, 0.004, 0.005];
 
   const values = data.features
     .map(f => f.properties?.[metric])
     .filter(v => v !== null && v !== undefined && !isNaN(v));
 
-  if (values.length === 0) return [0, 0, 0, 0, 0, 0];
+  if (values.length === 0) return [0, 0.001, 0.002, 0.003, 0.004, 0.005];
 
   const maxValue = Math.max(...values);
 
+  // If maxValue is 0 or very small, return small ascending values
+  if (maxValue < 0.000001) return [0, 0.001, 0.002, 0.003, 0.004, 0.005];
+
   // Create 5 equal buckets from 0 to max
-  return [
+  const thresholds = [
     0,
     maxValue * 0.2,
     maxValue * 0.4,
@@ -58,6 +61,15 @@ const calculateColorThresholds = (data, metric) => {
     maxValue * 0.8,
     maxValue,
   ];
+
+  // Ensure strictly ascending order by adding small increments if needed
+  for (let i = 1; i < thresholds.length; i++) {
+    if (thresholds[i] <= thresholds[i - 1]) {
+      thresholds[i] = thresholds[i - 1] + 0.00001;
+    }
+  }
+
+  return thresholds;
 };
 
 // Function to create color expression based on value thresholds
@@ -290,149 +302,188 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map) return;
 
-    if (!map.getSource("selected-road")) {
-      map.addSource("selected-road", {
-        type: "geojson",
-        data: EMPTY_COLLECTION,
-      });
+    // Wait for map to be fully loaded before manipulating layers
+    const applyHighlight = () => {
+      try {
+        if (!map.getSource("selected-road")) {
+          map.addSource("selected-road", {
+            type: "geojson",
+            data: EMPTY_COLLECTION,
+          });
 
-      map.addLayer({
-        id: "selected-road-line",
-        type: "line",
-        source: "selected-road",
-        paint: {
-          "line-color": "#fbbf24",
-          "line-width": 6,
-          "line-opacity": 0.9,
-        },
-      });
-    }
-
-    const highlightSource = map.getSource("selected-road");
-    if (!highlightSource) return;
-
-    if (selectedRoadId && data?.features) {
-      const selectedFeature = data.features.find((f) => f.properties.RN_ID === selectedRoadId);
-
-      if (selectedFeature) {
-        highlightSource.setData({
-          type: "FeatureCollection",
-          features: [selectedFeature],
-        });
-
-        const bounds = new mapboxgl.LngLatBounds();
-        if (selectedFeature.geometry.type === "LineString") {
-          selectedFeature.geometry.coordinates.forEach((coord) => {
-            bounds.extend(coord);
+          map.addLayer({
+            id: "selected-road-line",
+            type: "line",
+            source: "selected-road",
+            paint: {
+              "line-color": "#fbbf24",
+              "line-width": 6,
+              "line-opacity": 0.9,
+            },
           });
         }
-        try {
-          map.fitBounds(bounds, { padding: 100, duration: 800 });
-        } catch {}
-        return;
-      }
-    }
 
-    highlightSource.setData(EMPTY_COLLECTION);
+        const highlightSource = map.getSource("selected-road");
+        if (!highlightSource) return;
+
+        if (selectedRoadId && data?.features) {
+          const selectedFeature = data.features.find((f) => f.properties.RN_ID === selectedRoadId);
+
+          if (selectedFeature) {
+            highlightSource.setData({
+              type: "FeatureCollection",
+              features: [selectedFeature],
+            });
+
+            const bounds = new mapboxgl.LngLatBounds();
+            if (selectedFeature.geometry.type === "LineString") {
+              selectedFeature.geometry.coordinates.forEach((coord) => {
+                bounds.extend(coord);
+              });
+            }
+            try {
+              map.fitBounds(bounds, { padding: 100, duration: 800 });
+            } catch (e) {
+              console.warn("Could not fit bounds:", e);
+            }
+            return;
+          }
+        }
+
+        highlightSource.setData(EMPTY_COLLECTION);
+      } catch (e) {
+        console.warn("Could not apply road highlight:", e);
+      }
+    };
+
+    if (map.isStyleLoaded && map.isStyleLoaded()) {
+      applyHighlight();
+    } else {
+      map.once("load", applyHighlight);
+    }
   }, [selectedRoadId, data]);
 
   // Show a single marker when selected from the accordion
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map) return;
 
     // Remove existing marker
     if (markerRef.current) {
-      markerRef.current.remove();
+      try {
+        markerRef.current.remove();
+      } catch (e) {
+        console.warn("Error removing marker:", e);
+      }
       markerRef.current = null;
     }
 
     // If no marker selected, exit
     if (!selectedMarker) return;
 
-    const { item, type } = selectedMarker;
-    let coords = null;
+    const addMarker = () => {
+      try {
+        const { item, type } = selectedMarker;
+        let coords = null;
 
-    // Get coordinates based on item type
-    if (type === 'amenity') {
-      if (item.geometry?.type === 'Point') {
-        coords = item.geometry.coordinates;
+        // Get coordinates based on item type
+        if (type === 'amenity') {
+          if (item.geometry?.type === 'Point') {
+            coords = item.geometry.coordinates;
+          }
+        } else if (type === 'flood') {
+          const lat = item.properties?.origin_lat;
+          const lng = item.properties?.origin_lng;
+          if (lat && lng) {
+            coords = [lng, lat];
+          }
+        }
+
+        if (!coords) return;
+
+        const [lng, lat] = coords;
+        const isAmenity = type === 'amenity';
+        const color = isAmenity ? '#3b82f6' : '#f97316';
+        const name = item.name || (isAmenity ? 'Unknown Amenity' : 'Flood Event');
+
+        // Create marker element
+        const el = document.createElement('div');
+        el.className = isAmenity ? 'amenity-marker' : 'flood-marker';
+        el.style.width = '24px';
+        el.style.height = '24px';
+        el.style.borderRadius = '50%';
+        el.style.backgroundColor = color;
+        el.style.border = '3px solid white';
+        el.style.cursor = 'pointer';
+        el.style.boxShadow = '0 3px 6px rgba(0,0,0,0.4)';
+
+        // Create popup with details
+        const popupHTML = isAmenity
+          ? `<div style="padding: 10px; max-width: 280px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
+               <div style="font-weight: 600; margin-bottom: 8px; color: #60a5fa; font-size: 14px;">${name}</div>
+               <div style="font-size: 12px; color: #cbd5e1; space-y: 4px;">
+                 <div><strong>Category:</strong> ${item.category || 'N/A'}</div>
+                 <div><strong>Type:</strong> ${item.properties?.amenity || 'N/A'}</div>
+                 ${item.properties?.postal_code ? `<div><strong>Postal Code:</strong> ${item.properties.postal_code}</div>` : ''}
+                 <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+               </div>
+             </div>`
+          : `<div style="padding: 10px; max-width: 280px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
+               <div style="font-weight: 600; margin-bottom: 8px; color: #fb923c; font-size: 14px;">${name}</div>
+               <div style="font-size: 12px; color: #cbd5e1;">
+                 <div><strong>Type:</strong> ${item.type || 'N/A'}</div>
+                 ${item.date ? `<div><strong>Date:</strong> ${item.date}</div>` : ''}
+                 ${item.properties?.location ? `<div><strong>Location:</strong> ${item.properties.location}</div>` : ''}
+                 <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+               </div>
+             </div>`;
+
+        const popup = new mapboxgl.Popup({ offset: 30, closeButton: true, closeOnClick: true })
+          .setHTML(popupHTML);
+
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat(coords)
+          .setPopup(popup)
+          .addTo(map);
+
+        // Fly to the marker and open popup
+        map.flyTo({
+          center: coords,
+          zoom: 17,
+          duration: 1000
+        });
+
+        // Open popup after fly animation
+        setTimeout(() => {
+          try {
+            marker.togglePopup();
+          } catch (e) {
+            console.warn("Error toggling popup:", e);
+          }
+        }, 1000);
+
+        markerRef.current = marker;
+      } catch (e) {
+        console.warn("Error adding marker:", e);
       }
-    } else if (type === 'flood') {
-      const lat = item.properties?.origin_lat;
-      const lng = item.properties?.origin_lng;
-      if (lat && lng) {
-        coords = [lng, lat];
-      }
+    };
+
+    if (map.isStyleLoaded && map.isStyleLoaded()) {
+      addMarker();
+    } else {
+      map.once("load", addMarker);
     }
-
-    if (!coords) return;
-
-    const [lng, lat] = coords;
-    const isAmenity = type === 'amenity';
-    const color = isAmenity ? '#3b82f6' : '#f97316';
-    const name = item.name || (isAmenity ? 'Unknown Amenity' : 'Flood Event');
-
-    // Create marker element
-    const el = document.createElement('div');
-    el.className = isAmenity ? 'amenity-marker' : 'flood-marker';
-    el.style.width = '24px';
-    el.style.height = '24px';
-    el.style.borderRadius = '50%';
-    el.style.backgroundColor = color;
-    el.style.border = '3px solid white';
-    el.style.cursor = 'pointer';
-    el.style.boxShadow = '0 3px 6px rgba(0,0,0,0.4)';
-
-    // Create popup with details
-    const popupHTML = isAmenity
-      ? `<div style="padding: 10px; max-width: 280px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
-           <div style="font-weight: 600; margin-bottom: 8px; color: #60a5fa; font-size: 14px;">${name}</div>
-           <div style="font-size: 12px; color: #cbd5e1; space-y: 4px;">
-             <div><strong>Category:</strong> ${item.category || 'N/A'}</div>
-             <div><strong>Type:</strong> ${item.properties?.amenity || 'N/A'}</div>
-             ${item.properties?.postal_code ? `<div><strong>Postal Code:</strong> ${item.properties.postal_code}</div>` : ''}
-             <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
-           </div>
-         </div>`
-      : `<div style="padding: 10px; max-width: 280px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
-           <div style="font-weight: 600; margin-bottom: 8px; color: #fb923c; font-size: 14px;">${name}</div>
-           <div style="font-size: 12px; color: #cbd5e1;">
-             <div><strong>Type:</strong> ${item.type || 'N/A'}</div>
-             ${item.date ? `<div><strong>Date:</strong> ${item.date}</div>` : ''}
-             ${item.properties?.location ? `<div><strong>Location:</strong> ${item.properties.location}</div>` : ''}
-             <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
-           </div>
-         </div>`;
-
-    const popup = new mapboxgl.Popup({ offset: 30, closeButton: true, closeOnClick: true })
-      .setHTML(popupHTML);
-
-    const marker = new mapboxgl.Marker(el)
-      .setLngLat(coords)
-      .setPopup(popup)
-      .addTo(map);
-
-    // Fly to the marker and open popup
-    map.flyTo({
-      center: coords,
-      zoom: 17,
-      duration: 1000
-    });
-
-    // Open popup after fly animation
-    setTimeout(() => {
-      marker.togglePopup();
-    }, 1000);
-
-    markerRef.current = marker;
 
     // Cleanup
     return () => {
       if (markerRef.current) {
-        markerRef.current.remove();
+        try {
+          markerRef.current.remove();
+        } catch (e) {
+          console.warn("Error in marker cleanup:", e);
+        }
         markerRef.current = null;
       }
     };
