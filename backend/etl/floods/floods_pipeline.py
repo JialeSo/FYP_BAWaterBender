@@ -6,11 +6,11 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from backend.etl.common.pipeline import Pipeline
-from backend.etl.common.pipeline_stage import PipelineStage
-from backend.etl.common.database_write_stage import DatabaseWriteStage
-from backend.etl.floods.scripts.process_floods_3layers import process_floods_data
-from backend.common.db import DatabaseConnection
+from etl.common.pipeline import Pipeline
+from etl.common.pipeline_stage import PipelineStage
+from etl.common.database_write_stage import DatabaseWriteStage
+from etl.floods.scripts.process_floods_3layers import process_floods_data
+from common.db import DatabaseConnection
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # PIPELINE STAGES
 # ============================================================================
+
 
 class MergeFloodsDataStage(PipelineStage):
     """Merge PUB weather alerts from Supabase with historical SG flood data.
@@ -48,8 +49,7 @@ class MergeFloodsDataStage(PipelineStage):
 
         self.output_csv = Path(
             self.config.get(
-                "output_csv",
-                etl_data_dir / "floods" / "PUB_and_huiying_flood.csv"
+                "output_csv", etl_data_dir / "floods" / "PUB_and_huiying_flood.csv"
             )
         )
 
@@ -98,9 +98,15 @@ class MergeFloodsDataStage(PipelineStage):
                 pub_df = pd.DataFrame()
             else:
                 pub_df = pd.DataFrame(pub_records)
-                geocodes_df = pd.DataFrame(geocodes_records) if geocodes_records else pd.DataFrame()
+                geocodes_df = (
+                    pd.DataFrame(geocodes_records)
+                    if geocodes_records
+                    else pd.DataFrame()
+                )
 
-                logger.info(f"✓ Fetched {len(pub_df):,} PUB weather alerts from Supabase")
+                logger.info(
+                    f"✓ Fetched {len(pub_df):,} PUB weather alerts from Supabase"
+                )
                 logger.info(f"✓ Fetched {len(geocodes_df):,} geocodes from Supabase")
 
                 # Join with geocodes to get lat/lng and postal codes
@@ -111,12 +117,14 @@ class MergeFloodsDataStage(PipelineStage):
                         left_on="start_loc_geocode_id",
                         right_on="id",
                         how="left",
-                        suffixes=("", "_start")
-                    ).rename(columns={
-                        "latitude": "start_lat",
-                        "longitude": "start_lng",
-                        "postal_code": "start_postal_code"
-                    })
+                        suffixes=("", "_start"),
+                    ).rename(
+                        columns={
+                            "latitude": "start_lat",
+                            "longitude": "start_lng",
+                            "postal_code": "start_postal_code",
+                        }
+                    )
 
                     # Remove the extra 'id' column from the merge
                     if "id_start" in pub_df.columns:
@@ -128,12 +136,14 @@ class MergeFloodsDataStage(PipelineStage):
                         left_on="end_loc_geocode_id",
                         right_on="id",
                         how="left",
-                        suffixes=("", "_end")
-                    ).rename(columns={
-                        "latitude": "end_lat",
-                        "longitude": "end_lng",
-                        "postal_code": "end_postal_code"
-                    })
+                        suffixes=("", "_end"),
+                    ).rename(
+                        columns={
+                            "latitude": "end_lat",
+                            "longitude": "end_lng",
+                            "postal_code": "end_postal_code",
+                        }
+                    )
 
                     # Remove the extra 'id' column from the merge
                     if "id_end" in pub_df.columns:
@@ -141,15 +151,16 @@ class MergeFloodsDataStage(PipelineStage):
 
                 # Ensure postal codes are strings
                 if "start_postal_code" in pub_df.columns:
-                    pub_df["start_postal_code"] = pub_df["start_postal_code"].astype(str)
+                    pub_df["start_postal_code"] = pub_df["start_postal_code"].astype(
+                        str
+                    )
                 if "end_postal_code" in pub_df.columns:
                     pub_df["end_postal_code"] = pub_df["end_postal_code"].astype(str)
 
                 # Convert created_at to event_date (date only)
                 if "created_at" in pub_df.columns:
                     pub_df["event_date"] = pd.to_datetime(
-                        pub_df["created_at"],
-                        errors="coerce"
+                        pub_df["created_at"], errors="coerce"
                     ).dt.date
 
                 # Map location fields
@@ -161,17 +172,23 @@ class MergeFloodsDataStage(PipelineStage):
             raise
 
         # Load SG historical dataset from Supabase
-        logger.info(f"Fetching SG historical data from Supabase table '{self.sg_table}'")
+        logger.info(
+            f"Fetching SG historical data from Supabase table '{self.sg_table}'"
+        )
         try:
             sg_response = client.table(self.sg_table).select("*").execute()
             sg_records = sg_response.data
 
             if not sg_records:
-                logger.warning(f"No historical SG records found in table '{self.sg_table}'")
+                logger.warning(
+                    f"No historical SG records found in table '{self.sg_table}'"
+                )
                 sg_df = pd.DataFrame()
             else:
                 sg_df = pd.DataFrame(sg_records)
-                logger.info(f"✓ Fetched {len(sg_df):,} SG historical flood events from Supabase")
+                logger.info(
+                    f"✓ Fetched {len(sg_df):,} SG historical flood events from Supabase"
+                )
 
                 # Ensure postal codes are strings
                 if "start_postal_code" in sg_df.columns:
@@ -180,8 +197,7 @@ class MergeFloodsDataStage(PipelineStage):
                 # Parse event_date if needed
                 if "event_date" in sg_df.columns:
                     sg_df["event_date"] = pd.to_datetime(
-                        sg_df["event_date"],
-                        errors="coerce"
+                        sg_df["event_date"], errors="coerce"
                     ).dt.date
 
         except Exception as e:
@@ -192,26 +208,28 @@ class MergeFloodsDataStage(PipelineStage):
         if sg_df.empty:
             sg_to_pub = pd.DataFrame()
         else:
-            sg_to_pub = pd.DataFrame({
-                "id": sg_df["id"],
-                "created_at": None,
-                "text": None,
-                "event_date": sg_df["event_date"],
-                "sender_id": None,
-                "msg_id": None,
-                "location": sg_df["location"],
-                "event": sg_df.get("event", "flash_flood"),
-                "start_loc": None,
-                "end_loc": None,
-                "parent_road": None,
-                "cleaned_location": None,
-                "start_lat": sg_df["start_lat"],
-                "start_lng": sg_df["start_lng"],
-                "start_postal_code": sg_df["start_postal_code"],
-                "end_lat": None,
-                "end_lng": None,
-                "end_postal_code": None,
-            })
+            sg_to_pub = pd.DataFrame(
+                {
+                    "id": sg_df["id"],
+                    "created_at": None,
+                    "text": None,
+                    "event_date": sg_df["event_date"],
+                    "sender_id": None,
+                    "msg_id": None,
+                    "location": sg_df["location"],
+                    "event": sg_df.get("event", "flash_flood"),
+                    "start_loc": None,
+                    "end_loc": None,
+                    "parent_road": None,
+                    "cleaned_location": None,
+                    "start_lat": sg_df["start_lat"],
+                    "start_lng": sg_df["start_lng"],
+                    "start_postal_code": sg_df["start_postal_code"],
+                    "end_lat": None,
+                    "end_lng": None,
+                    "end_postal_code": None,
+                }
+            )
 
         # Combine SG + PUB (SG first since it has historical data)
         if pub_df.empty and sg_to_pub.empty:
@@ -226,7 +244,9 @@ class MergeFloodsDataStage(PipelineStage):
 
         # Sort by event_date (earliest first)
         if not merged.empty:
-            merged = merged.sort_values("event_date", ascending=True).reset_index(drop=True)
+            merged = merged.sort_values("event_date", ascending=True).reset_index(
+                drop=True
+            )
 
         logger.info(f"✓ Merged {len(merged):,} total flood events")
 
@@ -264,8 +284,7 @@ class LoadFloodsStage(PipelineStage):
         # Historical floods occupy ID 1-213 in this file
         self.floods_csv = Path(
             self.config.get(
-                "floods_csv",
-                etl_data_dir / "floods" / "PUB_and_huiying_flood.csv"
+                "floods_csv", etl_data_dir / "floods" / "PUB_and_huiying_flood.csv"
             )
         )
 
@@ -299,7 +318,7 @@ class LoadFloodsStage(PipelineStage):
         logger.info(f"✓ Loaded {len(df):,} flood events")
 
         # Check for required columns
-        required_cols = ['id', 'start_lat', 'start_lng']
+        required_cols = ["id", "start_lat", "start_lng"]
         missing_cols = [col for col in required_cols if col not in df.columns]
 
         if missing_cols:
@@ -338,29 +357,26 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
         # Persist final CSV alongside other flood data for consistency
         self.output_csv = Path(
             self.config.get(
-                "output_csv",
-                etl_data_dir / "floods" / "floods_3layers.csv"
+                "output_csv", etl_data_dir / "floods" / "floods_3layers.csv"
             )
         )
 
         self.planning_geojson = Path(
             self.config.get(
-                "planning_geojson",
-                etl_data_dir / "geojson" / "planning_area.geojson"
+                "planning_geojson", etl_data_dir / "geojson" / "planning_area.geojson"
             )
         )
 
         self.subzone_geojson = Path(
             self.config.get(
-                "subzone_geojson",
-                etl_data_dir / "geojson" / "subzone_area.geojson"
+                "subzone_geojson", etl_data_dir / "geojson" / "subzone_area.geojson"
             )
         )
 
         self.road_network_geojson = Path(
             self.config.get(
                 "road_network_geojson",
-                etl_data_dir / "roadnetwork" / "road_network.geojson"
+                etl_data_dir / "roadnetwork" / "road_network.geojson",
             )
         )
 
@@ -375,7 +391,9 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
         """
         # Allow frontend fallbacks for planning/subzone like the amenities pipeline
         try:
-            frontend_map_dir = Path(__file__).resolve().parents[3] / "frontend" / "public" / "map"
+            frontend_map_dir = (
+                Path(__file__).resolve().parents[3] / "frontend" / "public" / "map"
+            )
             if not self.planning_geojson.exists():
                 fb = frontend_map_dir / "planning_area.geojson"
                 if fb.exists():
@@ -387,7 +405,11 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
         except Exception:
             pass
 
-        required_files = [self.planning_geojson, self.subzone_geojson, self.road_network_geojson]
+        required_files = [
+            self.planning_geojson,
+            self.subzone_geojson,
+            self.road_network_geojson,
+        ]
         missing = [str(f) for f in required_files if not f.exists()]
         if missing:
             raise ValueError(f"Required files not found: {', '.join(missing)}")
@@ -406,7 +428,9 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
         logger.info("Starting 3 layers processing for floods")
 
         # Save input data to temp file (required by existing function)
-        with tempfile.NamedTemporaryFile(suffix='.csv', delete=False, mode='w') as temp_input:
+        with tempfile.NamedTemporaryFile(
+            suffix=".csv", delete=False, mode="w"
+        ) as temp_input:
             temp_input_path = Path(temp_input.name)
             data.to_csv(temp_input_path, index=False)
 
@@ -420,7 +444,9 @@ class ProcessFloodsThreeLayersStage(PipelineStage):
                 output_csv=self.output_csv,
             )
 
-            logger.info(f"✓ Floods 3 layers processing complete: {len(result_df):,} events")
+            logger.info(
+                f"✓ Floods 3 layers processing complete: {len(result_df):,} events"
+            )
 
             return result_df
 
@@ -485,6 +511,7 @@ class SanitizeFloodsForDBStage(PipelineStage):
     def _json_safe(self, v: Any) -> Any:
         try:
             import math as _math
+
             if v is None:
                 return None
             if isinstance(v, float) and (_math.isnan(v) or _math.isinf(v)):
@@ -519,14 +546,23 @@ class SanitizeFloodsForDBStage(PipelineStage):
             if "event_date" in r and r["event_date"] not in (None, ""):
                 try:
                     import pandas as _pd
+
                     # Try parsing with dayfirst to handle formats like 20/3/2014
-                    dt = _pd.to_datetime(str(r["event_date"]).strip(), dayfirst=True, errors="coerce")
+                    dt = _pd.to_datetime(
+                        str(r["event_date"]).strip(), dayfirst=True, errors="coerce"
+                    )
                     if _pd.notna(dt):
                         r["event_date"] = dt.date().isoformat()
                     else:
                         # As fallback, try without dayfirst
-                        dt2 = _pd.to_datetime(str(r["event_date"]).strip(), dayfirst=False, errors="coerce")
-                        r["event_date"] = dt2.date().isoformat() if _pd.notna(dt2) else None
+                        dt2 = _pd.to_datetime(
+                            str(r["event_date"]).strip(),
+                            dayfirst=False,
+                            errors="coerce",
+                        )
+                        r["event_date"] = (
+                            dt2.date().isoformat() if _pd.notna(dt2) else None
+                        )
                 except Exception:
                     r["event_date"] = None
 
@@ -535,10 +571,16 @@ class SanitizeFloodsForDBStage(PipelineStage):
                 lat = None
                 lon = None
                 try:
-                    if r.get("origin_lat") is not None and r.get("origin_lng") is not None:
+                    if (
+                        r.get("origin_lat") is not None
+                        and r.get("origin_lng") is not None
+                    ):
                         lat = float(r.get("origin_lat"))
                         lon = float(r.get("origin_lng"))
-                    elif r.get("start_lat") is not None and r.get("start_lng") is not None:
+                    elif (
+                        r.get("start_lat") is not None
+                        and r.get("start_lng") is not None
+                    ):
                         lat = float(r.get("start_lat"))
                         lon = float(r.get("start_lng"))
                 except Exception:
@@ -547,7 +589,15 @@ class SanitizeFloodsForDBStage(PipelineStage):
                     r["geom"] = {"type": "Point", "coordinates": [lon, lat]}
 
             # Coerce integer ID fields
-            for icol in ("id", "start_pa_id", "start_sz_id", "start_rn_id", "end_pa_id", "end_sz_id", "end_rn_id"):
+            for icol in (
+                "id",
+                "start_pa_id",
+                "start_sz_id",
+                "start_rn_id",
+                "end_pa_id",
+                "end_sz_id",
+                "end_rn_id",
+            ):
                 if icol in r and r[icol] is not None:
                     try:
                         r[icol] = int(r[icol])
@@ -556,8 +606,16 @@ class SanitizeFloodsForDBStage(PipelineStage):
 
             # Coerce float fields and JSON-safe values
             for fcol in (
-                "start_lat", "start_lng", "origin_lat", "origin_lng",
-                "end_lat", "end_lng", "end100_a_lat", "end100_a_lng", "end100_b_lat", "end100_b_lng",
+                "start_lat",
+                "start_lng",
+                "origin_lat",
+                "origin_lng",
+                "end_lat",
+                "end_lng",
+                "end100_a_lat",
+                "end100_a_lng",
+                "end100_b_lat",
+                "end100_b_lng",
             ):
                 if fcol in r and r[fcol] is not None:
                     try:
@@ -589,6 +647,7 @@ class FilterIslandPAStage(PipelineStage):
 
         try:
             import pandas as _pd
+
             if hasattr(data, "to_dict") and isinstance(data, _pd.DataFrame):
                 records = data.to_dict(orient="records")
             else:
@@ -600,6 +659,7 @@ class FilterIslandPAStage(PipelineStage):
             records = [records]
 
         before = len(records)
+
         def _is_excluded(rec: Dict[str, Any]) -> bool:
             try:
                 spa = int(rec.get("start_pa_id") or 0)
@@ -613,7 +673,9 @@ class FilterIslandPAStage(PipelineStage):
 
         filtered = [r for r in records if not _is_excluded(r)]
         after = len(filtered)
-        logger.info(f"Filtered island PAs {sorted(self.excluded)}: removed {before-after} of {before} rows")
+        logger.info(
+            f"Filtered island PAs {sorted(self.excluded)}: removed {before-after} of {before} rows"
+        )
         return filtered
 
 
@@ -629,6 +691,7 @@ class FilterSubsidedStage(PipelineStage):
 
         try:
             import pandas as _pd
+
             if hasattr(data, "to_dict") and isinstance(data, _pd.DataFrame):
                 records = data.to_dict(orient="records")
             else:
@@ -640,14 +703,18 @@ class FilterSubsidedStage(PipelineStage):
             records = [records]
 
         before = len(records)
+
         def _is_subsided(rec: Dict[str, Any]) -> bool:
             val = (rec.get("event") or "").strip().lower()
             return val == "flood_subsided"
 
         filtered = [r for r in records if not _is_subsided(r)]
         after = len(filtered)
-        logger.info(f"Filtered 'flood_subsided': removed {before-after} of {before} rows")
+        logger.info(
+            f"Filtered 'flood_subsided': removed {before-after} of {before} rows"
+        )
         return filtered
+
 
 class FloodsUpsertStage(PipelineStage):
     """Floods-specific DB write using upsert on (id)."""
@@ -674,6 +741,7 @@ class FloodsUpsertStage(PipelineStage):
         # Expect list[dict] from previous sanitize stage; if DataFrame, convert
         try:
             import pandas as _pd
+
             if hasattr(data, "to_dict") and isinstance(data, _pd.DataFrame):
                 records = data.to_dict(orient="records")
             else:
@@ -686,12 +754,14 @@ class FloodsUpsertStage(PipelineStage):
 
         total = len(records)
         for i in range(0, total, self.batch_size):
-            batch = records[i:i + self.batch_size]
+            batch = records[i : i + self.batch_size]
             try:
                 # Use upsert on primary key id
                 self.db.upsert(table=self.table_name, data=batch, on_conflict="id")
             except Exception as e:
-                raise Exception(f"Upsert failed for batch {(i//self.batch_size)+1}: {e}")
+                raise Exception(
+                    f"Upsert failed for batch {(i//self.batch_size)+1}: {e}"
+                )
 
         return data
 
@@ -712,14 +782,21 @@ class CleanupRemoteFloodsStage(PipelineStage):
     async def process(self, data: Any) -> Any:
         try:
             client = self.db._get_connection()
-            client.table(self.table_name).delete().eq("event", "flood_subsided").execute()
+            client.table(self.table_name).delete().eq(
+                "event", "flood_subsided"
+            ).execute()
             if self.remove_island_pas:
                 excluded = [24, 27, 31]
-                client.table(self.table_name).delete().in_("start_pa_id", excluded).execute()
-                client.table(self.table_name).delete().in_("end_pa_id", excluded).execute()
+                client.table(self.table_name).delete().in_(
+                    "start_pa_id", excluded
+                ).execute()
+                client.table(self.table_name).delete().in_(
+                    "end_pa_id", excluded
+                ).execute()
         except Exception:
             pass
         return data
+
 
 # ============================================================================
 # FLOODS PIPELINE
@@ -765,9 +842,7 @@ class FloodsPipeline(Pipeline):
         stages = self._create_stages()
 
         # Initialize parent Pipeline class
-        super().__init__(
-            name="Floods Pipeline", stages=stages, config=self.config
-        )
+        super().__init__(name="Floods Pipeline", stages=stages, config=self.config)
 
     def _create_stages(self) -> List[Any]:
         """Create and configure all pipeline stages.
