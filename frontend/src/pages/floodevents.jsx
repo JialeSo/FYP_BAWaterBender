@@ -348,7 +348,7 @@ function popup_html(p = {}) {
     return "—";
   };
   const typ = to_title_case((p.event || "").replace(/_/g, " ")) || "—";
-  const road = p.start_road || p.parent_road || "—";
+  const road = p.parent_road || "—";
   return `
     <div>
       <div class="text-xs uppercase opacity-70">Flood</div>
@@ -1497,6 +1497,10 @@ export default function floodevents() {
         map.setLayoutProperty("rings-page-outer-fill", "visibility", "none");
         map.setLayoutProperty("rings-page-inner-line", "visibility", "none");
         map.setLayoutProperty("rings-page-outer-line", "visibility", "none");
+        map.setLayoutProperty("rings-selected-inner-fill", "visibility", "none");
+        map.setLayoutProperty("rings-selected-outer-fill", "visibility", "none");
+        map.setLayoutProperty("rings-selected-inner-line", "visibility", "none");
+        map.setLayoutProperty("rings-selected-outer-line", "visibility", "none");
         map.setLayoutProperty("roads-nearby-inner", "visibility", "none");
         map.setLayoutProperty("roads-nearby-outer", "visibility", "none");
         map.getSource("amenities-nearby")?.setData({ type: "FeatureCollection", features: [] });
