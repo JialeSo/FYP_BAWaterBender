@@ -57,19 +57,19 @@ export function getColorForValue(value, maxValue, isBaseline = false) {
 }
 
 /**
- * Get color for golden time metric
+ * Get color for travel time target metric
  * @param {number} value - Travel time value
- * @param {number} goldenTime - Target golden time
+ * @param {number} travelTime - Target travel time
  * @returns {string} - Hex color code
  */
-export function getColorForGoldenTime(value, goldenTime) {
+export function getColorForTravelTime(value, travelTime) {
   if (!Number.isFinite(value)) return "#d1d5db"; // Gray for unreachable
 
-  if (value <= goldenTime) {
+  if (value <= travelTime) {
     return "#22c55e"; // Green - within target
   }
 
-  const excess = (value - goldenTime) / goldenTime;
+  const excess = (value - travelTime) / travelTime;
   if (excess <= 0.25) return "#fbbf24"; // Yellow - slightly over (0-25%)
   if (excess <= 0.5) return "#fb923c";  // Orange - moderately over (25-50%)
   return "#ef4444"; // Red - significantly over (>50%)

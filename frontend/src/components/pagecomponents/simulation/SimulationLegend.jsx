@@ -198,14 +198,14 @@ export function TimeLegend({ maxTime }) {
 }
 
 /**
- * Legend for Golden Time metric
+ * Legend for Travel Time Target metric
  */
-export function GoldenTimeLegend({ goldenTime }) {
+export function TravelTimeLegend({ travelTime }) {
   return (
     <>
       <div className="flex items-center gap-2">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#22c55e" }}></div>
-        <span className="text-xs">Within Target ({fmtTime(goldenTime)})</span>
+        <span className="text-xs">Within Target ({fmtTime(travelTime)})</span>
       </div>
       <div className="flex items-center gap-2">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: "#fbbf24" }}></div>
@@ -226,7 +226,7 @@ export function GoldenTimeLegend({ goldenTime }) {
 /**
  * Main Legend Component
  */
-export function SimulationLegend({ selectedMetric, goldenTime, selectedPA, paDeltas = [] }) {
+export function SimulationLegend({ selectedMetric, travelTime, selectedPA, paDeltas = [] }) {
   // Show road status legend when PA is selected
   if (selectedPA) {
     return <RoadStatusLegend />;
@@ -261,7 +261,7 @@ export function SimulationLegend({ selectedMetric, goldenTime, selectedPA, paDel
         {selectedMetric === "unreachable" && <UnreachableLegend maxUnreachable={maxUnreachable} />}
         {selectedMetric === "baseline_time" && <TimeLegend maxTime={maxBaselineTime} />}
         {selectedMetric === "flooded_time" && <TimeLegend maxTime={maxFloodedTime} />}
-        {selectedMetric === "golden_time" && <GoldenTimeLegend goldenTime={goldenTime} />}
+        {selectedMetric === "travel_time" && <TravelTimeLegend travelTime={travelTime} />}
 
         {/* Separator and Blocked Roads indicator */}
         <div style={{ width: '100%', height: '1px', backgroundColor: '#d1d5db', margin: '4px 0' }}></div>

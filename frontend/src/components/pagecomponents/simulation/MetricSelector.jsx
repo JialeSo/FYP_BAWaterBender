@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 export function MetricSelector({
   selectedMetric,
   onMetricChange,
-  goldenTime,
+  travelTime,
   showAmenities = true,
   onToggleAmenities,
   showFloodedRoads = true,
@@ -24,9 +24,9 @@ export function MetricSelector({
   const metrics = [
     { value: "delta_time", label: "Travel Time Change" },
     { value: "unreachable", label: "Unreachable Nodes" },
-    { value: "baseline_time", label: "Dry (No Flood)" },
-    { value: "flooded_time", label: "With Flood" },
-    { value: "golden_time", label: `Golden Time (${(goldenTime / 60).toFixed(1)}m)` },
+    { value: "baseline_time", label: "Dry Scenario" },
+    { value: "flooded_time", label: "Flood Scenario" },
+    { value: "travel_time", label: `Travel Time Target (${(travelTime / 60).toFixed(1)}m)` },
   ];
 
   const selectedMetricLabel = metrics.find(m => m.value === selectedMetric)?.label || "Select Metric";

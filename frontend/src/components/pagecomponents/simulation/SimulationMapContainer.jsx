@@ -9,7 +9,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
   getColorForValue,
-  getColorForGoldenTime,
+  getColorForTravelTime,
   getColorForUnreachable,
   fmtTime
 } from "@/lib/simulation/metrics";
@@ -34,7 +34,7 @@ export function SimulationMapContainer({
   floodedNodeDist,
   affectedRoads,
   selectedMetric = "delta_time",
-  goldenTime = 480,
+  travelTime = 480,
   selectedAmenityType = "moh_hospitals",
   excludedAmenities = new Set(),
   onPlanningAreaSelect,
@@ -141,10 +141,10 @@ export function SimulationMapContainer({
             }
             break;
           }
-          case "golden_time": {
-            value = delta.flood_avg_s;
+          case "travel_time": {
+            value = delta.base_avg_s;
             if (Number.isFinite(value)) {
-              fillColor = getColorForGoldenTime(value, goldenTime);
+              fillColor = getColorForTravelTime(value, travelTime);
             }
             break;
           }
@@ -171,7 +171,7 @@ export function SimulationMapContainer({
         features,
       });
     }
-  }, [planning_fc_raw, paDeltas, goldenTime]);
+  }, [planning_fc_raw, paDeltas, travelTime]);
 
   /**
    * Update blocked roads layer
@@ -204,6 +204,51 @@ export function SimulationMapContainer({
       source.setData({
         type: "FeatureCollection",
         features: blockedRoadsFeatures,
+      });
+    }
+  }, [affectedRoads, graph.edges]);
+
+  /**
+   * Update all roads layer for global view (green/red only)
+   */
+  const updateAllRoadsLayer = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const allRoadsFeatures = [];
+    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+
+    // Create a map to track unique roads (by rn_id)
+    const roadMap = new Map();
+
+    for (const edge of graph.edges) {
+      if (edge.rn_id != null && !roadMap.has(edge.rn_id)) {
+        const isFlooded = affectedRoadSet.has(edge.rn_id);
+        const color = isFlooded ? "#ef4444" : "#22c55e"; // Red if flooded, green if not
+
+        roadMap.set(edge.rn_id, {
+          type: "Feature",
+          properties: {
+            rn_id: edge.rn_id,
+            name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+            color,
+            flooded: isFlooded,
+          },
+          geometry: {
+            type: "LineString",
+            coordinates: edge.coords,
+          },
+        });
+      }
+    }
+
+    allRoadsFeatures.push(...roadMap.values());
+
+    const source = map.getSource("all-roads");
+    if (source) {
+      source.setData({
+        type: "FeatureCollection",
+        features: allRoadsFeatures,
       });
     }
   }, [affectedRoads, graph.edges]);
@@ -340,6 +385,11 @@ export function SimulationMapContainer({
         data: { type: "FeatureCollection", features: [] },
       });
 
+      map.addSource("all-roads", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
       map.addSource("amenities", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -377,7 +427,19 @@ export function SimulationMapContainer({
         },
       });
 
-      // Add blocked roads layer (visible when not zoomed into PA)
+      // Add all roads layer for global view (green/red only)
+      map.addLayer({
+        id: "all-roads-line",
+        type: "line",
+        source: "all-roads",
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 2,
+          "line-opacity": 0.7,
+        },
+      });
+
+      // Add blocked roads layer (visible when not zoomed into PA) - DEPRECATED, replaced by all-roads
       map.addLayer({
         id: "blocked-roads-line",
         type: "line",
@@ -385,7 +447,7 @@ export function SimulationMapContainer({
         paint: {
           "line-color": "#ef4444",
           "line-width": 3,
-          "line-opacity": 0.6,
+          "line-opacity": 0,  // Hidden, using all-roads instead
         },
       });
 
@@ -460,7 +522,16 @@ export function SimulationMapContainer({
   }, [mapReady, amenity_fc_enriched, selectedAmenityType, excludedAmenities, selectedPA]);
 
   /**
-   * Update blocked roads layer when affected roads or graph changes
+   * Update all roads layer in global view
+   */
+  useEffect(() => {
+    if (mapReady && graph.edges.length > 0 && !selectedPA) {
+      updateAllRoadsLayer();
+    }
+  }, [mapReady, affectedRoads, graph.edges, selectedPA, updateAllRoadsLayer]);
+
+  /**
+   * Update blocked roads layer when affected roads or graph changes (DEPRECATED - using all-roads instead)
    */
   useEffect(() => {
     if (mapReady && affectedRoads.length > 0 && graph.edges.length > 0 && !selectedPA) {
@@ -509,7 +580,7 @@ export function SimulationMapContainer({
 
         // Check if mouse is over a road - if so, don't show PA tooltip
         const roadFeatures = map.queryRenderedFeatures(e.point, {
-          layers: ["roads-line", "blocked-roads-line"]
+          layers: ["roads-line", "blocked-roads-line", "all-roads-line"]
         });
 
         // Show tooltip only if NOT hovering over a road
@@ -674,6 +745,8 @@ export function SimulationMapContainer({
     map.on("click", "choropleth-fill", onPAClick);
     map.on("mousemove", "roads-line", onRoadMouseMove);
     map.on("mouseleave", "roads-line", onRoadMouseLeave);
+    map.on("mousemove", "all-roads-line", onRoadMouseMove);
+    map.on("mouseleave", "all-roads-line", onRoadMouseLeave);
     map.on("mousemove", "amenities-circle", onAmenityMouseMove);
     map.on("mouseleave", "amenities-circle", onAmenityMouseLeave);
     map.on("click", onMapClick);
@@ -684,6 +757,8 @@ export function SimulationMapContainer({
       map.off("click", "choropleth-fill", onPAClick);
       map.off("mousemove", "roads-line", onRoadMouseMove);
       map.off("mouseleave", "roads-line", onRoadMouseLeave);
+      map.off("mousemove", "all-roads-line", onRoadMouseMove);
+      map.off("mouseleave", "all-roads-line", onRoadMouseLeave);
       map.off("mousemove", "amenities-circle", onAmenityMouseMove);
       map.off("mouseleave", "amenities-circle", onAmenityMouseLeave);
       map.off("click", onMapClick);
@@ -713,20 +788,37 @@ export function SimulationMapContainer({
   }, [mapReady, showAmenities]);
 
   /**
-   * Toggle flooded roads visibility
-   * Always show roads when PA is selected, otherwise respect toggle
+   * Toggle roads visibility based on view mode
+   * Global view: Show all-roads layer (green/red)
+   * PA view: Show detailed roads-line layer
    */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
-    // Always show roads when in PA view, otherwise respect toggle
-    const visibility = (selectedPA || showFloodedRoads) ? "visible" : "none";
-    if (map.getLayer("blocked-roads-line")) {
-      map.setLayoutProperty("blocked-roads-line", "visibility", visibility);
-    }
-    if (map.getLayer("roads-line")) {
-      map.setLayoutProperty("roads-line", "visibility", visibility);
+    if (selectedPA) {
+      // PA drill-down view: Show detailed roads, hide global all-roads
+      if (map.getLayer("all-roads-line")) {
+        map.setLayoutProperty("all-roads-line", "visibility", "none");
+      }
+      if (map.getLayer("roads-line")) {
+        map.setLayoutProperty("roads-line", "visibility", "visible");
+      }
+      if (map.getLayer("blocked-roads-line")) {
+        map.setLayoutProperty("blocked-roads-line", "visibility", "none");
+      }
+    } else {
+      // Global view: Show all-roads (if toggle is on), hide detailed roads
+      const visibility = showFloodedRoads ? "visible" : "none";
+      if (map.getLayer("all-roads-line")) {
+        map.setLayoutProperty("all-roads-line", "visibility", visibility);
+      }
+      if (map.getLayer("roads-line")) {
+        map.setLayoutProperty("roads-line", "visibility", "none");
+      }
+      if (map.getLayer("blocked-roads-line")) {
+        map.setLayoutProperty("blocked-roads-line", "visibility", "none");
+      }
     }
   }, [mapReady, showFloodedRoads, selectedPA]);
 

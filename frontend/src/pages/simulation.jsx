@@ -276,7 +276,7 @@ export default function Simulation() {
   const [amenitySearchTerm, setAmenitySearchTerm] = useState("");
   const [availableAmenities, setAvailableAmenities] = useState([]);
   const [excludedAmenities, setExcludedAmenities] = useState(new Set()); // Set of amenity_ids to exclude
-  const [goldenTime, setGoldenTime] = useState(480); // Target time in seconds (default: 8 minutes = 480s)
+  const [travelTime, setTravelTime] = useState(480); // Target time in seconds (default: 8 minutes = 480s)
 
   // Road filtering (for Step 3)
   const [selectedPlanningArea, setSelectedPlanningArea] = useState("all");
@@ -301,7 +301,7 @@ export default function Simulation() {
   const [paDeltas, setPaDeltas] = useState([]);
   const [selectedPA, setSelectedPA] = useState(null);
   const [hoveredPA, setHoveredPA] = useState(null);
-  const [selectedMetric, setSelectedMetric] = useState("flooded_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time" | "golden_time"
+  const [selectedMetric, setSelectedMetric] = useState("delta_time"); // "delta_time" | "unreachable" | "baseline_time" | "flooded_time" | "travel_time"
 
   // Map layer visibility toggles
   const [showAmenities, setShowAmenities] = useState(true);
@@ -1032,7 +1032,7 @@ export default function Simulation() {
                   </Card>
                 </div>
 
-                <div ref={configContainerRef} className="rounded-lg border" />
+                <div ref={configContainerRef} className="rounded-lg border" style={{ height: "800px" }} />
               </div>
             ) : (
               <Card className="max-w-2xl mx-auto">
@@ -1100,8 +1100,8 @@ export default function Simulation() {
                     <span className="capitalize">{selectedAmenityType.replace(/_/g, ' ')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-semibold">Golden Time Target:</span>
-                    <span>{fmtTime(goldenTime)}</span>
+                    <span className="font-semibold">Travel Time Target:</span>
+                    <span>{fmtTime(travelTime)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -1218,24 +1218,24 @@ export default function Simulation() {
               </CardContent>
             </Card>
 
-            {/* Golden Time Configuration */}
+            {/* Travel Time Configuration */}
             <Card>
               <CardHeader>
-                <CardTitle>Golden Time Target</CardTitle>
+                <CardTitle>Travel Time Target</CardTitle>
                 <CardDescription>Set the target travel time to nearest {selectedAmenityType.replace(/_/g, ' ')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <Label className="text-sm font-medium">Target Time: {fmtTime(goldenTime)}</Label>
+                    <Label className="text-sm font-medium">Target Time: {fmtTime(travelTime)}</Label>
                     <span className="text-xs text-muted-foreground">Planning areas within this time are considered optimal</span>
                   </div>
                   <Slider
-                    value={[goldenTime]}
+                    value={[travelTime]}
                     min={60}
                     max={1800}
                     step={30}
-                    onValueChange={(v) => setGoldenTime(v[0])}
+                    onValueChange={(v) => setTravelTime(v[0])}
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
@@ -1245,7 +1245,7 @@ export default function Simulation() {
                 </div>
                 <div className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">
-                    The Golden Time metric will color-code planning areas based on whether their <strong>baseline average travel time</strong> meets this target.
+                    The Travel Time Target metric will color-code planning areas based on whether their <strong>dry scenario average travel time</strong> meets this target.
                     Green indicates areas within the target, while red indicates areas exceeding it.
                   </p>
                 </div>
@@ -1412,11 +1412,11 @@ export default function Simulation() {
         {/* Step 4: Results */}
         {step === 4 && baselineStats && floodedStats && (
           <div className="space-y-4">
-            {/* Golden Time Configuration */}
+            {/* Travel Time Configuration */}
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="golden-time-config" className="border rounded-lg px-4">
+              <AccordionItem value="travel-time-config" className="border rounded-lg px-4">
                 <AccordionTrigger className="text-sm font-semibold hover:no-underline">
-                  Golden Time Configuration
+                  Travel Time Target Configuration
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-3 pt-2">
@@ -1425,17 +1425,17 @@ export default function Simulation() {
                     </p>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <Label className="text-sm font-medium">Target Time: {fmtTime(goldenTime)}</Label>
+                        <Label className="text-sm font-medium">Target Time: {fmtTime(travelTime)}</Label>
                         <span className="text-xs text-muted-foreground">
-                          {(goldenTime / 60).toFixed(1)} minutes
+                          {(travelTime / 60).toFixed(1)} minutes
                         </span>
                       </div>
                       <Slider
-                        value={[goldenTime]}
+                        value={[travelTime]}
                         min={60}
                         max={1800}
                         step={30}
-                        onValueChange={(v) => setGoldenTime(v[0])}
+                        onValueChange={(v) => setTravelTime(v[0])}
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
@@ -1445,7 +1445,7 @@ export default function Simulation() {
                     </div>
                     <div className="bg-muted/50 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground">
-                        The map will update automatically to reflect areas exceeding this threshold when viewing the "Golden Time Target" metric.
+                        The map will update automatically to reflect areas exceeding this threshold when viewing the "Travel Time Target" metric.
                       </p>
                     </div>
                   </div>
@@ -1454,7 +1454,7 @@ export default function Simulation() {
             </Accordion>
 
             {/* Unified Map */}
-            <div className="relative w-full" style={{ height: "calc(100vh - 320px)", minHeight: "600px" }}>
+            <div className="relative w-full" style={{ height: "800px" }}>
                 <SimulationMapContainer
                   planning_fc_raw={planning_fc_raw}
                   amenity_fc_enriched={amenity_fc_enriched}
@@ -1464,7 +1464,7 @@ export default function Simulation() {
                   floodedNodeDist={floodedNodeDist}
                   affectedRoads={affectedRoads}
                   selectedMetric={selectedMetric}
-                  goldenTime={goldenTime}
+                  travelTime={travelTime}
                   selectedAmenityType={selectedAmenityType}
                   excludedAmenities={excludedAmenities}
                   onPlanningAreaSelect={setSelectedPA}
@@ -1476,7 +1476,7 @@ export default function Simulation() {
                 <MetricSelector
                   selectedMetric={selectedMetric}
                   onMetricChange={setSelectedMetric}
-                  goldenTime={goldenTime}
+                  travelTime={travelTime}
                   showAmenities={showAmenities}
                   onToggleAmenities={setShowAmenities}
                   showFloodedRoads={showFloodedRoads}
@@ -1486,7 +1486,7 @@ export default function Simulation() {
 
                 <SimulationLegend
                   selectedMetric={selectedMetric}
-                  goldenTime={goldenTime}
+                  travelTime={travelTime}
                   selectedPA={selectedPA}
                   paDeltas={paDeltas}
                 />
@@ -1541,7 +1541,7 @@ export default function Simulation() {
                           onClick={() => handleSort("base_avg_s")}
                         >
                           <div className="flex items-center gap-1">
-                            Baseline Avg
+                            Dry Scenario Avg
                             {sortColumn === "base_avg_s" ? (
                               sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                             ) : (
@@ -1554,7 +1554,7 @@ export default function Simulation() {
                           onClick={() => handleSort("base_unreachable")}
                         >
                           <div className="flex items-center gap-1">
-                            Baseline Unreachable
+                            Dry Unreachable
                             {sortColumn === "base_unreachable" ? (
                               sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                             ) : (
@@ -1567,7 +1567,7 @@ export default function Simulation() {
                           onClick={() => handleSort("flood_avg_s")}
                         >
                           <div className="flex items-center gap-1">
-                            Flooded Avg
+                            Flood Scenario Avg
                             {sortColumn === "flood_avg_s" ? (
                               sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                             ) : (
@@ -1580,7 +1580,7 @@ export default function Simulation() {
                           onClick={() => handleSort("flood_unreachable")}
                         >
                           <div className="flex items-center gap-1">
-                            Flooded Unreachable
+                            Flood Unreachable
                             {sortColumn === "flood_unreachable" ? (
                               sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                             ) : (
