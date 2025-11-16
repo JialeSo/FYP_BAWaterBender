@@ -68,6 +68,72 @@ export default function Centrality() {
 
   const [isCalculating, setIsCalculating] = useState(false);
 
+  /* ===== multiplier-based weights ===== */
+  const amenityCategoryKeys = useMemo(
+    () => Object.keys(amenityCounts).sort((a, b) => a.localeCompare(b)),
+    [amenityCounts]
+  );
+  const floodTypeKeys = useMemo(
+    () => Object.keys(floodCounts).sort((a, b) => a.localeCompare(b)),
+    [floodCounts]
+  );
+
+  // Default multipliers and per-category toggles
+  const default_amenity_weights = useMemo(() => {
+    const w = {};
+    for (const k of amenityCategoryKeys) w[k] = 5.0;
+    return w;
+  }, [amenityCategoryKeys]);
+  const default_amenity_enabled = useMemo(() => {
+    const e = {};
+    for (const k of amenityCategoryKeys) e[k] = true;
+    return e;
+  }, [amenityCategoryKeys]);
+
+  const default_flood_weights = useMemo(() => {
+    const w = {};
+    for (const k of floodTypeKeys) w[k] = 5.0;
+    return w;
+  }, [floodTypeKeys]);
+  const default_flood_enabled = useMemo(() => {
+    const e = {};
+    for (const k of floodTypeKeys) e[k] = true;
+    return e;
+  }, [floodTypeKeys]);
+
+  // Active weight states (used for calculations)
+  const [amenityWeights, setAmenityWeights] = useState(default_amenity_weights);
+  const [amenityEnabled, setAmenityEnabled] = useState(default_amenity_enabled);
+  const [floodWeights, setFloodWeights] = useState(default_flood_weights);
+  const [floodEnabled, setFloodEnabled] = useState(default_flood_enabled);
+
+  // Component toggles + weights
+  const [useCompBetweenness, setUseCompBetweenness] = useState(true);
+  const [useCompCloseness, setUseCompCloseness] = useState(true);
+  const [useCompAmenity, setUseCompAmenity] = useState(true);
+  const [useCompFlood, setUseCompFlood] = useState(true);
+
+  const [w_betweenness, set_w_betweenness] = useState(0.4);
+  const [w_closeness, set_w_closeness] = useState(0.3);
+  const [w_amenity, set_w_amenity] = useState(0.2);
+  const [w_flood, set_w_flood] = useState(0.1);
+
+  // Pending weight states (modified by UI, applied on button click)
+  const [pendingAmenityWeights, setPendingAmenityWeights] = useState(default_amenity_weights);
+  const [pendingAmenityEnabled, setPendingAmenityEnabled] = useState(default_amenity_enabled);
+  const [pendingFloodWeights, setPendingFloodWeights] = useState(default_flood_weights);
+  const [pendingFloodEnabled, setPendingFloodEnabled] = useState(default_flood_enabled);
+
+  const [pendingUseCompBetweenness, setPendingUseCompBetweenness] = useState(true);
+  const [pendingUseCompCloseness, setPendingUseCompCloseness] = useState(true);
+  const [pendingUseCompAmenity, setPendingUseCompAmenity] = useState(true);
+  const [pendingUseCompFlood, setPendingUseCompFlood] = useState(true);
+
+  const [pending_w_betweenness, set_pending_w_betweenness] = useState(0.4);
+  const [pending_w_closeness, set_pending_w_closeness] = useState(0.3);
+  const [pending_w_amenity, set_pending_w_amenity] = useState(0.2);
+  const [pending_w_flood, set_pending_w_flood] = useState(0.1);
+
   /* ===== mock example for UI ===== */
 
   /* ===== preset handlers ===== */
@@ -372,72 +438,6 @@ export default function Centrality() {
     setPendingImportanceMax("");
     setPendingSlaCategories([]);
   }, []);
-
-  /* ===== multiplier-based weights ===== */
-  const amenityCategoryKeys = useMemo(
-    () => Object.keys(amenityCounts).sort((a, b) => a.localeCompare(b)),
-    [amenityCounts]
-  );
-  const floodTypeKeys = useMemo(
-    () => Object.keys(floodCounts).sort((a, b) => a.localeCompare(b)),
-    [floodCounts]
-  );
-
-  // Default multipliers and per-category toggles
-  const default_amenity_weights = useMemo(() => {
-    const w = {};
-    for (const k of amenityCategoryKeys) w[k] = 5.0;
-    return w;
-  }, [amenityCategoryKeys]);
-  const default_amenity_enabled = useMemo(() => {
-    const e = {};
-    for (const k of amenityCategoryKeys) e[k] = true;
-    return e;
-  }, [amenityCategoryKeys]);
-
-  const default_flood_weights = useMemo(() => {
-    const w = {};
-    for (const k of floodTypeKeys) w[k] = 5.0;
-    return w;
-  }, [floodTypeKeys]);
-  const default_flood_enabled = useMemo(() => {
-    const e = {};
-    for (const k of floodTypeKeys) e[k] = true;
-    return e;
-  }, [floodTypeKeys]);
-
-  // Active weight states (used for calculations)
-  const [amenityWeights, setAmenityWeights] = useState(default_amenity_weights);
-  const [amenityEnabled, setAmenityEnabled] = useState(default_amenity_enabled);
-  const [floodWeights, setFloodWeights] = useState(default_flood_weights);
-  const [floodEnabled, setFloodEnabled] = useState(default_flood_enabled);
-
-  // Component toggles + weights
-  const [useCompBetweenness, setUseCompBetweenness] = useState(true);
-  const [useCompCloseness, setUseCompCloseness] = useState(true);
-  const [useCompAmenity, setUseCompAmenity] = useState(true);
-  const [useCompFlood, setUseCompFlood] = useState(true);
-
-  const [w_betweenness, set_w_betweenness] = useState(0.4);
-  const [w_closeness, set_w_closeness] = useState(0.3);
-  const [w_amenity, set_w_amenity] = useState(0.2);
-  const [w_flood, set_w_flood] = useState(0.1);
-
-  // Pending weight states (modified by UI, applied on button click)
-  const [pendingAmenityWeights, setPendingAmenityWeights] = useState(default_amenity_weights);
-  const [pendingAmenityEnabled, setPendingAmenityEnabled] = useState(default_amenity_enabled);
-  const [pendingFloodWeights, setPendingFloodWeights] = useState(default_flood_weights);
-  const [pendingFloodEnabled, setPendingFloodEnabled] = useState(default_flood_enabled);
-
-  const [pendingUseCompBetweenness, setPendingUseCompBetweenness] = useState(true);
-  const [pendingUseCompCloseness, setPendingUseCompCloseness] = useState(true);
-  const [pendingUseCompAmenity, setPendingUseCompAmenity] = useState(true);
-  const [pendingUseCompFlood, setPendingUseCompFlood] = useState(true);
-
-  const [pending_w_betweenness, set_pending_w_betweenness] = useState(0.4);
-  const [pending_w_closeness, set_pending_w_closeness] = useState(0.3);
-  const [pending_w_amenity, set_pending_w_amenity] = useState(0.2);
-  const [pending_w_flood, set_pending_w_flood] = useState(0.1);
 
   // SLA configuration
   const [useSLAMapping, setUseSLAMapping] = useState(true);
