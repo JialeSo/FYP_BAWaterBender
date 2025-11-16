@@ -306,6 +306,12 @@ export default function Simulation() {
   const roadPopupRef = useRef(null);
   const contentRef = useRef(null);
 
+
+  // Node-level distance data (Map: node_id => travel_time_seconds)
+  const [baselineNodeDist, setBaselineNodeDist] = useState(null);
+  const [floodedNodeDist, setFloodedNodeDist] = useState(null);
+
+
   // Computation state
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -546,9 +552,6 @@ export default function Simulation() {
     return sorted;
   }, [roadLevelData, roadSortColumn, roadSortDirection]);
 
-  // Node-level distance data (Map: node_id => travel_time_seconds)
-  const [baselineNodeDist, setBaselineNodeDist] = useState(null);
-  const [floodedNodeDist, setFloodedNodeDist] = useState(null);
 
   // Node-level nearest amenity data (Map: node_id => amenity_id)
   const [baselineNearestAmenity, setBaselineNearestAmenity] = useState(null);
