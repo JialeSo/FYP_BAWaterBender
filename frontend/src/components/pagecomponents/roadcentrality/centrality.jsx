@@ -68,6 +68,32 @@ export default function Centrality() {
 
   const [isCalculating, setIsCalculating] = useState(false);
 
+  /* ===== counts ===== */
+  const amenityCounts = useMemo(() => {
+    const m = Object.create(null);
+    const byId = categoryLookup?.by_id || {};
+    for (const a of amenityFC?.features || []) {
+      const id = get_amenity_category_id(a.properties);
+      const fromLookup = (id != null && byId[id]?.amenity_category) ? byId[id].amenity_category : null;
+      const name = fromLookup || String(get_amenity_category(a.properties));
+      m[name] = (m[name] || 0) + 1;
+    }
+    for (const row of categoryLookup?.table || []) {
+      const name = row.amenity_category;
+      if (!(name in m)) m[name] = 0;
+    }
+    return m;
+  }, [amenityFC, categoryLookup]);
+
+  const floodCounts = useMemo(() => {
+    const m = Object.create(null);
+    for (const f of floodsFC?.features || []) {
+      const t = String(get_flood_type(f.properties));
+      m[t] = (m[t] || 0) + 1;
+    }
+    return m;
+  }, [floodsFC]);
+
   /* ===== multiplier-based weights ===== */
   const amenityCategoryKeys = useMemo(
     () => Object.keys(amenityCounts).sort((a, b) => a.localeCompare(b)),
@@ -294,32 +320,6 @@ export default function Centrality() {
     s.delete("unknown");
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [roadFC]);
-
-  /* ===== counts ===== */
-  const amenityCounts = useMemo(() => {
-    const m = Object.create(null);
-    const byId = categoryLookup?.by_id || {};
-    for (const a of amenityFC?.features || []) {
-      const id = get_amenity_category_id(a.properties);
-      const fromLookup = (id != null && byId[id]?.amenity_category) ? byId[id].amenity_category : null;
-      const name = fromLookup || String(get_amenity_category(a.properties));
-      m[name] = (m[name] || 0) + 1;
-    }
-    for (const row of categoryLookup?.table || []) {
-      const name = row.amenity_category;
-      if (!(name in m)) m[name] = 0;
-    }
-    return m;
-  }, [amenityFC, categoryLookup]);
-
-  const floodCounts = useMemo(() => {
-    const m = Object.create(null);
-    for (const f of floodsFC?.features || []) {
-      const t = String(get_flood_type(f.properties));
-      m[t] = (m[t] || 0) + 1;
-    }
-    return m;
-  }, [floodsFC]);
 
   const amenityOptionsDisplay = useMemo(
     () => Object.keys(amenityCounts).sort((a, b) => a.localeCompare(b)).map((c) => `${to_title_case(c)} (${(amenityCounts[c] || 0).toLocaleString()})`),
