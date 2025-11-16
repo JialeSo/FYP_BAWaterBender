@@ -587,30 +587,6 @@ export default function floodevents() {
     start_postal_code: false, start_lat: false, start_lng: false,
   });
 
-  const set_metric_range = (key, field, value) => {
-    set_metric_filters((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], [field]: value },
-    }));
-    set_page(1);
-  };
-
-  const reset_metric_filters = () => {
-    set_metric_filters(createMetricFilterState());
-  };
-
-
-
-  const reset_all_filters = () => {
-    set_q("");
-    set_event_types_filter([]);
-    set_pa_filter([]);
-    set_from_str("");
-    set_to_str("");
-    reset_metric_filters();
-    set_page(1);
-  };
-
   const [cat_weights, setCatWeights] = useState(() => {
     const out = { ...default_weight_by_category };
     for (const c of Object.values(category_lookup?.by_id || {})) {
@@ -1366,6 +1342,29 @@ export default function floodevents() {
       set_vis("visible");
     } catch {}
   }, [show_page_rings, paged, r_inner, r_outer, stats_by_flood_distance]);
+
+  /* ===== helper functions ===== */
+  const set_metric_range = (key, field, value) => {
+    set_metric_filters((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], [field]: value },
+    }));
+    set_page(1);
+  };
+
+  const reset_metric_filters = () => {
+    set_metric_filters(createMetricFilterState());
+  };
+
+  const reset_all_filters = () => {
+    set_q("");
+    set_event_types_filter([]);
+    set_pa_filter([]);
+    set_from_str("");
+    set_to_str("");
+    reset_metric_filters();
+    set_page(1);
+  };
 
   function show_popup(lnglat, html) {
     hide_popup();
