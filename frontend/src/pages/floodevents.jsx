@@ -1748,18 +1748,22 @@ export default function floodevents() {
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="inner-radius" className="text-xs">Radius (meters)</Label>
-                              <Input
+                              <NumberInput
                                 id="inner-radius"
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                step="10"
                                 value={r_inner}
-                                onChange={(e) => {
-                                  const next = clamp(+e.target.value || 0, 0, 5000);
-                                  set_r_inner(next);
-                                  if (next > r_outer) set_r_outer(next);
+                                onValueChange={(numVal) => {
+                                  if (numVal !== undefined) {
+                                    const next = clamp(numVal, 0, 5000);
+                                    set_r_inner(next);
+                                    if (next > r_outer) set_r_outer(next);
+                                  }
                                 }}
+                                min={0}
+                                max={5000}
+                                stepper={10}
+                                decimalScale={0}
+                                fixedDecimalScale={false}
+                                hideSteppers={true}
                               />
                             </div>
                             <div className="flex items-center justify-between">
@@ -1801,18 +1805,22 @@ export default function floodevents() {
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="outer-radius" className="text-xs">Radius (meters)</Label>
-                              <Input
+                              <NumberInput
                                 id="outer-radius"
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                step="10"
                                 value={r_outer}
-                                onChange={(e) => {
-                                  const next = clamp(+e.target.value || 0, 0, 10000);
-                                  set_r_outer(next);
-                                  if (next < r_inner) set_r_inner(next);
+                                onValueChange={(numVal) => {
+                                  if (numVal !== undefined) {
+                                    const next = clamp(numVal, 0, 10000);
+                                    set_r_outer(next);
+                                    if (next < r_inner) set_r_inner(next);
+                                  }
                                 }}
+                                min={0}
+                                max={10000}
+                                stepper={10}
+                                decimalScale={0}
+                                fixedDecimalScale={false}
+                                hideSteppers={true}
                               />
                             </div>
                             <div className="flex items-center justify-between">
