@@ -47,10 +47,11 @@ export function generatePlanningAreaTooltipHTML(paData) {
   const formatChange = (delta, pct, isNegativeGood = false) => {
     if (!Number.isFinite(delta) || !Number.isFinite(pct)) return '';
     const sign = delta > 0 ? '+' : '';
+    const deltaSeconds = Math.round(delta);
     const color = isNegativeGood
       ? (delta < 0 ? '#22c55e' : delta > 0 ? '#ef4444' : '#9ca3af')
       : (delta > 0 ? '#fbbf24' : delta < 0 ? '#22c55e' : '#9ca3af');
-    return `<span style="color: ${color}; font-weight: 600;">(${sign}${fmtTime(delta)}, ${sign}${pct.toFixed(1)}%)</span>`;
+    return `<span style="color: ${color}; font-weight: 600;">(${sign}${deltaSeconds}s, ${sign}${pct.toFixed(1)}%)</span>`;
   };
 
   const formatReachableChange = (delta, pct) => {

@@ -135,11 +135,17 @@ function snapAmenitiesToNodes(amenity_fc, nodes, selectedTypes = ["moh_hospitals
 }
 
 /* ======================== dijkstra ======================= */
-function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFilter) {
+function multiSourceDijkstra({ nodes, adj }, amenityNodeMap, onProgress, edgeFilter) {
   const dist = new Map();
+  const nearestAmenity = new Map(); // Track which amenity each node is closest to
   const pq = new MinPQ();
 
-  for (const s of hospitalNodeIds) { dist.set(s, 0); pq.push(0, s); }
+  // amenityNodeMap is Map of node_id -> amenity_id
+  for (const [nodeId, amenityId] of amenityNodeMap.entries()) {
+    dist.set(nodeId, 0);
+    nearestAmenity.set(nodeId, amenityId);
+    pq.push(0, nodeId);
+  }
 
   let visited = 0;
   while (pq.size()) {
@@ -154,12 +160,13 @@ function multiSourceDijkstra({ nodes, adj }, hospitalNodeIds, onProgress, edgeFi
       const nd = d + e.w;
       if (nd < (dist.get(e.to) ?? Infinity)) {
         dist.set(e.to, nd);
+        nearestAmenity.set(e.to, nearestAmenity.get(u)); // Propagate amenity info
         pq.push(nd, e.to);
       }
     }
   }
   onProgress?.(visited);
-  return { dist, visited };
+  return { dist, nearestAmenity, visited };
 }
 
 /* ==================== compute per-PA stats ============= */
@@ -168,8 +175,13 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter,
   const amenities = snapAmenitiesToNodes(amenity_fc_enriched, nodes, [selectedAmenityType], excludedAmenities);
   if (!amenities.length) throw new Error(`No amenities found for type: ${selectedAmenityType}`);
 
-  const amenityNodeIds = amenities.map(a => a.node_id);
-  const { dist } = multiSourceDijkstra({ nodes, adj }, amenityNodeIds, onProgress, edgeFilter);
+  // Create map of node_id -> amenity_id for all amenity locations
+  const amenityNodeMap = new Map();
+  for (const amenity of amenities) {
+    amenityNodeMap.set(amenity.node_id, amenity.amenity_id);
+  }
+
+  const { dist, nearestAmenity } = multiSourceDijkstra({ nodes, adj }, amenityNodeMap, onProgress, edgeFilter);
 
   const byPA = new Map();
   for (const n of nodes.values()) {
@@ -210,7 +222,7 @@ function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter,
     unreachable: a.unreachable,
   }));
 
-  return { paStats, amenitiesCount: amenities.length, nodesCount: nodes.size, nodeDist: dist };
+  return { paStats, amenitiesCount: amenities.length, nodesCount: nodes.size, nodeDist: dist, nodeNearestAmenity: nearestAmenity };
 }
 
 /* ============================= Color scale ============================ */
@@ -307,9 +319,13 @@ export default function Simulation() {
   // Map layer visibility toggles
   const [showAmenities, setShowAmenities] = useState(true);
 
-  // Table sorting state
+  // Table sorting state (for PA table)
   const [sortColumn, setSortColumn] = useState("delta_avg_s");
   const [sortDirection, setSortDirection] = useState("desc");
+
+  // Road table sorting state
+  const [roadSortColumn, setRoadSortColumn] = useState("delta_time");
+  const [roadSortDirection, setRoadSortDirection] = useState("desc");
 
   // Enrich paDeltas with road statistics
   const enrichedPaDeltas = useMemo(() => {
@@ -374,7 +390,7 @@ export default function Simulation() {
     });
   }, [paDeltas, graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist]);
 
-  // Handle table column sorting
+  // Handle PA table column sorting
   const handleSort = useCallback((column) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -384,12 +400,31 @@ export default function Simulation() {
     }
   }, [sortColumn, sortDirection]);
 
+  // Handle road table column sorting
+  const handleRoadSort = useCallback((column) => {
+    if (roadSortColumn === column) {
+      setRoadSortDirection(roadSortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setRoadSortColumn(column);
+      setRoadSortDirection("desc");
+    }
+  }, [roadSortColumn, roadSortDirection]);
+
   // Create road-level detail data for second table
   const roadLevelData = useMemo(() => {
-    if (!graph?.edges || !graph?.nodes || !affectedRoads.length) return [];
+    if (!graph?.edges || !graph?.nodes || !affectedRoads.length || !amenity_fc_enriched) return [];
+    if (!baselineNearestAmenity || !floodedNearestAmenity) return [];
 
     const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
     const roadDataMap = new Map();
+
+    // Build amenity lookup
+    const amenityById = new Map();
+    amenity_fc_enriched.features?.forEach(f => {
+      if (f.properties?.amenity_id) {
+        amenityById.set(f.properties.amenity_id, f.properties);
+      }
+    });
 
     for (const edge of graph.edges) {
       if (!edge.rn_id) continue;
@@ -404,6 +439,28 @@ export default function Simulation() {
       const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
         ? floodedDist - baselineDist
         : null;
+
+      // Get nearest amenities from baseline and flooded scenario
+      let baselineAmenityName = "—";
+      let floodedAmenityName = "—";
+
+      // Find nearest amenity in baseline scenario
+      const baselineAmenityId = baselineNearestAmenity.get(edge.from);
+      if (baselineAmenityId) {
+        const amenity = amenityById.get(baselineAmenityId);
+        if (amenity) {
+          baselineAmenityName = amenity.amenity_name || amenity.name || amenity.amenity_type;
+        }
+      }
+
+      // Find nearest amenity in flooded scenario
+      const floodedAmenityId = floodedNearestAmenity.get(edge.from);
+      if (floodedAmenityId) {
+        const amenity = amenityById.get(floodedAmenityId);
+        if (amenity) {
+          floodedAmenityName = amenity.amenity_name || amenity.name || amenity.amenity_type;
+        }
+      }
 
       let category = "Unaffected";
       if (isBlocked) {
@@ -428,12 +485,14 @@ export default function Simulation() {
             : null,
           category,
           is_blocked: isBlocked,
+          baseline_amenity: baselineAmenityName,
+          flooded_amenity: floodedAmenityName,
         });
       }
     }
 
     return Array.from(roadDataMap.values());
-  }, [graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist]);
+  }, [graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist, amenity_fc_enriched, baselineNearestAmenity, floodedNearestAmenity]);
 
   // Sort enrichedPaDeltas based on current sort state
   const sortedPaDeltas = useMemo(() => {
@@ -461,9 +520,39 @@ export default function Simulation() {
     return sorted;
   }, [enrichedPaDeltas, sortColumn, sortDirection]);
 
+  // Sort roadLevelData based on current sort state
+  const sortedRoads = useMemo(() => {
+    if (!roadLevelData.length) return [];
+
+    const sorted = [...roadLevelData].sort((a, b) => {
+      let aVal = a[roadSortColumn];
+      let bVal = b[roadSortColumn];
+
+      // Handle null/undefined values
+      if (aVal == null) aVal = roadSortDirection === "asc" ? Infinity : -Infinity;
+      if (bVal == null) bVal = roadSortDirection === "asc" ? Infinity : -Infinity;
+
+      // String comparison for text columns
+      if (typeof aVal === "string" || typeof bVal === "string") {
+        return roadSortDirection === "asc"
+          ? String(aVal).localeCompare(String(bVal))
+          : String(bVal).localeCompare(String(aVal));
+      }
+
+      // Numeric comparison
+      return roadSortDirection === "asc" ? aVal - bVal : bVal - aVal;
+    });
+
+    return sorted;
+  }, [roadLevelData, roadSortColumn, roadSortDirection]);
+
   // Node-level distance data (Map: node_id => travel_time_seconds)
   const [baselineNodeDist, setBaselineNodeDist] = useState(null);
   const [floodedNodeDist, setFloodedNodeDist] = useState(null);
+
+  // Node-level nearest amenity data (Map: node_id => amenity_id)
+  const [baselineNearestAmenity, setBaselineNearestAmenity] = useState(null);
+  const [floodedNearestAmenity, setFloodedNearestAmenity] = useState(null);
 
   // Scenarios now loaded from context - no need to fetch here
   useEffect(() => {
@@ -725,6 +814,7 @@ export default function Simulation() {
       });
       setBaselineStats(baseline);
       setBaselineNodeDist(baseline.nodeDist);
+      setBaselineNearestAmenity(baseline.nodeNearestAmenity);
 
       // Flooded
       setProgress(0);
@@ -738,6 +828,7 @@ export default function Simulation() {
       });
       setFloodedStats(flooded);
       setFloodedNodeDist(flooded.nodeDist);
+      setFloodedNearestAmenity(flooded.nodeNearestAmenity);
 
       // Deltas
       const baseByName = new Map();
@@ -900,7 +991,7 @@ export default function Simulation() {
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-[90vh] bg-background">
       {/* Header with stepper */}
       <div className="border-b bg-card shadow-sm flex-shrink-0">
         <div className="px-6 py-4">
@@ -1611,9 +1702,14 @@ export default function Simulation() {
                     <CardTitle>Simulation Results</CardTitle>
                     <CardDescription>Planning area summary and road-level details</CardDescription>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => downloadCSV("simulation_results.csv", enrichedPaDeltas)}>
-                    <Download className="h-4 w-4 mr-2" /> Export CSV
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => downloadCSV("planning_area_summary.csv", enrichedPaDeltas)}>
+                      <Download className="h-4 w-4 mr-2" /> Export PA Summary
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => downloadCSV("road_level_details.csv", roadLevelData)}>
+                      <Download className="h-4 w-4 mr-2" /> Export Road Details
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1653,26 +1749,27 @@ export default function Simulation() {
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("delta_avg_s")}>
                           <div className="flex items-center gap-1">Δ Time (s){sortColumn === "delta_avg_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
-                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("pct_avg_increase")}>
-                          <div className="flex items-center gap-1">Δ Time (%){sortColumn === "pct_avg_increase" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                        </th>
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("unaffected_roads")}>
-                          <div className="flex items-center gap-1">Unaffected{sortColumn === "unaffected_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                          <div className="flex items-center gap-1">Unaffected Roads{sortColumn === "unaffected_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("affected_roads")}>
-                          <div className="flex items-center gap-1">Affected{sortColumn === "affected_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                          <div className="flex items-center gap-1">Affected Roads{sortColumn === "affected_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("blocked_roads")}>
-                          <div className="flex items-center gap-1">Blocked{sortColumn === "blocked_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                          <div className="flex items-center gap-1">Blocked Roads{sortColumn === "blocked_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("unreachable_roads")}>
-                          <div className="flex items-center gap-1">Unreachable{sortColumn === "unreachable_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                          <div className="flex items-center gap-1">Unreachable Roads{sortColumn === "unreachable_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedPaDeltas.map((d, i) => (
-                        <tr key={i} className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50">
+                        <tr
+                          key={i}
+                          className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => setSelectedPA(d.pa_id)}
+                        >
                           <td className="font-medium">{d.pa_name}</td>
                           <td className="text-muted-foreground">{fmtM(d.base_min_s)}</td>
                           <td className="text-muted-foreground">{fmtM(d.base_max_s)}</td>
@@ -1681,7 +1778,6 @@ export default function Simulation() {
                           <td>{fmtM(d.flood_max_s)}</td>
                           <td>{fmtM(d.flood_avg_s)}</td>
                           <td className={d.delta_avg_s > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_avg_s > 0 ? `+${Math.round(d.delta_avg_s)}s` : `${Math.round(d.delta_avg_s)}s`}</td>
-                          <td className={Number.isFinite(d.pct_avg_increase) && d.pct_avg_increase > 0 ? "text-red-600 font-semibold" : ""}>{Number.isFinite(d.pct_avg_increase) ? `${d.pct_avg_increase > 0 ? '+' : ''}${d.pct_avg_increase.toFixed(1)}%` : '—'}</td>
                           <td className="text-green-600">{d.unaffected_roads || 0}</td>
                           <td className={d.affected_roads > 0 ? "text-yellow-600" : ""}>{d.affected_roads || 0}</td>
                           <td className={d.blocked_roads > 0 ? "text-orange-600 font-semibold" : ""}>{d.blocked_roads || 0}</td>
@@ -1699,18 +1795,40 @@ export default function Simulation() {
                       <table className="w-full text-sm">
                         <thead className="sticky top-0 bg-muted z-10">
                           <tr className="[&>th]:px-2 [&>th]:py-2 text-left text-xs">
-                            <th>Road ID</th>
-                            <th>Road Name</th>
-                            <th>Planning Area</th>
-                            <th>Baseline Time</th>
-                            <th>Flooded Time</th>
-                            <th>Time Increase</th>
-                            <th>% Increase</th>
-                            <th>Category</th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("rn_id")}>
+                              <div className="flex items-center gap-1">Road ID{roadSortColumn === "rn_id" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("name")}>
+                              <div className="flex items-center gap-1">Road Name{roadSortColumn === "name" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("pa_name")}>
+                              <div className="flex items-center gap-1">Planning Area{roadSortColumn === "pa_name" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("baseline_time")}>
+                              <div className="flex items-center gap-1">Baseline Time{roadSortColumn === "baseline_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("flooded_time")}>
+                              <div className="flex items-center gap-1">Flooded Time{roadSortColumn === "flooded_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("delta_time")}>
+                              <div className="flex items-center gap-1">Time Increase{roadSortColumn === "delta_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("pct_increase")}>
+                              <div className="flex items-center gap-1">% Increase{roadSortColumn === "pct_increase" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("category")}>
+                              <div className="flex items-center gap-1">Category{roadSortColumn === "category" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("baseline_amenity")}>
+                              <div className="flex items-center gap-1">Dry Scenario Amenity{roadSortColumn === "baseline_amenity" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
+                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("flooded_amenity")}>
+                              <div className="flex items-center gap-1">Flood Scenario Amenity{roadSortColumn === "flooded_amenity" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {roadLevelData.map((road, i) => (
+                          {sortedRoads.map((road, i) => (
                             <tr key={i} className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50">
                               <td className="font-mono text-xs">{road.rn_id}</td>
                               <td className="font-medium">{road.name}</td>
@@ -1733,6 +1851,8 @@ export default function Simulation() {
                                   {road.category}
                                 </span>
                               </td>
+                              <td className="text-muted-foreground text-xs">{road.baseline_amenity}</td>
+                              <td className="text-muted-foreground text-xs">{road.flooded_amenity}</td>
                             </tr>
                           ))}
                         </tbody>
