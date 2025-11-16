@@ -11,9 +11,9 @@ import { fmtTime } from "@/lib/simulation/metrics";
  */
 export function RoadStatusLegend() {
   return (
-    <div className="absolute bottom-4 right-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3">
+    <div className="absolute bottom-4 right-4 z-10 rounded-lg shadow-lg p-3 border" style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
       <div className="flex flex-col gap-2">
-        <div className="text-xs font-semibold mb-1">Road Status</div>
+        <div className="text-xs font-semibold mb-1 text-foreground">Road Status</div>
         <div className="flex items-center gap-2">
           <div style={{ width: '20px', height: '3px', backgroundColor: '#22c55e' }}></div>
           <span className="text-xs">Unaffected</span>
@@ -255,8 +255,8 @@ export function SimulationLegend({ selectedMetric, goldenTime, selectedPA, paDel
 
   // Show appropriate legend based on metric
   return (
-    <div className="absolute bottom-4 right-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 min-w-[200px]">
-      <div className="flex flex-col gap-2">
+    <div className="absolute bottom-4 right-4 z-10 rounded-lg shadow-lg p-3 min-w-[200px] border" style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
+      <div className="flex flex-col gap-2 text-foreground">
         {selectedMetric === "delta_time" && <DeltaTimeLegend maxDeltaTime={maxDeltaTime} />}
         {selectedMetric === "unreachable" && <UnreachableLegend maxUnreachable={maxUnreachable} />}
         {selectedMetric === "baseline_time" && <TimeLegend maxTime={maxBaselineTime} />}

@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCircle, Search, ChevronDown } from "lucide-react";
+import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCircle, Search, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { SimulationMapContainer } from "@/components/pagecomponents/simulation/SimulationMapContainer";
 import { SimulationLegend } from "@/components/pagecomponents/simulation/SimulationLegend";
 import { MetricSelector } from "@/components/pagecomponents/simulation/MetricSelector";
@@ -306,6 +306,46 @@ export default function Simulation() {
   // Map layer visibility toggles
   const [showAmenities, setShowAmenities] = useState(true);
   const [showFloodedRoads, setShowFloodedRoads] = useState(true);
+
+  // Table sorting state
+  const [sortColumn, setSortColumn] = useState("delta_avg_s");
+  const [sortDirection, setSortDirection] = useState("desc");
+
+  // Handle table column sorting
+  const handleSort = useCallback((column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  }, [sortColumn, sortDirection]);
+
+  // Sort paDeltas based on current sort state
+  const sortedPaDeltas = useMemo(() => {
+    if (!paDeltas.length) return [];
+
+    const sorted = [...paDeltas].sort((a, b) => {
+      let aVal = a[sortColumn];
+      let bVal = b[sortColumn];
+
+      // Handle null/undefined values
+      if (aVal == null) aVal = sortDirection === "asc" ? Infinity : -Infinity;
+      if (bVal == null) bVal = sortDirection === "asc" ? Infinity : -Infinity;
+
+      // String comparison for pa_name
+      if (sortColumn === "pa_name") {
+        return sortDirection === "asc"
+          ? String(aVal).localeCompare(String(bVal))
+          : String(bVal).localeCompare(String(aVal));
+      }
+
+      // Numeric comparison for other columns
+      return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+    });
+
+    return sorted;
+  }, [paDeltas, sortColumn, sortDirection]);
 
   // Node-level distance data (Map: node_id => travel_time_seconds)
   const [baselineNodeDist, setBaselineNodeDist] = useState(null);
@@ -746,9 +786,9 @@ export default function Simulation() {
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-screen bg-background">
       {/* Header with stepper */}
-      <div className="border-b bg-gray-50 dark:bg-gray-900 shadow-sm">
+      <div className="border-b bg-card shadow-sm flex-shrink-0">
         <div className="px-6 py-4">
           <h1 className="text-2xl font-bold mb-4 text-center">Flood Impact Simulation</h1>
           <div className="flex items-center justify-center gap-2">
@@ -790,7 +830,7 @@ export default function Simulation() {
       </div>
 
       {/* Content */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto">
+      <div ref={contentRef} className="flex-1 overflow-y-auto bg-background">
         <div className="max-w-7xl mx-auto p-6 pb-24">{/* pb-24 for footer space */}
         {/* Step 1: Define Flood Input */}
         {step === 1 && (
@@ -1414,7 +1454,7 @@ export default function Simulation() {
             </Accordion>
 
             {/* Unified Map */}
-            <div className="relative" style={{ height: "calc(100vh - 400px)", minHeight: "500px" }}>
+            <div className="relative w-full" style={{ height: "calc(100vh - 320px)", minHeight: "600px" }}>
                 <SimulationMapContainer
                   planning_fc_raw={planning_fc_raw}
                   amenity_fc_enriched={amenity_fc_enriched}
@@ -1468,20 +1508,116 @@ export default function Simulation() {
               <CardContent>
                 <div className="border rounded-lg overflow-auto max-h-96">
                   <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-muted">
+                    <thead className="sticky top-0 bg-muted z-10">
                       <tr className="[&>th]:px-3 [&>th]:py-2 text-left text-xs">
-                        <th>Planning Area</th>
-                        <th>Total Intersections</th>
-                        <th>Baseline Avg</th>
-                        <th>Baseline Unreachable</th>
-                        <th>Flooded Avg</th>
-                        <th>Flooded Unreachable</th>
-                        <th>Δ Avg Time</th>
-                        <th>Δ Unreachable</th>
+                        <th
+                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
+                          onClick={() => handleSort("pa_name")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Planning Area
+                            {sortColumn === "pa_name" ? (
+                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
+                          onClick={() => handleSort("total_nodes")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Total Intersections
+                            {sortColumn === "total_nodes" ? (
+                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
+                          onClick={() => handleSort("base_avg_s")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Baseline Avg
+                            {sortColumn === "base_avg_s" ? (
+                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
+                          onClick={() => handleSort("base_unreachable")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Baseline Unreachable
+                            {sortColumn === "base_unreachable" ? (
+                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
+                          onClick={() => handleSort("flood_avg_s")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Flooded Avg
+                            {sortColumn === "flood_avg_s" ? (
+                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
+                          onClick={() => handleSort("flood_unreachable")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Flooded Unreachable
+                            {sortColumn === "flood_unreachable" ? (
+                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
+                          onClick={() => handleSort("delta_avg_s")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Δ Avg Time
+                            {sortColumn === "delta_avg_s" ? (
+                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none"
+                          onClick={() => handleSort("delta_unreachable")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Δ Unreachable
+                            {sortColumn === "delta_unreachable" ? (
+                              sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {paDeltas.sort((a, b) => (b.delta_avg_s || 0) - (a.delta_avg_s || 0)).map((d, i) => (
+                      {sortedPaDeltas.map((d, i) => (
                         <tr key={i} className="border-t [&>td]:px-3 [&>td]:py-2">
                           <td className="font-medium">{d.pa_name}</td>
                           <td className="text-muted-foreground">{d.total_nodes}</td>
@@ -1505,7 +1641,7 @@ export default function Simulation() {
       </div>
 
       {/* Sticky Footer with Navigation */}
-      <div className="border-t bg-card shadow-lg">
+      <div className="border-t bg-card shadow-lg flex-shrink-0">
         <div className="px-6 py-3 flex items-center justify-between">
           {step > 1 && (
             <Button variant="outline" onClick={() => setStep(step - 1)} disabled={busy}>
