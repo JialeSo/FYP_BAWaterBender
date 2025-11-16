@@ -440,7 +440,9 @@ export default function Simulation() {
 
       const nodeFrom = graph.nodes.get(edge.from);
       const nodeTo = graph.nodes.get(edge.to);
+
       const paName = nodeFrom?.paName || nodeTo?.paName || "Unknown";
+      const paId   = nodeFrom?.paId ?? nodeTo?.paId ?? null;   // 👈 NEW
 
       const isBlocked = affectedRoadSet.has(edge.rn_id);
       const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
@@ -453,7 +455,6 @@ export default function Simulation() {
       let baselineAmenityName = "—";
       let floodedAmenityName = "—";
 
-      // Find nearest amenity in baseline scenario
       const baselineAmenityId = baselineNearestAmenity.get(edge.from);
       if (baselineAmenityId) {
         const amenity = amenityById.get(baselineAmenityId);
@@ -462,7 +463,6 @@ export default function Simulation() {
         }
       }
 
-      // Find nearest amenity in flooded scenario
       const floodedAmenityId = floodedNearestAmenity.get(edge.from);
       if (floodedAmenityId) {
         const amenity = amenityById.get(floodedAmenityId);
@@ -480,11 +480,11 @@ export default function Simulation() {
         category = "Affected";
       }
 
-      // Use rn_id as key to avoid duplicates
       if (!roadDataMap.has(edge.rn_id)) {
         roadDataMap.set(edge.rn_id, {
           rn_id: edge.rn_id,
           name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+          pa_id: paId,          // 👈 NEW
           pa_name: paName,
           baseline_time: baselineDist,
           flooded_time: floodedDist,
@@ -501,7 +501,16 @@ export default function Simulation() {
     }
 
     return Array.from(roadDataMap.values());
-  }, [graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist, amenity_fc_enriched, baselineNearestAmenity, floodedNearestAmenity]);
+  }, [
+    graph?.edges,
+    graph?.nodes,
+    affectedRoads,
+    baselineNodeDist,
+    floodedNodeDist,
+    amenity_fc_enriched,
+    baselineNearestAmenity,
+    floodedNearestAmenity,
+  ]);
 
   // Sort enrichedPaDeltas based on current sort state
   const sortedPaDeltas = useMemo(() => {
@@ -993,9 +1002,9 @@ export default function Simulation() {
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
-    <div className="flex flex-col h-[90vh] bg-background">
+    <div className="flex flex-col h-[91vh] bg-background">
       {/* Header with stepper */}
-      <div className="border-b bg-card shadow-sm flex-shrink-0">
+      <div className="border-b shadow-sm flex-shrink-0">
         <div className="px-6 py-4">
           <h1 className="text-2xl font-bold mb-4 text-center">Flood Impact Simulation</h1>
           <div className="flex items-center justify-center gap-2">
@@ -1148,47 +1157,47 @@ export default function Simulation() {
         {step === 2 && (
           <div className="space-y-4">
             {floodInputMethod === "manual" ? (
-              <div className="grid grid-cols-[400px_1fr] gap-4 h-[calc(100vh-16rem)]">
-                <div className="flex flex-col h-full overflow-hidden">
+                <div className="grid grid-cols-[400px_1fr] gap-4" style={{ height: "600px" }}>
+                  <div className="flex flex-col overflow-hidden">
                   <Card className="flex-1 flex flex-col overflow-hidden">
                     <CardHeader className="flex-shrink-0">
                       <CardTitle>Flood Markers</CardTitle>
                       <CardDescription>Click map to add markers</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col space-y-4 overflow-hidden">
-                      <div className="flex-shrink-0" style={{ maxHeight: '30vh', overflowY: 'auto' }}>
-                        <div className="space-y-3 pr-4">
-                        {floodMarkers.map((marker, idx) => (
-                          <div key={marker.id} className="border rounded-lg p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-sm">Marker {idx + 1}</span>
-                              <Button size="sm" variant="ghost" onClick={() => setFloodMarkers(prev => prev.filter(m => m.id !== marker.id))}>
-                                <X className="h-4 w-4" />
-                              </Button>
+                            <div className="flex-shrink-0" style={{ height: "450px", overflowY: "auto" }}>
+                                <div className="space-y-3 pr-4">
+                            {floodMarkers.map((marker, idx) => (
+                              <div key={marker.id} className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold text-sm">Marker {idx + 1}</span>
+                                  <Button size="sm" variant="ghost" onClick={() => setFloodMarkers(prev => prev.filter(m => m.id !== marker.id))}>
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <div className="text-xs text-muted-foreground font-mono">
+                                  {marker.lng.toFixed(4)}, {marker.lat.toFixed(4)}
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Radius: {marker.radius}m</Label>
+                                  <Slider
+                                    value={[marker.radius]}
+                                    min={100}
+                                    max={2000}
+                                    step={50}
+                                    onValueChange={(v) => {
+                                      setFloodMarkers(prev => prev.map(m => m.id === marker.id ? { ...m, radius: v[0] } : m));
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                            {floodMarkers.length === 0 && (
+                              <div className="text-center text-sm text-muted-foreground py-8">
+                                Click on the map to add flood markers
+                              </div>
+                            )}
                             </div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {marker.lng.toFixed(4)}, {marker.lat.toFixed(4)}
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Radius: {marker.radius}m</Label>
-                              <Slider
-                                value={[marker.radius]}
-                                min={100}
-                                max={2000}
-                                step={50}
-                                onValueChange={(v) => {
-                                  setFloodMarkers(prev => prev.map(m => m.id === marker.id ? { ...m, radius: v[0] } : m));
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                        {floodMarkers.length === 0 && (
-                          <div className="text-center text-sm text-muted-foreground py-8">
-                            Click on the map to add flood markers
-                          </div>
-                        )}
-                        </div>
                       </div>
 
                       {affectedRoads.length > 0 && (
@@ -1212,8 +1221,8 @@ export default function Simulation() {
                               />
                             </div>
                           </div>
-                          <div className="border rounded p-2" style={{ maxHeight: '30vh', overflowY: 'auto' }}>
-                            <div className="space-y-2 pr-4">
+                            <div className="flex-shrink-0 mt-4" style={{ height: "450px", overflowY: "auto" }}>
+                                  <div className="space-y-2 pr-4">
                               {filteredAffectedRoads.map((road) => (
                                 <div key={road.rn_id} className="flex items-center space-x-2">
                                   <Checkbox
@@ -1239,7 +1248,7 @@ export default function Simulation() {
                   </Card>
                 </div>
 
-                <div ref={configContainerRef} className="rounded-lg border" style={{ height: "800px" }} />
+                 <div ref={configContainerRef} className="rounded-lg border" style={{ height: "900px" }} />
               </div>
             ) : (
               <Card className="max-w-2xl mx-auto">
@@ -1661,7 +1670,7 @@ export default function Simulation() {
             </Accordion>
 
             {/* Unified Map */}
-            <div className="relative w-full rounded-lg overflow-hidden" style={{ height: "800px" }}>
+            <div className="relative w-full rounded-lg overflow-hidden" style={{ height: "500px" }}>
                 <SimulationMapContainer
                   planning_fc_raw={planning_fc_raw}
                   amenity_fc_enriched={amenity_fc_enriched}
@@ -1718,12 +1727,12 @@ export default function Simulation() {
                 <Tabs defaultValue="planning-areas" className="w-full">
                   <TabsList className="grid w-full grid-cols-2 mb-4">
                     <TabsTrigger value="planning-areas">Planning Area Summary</TabsTrigger>
-                    <TabsTrigger value="roads">Road-Level Details ({roadLevelData.length} roads)</TabsTrigger>
+                    <TabsTrigger value="roads">Road-Level Details</TabsTrigger>
                   </TabsList>
 
                   {/* Planning Area Summary Tab */}
                   <TabsContent value="planning-areas">
-                <div className="border rounded-lg overflow-auto max-h-96">
+                <div className="border rounded-lg overflow-auto max-h-[600px]">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-muted z-10">
                       <tr className="[&>th]:px-2 [&>th]:py-2 text-left text-xs">
@@ -1793,73 +1802,82 @@ export default function Simulation() {
 
                   {/* Road-Level Details Tab */}
                   <TabsContent value="roads">
-                    <div className="border rounded-lg overflow-auto max-h-96">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-muted z-10">
-                          <tr className="[&>th]:px-2 [&>th]:py-2 text-left text-xs">
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("rn_id")}>
-                              <div className="flex items-center gap-1">Road ID{roadSortColumn === "rn_id" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("name")}>
-                              <div className="flex items-center gap-1">Road Name{roadSortColumn === "name" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("pa_name")}>
-                              <div className="flex items-center gap-1">Planning Area{roadSortColumn === "pa_name" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("baseline_time")}>
-                              <div className="flex items-center gap-1">Baseline Time{roadSortColumn === "baseline_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("flooded_time")}>
-                              <div className="flex items-center gap-1">Flooded Time{roadSortColumn === "flooded_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("delta_time")}>
-                              <div className="flex items-center gap-1">Time Increase{roadSortColumn === "delta_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("pct_increase")}>
-                              <div className="flex items-center gap-1">% Increase{roadSortColumn === "pct_increase" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("category")}>
-                              <div className="flex items-center gap-1">Category{roadSortColumn === "category" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("baseline_amenity")}>
-                              <div className="flex items-center gap-1">Dry Scenario Amenity{roadSortColumn === "baseline_amenity" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                            <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("flooded_amenity")}>
-                              <div className="flex items-center gap-1">Flood Scenario Amenity{roadSortColumn === "flooded_amenity" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sortedRoads.map((road, i) => (
-                            <tr key={i} className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50">
-                              <td className="font-mono text-xs">{road.rn_id}</td>
-                              <td className="font-medium">{road.name}</td>
-                              <td className="text-muted-foreground">{road.pa_name}</td>
-                              <td>{Number.isFinite(road.baseline_time) ? fmtM(road.baseline_time) : '—'}</td>
-                              <td>{Number.isFinite(road.flooded_time) ? fmtM(road.flooded_time) : '—'}</td>
-                              <td className={road.delta_time && road.delta_time > 0 ? "text-red-600 font-semibold" : ""}>
-                                {road.delta_time && Number.isFinite(road.delta_time) ? `+${Math.round(road.delta_time)}s` : '—'}
-                              </td>
-                              <td className={road.pct_increase && road.pct_increase > 0 ? "text-red-600 font-semibold" : ""}>
-                                {Number.isFinite(road.pct_increase) ? `+${road.pct_increase.toFixed(1)}%` : '—'}
-                              </td>
-                              <td>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                  road.category === "Unaffected" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                                  road.category === "Affected" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                                  road.category === "Blocked (Flooded)" ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
-                                  "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                }`}>
-                                  {road.category}
-                                </span>
-                              </td>
-                              <td className="text-muted-foreground text-xs">{road.baseline_amenity}</td>
-                              <td className="text-muted-foreground text-xs">{road.flooded_amenity}</td>
+                    {!selectedPA ? (
+                      <div className="text-center text-sm text-muted-foreground py-10">
+                        Select a planning area in the summary table or on the map to view road-level details.
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg overflow-auto max-h-[600px]">
+                        <table className="w-full text-sm">
+                          <thead className="sticky top-0 bg-muted z-10">
+                            <tr className="[&>th]:px-2 [&>th]:py-2 text-left text-xs">
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("rn_id")}>
+                                <div className="flex items-center gap-1">Road ID{roadSortColumn === "rn_id" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("name")}>
+                                <div className="flex items-center gap-1">Road Name{roadSortColumn === "name" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("pa_name")}>
+                                <div className="flex items-center gap-1">Planning Area{roadSortColumn === "pa_name" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("baseline_time")}>
+                                <div className="flex items-center gap-1">Baseline Time{roadSortColumn === "baseline_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("flooded_time")}>
+                                <div className="flex items-center gap-1">Flooded Time{roadSortColumn === "flooded_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("delta_time")}>
+                                <div className="flex items-center gap-1">Time Increase{roadSortColumn === "delta_time" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("pct_increase")}>
+                                <div className="flex items-center gap-1">% Increase{roadSortColumn === "pct_increase" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("category")}>
+                                <div className="flex items-center gap-1">Category{roadSortColumn === "category" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("baseline_amenity")}>
+                                <div className="flex items-center gap-1">Dry Scenario Amenity{roadSortColumn === "baseline_amenity" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("flooded_amenity")}>
+                                <div className="flex items-center gap-1">Flood Scenario Amenity{roadSortColumn === "flooded_amenity" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+
+                          <tbody>
+                            {sortedRoads
+                              .filter(r => r.pa_id === selectedPA)  // only show selected PA's roads
+                              .map((road, i) => (
+                                <tr key={i} className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50">
+                                  <td className="font-mono text-xs">{road.rn_id}</td>
+                                  <td className="font-medium">{road.name}</td>
+                                  <td className="text-muted-foreground">{road.pa_name}</td>
+                                  <td>{Number.isFinite(road.baseline_time) ? fmtM(road.baseline_time) : '—'}</td>
+                                  <td>{Number.isFinite(road.flooded_time) ? fmtM(road.flooded_time) : '—'}</td>
+                                  <td className={road.delta_time > 0 ? "text-red-600 font-semibold" : ""}>
+                                    {Number.isFinite(road.delta_time) ? `+${Math.round(road.delta_time)}s` : '—'}
+                                  </td>
+                                  <td className={road.pct_increase > 0 ? "text-red-600 font-semibold" : ""}>
+                                    {Number.isFinite(road.pct_increase) ? `+${road.pct_increase.toFixed(1)}%` : '—'}
+                                  </td>
+                                  <td>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                      road.category === "Unaffected" ? "bg-green-100 text-green-800" :
+                                      road.category === "Affected" ? "bg-yellow-100 text-yellow-800" :
+                                      road.category === "Blocked (Flooded)" ? "bg-orange-100 text-orange-800" :
+                                      "bg-red-100 text-red-800"
+                                    }`}>
+                                      {road.category}
+                                    </span>
+                                  </td>
+                                  <td className="text-muted-foreground text-xs">{road.baseline_amenity}</td>
+                                  <td className="text-muted-foreground text-xs">{road.flooded_amenity}</td>
+                                </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </CardContent>
@@ -1871,7 +1889,7 @@ export default function Simulation() {
       </div>
 
       {/* Sticky Footer with Navigation */}
-      <div className="border-t bg-card shadow-lg flex-shrink-0">
+      <div className="border-t shadow-lg">
         <div className="px-6 py-3 flex items-center justify-between">
           {step > 1 && (
             <Button variant="outline" onClick={() => setStep(step - 1)} disabled={busy}>

@@ -724,7 +724,7 @@ export default function Centrality() {
 
   /* ===== ui ===== */
   return (
-    <div className="mx-auto flex w-full flex-col gap-5 p-6 relative">
+    <div className="mx-auto flex w-full flex-col gap-5 relative">
       {/* Loading overlay */}
       {isCalculating && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
