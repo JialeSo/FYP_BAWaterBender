@@ -134,7 +134,8 @@ function computePACounts(floodFC, selectedPAs, selectedTypesLC, fromISO, toISO) 
     const dt = p.event_date_iso ?? p.event_date ?? p.start_date ?? p.date ?? p.dt ?? null;
     if (!withinDate(dt, fromISO, toISO)) continue;
     const pa = toS(getProp(p, FLOOD_PA_NAME_KEYS));
-    if (sel.size && !sel.has(pa)) continue;
+    // Always filter by selected PAs (empty = show nothing)
+    if (!sel.has(pa)) continue;
     if (pa) inc(m, pa, 1);
   }
   return m;
@@ -150,7 +151,8 @@ function computeSZCounts(floodFC, selectedPAs, selectedTypesLC, fromISO, toISO) 
     const dt = p.event_date_iso ?? p.event_date ?? p.start_date ?? p.date ?? p.dt ?? null;
     if (!withinDate(dt, fromISO, toISO)) continue;
     const pa = toS(getProp(p, FLOOD_PA_NAME_KEYS));
-    if (sel.size && !sel.has(pa)) continue;
+    // Always filter by selected PAs (empty = show nothing)
+    if (!sel.has(pa)) continue;
     const sz = toS(p.origin_subzone || p.subzone || p.start_subzone || p.end_subzone);
     if (sz) inc(m, sz, 1);
   }
@@ -176,7 +178,9 @@ function computeAmenityCounts({ amenitiesFC, planningFC, subzoneFC, selectedPAs,
   }
 
   const pass = (p) => {
-    if (paAllow.size) { const pa = toS(getProp(p, PA_NAME_KEYS)); if (!pa || !paAllow.has(pa)) return false; }
+    // Always filter by selected PAs (empty = show nothing)
+    const pa = toS(getProp(p, PA_NAME_KEYS));
+    if (!pa || !paAllow.has(pa)) return false;
     if (catAllow.size) { const c = toS(p.amenity_category); if (!c || !catAllow.has(c)) return false; }
     if (typeAllow.size) { const t = toS(p.amenity_type); if (!t || !typeAllow.has(t)) return false; }
     return true;
@@ -332,15 +336,14 @@ export default function singaporehistoricalfloodmap({
   // Filtered PA universe for rankings (respects selectedPlanningAreas filter)
   const paUniverseFiltered = useMemo(() => {
     const selected = new Set((selectedPlanningAreas || []).map(toS).filter(Boolean));
-    if (selected.size === 0) return paUniverse; // No filter = all PAs
-    return paUniverse.filter(pa => selected.has(pa)); // Only selected PAs
+    // Always filter by selected PAs (empty = none shown)
+    return paUniverse.filter(pa => selected.has(pa));
   }, [paUniverse, selectedPlanningAreas]);
 
   // Filtered SZ universe for rankings (respects selectedPlanningAreas filter)
   const szUniverseFiltered = useMemo(() => {
     const selected = new Set((selectedPlanningAreas || []).map(toS).filter(Boolean));
-    if (selected.size === 0) return szUniverse; // No filter = all SZs
-    // Filter subzones that belong to selected planning areas
+    // Filter subzones that belong to selected planning areas (empty = none shown)
     return (subzoneFC.features || [])
       .filter(f => {
         const pa = toS(getProp(f.properties, PA_NAME_KEYS));
@@ -436,8 +439,8 @@ export default function singaporehistoricalfloodmap({
       const sz = toS(getProp(f.properties, SZ_NAME_KEYS));
       const pa = toS(getProp(f.properties, PA_NAME_KEYS));
       if (!sz || !pa) continue;
-      // Only include PAs that are selected (or all if none selected)
-      if (selected.size > 0 && !selected.has(pa)) continue;
+      // Always filter by selected PAs (empty = show nothing)
+      if (!selected.has(pa)) continue;
       (paToSZ[pa] ||= []).push(sz);
     }
     const build = (names, map) => {

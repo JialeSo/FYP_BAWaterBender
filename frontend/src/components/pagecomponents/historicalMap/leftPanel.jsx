@@ -248,8 +248,8 @@ export default function LeftPanel({
             searchPlaceholder="Search planning areas…"
             emptyText="No planning area found."
             showBulkActions
-            showAllRow
-            allMeansEmpty
+            showAllRow={false}
+            allMeansEmpty={false}
             renderItemLeft={(value, active) => (
               <Checkbox checked={active} readOnly />
             )}

@@ -312,7 +312,11 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
             .map((s) => String(s).trim())
         )
       ).sort();
-      if (!cancelled) setPlanningAreas(paNames);
+      if (!cancelled) {
+        setPlanningAreas(paNames);
+        // Initialize with ALL planning areas selected by default
+        setSelectedPlanningAreas(paNames);
+      }
 
       const amenCats = Array.from(
         new Set(
@@ -384,9 +388,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
 
   const filteredFloodEvents = useMemo(() => {
     const paAllowed = new Set(selectedPlanningAreas);
-    const base = !paAllowed.size
-      ? floodEvents
-      : floodEvents.filter((e) => e.planningArea && paAllowed.has(e.planningArea));
+    // Always filter by selected planning areas (empty = show nothing)
+    const base = floodEvents.filter((e) => e.planningArea && paAllowed.has(e.planningArea));
 
     const typeAllowed = new Set(
       (selectedFloodTypes || []).map((s) => String(s).trim().toLowerCase())
@@ -555,7 +558,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
 
     return (amenityData.features || []).filter((f) => {
       const p = f.properties || {};
-      if (paAllowed.size && !paAllowed.has(String(p.planning_area || "").trim())) return false;
+      // Always filter by selected planning areas (empty = show nothing)
+      if (!paAllowed.has(String(p.planning_area || "").trim())) return false;
       if (cats.size) {
         const cat = String(p.amenity_category ?? "").trim();
         if (!cat || !cats.has(cat)) return false;
