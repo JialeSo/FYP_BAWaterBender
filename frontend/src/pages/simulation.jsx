@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCircle, Search, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { SimulationMapContainer } from "@/components/pagecomponents/simulation/SimulationMapContainer";
 import { SimulationLegend } from "@/components/pagecomponents/simulation/SimulationLegend";
@@ -382,6 +383,57 @@ export default function Simulation() {
       setSortDirection("desc");
     }
   }, [sortColumn, sortDirection]);
+
+  // Create road-level detail data for second table
+  const roadLevelData = useMemo(() => {
+    if (!graph?.edges || !graph?.nodes || !affectedRoads.length) return [];
+
+    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+    const roadDataMap = new Map();
+
+    for (const edge of graph.edges) {
+      if (!edge.rn_id) continue;
+
+      const nodeFrom = graph.nodes.get(edge.from);
+      const nodeTo = graph.nodes.get(edge.to);
+      const paName = nodeFrom?.paName || nodeTo?.paName || "Unknown";
+
+      const isBlocked = affectedRoadSet.has(edge.rn_id);
+      const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
+      const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
+      const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+        ? floodedDist - baselineDist
+        : null;
+
+      let category = "Unaffected";
+      if (isBlocked) {
+        category = "Blocked (Flooded)";
+      } else if (!Number.isFinite(floodedDist)) {
+        category = "Unreachable";
+      } else if (delta && delta > 0) {
+        category = "Affected";
+      }
+
+      // Use rn_id as key to avoid duplicates
+      if (!roadDataMap.has(edge.rn_id)) {
+        roadDataMap.set(edge.rn_id, {
+          rn_id: edge.rn_id,
+          name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+          pa_name: paName,
+          baseline_time: baselineDist,
+          flooded_time: floodedDist,
+          delta_time: delta,
+          pct_increase: Number.isFinite(baselineDist) && baselineDist > 0 && Number.isFinite(delta)
+            ? (delta / baselineDist) * 100
+            : null,
+          category,
+          is_blocked: isBlocked,
+        });
+      }
+    }
+
+    return Array.from(roadDataMap.values());
+  }, [graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist]);
 
   // Sort enrichedPaDeltas based on current sort state
   const sortedPaDeltas = useMemo(() => {
@@ -1551,20 +1603,28 @@ export default function Simulation() {
                 />
             </div>
 
-            {/* Results table */}
+            {/* Results Tables with Tabs */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Planning Area Impact Analysis</CardTitle>
-                    <CardDescription>Comparison of baseline vs flooded scenarios</CardDescription>
+                    <CardTitle>Simulation Results</CardTitle>
+                    <CardDescription>Planning area summary and road-level details</CardDescription>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => downloadCSV("simulation_results.csv", paDeltas)}>
+                  <Button size="sm" variant="outline" onClick={() => downloadCSV("simulation_results.csv", enrichedPaDeltas)}>
                     <Download className="h-4 w-4 mr-2" /> Export CSV
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
+                <Tabs defaultValue="planning-areas" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="planning-areas">Planning Area Summary</TabsTrigger>
+                    <TabsTrigger value="roads">Road-Level Details ({roadLevelData.length} roads)</TabsTrigger>
+                  </TabsList>
+
+                  {/* Planning Area Summary Tab */}
+                  <TabsContent value="planning-areas">
                 <div className="border rounded-lg overflow-auto max-h-96">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-muted z-10">
@@ -1631,6 +1691,55 @@ export default function Simulation() {
                     </tbody>
                   </table>
                 </div>
+                  </TabsContent>
+
+                  {/* Road-Level Details Tab */}
+                  <TabsContent value="roads">
+                    <div className="border rounded-lg overflow-auto max-h-96">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-muted z-10">
+                          <tr className="[&>th]:px-2 [&>th]:py-2 text-left text-xs">
+                            <th>Road ID</th>
+                            <th>Road Name</th>
+                            <th>Planning Area</th>
+                            <th>Baseline Time</th>
+                            <th>Flooded Time</th>
+                            <th>Time Increase</th>
+                            <th>% Increase</th>
+                            <th>Category</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {roadLevelData.map((road, i) => (
+                            <tr key={i} className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50">
+                              <td className="font-mono text-xs">{road.rn_id}</td>
+                              <td className="font-medium">{road.name}</td>
+                              <td className="text-muted-foreground">{road.pa_name}</td>
+                              <td>{Number.isFinite(road.baseline_time) ? fmtM(road.baseline_time) : '—'}</td>
+                              <td>{Number.isFinite(road.flooded_time) ? fmtM(road.flooded_time) : '—'}</td>
+                              <td className={road.delta_time && road.delta_time > 0 ? "text-red-600 font-semibold" : ""}>
+                                {road.delta_time && Number.isFinite(road.delta_time) ? `+${Math.round(road.delta_time)}s` : '—'}
+                              </td>
+                              <td className={road.pct_increase && road.pct_increase > 0 ? "text-red-600 font-semibold" : ""}>
+                                {Number.isFinite(road.pct_increase) ? `+${road.pct_increase.toFixed(1)}%` : '—'}
+                              </td>
+                              <td>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  road.category === "Unaffected" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                                  road.category === "Affected" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                  road.category === "Blocked (Flooded)" ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
+                                  "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                }`}>
+                                  {road.category}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
 
