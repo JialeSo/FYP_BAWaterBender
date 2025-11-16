@@ -237,19 +237,19 @@ export default function LeftPanel({
 
       {/* scrollable body */}
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        {/* Planning Area (multi-select, all by default) */}
+        {/* Planning Area (multi-select, all checked by default) */}
         <div className="space-y-2 pt-4">
           <MultiSelectCombobox
             label="Planning Area"
             options={paOptions.map((pa) => ({ value: pa, label: pa }))}
             selected={selected}
             onChange={onSelectionChange}
-            placeholder="All planning areas"
+            placeholder="Select planning areas"
             searchPlaceholder="Search planning areas…"
             emptyText="No planning area found."
             showBulkActions
-            showAllRow
-            allMeansEmpty
+            showAllRow={false}
+            allMeansEmpty={false}
             renderItemLeft={(value, active) => (
               <Checkbox checked={active} readOnly />
             )}

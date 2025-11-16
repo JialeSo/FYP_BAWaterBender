@@ -312,7 +312,11 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
             .map((s) => String(s).trim())
         )
       ).sort();
-      if (!cancelled) setPlanningAreas(paNames);
+      if (!cancelled) {
+        setPlanningAreas(paNames);
+        // Initialize with ALL planning areas selected (all checkboxes checked)
+        setSelectedPlanningAreas(paNames);
+      }
 
       const amenCats = Array.from(
         new Set(
