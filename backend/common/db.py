@@ -4,7 +4,7 @@ import threading
 import logging
 from dotenv import load_dotenv
 
-from backend.config.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+from config.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 load_dotenv()
 

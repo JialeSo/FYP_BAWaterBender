@@ -267,6 +267,39 @@ class WeatherAlertsController:
             logger.error(f"❌ Backfill failed: {e}")
             raise
 
+    async def extract_existing_messages(self, limit: int = 100) -> Dict[str, Any]:
+        """
+        Extract existing messages from Telegram channel and save to JSON.
+        Uses the singleton WeatherAlerts instance to avoid session locking.
+
+        Args:
+            limit: Number of messages to fetch (default: 100)
+
+        Returns:
+            Dict containing processing result and statistics
+        """
+        from etl.pub.weather_alerts import weather_alerts
+
+        try:
+            logger.info(
+                f"🔄 Starting extraction: " f"Fetching {limit} existing messages"
+            )
+
+            # Use singleton instance to extract messages
+            await weather_alerts.extract_existing_messages(limit=limit)
+
+            logger.info(f"✅ Extraction completed: " f"Extracted {limit} messages")
+
+            return {
+                "status": "success",
+                "message": (f"Successfully extracted {limit} existing messages"),
+                "limit": limit,
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Extraction failed: {e}")
+            raise
+
 
 # Singleton instance of WeatherAlertsController
 weather_alerts_controller = WeatherAlertsController()

@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from .routers.router import api_router  # Changed back to relative import
+from .routers.router import api_router 
 from dotenv import load_dotenv
 from config.config import is_development
 

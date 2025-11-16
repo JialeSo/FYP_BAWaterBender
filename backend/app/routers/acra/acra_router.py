@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, HTTPException, Query
-from backend.common.db import db
+from common.db import db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

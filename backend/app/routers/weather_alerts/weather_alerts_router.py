@@ -121,3 +121,37 @@ async def backfill_weather_alerts(
         raise HTTPException(
             status_code=500, detail=f"Failed to backfill weather alerts: {str(e)}"
         )
+
+
+@router.get("/extract-messages")
+async def extract_existing_messages(
+    limit: int = 100,
+):
+    """
+    GET endpoint to extract existing messages from Telegram channel.
+
+    Fetches the last N messages from the Telegram channel and saves them to JSON files.
+    This endpoint extracts messages without processing them through the pipeline.
+
+    Parameters:
+    - limit: Number of messages to fetch (default: 100)
+
+    Returns:
+    - JSON object with success status and extraction details
+    """
+
+    try:
+        # Extract messages through controller
+        result = await weather_alerts_controller.extract_existing_messages(limit=limit)
+
+        return {
+            "success": result["status"] == "success",
+            "message": result["message"],
+            "limit": result["limit"],
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Message extraction failed: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to extract messages: {str(e)}"
+        )
