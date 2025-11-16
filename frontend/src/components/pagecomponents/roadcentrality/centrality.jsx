@@ -121,23 +121,6 @@ export default function Centrality() {
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [roadFC]);
 
-  const subzoneOptionsRaw = useMemo(() => {
-    const arr = [];
-    (roadFC?.features || []).forEach((f) => {
-      const p = f?.properties || {};
-      const sz = p.SUBZONE_N ? String(p.SUBZONE_N) : null;
-      const pa = p.PLN_AREA_N ? String(p.PLN_AREA_N) : null;
-      if (sz) arr.push({ name: sz, planningArea: pa || "" });
-    });
-    const seen = new Set();
-    return arr.filter(({ name, planningArea }) => {
-      const k = `${planningArea}::${name}`;
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [roadFC]);
-
   const roadTypeOptions = useMemo(() => {
     const s = new Set();
     (roadFC?.features || []).forEach((f) => s.add(String(get_road_type(f.properties))));
@@ -182,7 +165,6 @@ export default function Centrality() {
 
   /* ===== selections ===== */
   const [planningSelected, setPlanningSelected] = useState([]);
-  const [subzonesSelected, setSubzonesSelected] = useState([]);
   const [roadTypesSelected, setRoadTypesSelected] = useState([]);
   const [amenitySelectedLabels, setAmenitySelectedLabels] = useState([]);
   const [floodSelectedLabels, setFloodSelectedLabels] = useState([]);
@@ -401,10 +383,8 @@ export default function Centrality() {
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const hasPA = planningSelected.length > 0;
-    const hasSZ = subzonesSelected.length > 0;
     const hasRT = roadTypesSelected.length > 0;
     const paSet = new Set(planningSelected.map(String));
-    const szSet = new Set(subzonesSelected.map(String));
     const rtSet = new Set(roadTypesSelected.map(String));
 
     return (features || []).filter((f) => {
@@ -412,20 +392,16 @@ export default function Centrality() {
       if (!p) return false;
 
       if (hasPA && p.PLN_AREA_N && !paSet.has(String(p.PLN_AREA_N))) return false;
-      if (hasSZ) {
-        const sz = p.SUBZONE_N ? String(p.SUBZONE_N) : "";
-        if (!szSet.has(sz)) return false;
-      }
       if (hasRT) {
         const rt = String(get_road_type(p));
         if (!rtSet.has(rt)) return false;
       }
 
       if (!term) return true;
-      const hay = [p.RN_ID, p.name, p.PLN_AREA_N, p.SUBZONE_N].map((x) => String(x || "").toLowerCase()).join("|");
+      const hay = [p.RN_ID, p.name, p.PLN_AREA_N].map((x) => String(x || "").toLowerCase()).join("|");
       return hay.includes(term);
     });
-  }, [features, planningSelected, subzonesSelected, roadTypesSelected, q]);
+  }, [features, planningSelected, roadTypesSelected, q]);
 
   /* ===== percentilers ===== */
   const pBet = useMemo(() => make_percentiler(features.map((f) => +f?.properties?.betweenness_norm)), [features]);
@@ -693,7 +669,6 @@ export default function Centrality() {
     setCurrentPage(1);
   }, [
     planningSelected.join("|"),
-    subzonesSelected.join("|"),
     roadTypesSelected.join("|"),
     q,
     amenitySelectedLabels.join("|"),
@@ -772,138 +747,6 @@ export default function Centrality() {
             <AccordionContent className="px-6 pb-6 pt-4">
               {/* each subsection is its own accordion */}
               <Accordion type="multiple" className="space-y-4">
-          {/* Road Filters */}
-          <AccordionItem value="filters" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-              Road Filters
-            </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
-              <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-4 mb-4">
-                <div className="flex items-start gap-2">
-                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-semibold mb-1">Note: Filters Hide Roads, Don't Recalculate Metrics</p>
-                    <p className="text-muted-foreground">
-                      Filtering by planning area, subzone, or road type hides roads from the map and table but does <strong>not</strong> recompute 
-                      betweenness or closeness centrality. These metrics are precomputed for the entire network and reflect the full road structure.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <Card className="border bg-background/80 shadow-none">
-                <CardHeader>
-                  <CardTitle className="text-base">Filter by Area, Subzone, Road Type, Search</CardTitle>
-                  <CardDescription>Filter the road network by location, type, or search term.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <MultiSelectCombobox
-                      label="Planning Area"
-                      options={planningOptions}
-                      selected={planningSelected}
-                      onChange={setPlanningSelected}
-                      placeholder="Select planning areas"
-                      searchPlaceholder="Search planning areas…"
-                      popoverWidthClass="w-[360px]"
-                    />
-
-                    {/* subzone */}
-                    <div className="space-y-1.5">
-                      <Label>Subzone</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button type="button" variant="outline" className="w-full justify-between">
-                            <span className="truncate text-left">
-                              {subzonesSelected.length ? `${subzonesSelected.length} selected` : "Select subzones"}
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[360px] p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Search by subzone or planning area" />
-                            <CommandEmpty>No subzone found.</CommandEmpty>
-                            <CommandList>
-                              <CommandGroup>
-                                <ScrollArea className="max-h-64">
-                                  {(subzoneOptionsRaw || [])
-                                    .filter((z) => {
-                                      if (!planningSelected.length) return true;
-                                      return z.planningArea && planningSelected.includes(z.planningArea);
-                                    })
-                                    .map((o) => {
-                                      const active = subzonesSelected.includes(o.name);
-                                      const value = `${o.name} ${o.planningArea}`;
-                                      return (
-                                        <CommandItem
-                                          key={`${o.planningArea}::${o.name}`}
-                                          value={value}
-                                          onSelect={() => {
-                                            const exists = active;
-                                            setSubzonesSelected((prev) =>
-                                              exists ? prev.filter((x) => x !== o.name) : [...prev, o.name]
-                                            );
-                                          }}
-                                          className="flex items-center justify-between gap-2"
-                                        >
-                                          <div className="min-w-0">
-                                            <div className="truncate">{o.name}</div>
-                                            <div className="text-xs text-muted-foreground truncate">{o.planningArea}</div>
-                                          </div>
-                                          <Check className={active ? "h-4 w-4" : "h-4 w-4 opacity-0"} />
-                                        </CommandItem>
-                                      );
-                                    })}
-                                </ScrollArea>
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-
-                      {!!subzonesSelected.length && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {subzonesSelected.map((v) => (
-                            <button
-                              type="button"
-                              key={v}
-                              onClick={() => setSubzonesSelected((prev) => prev.filter((x) => x !== v))}
-                              aria-label={`Remove ${v}`}
-                              className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
-                            >
-                              <span className="truncate max-w-[160px]">{v}</span>
-                              <X className="h-3 w-3" />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <MultiSelectCombobox
-                      label="Road Type"
-                      options={roadTypeOptions}
-                      selected={roadTypesSelected}
-                      onChange={setRoadTypesSelected}
-                      placeholder="Select road types"
-                      searchPlaceholder="Search road types…"
-                      popoverWidthClass="w-[360px]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="road-search">Search</Label>
-                    <Input
-                      id="road-search"
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder="Name, RN ID, area…"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </AccordionContent>
-          </AccordionItem>
-
           {/* Amenity Categories */}
           <AccordionItem value="amenities" className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <AccordionTrigger className="px-6 py-4 text-base font-semibold">
@@ -1392,7 +1235,7 @@ export default function Centrality() {
                     <Button
                       variant="outline"
                       onClick={() => {
-                        setPlanningSelected([]); setSubzonesSelected([]); setRoadTypesSelected([]);
+                        setPlanningSelected([]); setRoadTypesSelected([]);
                         setAmenitySelectedLabels([]); setFloodSelectedLabels([]); setQ("");
 
                         setAmenityWeights(default_amenity_weights);
@@ -1547,6 +1390,62 @@ export default function Centrality() {
             Complete list of road segments with sortable columns and export capability
           </p>
         </div>
+
+        {/* Road Filters */}
+        <Card className="border bg-muted/30 shadow-none mb-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Filter Roads</CardTitle>
+            <CardDescription>Filter the road network by location, type, or search term. Note: Filters hide roads but don't recalculate centrality metrics.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 mb-4">
+              <MultiSelectCombobox
+                label="Planning Area"
+                options={planningOptions}
+                selected={planningSelected}
+                onChange={setPlanningSelected}
+                placeholder="All areas"
+                searchPlaceholder="Search areas…"
+                popoverWidthClass="w-[300px]"
+              />
+
+              <MultiSelectCombobox
+                label="Road Type"
+                options={roadTypeOptions}
+                selected={roadTypesSelected}
+                onChange={setRoadTypesSelected}
+                placeholder="All types"
+                searchPlaceholder="Search types…"
+                popoverWidthClass="w-[300px]"
+              />
+
+              <div className="space-y-1.5">
+                <Label htmlFor="road-search">Search</Label>
+                <Input
+                  id="road-search"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Name, RN ID, area…"
+                />
+              </div>
+            </div>
+            {(planningSelected.length > 0 || roadTypesSelected.length > 0 || q) && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPlanningSelected([]);
+                    setRoadTypesSelected([]);
+                    setQ("");
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Table Filters Accordion */}
         <Accordion type="single" collapsible className="mb-4">
