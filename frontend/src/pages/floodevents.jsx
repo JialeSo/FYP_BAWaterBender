@@ -660,7 +660,45 @@ export default function floodevents() {
     });
   }, []);
 
-  
+  /* roads index by rn_id for centrality */
+  const roads_by_id = useMemo(() => {
+    const idx = new Map();
+    for (const f of road_fc?.features || []) {
+      const rn = f?.properties?.rn_id ?? f?.properties?.RN_ID ?? null;
+      if (rn == null) continue;
+      const key = String(rn);
+      if (!idx.has(key)) idx.set(key, []);
+      idx.get(key).push(f);
+    }
+    return idx;
+  }, [road_fc]);
+
+  const centrality_scale = useMemo(() => {
+    let bmins = +Infinity, bmaxs = -Infinity, cmins = +Infinity, cmaxs = -Infinity;
+    for (const f of road_fc?.features || []) {
+      const p = f.properties || {};
+      const b = +((p.betweenness_norm ?? p.betweenness ?? p.BETWEENNESS_NORM ?? p.BETWEENNESS) || NaN);
+      const c = +((p.closeness_norm   ?? p.closeness   ?? p.CLOSENESS_NORM   ?? p.CLOSENESS)   || NaN);
+      if (Number.isFinite(b)) { bmins = Math.min(bmins,b); bmaxs = Math.max(bmaxs,b); }
+      if (Number.isFinite(c)) { cmins = Math.min(cmins,c); cmaxs = Math.max(cmaxs,c); }
+    }
+    if (!Number.isFinite(bmins)) { bmins=0; bmaxs=1; }
+    if (!Number.isFinite(cmins)) { cmins=0; cmaxs=1; }
+    return { bmins, bmaxs, cmins, cmaxs };
+  }, [road_fc]);
+
+  const query_amenities = (lng, lat, max_m) => {
+    const pad_deg = 0.009;
+    const out = [];
+    for (const a of amenity_list) {
+      if (a.lng < lng - pad_deg || a.lng > lng + pad_deg || a.lat < lat - pad_deg || a.lat > lat + pad_deg) continue;
+      const d = dist_m(lng, lat, a.lng, a.lat);
+      if (d <= max_m) out.push({ ...a, _distm: d });
+    }
+    out.sort((x, y) => x._distm - y._distm);
+    return out;
+  };
+
   const stats_by_flood_distance = useMemo(() => {
     const out = new Map();
     const floods = floods_fc?.features || [];
@@ -735,48 +773,7 @@ export default function floodevents() {
     }
     return out;
   }, [floods_fc, amenity_list, road_fc, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, inner_enabled, outer_enabled, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity, w_roads]);
-    /* roads index by rn_id for centrality */
-  const roads_by_id = useMemo(() => {
-    const idx = new Map();
-    for (const f of road_fc?.features || []) {
-      const rn = f?.properties?.rn_id ?? f?.properties?.RN_ID ?? null;
-      if (rn == null) continue;
-      const key = String(rn);
-      if (!idx.has(key)) idx.set(key, []);
-      idx.get(key).push(f);
-    }
-    return idx;
-  }, [road_fc]);
 
-  const centrality_scale = useMemo(() => {
-    let bmins = +Infinity, bmaxs = -Infinity, cmins = +Infinity, cmaxs = -Infinity;
-    for (const f of road_fc?.features || []) {
-      const p = f.properties || {};
-      const b = +((p.betweenness_norm ?? p.betweenness ?? p.BETWEENNESS_NORM ?? p.BETWEENNESS) || NaN);
-      const c = +((p.closeness_norm   ?? p.closeness   ?? p.CLOSENESS_NORM   ?? p.CLOSENESS)   || NaN);
-      if (Number.isFinite(b)) { bmins = Math.min(bmins,b); bmaxs = Math.max(bmaxs,b); }
-      if (Number.isFinite(c)) { cmins = Math.min(cmins,c); cmaxs = Math.max(cmaxs,c); }
-    }
-    if (!Number.isFinite(bmins)) { bmins=0; bmaxs=1; }
-    if (!Number.isFinite(cmins)) { cmins=0; cmaxs=1; }
-    return { bmins, bmaxs, cmins, cmaxs };
-  }, [road_fc]);
-
-  const query_amenities = (lng, lat, max_m) => {
-    const pad_deg = 0.009;
-    const out = [];
-    for (const a of amenity_list) {
-      if (a.lng < lng - pad_deg || a.lng > lng + pad_deg || a.lat < lat - pad_deg || a.lat > lat + pad_deg) continue;
-      const d = dist_m(lng, lat, a.lng, a.lat);
-      if (d <= max_m) out.push({ ...a, _distm: d });
-    }
-    out.sort((x, y) => x._distm - y._distm);
-    return out;
-  };
-  
-  
-  
-  
   /* rows & filters */
   const rows = useMemo(() => {
     const fc = floods_fc || { type: "featurecollection", features: [] };
