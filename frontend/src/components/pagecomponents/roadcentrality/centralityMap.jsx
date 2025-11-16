@@ -88,13 +88,12 @@ const createWidthExpression = (metric) => {
   ];
 };
 
-export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, amenityItems = [], floodItems = [] }) {
+export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, selectedMarker = null }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const [colorMetric, setColorMetric] = useState("importance");
   const [thicknessMetric, setThicknessMetric] = useState("none");
-  const markersRef = useRef([]);
-  const [activeMarkerId, setActiveMarkerId] = useState(null);
+  const markerRef = useRef(null);
 
   // Calculate color thresholds based on max value
   const colorThresholds = useMemo(() => {
@@ -339,257 +338,105 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, am
     highlightSource.setData(EMPTY_COLLECTION);
   }, [selectedRoadId, data]);
 
-  // Add markers for amenities and floods when a road is selected
+  // Show a single marker when selected from the accordion
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !map.isStyleLoaded()) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
-    setActiveMarkerId(null);
+    // Remove existing marker
+    if (markerRef.current) {
+      markerRef.current.remove();
+      markerRef.current = null;
+    }
 
-    // Don't show markers if no road is selected
-    if (!selectedRoadId) return;
+    // If no marker selected, exit
+    if (!selectedMarker) return;
 
-    // Add amenity markers (blue)
-    amenityItems.forEach((item, idx) => {
-      if (!item.geometry || item.geometry.type !== 'Point') return;
+    const { item, type } = selectedMarker;
+    let coords = null;
 
-      const [lng, lat] = item.geometry.coordinates;
-      const markerId = `amenity-${idx}`;
-
-      // Create marker element
-      const el = document.createElement('div');
-      el.className = 'amenity-marker';
-      el.style.width = '20px';
-      el.style.height = '20px';
-      el.style.borderRadius = '50%';
-      el.style.backgroundColor = '#3b82f6';
-      el.style.border = '2px solid white';
-      el.style.cursor = 'pointer';
-      el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-      el.style.transition = 'opacity 0.2s';
-
-      // Create hover tooltip (compact, dark-mode compatible)
-      const hoverTooltip = new mapboxgl.Popup({
-        offset: 15,
-        closeButton: false,
-        closeOnClick: false,
-        className: 'marker-hover-tooltip'
-      })
-        .setHTML(`
-          <div style="padding: 6px 8px; font-size: 11px; background: #1e293b; color: #e2e8f0; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
-            <div style="font-weight: 600; color: #60a5fa; margin-bottom: 3px;">${item.name || 'Unknown Amenity'}</div>
-            <div style="color: #cbd5e1; font-size: 10px;">
-              <div><strong>Type:</strong> ${item.properties?.amenity || 'N/A'}</div>
-              ${item.properties?.postal_code ? `<div><strong>Postal:</strong> ${item.properties.postal_code}</div>` : ''}
-            </div>
-          </div>
-        `);
-
-      // Create click popup (detailed)
-      const clickPopup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
-        .setHTML(`
-          <div style="padding: 8px; max-width: 250px;">
-            <div style="font-weight: 600; margin-bottom: 6px; color: #3b82f6;">${item.name || 'Unknown Amenity'}</div>
-            <div style="font-size: 11px; color: #64748b;">
-              <div><strong>Category:</strong> ${item.category || 'N/A'}</div>
-              <div><strong>Type:</strong> ${item.properties?.amenity || 'N/A'}</div>
-              ${item.properties?.postal_code ? `<div><strong>Postal Code:</strong> ${item.properties.postal_code}</div>` : ''}
-              <div style="margin-top: 4px;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
-            </div>
-          </div>
-        `);
-
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([lng, lat])
-        .addTo(map);
-
-      // Hover handlers for tooltip
-      el.addEventListener('mouseenter', () => {
-        if (!clickPopup.isOpen()) {
-          hoverTooltip.setLngLat([lng, lat]).addTo(map);
-        }
-      });
-
-      el.addEventListener('mouseleave', () => {
-        hoverTooltip.remove();
-      });
-
-      // Click handler - hide all other markers when this one is clicked
-      el.addEventListener('click', () => {
-        // Remove hover tooltip
-        hoverTooltip.remove();
-
-        // Set this marker as active
-        setActiveMarkerId(markerId);
-
-        // Hide all other markers
-        markersRef.current.forEach((m, i) => {
-          const markerEl = m.getElement();
-          if (i !== idx) {
-            markerEl.style.opacity = '0';
-            markerEl.style.pointerEvents = 'none';
-          }
-        });
-
-        // Close all other popups
-        markersRef.current.forEach(m => {
-          const popup = m._clickPopup;
-          if (popup && popup.isOpen()) {
-            popup.remove();
-          }
-        });
-
-        // Open this popup
-        clickPopup.setLngLat([lng, lat]).addTo(map);
-      });
-
-      // When popup is closed, restore all markers
-      clickPopup.on('close', () => {
-        setActiveMarkerId(null);
-        markersRef.current.forEach(m => {
-          const markerEl = m.getElement();
-          markerEl.style.opacity = '1';
-          markerEl.style.pointerEvents = 'auto';
-        });
-      });
-
-      // Store the click popup on the marker object for later reference
-      marker._clickPopup = clickPopup;
-      marker._hoverTooltip = hoverTooltip;
-
-      markersRef.current.push(marker);
-    });
-
-    // Add flood markers (orange)
-    floodItems.forEach((item, idx) => {
+    // Get coordinates based on item type
+    if (type === 'amenity') {
+      if (item.geometry?.type === 'Point') {
+        coords = item.geometry.coordinates;
+      }
+    } else if (type === 'flood') {
       const lat = item.properties?.origin_lat;
       const lng = item.properties?.origin_lng;
+      if (lat && lng) {
+        coords = [lng, lat];
+      }
+    }
 
-      if (!lat || !lng) return;
+    if (!coords) return;
 
-      const markerId = `flood-${idx}`;
+    const [lng, lat] = coords;
+    const isAmenity = type === 'amenity';
+    const color = isAmenity ? '#3b82f6' : '#f97316';
+    const name = item.name || (isAmenity ? 'Unknown Amenity' : 'Flood Event');
 
-      // Create marker element
-      const el = document.createElement('div');
-      el.className = 'flood-marker';
-      el.style.width = '20px';
-      el.style.height = '20px';
-      el.style.borderRadius = '50%';
-      el.style.backgroundColor = '#f97316';
-      el.style.border = '2px solid white';
-      el.style.cursor = 'pointer';
-      el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-      el.style.transition = 'opacity 0.2s';
+    // Create marker element
+    const el = document.createElement('div');
+    el.className = isAmenity ? 'amenity-marker' : 'flood-marker';
+    el.style.width = '24px';
+    el.style.height = '24px';
+    el.style.borderRadius = '50%';
+    el.style.backgroundColor = color;
+    el.style.border = '3px solid white';
+    el.style.cursor = 'pointer';
+    el.style.boxShadow = '0 3px 6px rgba(0,0,0,0.4)';
 
-      // Create hover tooltip (compact, dark-mode compatible)
-      const hoverTooltip = new mapboxgl.Popup({
-        offset: 15,
-        closeButton: false,
-        closeOnClick: false,
-        className: 'marker-hover-tooltip'
-      })
-        .setHTML(`
-          <div style="padding: 6px 8px; font-size: 11px; background: #1e293b; color: #e2e8f0; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
-            <div style="font-weight: 600; color: #fb923c; margin-bottom: 3px;">${item.name || 'Flood Event'}</div>
-            <div style="color: #cbd5e1; font-size: 10px;">
-              ${item.date ? `<div><strong>Date:</strong> ${item.date}</div>` : ''}
-              ${item.properties?.location ? `<div><strong>Location:</strong> ${item.properties.location}</div>` : ''}
-            </div>
-          </div>
-        `);
+    // Create popup with details
+    const popupHTML = isAmenity
+      ? `<div style="padding: 10px; max-width: 280px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
+           <div style="font-weight: 600; margin-bottom: 8px; color: #60a5fa; font-size: 14px;">${name}</div>
+           <div style="font-size: 12px; color: #cbd5e1; space-y: 4px;">
+             <div><strong>Category:</strong> ${item.category || 'N/A'}</div>
+             <div><strong>Type:</strong> ${item.properties?.amenity || 'N/A'}</div>
+             ${item.properties?.postal_code ? `<div><strong>Postal Code:</strong> ${item.properties.postal_code}</div>` : ''}
+             <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+           </div>
+         </div>`
+      : `<div style="padding: 10px; max-width: 280px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
+           <div style="font-weight: 600; margin-bottom: 8px; color: #fb923c; font-size: 14px;">${name}</div>
+           <div style="font-size: 12px; color: #cbd5e1;">
+             <div><strong>Type:</strong> ${item.type || 'N/A'}</div>
+             ${item.date ? `<div><strong>Date:</strong> ${item.date}</div>` : ''}
+             ${item.properties?.location ? `<div><strong>Location:</strong> ${item.properties.location}</div>` : ''}
+             <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+           </div>
+         </div>`;
 
-      // Create click popup (detailed)
-      const clickPopup = new mapboxgl.Popup({ offset: 25, closeButton: true, closeOnClick: false })
-        .setHTML(`
-          <div style="padding: 8px; max-width: 250px;">
-            <div style="font-weight: 600; margin-bottom: 6px; color: #f97316;">${item.name || 'Flood Event'}</div>
-            <div style="font-size: 11px; color: #64748b;">
-              <div><strong>Type:</strong> ${item.type || 'N/A'}</div>
-              ${item.date ? `<div><strong>Date:</strong> ${item.date}</div>` : ''}
-              ${item.properties?.location ? `<div><strong>Location:</strong> ${item.properties.location}</div>` : ''}
-              <div style="margin-top: 4px;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
-            </div>
-          </div>
-        `);
+    const popup = new mapboxgl.Popup({ offset: 30, closeButton: true, closeOnClick: true })
+      .setHTML(popupHTML);
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([lng, lat])
-        .addTo(map);
+    const marker = new mapboxgl.Marker(el)
+      .setLngLat(coords)
+      .setPopup(popup)
+      .addTo(map);
 
-      const markerIndex = amenityItems.length + idx;
-
-      // Hover handlers for tooltip
-      el.addEventListener('mouseenter', () => {
-        if (!clickPopup.isOpen()) {
-          hoverTooltip.setLngLat([lng, lat]).addTo(map);
-        }
-      });
-
-      el.addEventListener('mouseleave', () => {
-        hoverTooltip.remove();
-      });
-
-      // Click handler - hide all other markers when this one is clicked
-      el.addEventListener('click', () => {
-        // Remove hover tooltip
-        hoverTooltip.remove();
-
-        // Set this marker as active
-        setActiveMarkerId(markerId);
-
-        // Hide all other markers
-        markersRef.current.forEach((m, i) => {
-          const markerEl = m.getElement();
-          if (i !== markerIndex) {
-            markerEl.style.opacity = '0';
-            markerEl.style.pointerEvents = 'none';
-          }
-        });
-
-        // Close all other popups
-        markersRef.current.forEach(m => {
-          const popup = m._clickPopup;
-          if (popup && popup.isOpen()) {
-            popup.remove();
-          }
-        });
-
-        // Open this popup
-        clickPopup.setLngLat([lng, lat]).addTo(map);
-      });
-
-      // When popup is closed, restore all markers
-      clickPopup.on('close', () => {
-        setActiveMarkerId(null);
-        markersRef.current.forEach(m => {
-          const markerEl = m.getElement();
-          markerEl.style.opacity = '1';
-          markerEl.style.pointerEvents = 'auto';
-        });
-      });
-
-      // Store the click popup on the marker object for later reference
-      marker._clickPopup = clickPopup;
-      marker._hoverTooltip = hoverTooltip;
-
-      markersRef.current.push(marker);
+    // Fly to the marker and open popup
+    map.flyTo({
+      center: coords,
+      zoom: 17,
+      duration: 1000
     });
 
-    // Cleanup on unmount
+    // Open popup after fly animation
+    setTimeout(() => {
+      marker.togglePopup();
+    }, 1000);
+
+    markerRef.current = marker;
+
+    // Cleanup
     return () => {
-      markersRef.current.forEach(marker => {
-        marker.remove();
-        // Clean up associated popups
-        if (marker._clickPopup) marker._clickPopup.remove();
-        if (marker._hoverTooltip) marker._hoverTooltip.remove();
-      });
-      markersRef.current = [];
-      setActiveMarkerId(null);
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
     };
-  }, [selectedRoadId, amenityItems, floodItems]);
+  }, [selectedMarker]);
 
   const colorLabel = COLOR_METRICS.find(m => m.value === colorMetric)?.label || "Importance";
   const thicknessLabel = THICKNESS_METRICS.find(m => m.value === thicknessMetric)?.label || "None (Uniform)";

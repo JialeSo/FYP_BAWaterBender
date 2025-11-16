@@ -8,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { X } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
 
-export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {}, allRoads = [], amenityItems = [], floodItems = [], mapInstance = null }) {
+export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, totalRoads, roadRank, getSLACategory, amenityEnabled = {}, floodEnabled = {}, allRoads = [], amenityItems = [], floodItems = [], onMarkerClick = null }) {
   // Show prompt if no road selected
   if (!road) {
     return (
@@ -72,38 +72,17 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
 
   const slaCategory = getSLACategory ? getSLACategory(p.importance) : null;
 
-  // Handle clicking on an amenity/flood item to pan map
-  const handleItemClick = (item) => {
-    if (!mapInstance || !item.geometry) return;
-
-    // Get coordinates from geometry
-    let coords;
-    if (item.geometry.type === 'Point') {
-      coords = item.geometry.coordinates;
-    } else if (item.geometry.type === 'LineString' || item.geometry.type === 'MultiLineString') {
-      // For lines, get the midpoint
-      const coordinates = item.geometry.type === 'LineString'
-        ? item.geometry.coordinates
-        : item.geometry.coordinates[0];
-      const mid = Math.floor(coordinates.length / 2);
-      coords = coordinates[mid];
-    } else {
-      return; // Unsupported geometry type
+  // Handle clicking on an amenity/flood item - notify parent to show marker
+  const handleAmenityClick = (item) => {
+    if (onMarkerClick) {
+      onMarkerClick({ item, type: 'amenity' });
     }
+  };
 
-    // Pan to the item
-    mapInstance.flyTo({
-      center: coords,
-      zoom: 17,
-      duration: 1000
-    });
-
-    // Create and show popup
-    const popupContent = item.name || item.category || item.type || 'Unknown';
-    const popup = new window.mapboxgl.Popup({ closeButton: true, closeOnClick: true })
-      .setLngLat(coords)
-      .setHTML(`<div style="padding: 8px; font-weight: 600;">${popupContent}</div>`)
-      .addTo(mapInstance);
+  const handleFloodClick = (item) => {
+    if (onMarkerClick) {
+      onMarkerClick({ item, type: 'flood' });
+    }
   };
 
   const amenityBreakdown = useMemo(() => {
@@ -234,7 +213,7 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
                     {amenityItems.map((item, idx) => (
                       <div
                         key={idx}
-                        onClick={() => handleItemClick(item)}
+                        onClick={() => handleAmenityClick(item)}
                         className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-muted/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer transition-colors border border-transparent hover:border-blue-300 dark:hover:border-blue-700"
                       >
                         <div className="flex flex-col gap-0.5">
@@ -263,7 +242,7 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
                     {floodItems.map((item, idx) => (
                       <div
                         key={idx}
-                        onClick={() => handleItemClick(item)}
+                        onClick={() => handleFloodClick(item)}
                         className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-muted/50 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer transition-colors border border-transparent hover:border-orange-300 dark:hover:border-orange-700"
                       >
                         <div className="flex flex-col gap-0.5">

@@ -596,16 +596,23 @@ export default function Centrality() {
    // Selected road state
   const [selectedRoadId, setSelectedRoadId] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
+  const [selectedMarker, setSelectedMarker] = useState(null);
   const mapSectionRef = useRef(null);
   const detailsPanelRef = useRef(null);
 
   // Handle road selection with scroll to details panel
   const handleRoadSelect = useCallback((roadId) => {
     setSelectedRoadId(roadId);
+    setSelectedMarker(null); // Clear marker when selecting a new road
     // Scroll to details panel smoothly
     if (detailsPanelRef.current) {
       detailsPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  }, []);
+
+  // Handle marker selection from accordion
+  const handleMarkerClick = useCallback((marker) => {
+    setSelectedMarker(marker);
   }, []);
 
   
@@ -1520,7 +1527,7 @@ export default function Centrality() {
           allRoads={sortedByImportance}
           amenityItems={selectedAmenityItems}
           floodItems={selectedFloodItems}
-          mapInstance={mapInstance}
+          onMarkerClick={handleMarkerClick}
         />
       </div>
         {/* Right: Map */}
@@ -1530,8 +1537,7 @@ export default function Centrality() {
             selectedRoadId={selectedRoadId}
             onMapLoad={setMapInstance}
             onRoadClick={handleRoadSelect}
-            amenityItems={selectedAmenityItems}
-            floodItems={selectedFloodItems}
+            selectedMarker={selectedMarker}
           />
         </div>
       <section className="rounded-3xl border bg-card shadow-sm p-6">
