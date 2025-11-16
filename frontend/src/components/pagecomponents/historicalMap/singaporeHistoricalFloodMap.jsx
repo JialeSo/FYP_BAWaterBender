@@ -175,17 +175,24 @@ function computeAmenityCounts({ amenitiesFC, planningFC, subzoneFC, selectedPAs,
     if (hasPA && hasSZ) break;
   }
 
-  const pass = (p) => {
-    if (paAllow.size) { const pa = toS(getProp(p, PA_NAME_KEYS)); if (!pa || !paAllow.has(pa)) return false; }
+  const passCategories = (p) => {
     if (catAllow.size) { const c = toS(p.amenity_category); if (!c || !catAllow.has(c)) return false; }
     if (typeAllow.size) { const t = toS(p.amenity_type); if (!t || !typeAllow.has(t)) return false; }
     return true;
   };
 
+  const passPA = (p) => {
+    if (!paAllow.size) return true; // No PA filter = allow all
+    const pa = toS(getProp(p, PA_NAME_KEYS));
+    if (!pa) return true; // No PA property = needs spatial join, allow it through
+    return paAllow.has(pa); // Has PA property = check if it's in allowed set
+  };
+
   if (hasPA || hasSZ) {
     for (const pt of A.features) {
       const p = pt.properties || {};
-      if (!pass(p)) continue;
+      if (!passCategories(p)) continue;
+      if (!passPA(p)) continue;
       const pa = getProp(p, PA_NAME_KEYS);
       const sz = getProp(p, SZ_NAME_KEYS);
       if (pa) inc(paCounts, pa, 1);
@@ -194,12 +201,26 @@ function computeAmenityCounts({ amenitiesFC, planningFC, subzoneFC, selectedPAs,
     return { paCounts, szCounts };
   }
 
-  const paIndex = (planningFC.features || []).map((f) => ({ name: toS(getProp(f.properties, PA_NAME_KEYS)), geom: f.geometry }));
-  const szIndex = (subzoneFC.features || []).map((f) => ({ name: toS(getProp(f.properties, SZ_NAME_KEYS)), geom: f.geometry }));
+  // Filter paIndex and szIndex to only selected planning areas
+  const paIndex = (planningFC.features || [])
+    .filter((f) => {
+      if (!paAllow.size) return true; // No filter = include all
+      const paName = toS(getProp(f.properties, PA_NAME_KEYS));
+      return paAllow.has(paName); // Only include selected PAs
+    })
+    .map((f) => ({ name: toS(getProp(f.properties, PA_NAME_KEYS)), geom: f.geometry }));
+
+  const szIndex = (subzoneFC.features || [])
+    .filter((f) => {
+      if (!paAllow.size) return true; // No filter = include all
+      const paName = toS(getProp(f.properties, PA_NAME_KEYS));
+      return paAllow.has(paName); // Only include subzones in selected PAs
+    })
+    .map((f) => ({ name: toS(getProp(f.properties, SZ_NAME_KEYS)), geom: f.geometry }));
 
   for (const pt of A.features) {
     const p = pt.properties || {};
-    if (!pass(p)) continue;
+    if (!passCategories(p)) continue;
     const gpt = turf.point(pt.geometry?.coordinates || []);
     for (const { name, geom } of paIndex) { if (!name) continue; if (turf.booleanPointInPolygon(gpt, geom)) { inc(paCounts, name, 1); break; } }
     for (const { name, geom } of szIndex) { if (!name) continue; if (turf.booleanPointInPolygon(gpt, geom)) { inc(szCounts, name, 1); break; } }
