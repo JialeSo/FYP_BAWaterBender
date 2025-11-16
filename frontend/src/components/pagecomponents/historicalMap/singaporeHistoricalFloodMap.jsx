@@ -1107,9 +1107,19 @@ const legendValueMap = useMemo(() => {
 
     if (map.getLayer(PA_BUBBLE_CIRCLES)) {
       map.setLayoutProperty(PA_BUBBLE_CIRCLES, "visibility", paBubbleVis);
+      // Filter PA bubbles to only show selected planning areas
+      const paBubbleFilter = !hasPASelection || isAllPASelected
+        ? filterAll
+        : matchFilter("name", paFilterValues);
+      map.setFilter(PA_BUBBLE_CIRCLES, paBubbleFilter);
     }
     if (map.getLayer(PA_BUBBLE_LABELS)) {
       map.setLayoutProperty(PA_BUBBLE_LABELS, "visibility", paBubbleVis);
+      // Filter PA bubble labels to only show selected planning areas
+      const paBubbleFilter = !hasPASelection || isAllPASelected
+        ? filterAll
+        : matchFilter("name", paFilterValues);
+      map.setFilter(PA_BUBBLE_LABELS, paBubbleFilter);
     }
 
     if (map.getLayer(SZ_BUBBLE_CIRCLES)) {
