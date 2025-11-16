@@ -892,11 +892,6 @@ export default function singaporehistoricalfloodmap({
       map.setLayoutProperty(ROAD_LINE, "visibility", hasPA ? "visible" : "none");
       map.setFilter(ROAD_LINE, hasPA ? roadFilter : ["all", ["==", ["literal", 1], 0]]);
     }
-
-    // reset view if nothing selected
-    if (!hasPA) {
-      map.easeTo({ center: default_center, zoom: default_zoom, duration: 600 });
-    }
   }, [
     metric,
     showChoropleth,
@@ -920,11 +915,37 @@ export default function singaporehistoricalfloodmap({
     if (b) map.fitBounds(b, { padding: 48, duration: 700, maxZoom: 14 });
   }, [selectedSubzone]);
 
+  /* planning area selection → zoom */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+
+    // If exactly one planning area is selected, zoom to it
+    if (selectedPlanningAreas.length === 1) {
+      const paName = toS(selectedPlanningAreas[0]);
+      const feature = planningFC.features.find(f =>
+        toS(getProp(f.properties, PA_NAME_KEYS)) === paName
+      );
+      if (feature) {
+        const b = computeBounds(feature.geometry);
+        if (b) map.fitBounds(b, { padding: 48, duration: 700, maxZoom: 13 });
+      }
+    }
+    // If no planning areas selected, reset to default view
+    else if (selectedPlanningAreas.length === 0) {
+      map.easeTo({ center: default_center, zoom: default_zoom, duration: 600 });
+    }
+  }, [selectedPlanningAreas, planningFC]);
+
   /* resize */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    try { map.resize(); } catch {}
+    // Add small delay to ensure DOM has updated before resizing
+    const timeoutId = setTimeout(() => {
+      try { map.resize(); } catch {}
+    }, 50);
+    return () => clearTimeout(timeoutId);
   }, [resizeSignal]);
 
   /* legend values (choropleth) — now respects selected subzones */

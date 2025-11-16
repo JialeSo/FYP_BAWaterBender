@@ -604,10 +604,10 @@ export default function RightPanel({
           <RankedList
             title={
               isSubzoneDetail
-                ? "Road segments (selected subzone)"
+                ? `Road Segments with Floods – ${formatName(feature?.properties?.SUBZONE_N ?? "")}`
                 : isPlanningAreaFocus
-                ? "Road segments (selected planning area)"
-                : "Road segments"
+                ? `Road Segments with Floods – ${formatName(planningAreaName).toUpperCase()}`
+                : "Road Segments with Floods"
             }
             items={topRoadsFlood}
             emptyLabel={
@@ -622,10 +622,10 @@ export default function RightPanel({
           <RankedList
             title={
               isSubzoneDetail
-                ? "Road segments (selected subzone)"
+                ? `Road Segments with Amenities – ${formatName(feature?.properties?.SUBZONE_N ?? "")}`
                 : isPlanningAreaFocus
-                ? "Road segments (selected planning area)"
-                : "Road segments (amenities)"
+                ? `Road Segments with Amenities – ${formatName(planningAreaName).toUpperCase()}`
+                : "Road Segments with Amenities"
             }
             items={topRoadsAmen}
             emptyLabel="No road-level amenity data available."
