@@ -6,7 +6,6 @@
  */
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -30,9 +29,9 @@ export function MetricSelector({
   const selectedMetricLabel = metrics.find(m => m.value === selectedMetric)?.label || "Select Metric";
 
   return (
-    <Card className="absolute top-4 right-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 max-w-[240px]">
+    <div className="absolute top-4 right-4 z-10 rounded-lg shadow-lg p-3 max-w-[240px] border" style={{ backgroundColor: '#161b22', borderColor: '#30363d' }}>
       {/* Visualization Metric Dropdown */}
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+      <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
         Visualization Metric
       </div>
       <Select value={selectedMetric} onValueChange={onMetricChange}>
@@ -74,7 +73,7 @@ export function MetricSelector({
           </div>
         </>
       )}
-    </Card>
+    </div>
   );
 }
 
