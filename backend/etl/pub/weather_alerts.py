@@ -136,6 +136,109 @@ class WeatherAlerts:
         except Exception as e:
             logger.error(f"Error extracting messages: {e}")
 
+    async def extract_all_messages(self, batch_size: int = 1000) -> Dict[str, any]:
+        """
+        Extract ALL existing messages from a channel in batches.
+
+        This method first queries the total message count, then extracts
+        all messages in batches to avoid memory issues and API rate limits.
+
+        Args:
+            batch_size: Number of messages to fetch per batch (default: 1000)
+
+        Returns:
+            Dict containing total count, extracted count, and batch details
+        """
+        client = await self._get_client()
+
+        if not client.is_connected():
+            await client.connect()
+
+        if not await client.is_user_authorized():
+            if self.phone:
+                await client.start(phone=self.phone)
+            else:
+                logger.error("Phone number not provided for authorization")
+                return {
+                    "total_messages": 0,
+                    "extracted_messages": 0,
+                    "batches_processed": 0,
+                    "error": "Phone number not provided for authorization",
+                }
+
+        try:
+            # Get the channel entity
+            channel = await client.get_entity(self.channel_username)
+
+            # Get total message count
+            # Note: This gets the last message ID which approximates total count
+            total_count = 0
+            first_message = None
+            async for msg in client.iter_messages(channel, limit=1):
+                first_message = msg
+                total_count = msg.id
+                break
+
+            logger.info(
+                f"📊 Channel {self.channel_username} has approximately "
+                f"{total_count} messages (based on last message ID)"
+            )
+
+            extracted_count = 0
+            batches_processed = 0
+            messages_batch = []
+
+            # Extract all messages in batches
+            async for message in client.iter_messages(
+                channel, limit=None  # No limit - get all messages
+            ):
+                if message.text:
+                    message_data = {
+                        "id": message.id,
+                        "text": message.text,
+                        "created_at": message.date.isoformat(),
+                        "sender_id": message.sender_id,
+                    }
+                    self._save_message(
+                        message=message_data,
+                        dir="./etl/pub",
+                    )
+                    messages_batch.append(message_data)
+                    extracted_count += 1
+
+                    # Log progress every batch_size messages
+                    if extracted_count % batch_size == 0:
+                        batches_processed += 1
+                        logger.info(
+                            f"📥 Progress: {extracted_count} messages extracted "
+                            f"({batches_processed} batches)"
+                        )
+
+            # Log final count
+            batches_processed = (extracted_count // batch_size) + (
+                1 if extracted_count % batch_size > 0 else 0
+            )
+            logger.info(
+                f"✅ Extraction complete! Total: {extracted_count} messages "
+                f"extracted in {batches_processed} batches"
+            )
+
+            return {
+                "total_messages": total_count,
+                "extracted_messages": extracted_count,
+                "batches_processed": batches_processed,
+                "batch_size": batch_size,
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Error extracting all messages: {e}")
+            return {
+                "total_messages": 0,
+                "extracted_messages": 0,
+                "batches_processed": 0,
+                "error": str(e),
+            }
+
     async def extract_recent_messages(
         self, hours: int = 24, webhook_url: Optional[str] = None
     ) -> list[Dict]:

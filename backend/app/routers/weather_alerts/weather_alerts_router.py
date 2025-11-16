@@ -125,29 +125,44 @@ async def backfill_weather_alerts(
 
 @router.get("/extract-messages")
 async def extract_existing_messages(
-    limit: int = 100,
+    batch_size: int = 1000,
 ):
     """
-    GET endpoint to extract existing messages from Telegram channel.
+    GET endpoint to extract ALL existing messages from Telegram channel.
 
-    Fetches the last N messages from the Telegram channel and saves them to JSON files.
-    This endpoint extracts messages without processing them through the pipeline.
+    This endpoint queries the total message count first, then extracts ALL
+    messages from the Telegram channel in batches and saves them to JSON files.
+    Messages are extracted without processing them through the pipeline.
+
+    The extraction happens in batches to avoid memory issues and API rate limits.
+    Progress is logged every `batch_size` messages.
 
     Parameters:
-    - limit: Number of messages to fetch (default: 100)
+    - batch_size: Number of messages per batch for progress logging (default: 1000)
 
     Returns:
-    - JSON object with success status and extraction details
+    - JSON object with:
+        - success: boolean indicating success/failure
+        - message: description of the result
+        - total_messages: approximate total count (based on last message ID)
+        - extracted_messages: actual number of messages extracted
+        - batches_processed: number of batches processed
+        - batch_size: batch size used
     """
 
     try:
-        # Extract messages through controller
-        result = await weather_alerts_controller.extract_existing_messages(limit=limit)
+        # Extract ALL messages through controller
+        result = await weather_alerts_controller.extract_existing_messages(
+            batch_size=batch_size
+        )
 
         return {
             "success": result["status"] == "success",
             "message": result["message"],
-            "limit": result["limit"],
+            "total_messages": result.get("total_messages", 0),
+            "extracted_messages": result.get("extracted_messages", 0),
+            "batches_processed": result.get("batches_processed", 0),
+            "batch_size": result.get("batch_size", batch_size),
         }
 
     except Exception as e:

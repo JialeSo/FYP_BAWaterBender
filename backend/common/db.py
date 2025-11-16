@@ -107,7 +107,11 @@ class DatabaseConnection:
             # Use upsert with on_conflict parameter when supported
             try:
                 if on_conflict:
-                    response = client.table(table).upsert(data, on_conflict=on_conflict).execute()
+                    response = (
+                        client.table(table)
+                        .upsert(data, on_conflict=on_conflict)
+                        .execute()
+                    )
                 else:
                     response = client.table(table).upsert(data).execute()
             except TypeError:

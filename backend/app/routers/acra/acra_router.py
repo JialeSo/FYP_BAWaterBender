@@ -17,7 +17,9 @@ async def get_acra_companies_count():
     try:
         # Ask server for an exact count with minimal payload
         # Selecting a cheap column and limiting rows keeps payload small
-        result = db.table("acra_companies").select("id", count="exact").limit(1).execute()
+        result = (
+            db.table("acra_companies").select("id", count="exact").limit(1).execute()
+        )
 
         total = getattr(result, "count", None)
         if total is None:
@@ -33,7 +35,9 @@ async def get_acra_companies_count():
 
 @router.get("/companies")
 async def list_acra_companies(
-    limit: int = Query(1000, ge=1, le=500_000, description="Max rows to return (<= 500k)"),
+    limit: int = Query(
+        1000, ge=1, le=500_000, description="Max rows to return (<= 500k)"
+    ),
     offset: int = Query(0, ge=0, description="Zero-based row offset"),
 ):
     """Paginated fetch of acra_companies using range headers.
@@ -63,6 +67,7 @@ async def list_acra_companies(
             "offset": offset,
         }
     except Exception as e:
-        logger.error(f"Error fetching ACRA companies (limit={limit}, offset={offset}): {e}")
+        logger.error(
+            f"Error fetching ACRA companies (limit={limit}, offset={offset}): {e}"
+        )
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
