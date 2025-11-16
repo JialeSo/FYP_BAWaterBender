@@ -7,6 +7,7 @@ import FloodEvents from "./pages/floodevents"
 import SingaporeHistoricalFloodMap from "./pages/historicalFloodMap"
 import RoadCentrality from "./pages/roadcentrality"
 import Simulation from "./pages/simulation"
+import UploadData from "./pages/uploadPage"
 
 export default function AppRouter() {
   return (
@@ -21,7 +22,7 @@ export default function AppRouter() {
       <Route path="/historical-flood-map" element={<SingaporeHistoricalFloodMap />} />
       <Route path="/road-centrality" element={<RoadCentrality />} />
       <Route path="/simulation" element={<Simulation />} />
-      
+      <Route path="/uploaddata" element={<UploadData />} />
       {/* 404 fallback */}
       <Route path="*" element={<div className="p-6">404 not found</div>} />
     </Routes>

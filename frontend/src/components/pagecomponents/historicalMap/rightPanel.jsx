@@ -36,6 +36,33 @@ const chartTooltipStyle = {
 }
 const chartLabelStyle = { color: "var(--muted-foreground)" }
 
+const MultiLineYAxisTick = ({ x, y, payload }) => {
+  const words = String(payload.value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={4}
+        textAnchor="end"
+        fill="var(--muted-foreground)"
+        fontSize={12}
+      >
+        {words.length
+          ? words.map((word, index) => (
+              <tspan key={`${word}-${index}`} x={0} dy={index === 0 ? 0 : 12}>
+                {word}
+              </tspan>
+            ))
+          : payload.value}
+      </text>
+    </g>
+  )
+}
+
 const MetricCard = ({ title, value, subtitle }) => (
   <Card>
     <CardHeader>
@@ -81,11 +108,60 @@ const RankedList = ({ title, items, emptyLabel }) => (
   </Card>
 )
 
-const determineContextLabel = (selectedPAs) => {
-  if (selectedPAs?.length > 1) return `${selectedPAs.length} Planning Areas Selected`
-  if (selectedPAs?.length === 1) return formatName(selectedPAs[0])
-  return "All Planning Areas"
+const determineContextLabel = (selectedPAs, allSelected = false) => {
+  if (allSelected) return "All Planning Areas"
+  if (!selectedPAs?.length) return "No Planning Areas Selected"
+  if (selectedPAs.length === 1) return formatName(selectedPAs[0])
+  return `${selectedPAs.length} Planning Areas Selected`
 }
+
+const HorizontalBarCard = ({ title, description, data, emptyLabel }) => (
+  <Card>
+    <CardHeader className="pb-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <CardTitle className="text-sm font-semibold text-muted-foreground">{title}</CardTitle>
+          {description ? <CardDescription>{description}</CardDescription> : null}
+        </div>
+      </div>
+    </CardHeader>
+    <CardContent className="h-64">
+      {data?.length ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} layout="vertical" margin={{ left: 8, right: 32, top: 8, bottom: 8 }} barCategoryGap={10}>
+            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
+            <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis
+              type="category"
+              dataKey="name"
+              stroke="var(--muted-foreground)"
+              tickLine={false}
+              axisLine={false}
+              width={210}
+              tickMargin={8}
+              tick={<MultiLineYAxisTick />}
+              interval={0}
+            />
+            <Tooltip
+              formatter={(v) => formatNumber(v)}
+              labelFormatter={(label, payload) => {
+                const context = payload?.[0]?.payload?.context
+                return context ? `${label} — ${context}` : label
+              }}
+              contentStyle={chartTooltipStyle}
+              labelStyle={chartLabelStyle}
+            />
+            <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} barSize={18}>
+              <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(v)} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{emptyLabel}</div>
+      )}
+    </CardContent>
+  </Card>
+)
 
 export default function RightPanel({
   feature,                  // subzone feature if drilled
@@ -95,6 +171,7 @@ export default function RightPanel({
   error,
   onClearSelection,         // kept (unused in UI)
   selectedPlanningAreas = [],
+  allPlanningAreasSelected = false,
 }) {
   if (loading) {
     return (
@@ -154,8 +231,10 @@ export default function RightPanel({
   const isPlanningAreaFocus = !isSubzoneDetail && selectedPlanningAreas.length === 1
   // OUT view when 0 or >1 PAs
   const isOutView = !isSubzoneDetail && !isPlanningAreaFocus
+  const isZoomedView = isPlanningAreaFocus || isSubzoneDetail
+  const selectedSubzoneName = formatName(feature?.properties?.SUBZONE_N ?? safeFlood.focusSubzoneName ?? "")
 
-  const planningContext = determineContextLabel(selectedPlanningAreas)
+  const planningContext = determineContextLabel(selectedPlanningAreas, allPlanningAreasSelected)
 
   // Footer planning list source (respect selection)
   const planningList = useMemo(() => {
@@ -253,6 +332,18 @@ export default function RightPanel({
     return rows.sort((a, b) => b.count - a.count).slice(0, 10)
   }, [safeAmen.bySubzone, planningAreaName])
 
+  const zoomedSubzoneData = (isFloods ? subzoneFooterListFlood : subzoneFooterListAmen).map(({ label, subLabel, count }) => ({
+    name: label,
+    context: subLabel,
+    count,
+  }))
+
+  const zoomedRoadData = (isFloods ? topRoadsFlood : topRoadsAmen).map(({ label, subLabel, count }) => ({
+    name: label,
+    context: subLabel,
+    count,
+  }))
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-5 overflow-y-auto p-6">
       {/* Mode toggle */}
@@ -342,7 +433,17 @@ export default function RightPanel({
                     <BarChart data={floodTypesList} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                       <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={170} tickMargin={6} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        stroke="var(--muted-foreground)"
+                        tickLine={false}
+                        axisLine={false}
+                        width={210}
+                        tickMargin={8}
+                        interval={0}
+                        tick={<MultiLineYAxisTick />}
+                      />
                       <Tooltip formatter={(v) => formatNumber(v)} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
                       <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} barSize={18}>
                         <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(v)} />
@@ -404,7 +505,17 @@ export default function RightPanel({
                       <BarChart data={floodsBySubzoneInPA} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
                         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                         <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={180} tickMargin={6} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        stroke="var(--muted-foreground)"
+                        tickLine={false}
+                        axisLine={false}
+                        width={210}
+                        tickMargin={8}
+                        interval={0}
+                        tick={<MultiLineYAxisTick />}
+                      />
                         <Tooltip formatter={(v) => formatNumber(v)} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
                         <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} barSize={18}>
                           <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(v)} />
@@ -466,7 +577,17 @@ export default function RightPanel({
                     <BarChart data={amenCategoriesList} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                       <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={170} tickMargin={6} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        stroke="var(--muted-foreground)"
+                        tickLine={false}
+                        axisLine={false}
+                        width={210}
+                        tickMargin={8}
+                        interval={0}
+                        tick={<MultiLineYAxisTick />}
+                      />
                       <Tooltip formatter={(v) => formatNumber(v)} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
                       <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} barSize={18}>
                         <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(v)} />
@@ -495,7 +616,17 @@ export default function RightPanel({
                     <BarChart data={amenTypesList} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                       <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={180} tickMargin={6} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        stroke="var(--muted-foreground)"
+                        tickLine={false}
+                        axisLine={false}
+                        width={210}
+                        tickMargin={8}
+                        interval={0}
+                        tick={<MultiLineYAxisTick />}
+                      />
                       <Tooltip formatter={(v) => formatNumber(v)} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
                       <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} barSize={18}>
                         <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(v)} />
@@ -572,66 +703,73 @@ export default function RightPanel({
         </>
       )}
 
-      {/* Footer lists — mode aware, top 10, show PA under subzones and roads */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <RankedList
-          title={
-            isFloods
-              ? (isPlanningAreaFocus || isSubzoneDetail ? "Subzones" : "Planning areas")
-              : (isPlanningAreaFocus || isSubzoneDetail ? "Subzones (amenities)" : "Planning areas")
-          }
-          items={
-            isFloods
-              ? (isPlanningAreaFocus || isSubzoneDetail
-                  ? subzoneFooterListFlood
-                  : (planningList || []).slice(0, 10).map(({ label, count }) => ({ label, count })))
-              : (isPlanningAreaFocus || isSubzoneDetail
-                  ? subzoneFooterListAmen
-                  : (planningList || []).slice(0, 10).map(({ label, count }) => ({ label, count })))
-          }
-          emptyLabel={
-            isFloods
-              ? (isPlanningAreaFocus || isSubzoneDetail
-                  ? "No subzone-level data available."
-                  : "No planning-area level data available.")
-              : (isPlanningAreaFocus || isSubzoneDetail
-                  ? "No subzone-level amenity data available."
-                  : "No planning-area level amenity data available.")
-          }
-        />
-
-        {isFloods ? (
-          <RankedList
+      {/* Footer analytics */}
+      {isZoomedView ? (
+        <div className="space-y-4">
+          <HorizontalBarCard
             title={
-              isSubzoneDetail
-                ? `Road Segments with Floods – ${formatName(feature?.properties?.SUBZONE_N ?? "")}`
-                : isPlanningAreaFocus
-                ? `Road Segments with Floods – ${formatName(planningAreaName).toUpperCase()}`
-                : "Road Segments with Floods"
+              isFloods
+                ? "Subzones (Flood Events)"
+                : "Subzones (Amenities)"
             }
-            items={topRoadsFlood}
-            emptyLabel={
+            description={
               isSubzoneDetail
-                ? "No road-level data for the selected subzone."
+                ? selectedSubzoneName
                 : isPlanningAreaFocus
-                ? "No road-level data for the selected planning area."
-                : "No road-level data available."
+                ? formatName(planningAreaName).toUpperCase()
+                : undefined
+            }
+            data={zoomedSubzoneData}
+            emptyLabel={
+              isFloods
+                ? "No subzone-level data available."
+                : "No subzone-level amenity data available."
             }
           />
-        ) : (
-          <RankedList
+          <HorizontalBarCard
             title={
-              isSubzoneDetail
-                ? `Road Segments with Amenities – ${formatName(feature?.properties?.SUBZONE_N ?? "")}`
-                : isPlanningAreaFocus
-                ? `Road Segments with Amenities – ${formatName(planningAreaName).toUpperCase()}`
+              isFloods
+                ? "Road Segments with Floods"
                 : "Road Segments with Amenities"
             }
-            items={topRoadsAmen}
-            emptyLabel="No road-level amenity data available."
+            description={
+              isSubzoneDetail
+                ? selectedSubzoneName
+                : isPlanningAreaFocus
+                ? formatName(planningAreaName).toUpperCase()
+                : undefined
+            }
+            data={zoomedRoadData}
+            emptyLabel={
+              isFloods
+                ? "No road-level data available."
+                : "No road-level amenity data available."
+            }
           />
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <RankedList
+            title={isFloods ? "Planning areas" : "Planning areas (amenities)"}
+            items={(planningList || []).slice(0, 10).map(({ label, count }) => ({ label, count }))}
+            emptyLabel={isFloods ? "No planning-area level data available." : "No planning-area level amenity data available."}
+          />
+
+          {isFloods ? (
+            <RankedList
+              title="Road Segments with Floods"
+              items={topRoadsFlood}
+              emptyLabel="No road-level data available."
+            />
+          ) : (
+            <RankedList
+              title="Road Segments with Amenities"
+              items={topRoadsAmen}
+              emptyLabel="No road-level amenity data available."
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }

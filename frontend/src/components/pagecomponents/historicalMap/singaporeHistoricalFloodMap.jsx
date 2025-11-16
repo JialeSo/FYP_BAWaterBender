@@ -332,6 +332,7 @@ export default function singaporehistoricalfloodmap({
 
   const paPopupRef = useRef(null);
   const szPopupRef = useRef(null);
+  const markerPopupRef = useRef(null);
 
   const [metric, setMetric] = useState("flood_count");
   const [showChoropleth, setShowChoropleth] = useState(true);
@@ -369,6 +370,16 @@ export default function singaporehistoricalfloodmap({
       })
       .map(f => toS(getProp(f.properties, SZ_NAME_KEYS)));
   }, [szUniverse, subzoneFC, selectedPlanningAreas]);
+
+  const totalPAUniverse = useMemo(
+    () => new Set(paUniverse.filter(Boolean)).size,
+    [paUniverse]
+  );
+  const selectedPASet = useMemo(() => new Set((selectedPlanningAreas || []).map(toS).filter(Boolean)), [selectedPlanningAreas]);
+  const hasPASelection = selectedPASet.size > 0;
+  const isAllPASelected = hasPASelection && totalPAUniverse > 0 && selectedPASet.size >= totalPAUniverse;
+  const paFilterValues = Array.from(selectedPASet);
+  const hasSZSelection = (selectedSubzones || []).length > 0;
 
   const paArea = useMemo(() => {
     const m = {};
@@ -478,6 +489,66 @@ export default function singaporehistoricalfloodmap({
     return out;
   }, [subzoneFC, szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity, selectedPlanningAreas]);
 
+  const popupStatsRef = useRef({
+    paFloodsCount,
+    paFloodsDensity,
+    paAmenCount,
+    paAmenDensity,
+    paRankFloodsCount,
+    paRankFloodsDensity,
+    paRankAmenCount,
+    paRankAmenDensity,
+    szFloodsCount,
+    szFloodsDensity,
+    szAmenCount,
+    szAmenDensity,
+    szRankFloodsCount,
+    szRankFloodsDensity,
+    szRankAmenCount,
+    szRankAmenDensity,
+    perPA_SZ_Ranks,
+  });
+
+  useEffect(() => {
+    popupStatsRef.current = {
+      paFloodsCount,
+      paFloodsDensity,
+      paAmenCount,
+      paAmenDensity,
+      paRankFloodsCount,
+      paRankFloodsDensity,
+      paRankAmenCount,
+      paRankAmenDensity,
+      szFloodsCount,
+      szFloodsDensity,
+      szAmenCount,
+      szAmenDensity,
+      szRankFloodsCount,
+      szRankFloodsDensity,
+      szRankAmenCount,
+      szRankAmenDensity,
+      perPA_SZ_Ranks,
+    };
+  }, [
+    paFloodsCount,
+    paFloodsDensity,
+    paAmenCount,
+    paAmenDensity,
+    paRankFloodsCount,
+    paRankFloodsDensity,
+    paRankAmenCount,
+    paRankAmenDensity,
+    szFloodsCount,
+    szFloodsDensity,
+    szAmenCount,
+    szAmenDensity,
+    szRankFloodsCount,
+    szRankFloodsDensity,
+    szRankAmenCount,
+    szRankAmenDensity,
+    perPA_SZ_Ranks,
+  ]);
+
   const paCentroidsBase = useMemo(
     () => buildCentroids(planningFC, "PLN_AREA_N", paFloodsCount, (f) => ({
       population: f.properties?.population ?? null,
@@ -529,32 +600,49 @@ export default function singaporehistoricalfloodmap({
     return { type: "FeatureCollection", features: feats };
   }, [szCentroidsBase, metric, szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity]);
 
-  const hasPASelection = (selectedPlanningAreas || []).length > 0;
-  const hasSZSelection = (selectedSubzones || []).length > 0;
-
   // Map used for the LEGEND only — respects SZ selection when PA is selected
-  const legendValueMap = useMemo(() => {
-    const base =
-      !hasPASelection
-        ? (metric === "flood_density" ? paFloodsDensity :
-           metric === "amenity_count" ? paAmenCount :
-           metric === "amenity_density" ? paAmenDensity : paFloodsCount)
-        : (metric === "flood_density" ? szFloodsDensity :
-           metric === "amenity_count" ? szAmenCount :
-           metric === "amenity_density" ? szAmenDensity : szFloodsCount);
+  // Map used for the LEGEND only — respects SZ selection when PA is selected
+const legendValueMap = useMemo(() => {
+  const base = !hasPASelection
+    ? (metric === "flood_density"
+        ? paFloodsDensity
+        : metric === "amenity_count"
+        ? paAmenCount
+        : metric === "amenity_density"
+        ? paAmenDensity
+        : paFloodsCount)
+    : (metric === "flood_density"
+        ? szFloodsDensity
+        : metric === "amenity_count"
+        ? szAmenCount
+        : metric === "amenity_density"
+        ? szAmenDensity
+        : szFloodsCount);
 
-    if (hasPASelection && hasSZSelection) {
-      const allow = new Set((selectedSubzones || []).map(toS));
-      const out = {};
-      for (const [k, v] of Object.entries(base)) if (allow.has(k)) out[k] = v;
-      return out;
+  if (hasPASelection && hasSZSelection) {
+    const allow = new Set((selectedSubzones || []).map(toS));
+    const out = {};
+    for (const [k, v] of Object.entries(base)) {
+      if (allow.has(k)) out[k] = v;
     }
-    return base;
-  }, [
-    hasPASelection, hasSZSelection, selectedSubzones, metric,
-    paFloodsCount, paFloodsDensity, paAmenCount, paAmenDensity,
-    szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity
-  ]);
+    return out;
+  }
+  return base;
+}, [
+  hasPASelection,
+  hasSZSelection,
+  selectedSubzones,
+  metric,
+  paFloodsCount,
+  paFloodsDensity,
+  paAmenCount,
+  paAmenDensity,
+  szFloodsCount,
+  szFloodsDensity,
+  szAmenCount,
+  szAmenDensity,
+]);
+
 
   const formatTick = (x) => (metric.endsWith("_density") ? (Math.round(x * 100) / 100).toString() : Math.round(x).toString());
 
@@ -694,11 +782,23 @@ export default function singaporehistoricalfloodmap({
       // popups
       paPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: "dark-popup", anchor: "bottom", maxWidth: "360px" });
       szPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: "dark-popup", anchor: "bottom", maxWidth: "360px" });
+      markerPopupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, className: "dark-popup", anchor: "bottom", maxWidth: "320px" });
 
       const fmtNum = (n) => (n == null || Number.isNaN(+n) ? "–" : (+n).toLocaleString());
       const fmtFloat = (n, d = 2) => (n == null || Number.isNaN(+n) ? "–" : (+n).toFixed(d));
 
       const PA_HTML = (p) => {
+        const stats = popupStatsRef.current || {};
+        const {
+          paFloodsCount = {},
+          paFloodsDensity = {},
+          paAmenCount = {},
+          paAmenDensity = {},
+          paRankFloodsCount = {},
+          paRankFloodsDensity = {},
+          paRankAmenCount = {},
+          paRankAmenDensity = {},
+        } = stats;
         const raw = toS(getProp(p, PA_NAME_KEYS));
         const name = toTitle(raw);
         const area  = p.area != null ? +p.area : (p.area_km2 != null ? +p.area_km2 : null);
@@ -734,6 +834,18 @@ export default function singaporehistoricalfloodmap({
       };
 
       const SZ_HTML = (p) => {
+        const stats = popupStatsRef.current || {};
+        const {
+          szFloodsCount = {},
+          szFloodsDensity = {},
+          szAmenCount = {},
+          szAmenDensity = {},
+          szRankFloodsCount = {},
+          szRankFloodsDensity = {},
+          szRankAmenCount = {},
+          szRankAmenDensity = {},
+          perPA_SZ_Ranks: perRanks = {},
+        } = stats;
         const rawSZ = toS(getProp(p, SZ_NAME_KEYS));
         const rawPA = toS(getProp(p, PA_NAME_KEYS));
         const szName = toTitle(rawSZ);
@@ -751,7 +863,7 @@ export default function singaporehistoricalfloodmap({
         const gAD = szRankAmenDensity.ranks[rawSZ] || "–";
         const gTot = szRankFloodsCount.total || 0;
 
-        const within = perPA_SZ_Ranks[rawPA] || {};
+        const within = perRanks[rawPA] || {};
         const wFC = within.floodsCount?.ranks?.[rawSZ] || "–";
         const wFD = within.floodsDensity?.ranks?.[rawSZ] || "–";
         const wAC = within.amenCount?.ranks?.[rawSZ] || "–";
@@ -799,6 +911,37 @@ export default function singaporehistoricalfloodmap({
         map.getCanvas().style.cursor = "";
       });
 
+      const showMarkerPopup = (lngLat, html) => {
+        if (!markerPopupRef.current) return;
+        markerPopupRef.current.setLngLat(lngLat).setHTML(html).addTo(map);
+      };
+
+      if (map.getLayer(FLOOD_POINTS)) {
+        map.on("mousemove", FLOOD_POINTS, (e) => {
+          const feature = e.features?.[0];
+          if (!feature) return;
+          showMarkerPopup(e.lngLat, FLOOD_POINT_HTML(feature.properties || {}));
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", FLOOD_POINTS, () => {
+          markerPopupRef.current?.remove();
+          map.getCanvas().style.cursor = "";
+        });
+      }
+
+      if (map.getLayer(AMENITY_POINTS)) {
+        map.on("mousemove", AMENITY_POINTS, (e) => {
+          const feature = e.features?.[0];
+          if (!feature) return;
+          showMarkerPopup(e.lngLat, AMENITY_POINT_HTML(feature.properties || {}));
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", AMENITY_POINTS, () => {
+          markerPopupRef.current?.remove();
+          map.getCanvas().style.cursor = "";
+        });
+      }
+
       // click: drill into pa
       map.on("click", PA_FILL, (e) => {
         const f = e.features?.[0];
@@ -808,6 +951,55 @@ export default function singaporehistoricalfloodmap({
         const b = computeBounds(f.geometry);
         if (b) map.fitBounds(b, { padding: 48, duration: 700, maxZoom: 13 });
       });
+
+      const handleBackgroundClick = (e) => {
+        const features = map.queryRenderedFeatures(e.point, { layers: [PA_FILL] });
+        if (features && features.length) return;
+        onPlanningAreaToggle?.(null);
+        try { paPopupRef.current?.remove(); } catch {}
+        try { szPopupRef.current?.remove(); } catch {}
+      };
+
+      const FLOOD_POINT_HTML = (p) => {
+        const title = toTitle(p.event || p.flood_type || "Flood Event");
+        const paName = toTitle(getProp(p, FLOOD_PA_NAME_KEYS));
+        const subName = toTitle(p.origin_subzone || p.subzone || p.start_subzone || p.end_subzone);
+        const date = p.event_date_iso || p.event_date || p.date || p.dt || null;
+        const location = p.location || p.address || p.origin_road || p.start_street_name || "";
+        return `
+<div style="min-width:220px;max-width:320px;background:#0b1220;color:#e5e7eb;border-radius:12px;padding:10px 12px;box-shadow:0 6px 22px rgba(0,0,0,.5);">
+  <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${title}</div>
+  <ul style="list-style:none;margin:0;padding:0;font-size:12px;line-height:1.4;">
+    ${date ? `<li><strong>Date:</strong> ${date}</li>` : ""}
+    ${paName ? `<li><strong>Planning Area:</strong> ${paName}</li>` : ""}
+    ${subName ? `<li><strong>Subzone:</strong> ${subName}</li>` : ""}
+    ${location ? `<li><strong>Location:</strong> ${location}</li>` : ""}
+  </ul>
+</div>`;
+      };
+
+      const AMENITY_POINT_HTML = (p) => {
+        const name = toTitle(p.amenity_name || p.name || p.display_name || "Amenity");
+        const category = toTitle(p.amenity_category || p.category || "Amenity");
+        const type = toTitle(p.amenity_type || p.type || "");
+        const paName = toTitle(getProp(p, AMEN_PA_NAME_KEYS));
+        const subName = toTitle(p.subzone || "");
+        return `
+<div style="min-width:220px;max-width:320px;background:#0b1220;color:#e5e7eb;border-radius:12px;padding:10px 12px;box-shadow:0 6px 22px rgba(0,0,0,.5);">
+  <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${name}</div>
+  <ul style="list-style:none;margin:0;padding:0;font-size:12px;line-height:1.4;">
+    <li><strong>Category:</strong> ${category}</li>
+    ${type ? `<li><strong>Type:</strong> ${type}</li>` : ""}
+    ${paName ? `<li><strong>Planning Area:</strong> ${paName}</li>` : ""}
+    ${subName ? `<li><strong>Subzone:</strong> ${subName}</li>` : ""}
+  </ul>
+</div>`;
+      };
+      map.on("click", handleBackgroundClick);
+
+      map.on("remove", () => {
+        map.off("click", handleBackgroundClick);
+      });
     });
 
     map.on("error", (ev) => console.warn("[map error]", ev?.error || ev));
@@ -815,6 +1007,7 @@ export default function singaporehistoricalfloodmap({
     return () => {
       try { paPopupRef.current?.remove(); } catch {}
       try { szPopupRef.current?.remove(); } catch {}
+      try { markerPopupRef.current?.remove(); } catch {}
       try { map.remove(); } catch {}
       mapRef.current = null;
       loadedRef.current = false;
@@ -833,110 +1026,197 @@ export default function singaporehistoricalfloodmap({
   }, [planningFC, subzoneFC, floodFC, roadFC, amenitiesFC]);
 
   /* paints + visibility updates */
+    /* paints + visibility updates */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
 
-    const hasPA = (selectedPlanningAreas || []).length > 0;
-    const hasSZ = (selectedSubzones || []).length > 0;
+    const filterAll = ["all"];
+    const filterNone = ["boolean", false];
+    const selectedSubzonesList = (selectedSubzones || []).map(toS).filter(Boolean);
+    const showDetailLayers = hasPASelection && (!isAllPASelected || selectedSubzonesList.length > 0);
 
-    const paFilter = matchFilter("PLN_AREA_N", selectedPlanningAreas);
-    const szFilter = matchFilter("SUBZONE_N", selectedSubzones);
+    const paFilterExpr = !hasPASelection
+      ? filterNone
+      : (isAllPASelected ? filterAll : matchFilter("PLN_AREA_N", paFilterValues));
 
-    const valueMapPA = metric === "flood_density"   ? paFloodsDensity
-                      : metric === "amenity_count"  ? paAmenCount
-                      : metric === "amenity_density"? paAmenDensity
-                      : paFloodsCount;
+    const subzoneFilterExpr = selectedSubzonesList.length
+      ? matchFilter("SUBZONE_N", selectedSubzones)
+      : filterAll;
 
-    const valueMapSZ = metric === "flood_density"   ? szFloodsDensity
-                      : metric === "amenity_count"  ? szAmenCount
-                      : metric === "amenity_density"? szAmenDensity
-                      : szFloodsCount;
+    const combinedSubzoneFilter = !hasPASelection
+      ? filterNone
+      : (isAllPASelected
+          ? (selectedSubzonesList.length ? subzoneFilterExpr : filterAll)
+          : (selectedSubzonesList.length
+              ? ["all", matchFilter("PLN_AREA_N", paFilterValues), subzoneFilterExpr]
+              : matchFilter("PLN_AREA_N", paFilterValues)));
 
-    // choropleth visibility
+    const valueMapPA =
+      metric === "flood_density"    ? paFloodsDensity
+      : metric === "amenity_count"  ? paAmenCount
+      : metric === "amenity_density"? paAmenDensity
+      : paFloodsCount;
+
+    const valueMapSZ =
+      metric === "flood_density"    ? szFloodsDensity
+      : metric === "amenity_count"  ? szAmenCount
+      : metric === "amenity_density"? szAmenDensity
+      : szFloodsCount;
+
+    // --- planning area choropleth ---
     const paVis = showChoropleth ? "visible" : "none";
     if (map.getLayer(PA_FILL)) {
       const { expr } = buildChoropleth(valueMapPA, "PLN_AREA_N");
       map.setLayoutProperty(PA_FILL, "visibility", paVis);
       map.setPaintProperty(PA_FILL, "fill-color", expr);
-      map.setFilter(PA_FILL, hasPA ? paFilter : ["all"]);
+      map.setFilter(PA_FILL, paFilterExpr);
     }
     if (map.getLayer(PA_OUTLINE)) {
       map.setLayoutProperty(PA_OUTLINE, "visibility", paVis);
-      map.setFilter(PA_OUTLINE, hasPA ? paFilter : ["all"]);
+      map.setFilter(PA_OUTLINE, paFilterExpr);
     }
 
-    const szVis = hasPA && showChoropleth ? "visible" : "none";
+    // --- subzone choropleth ---
+    const szVis = showChoropleth && showDetailLayers ? "visible" : "none";
     if (map.getLayer(SZ_FILL)) {
       map.setLayoutProperty(SZ_FILL, "visibility", szVis);
-      // ⬇️ apply BOTH PA and SZ filters so deselected subzones disappear
-      map.setFilter(SZ_FILL, hasPA ? (hasSZ ? ["all", paFilter, szFilter] : paFilter) : ["all"]);
+      map.setFilter(SZ_FILL, combinedSubzoneFilter);
       const { expr } = buildChoropleth(valueMapSZ, "SUBZONE_N");
       map.setPaintProperty(SZ_FILL, "fill-color", expr);
     }
     if (map.getLayer(SZ_OUTLINE)) {
       map.setLayoutProperty(SZ_OUTLINE, "visibility", szVis);
-      map.setFilter(SZ_OUTLINE, hasPA ? (hasSZ ? ["all", paFilter, szFilter] : paFilter) : ["all"]);
+      map.setFilter(SZ_OUTLINE, combinedSubzoneFilter);
     }
 
-    // --- bubbles ---
-    const paBubbleVis = showChoropleth ? (hasPA ? "none" : "visible") : "none";
-    const szBubbleVis = showChoropleth ? (hasPA ? "visible" : "none") : "none";
+    // --- bubbles (PA vs SZ) ---
+    const paBubbleVis = showChoropleth && !showDetailLayers ? "visible" : "none";
+    const szBubbleVis = showChoropleth && showDetailLayers ? "visible" : "none";
 
-    if (map.getSource(PA_CENTROIDS_SRC)) map.getSource(PA_CENTROIDS_SRC).setData(paBubbleFC);
-    if (map.getSource(SZ_CENTROIDS_SRC)) map.getSource(SZ_CENTROIDS_SRC).setData(szBubbleFC);
+    if (map.getSource(PA_CENTROIDS_SRC)) {
+      map.getSource(PA_CENTROIDS_SRC).setData(paBubbleFC);
+    }
+    if (map.getSource(SZ_CENTROIDS_SRC)) {
+      map.getSource(SZ_CENTROIDS_SRC).setData(szBubbleFC);
+    }
 
-    if (map.getLayer(PA_BUBBLE_CIRCLES)) map.setLayoutProperty(PA_BUBBLE_CIRCLES, "visibility", paBubbleVis);
-    if (map.getLayer(PA_BUBBLE_LABELS))  map.setLayoutProperty(PA_BUBBLE_LABELS,  "visibility", paBubbleVis);
+    if (map.getLayer(PA_BUBBLE_CIRCLES)) {
+      map.setLayoutProperty(PA_BUBBLE_CIRCLES, "visibility", paBubbleVis);
+    }
+    if (map.getLayer(PA_BUBBLE_LABELS)) {
+      map.setLayoutProperty(PA_BUBBLE_LABELS, "visibility", paBubbleVis);
+    }
 
     if (map.getLayer(SZ_BUBBLE_CIRCLES)) {
       map.setLayoutProperty(SZ_BUBBLE_CIRCLES, "visibility", szBubbleVis);
-      const paList = (selectedPlanningAreas || []).map(toS).filter(Boolean);
-      const base = paList.length ? ["in", ["get", "pa_name"], ["literal", paList]] : ["all"];
-      // also respect selected subzones
-      const szList = (selectedSubzones || []).map(toS).filter(Boolean);
-      const szOnly = szList.length ? ["in", ["get", "name"], ["literal", szList]] : ["all"];
-      map.setFilter(SZ_BUBBLE_CIRCLES, ["all", base, szOnly]);
+      const filters = [];
+      if (!isAllPASelected) filters.push(matchFilter("pa_name", paFilterValues));
+      if (selectedSubzonesList.length) filters.push(matchFilter("name", selectedSubzonesList));
+      const finalFilter = !filters.length ? filterAll : ["all", ...filters];
+      map.setFilter(SZ_BUBBLE_CIRCLES, finalFilter);
     }
     if (map.getLayer(SZ_BUBBLE_LABELS)) {
       map.setLayoutProperty(SZ_BUBBLE_LABELS, "visibility", szBubbleVis);
-      const paList = (selectedPlanningAreas || []).map(toS).filter(Boolean);
-      const base = paList.length ? ["in", ["get", "pa_name"], ["literal", paList]] : ["all"];
-      const szList = (selectedSubzones || []).map(toS).filter(Boolean);
-      const szOnly = szList.length ? ["in", ["get", "name"], ["literal", szList]] : ["all"];
-      map.setFilter(SZ_BUBBLE_LABELS, ["all", base, szOnly]);
+      const filters = [];
+      if (!isAllPASelected) filters.push(matchFilter("pa_name", paFilterValues));
+      if (selectedSubzonesList.length) filters.push(matchFilter("name", selectedSubzonesList));
+      const finalFilter = !filters.length ? filterAll : ["all", ...filters];
+      map.setFilter(SZ_BUBBLE_LABELS, finalFilter);
     }
 
-    // point layers (still PA-based)
-    const list = (selectedPlanningAreas || []).map(toS).filter(Boolean);
-    const floodFilter = hasPA ? anyKeyEqualsFilter(FLOOD_PA_NAME_KEYS, list) : ["boolean", true];
-    const amenFilter  = hasPA ? anyKeyEqualsFilter(AMEN_PA_NAME_KEYS,  list) : ["boolean", true];
-    const roadFilter  = hasPA ? anyKeyEqualsFilter(ROAD_PA_NAME_KEYS,  list) : ["boolean", false];
+    // --- points & heatmap filters ---
+    const floodTypeValues = (selectedFloodTypes || []).map(toLC).filter(Boolean);
+    const amenCategoryValues = (selectedAmenityCategories || []).map(toS).filter(Boolean);
+    const amenTypeValues = (selectedAmenityTypes || []).map(toS).filter(Boolean);
+
+    const floodFilters = [];
+    if (hasPASelection && !isAllPASelected) {
+      floodFilters.push(anyKeyEqualsFilter(FLOOD_PA_NAME_KEYS, paFilterValues));
+    }
+    if (selectedSubzonesList.length) {
+      floodFilters.push(anyKeyEqualsFilter(SZ_NAME_KEYS, selectedSubzonesList));
+    }
+    if (floodTypeValues.length) {
+      floodFilters.push([
+        "in",
+        ["downcase", ["coalesce", ["get", "event"], ["get", "flood_type"], ""]],
+        ["literal", floodTypeValues],
+      ]);
+    }
+    const floodDateExpr = [
+      "to-string",
+      [
+        "coalesce",
+        ["get", "event_date_iso"],
+        ["get", "event_date"],
+        ["get", "date"],
+        ["get", "dt"],
+        "",
+      ],
+    ];
+    if (floodDateFrom) {
+      floodFilters.push([">=", floodDateExpr, floodDateFrom]);
+    }
+    if (floodDateTo) {
+      floodFilters.push(["<=", floodDateExpr, floodDateTo]);
+    }
+
+    const amenFilters = [];
+    if (hasPASelection && !isAllPASelected) {
+      amenFilters.push(anyKeyEqualsFilter(AMEN_PA_NAME_KEYS, paFilterValues));
+    }
+    if (selectedSubzonesList.length) {
+      amenFilters.push(anyKeyEqualsFilter(SZ_NAME_KEYS, selectedSubzonesList));
+    }
+    if (amenCategoryValues.length) {
+      amenFilters.push(matchFilter("amenity_category", amenCategoryValues));
+    }
+    if (amenTypeValues.length) {
+      amenFilters.push(matchFilter("amenity_type", amenTypeValues));
+    }
+
+    const floodFilterExpr = !hasPASelection
+      ? filterNone
+      : (floodFilters.length ? ["all", ...floodFilters] : filterAll);
+
+    const amenityFilterExpr = !hasPASelection
+      ? filterNone
+      : (amenFilters.length ? ["all", ...amenFilters] : filterAll);
 
     if (map.getLayer(FLOOD_POINTS)) {
       map.setLayoutProperty(FLOOD_POINTS, "visibility", showFloodMarkers ? "visible" : "none");
-      map.setFilter(FLOOD_POINTS, floodFilter);
+      map.setFilter(FLOOD_POINTS, floodFilterExpr);
     }
     if (map.getLayer(AMENITY_POINTS)) {
       map.setLayoutProperty(AMENITY_POINTS, "visibility", showAmenityMarkers ? "visible" : "none");
-      map.setFilter(AMENITY_POINTS, amenFilter);
+      map.setFilter(AMENITY_POINTS, amenityFilterExpr);
     }
     if (map.getLayer(FLOOD_HEAT)) {
       map.setLayoutProperty(FLOOD_HEAT, "visibility", showKDE ? "visible" : "none");
       map.setPaintProperty(FLOOD_HEAT, "heatmap-intensity", kdeIntensity);
       map.setPaintProperty(FLOOD_HEAT, "heatmap-radius", [
-        "interpolate", ["linear"], ["zoom"],
+        "interpolate",
+        ["linear"],
+        ["zoom"],
         8, Math.max(5, kdeRadius * 0.6),
         12, kdeRadius,
-        15, Math.min(80, kdeRadius * 1.6)
+        15, Math.min(80, kdeRadius * 1.6),
       ]);
-      map.setFilter(FLOOD_HEAT, floodFilter);
+      map.setFilter(FLOOD_HEAT, floodFilterExpr);
     }
 
-    // roads: only when a PA is selected
     if (map.getLayer(ROAD_LINE)) {
-      map.setLayoutProperty(ROAD_LINE, "visibility", hasPA ? "visible" : "none");
-      map.setFilter(ROAD_LINE, hasPA ? roadFilter : ["all", ["==", ["literal", 1], 0]]);
+      if (showDetailLayers) {
+        const roadFilter = isAllPASelected
+          ? filterAll
+          : anyKeyEqualsFilter(ROAD_PA_NAME_KEYS, paFilterValues);
+        map.setLayoutProperty(ROAD_LINE, "visibility", "visible");
+        map.setFilter(ROAD_LINE, roadFilter);
+      } else {
+        map.setLayoutProperty(ROAD_LINE, "visibility", "none");
+        map.setFilter(ROAD_LINE, filterNone);
+      }
     }
   }, [
     metric,
@@ -948,9 +1228,24 @@ export default function singaporehistoricalfloodmap({
     kdeIntensity,
     selectedPlanningAreas,
     selectedSubzones,
-    paFloodsCount, paFloodsDensity, paAmenCount, paAmenDensity,
-    szFloodsCount, szFloodsDensity, szAmenCount, szAmenDensity,
-    paBubbleFC, szBubbleFC,
+    selectedFloodTypes,
+    selectedAmenityCategories,
+    selectedAmenityTypes,
+    floodDateFrom,
+    floodDateTo,
+    paFloodsCount,
+    paFloodsDensity,
+    paAmenCount,
+    paAmenDensity,
+    szFloodsCount,
+    szFloodsDensity,
+    szAmenCount,
+    szAmenDensity,
+    paBubbleFC,
+    szBubbleFC,
+    hasPASelection,
+    isAllPASelected,
+    paFilterValues,
   ]);
 
   /* external subzone select → zoom */

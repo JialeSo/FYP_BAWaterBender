@@ -277,6 +277,7 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   /* selections */
   const [planningAreas, setPlanningAreas] = useState([]);
   const [selectedPlanningAreas, setSelectedPlanningAreas] = useState([]);
+  const [planningSelectionInitialized, setPlanningSelectionInitialized] = useState(false);
   const [selectedSubzone, setSelectedSubzone] = useState(null);
 
   /* amenity filters */
@@ -314,8 +315,6 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
       ).sort();
       if (!cancelled) {
         setPlanningAreas(paNames);
-        // Initialize with ALL planning areas selected (all checkboxes checked)
-        setSelectedPlanningAreas(paNames);
       }
 
       const amenCats = Array.from(
@@ -375,6 +374,13 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     [planningAreas]
   );
 
+  useEffect(() => {
+    if (planningSelectionInitialized) return;
+    if (!planningOptions.length) return;
+    setSelectedPlanningAreas(planningOptions);
+    setPlanningSelectionInitialized(true);
+  }, [planningOptions, planningSelectionInitialized]);
+
   /* ---------- lookups + insights precompute ---------- */
   const floodLookups = useMemo(
     () => buildLookups(planningData, subzoneData, roadData),
@@ -387,10 +393,14 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   );
 
   const filteredFloodEvents = useMemo(() => {
-    const paAllowed = new Set(selectedPlanningAreas);
-    const base = !paAllowed.size
-      ? floodEvents
-      : floodEvents.filter((e) => e.planningArea && paAllowed.has(e.planningArea));
+    if (!planningSelectionInitialized) return floodEvents;
+    if (!selectedPlanningAreas.length) return [];
+
+    const allSelected = planningOptions.length && selectedPlanningAreas.length === planningOptions.length;
+    const paAllowed = new Set(selectedPlanningAreas.map((pa) => String(pa || "").trim()).filter(Boolean));
+    const base = (!allSelected && paAllowed.size)
+      ? floodEvents.filter((e) => e.planningArea && paAllowed.has(e.planningArea))
+      : floodEvents;
 
     const typeAllowed = new Set(
       (selectedFloodTypes || []).map((s) => String(s).trim().toLowerCase())
@@ -398,7 +408,15 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     const byType = typeAllowed.size ? base.filter((e) => typeAllowed.has(e.floodType)) : base;
 
     return byType.filter((e) => withinDate(e.eventDate, floodDateFrom, floodDateTo));
-  }, [floodEvents, selectedPlanningAreas, selectedFloodTypes, floodDateFrom, floodDateTo]);
+  }, [
+    floodEvents,
+    selectedPlanningAreas,
+    selectedFloodTypes,
+    floodDateFrom,
+    floodDateTo,
+    planningOptions,
+    planningSelectionInitialized,
+  ]);
 
   const floodInsights = useMemo(() => {
     if (!floodEvents.length) {
@@ -552,14 +570,22 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   }, [amenityData, selectedAmenityCategories]);
 
   const amenityFilteredFeatures = useMemo(() => {
-    if (!amenityData?.features?.length) return [];
-    const paAllowed = new Set(selectedPlanningAreas);
+    const feats = amenityData?.features || [];
+    if (!feats.length) return [];
+    if (!planningSelectionInitialized) return feats;
+    if (!selectedPlanningAreas.length) return [];
+
+    const allSelected = planningOptions.length && selectedPlanningAreas.length === planningOptions.length;
+    const paAllowed = new Set(selectedPlanningAreas.map((pa) => String(pa || "").trim()).filter(Boolean));
     const cats = new Set(selectedAmenityCategories.map(String));
     const types = new Set(selectedAmenityTypes.map(String));
 
-    return (amenityData.features || []).filter((f) => {
+    return feats.filter((f) => {
       const p = f.properties || {};
-      if (paAllowed.size && !paAllowed.has(String(p.planning_area || "").trim())) return false;
+      if (!allSelected && paAllowed.size) {
+        const paName = String(p.planning_area || "").trim();
+        if (!paName || !paAllowed.has(paName)) return false;
+      }
       if (cats.size) {
         const cat = String(p.amenity_category ?? "").trim();
         if (!cat || !cats.has(cat)) return false;
@@ -570,7 +596,14 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
       }
       return true;
     });
-  }, [amenityData, selectedPlanningAreas, selectedAmenityCategories, selectedAmenityTypes]);
+  }, [
+    amenityData,
+    selectedPlanningAreas,
+    selectedAmenityCategories,
+    selectedAmenityTypes,
+    planningOptions,
+    planningSelectionInitialized,
+  ]);
 
   const amenityInsights = useMemo(() => {
     const feats = amenityFilteredFeatures;
@@ -687,12 +720,14 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   const triggerResize = useCallback(() => setResizeSignal((v) => v + 1), []);
 
   const handlePlanningAreaSelection = useCallback((areas) => setSelectedPlanningAreas(areas), []);
-  const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas([]), []);
+  const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas(planningOptions), [planningOptions]);
   const handlePlanningAreaFromMap = useCallback((areaName) => {
-    if (!areaName) return setSelectedPlanningAreas([]);
-    // When clicking a PA on the map, select ONLY that PA (zoom in)
+    if (!areaName) {
+      setSelectedPlanningAreas(planningOptions);
+      return;
+    }
     setSelectedPlanningAreas([areaName]);
-  }, []);
+  }, [planningOptions]);
 
   const handleSubzoneSelect = useCallback(
     (feature) => {
@@ -812,6 +847,7 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
                 loading={dataLoading || floodLoading}
                 error={dataError || floodError}
                 selectedPlanningAreas={selectedPlanningAreas}
+                allPlanningAreasSelected={planningSelectionInitialized && selectedPlanningAreas.length === planningOptions.length}
               />
             </div>
           </div>

@@ -204,22 +204,28 @@ export default function LeftPanel({
   onFloodDateToChange,
 }) {
   /* ----- planning areas (multi-select with all by default) ----- */
-  const paOptions = useMemo(() => options.map((o) => pretty(o?.trim?.() ?? "")).filter(Boolean), [options])
+  const paOptions = useMemo(() => options
+    .map((o) => {
+      const value = String(o ?? "").trim()
+      if (!value) return null
+      return { value, label: pretty(value) }
+    })
+    .filter(Boolean), [options])
 
   /* ----- flood types (checkbox list, all by default) ----- */
   const floodTypesList = useMemo(() => floodTypeOptions.map((v) => String(v || "").trim()).filter(Boolean), [floodTypeOptions])
 
   const handleResetFilters = useCallback(() => {
-    onSelectionChange?.([])
+    onSelectionChange?.(options)
     onSelectedSubzonesChange?.([])
     onAmenityCategoriesChange?.([])
     onAmenityTypesChange?.([])
     onFloodTypesChange?.([])
     onFloodDateFromChange?.("")
     onFloodDateToChange?.("")
-  }, [onSelectionChange, onSelectedSubzonesChange, onAmenityCategoriesChange, onAmenityTypesChange, onFloodTypesChange, onFloodDateFromChange, onFloodDateToChange])
+  }, [onSelectionChange, onSelectedSubzonesChange, onAmenityCategoriesChange, onAmenityTypesChange, onFloodTypesChange, onFloodDateFromChange, onFloodDateToChange, options])
 
-  const hasFilters = selected.length > 0
+  const hasFilters = selected.length !== options.length
     || selectedSubzones.length > 0
     || selectedAmenityCategories.length > 0
     || selectedAmenityTypes.length > 0
@@ -241,7 +247,7 @@ export default function LeftPanel({
         <div className="space-y-2 pt-4">
           <MultiSelectCombobox
             label="Planning Area"
-            options={paOptions.map((pa) => ({ value: pa, label: pa }))}
+            options={paOptions}
             selected={selected}
             onChange={onSelectionChange}
             placeholder="Select planning areas"
