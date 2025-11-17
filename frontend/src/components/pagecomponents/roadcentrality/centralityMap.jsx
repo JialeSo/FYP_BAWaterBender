@@ -43,55 +43,64 @@ const hasValidScores = (data, metric) => {
 
   const values = data.features
     .map(f => f.properties?.[metric])
-    .filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
+    .filter(v => v !== null && v !== undefined && !isNaN(v));
 
-  // If more than 10% of roads have non-zero values, consider it valid
-  return values.length > data.features.length * 0.1 && Math.max(...values, 0) > 0.01;
+  if (values.length === 0) return false;
+
+  // Check if we have any non-zero values
+  const nonZeroValues = values.filter(v => v > 0);
+  const maxValue = Math.max(...values, 0);
+
+  // Different validation for different metric types
+  const isCountMetric = metric.includes("_count_") || metric === "flood_count_total" || metric === "amenity_count_total";
+  const isNormalizedMetric = metric.includes("_norm");
+
+  if (isCountMetric) {
+    // For count metrics, just need some non-zero values
+    return nonZeroValues.length > 0;
+  } else if (isNormalizedMetric) {
+    // For normalized metrics, max should be > 0.001
+    return maxValue > 0.001;
+  } else {
+    // For importance and other metrics, max should be > 0.01
+    return maxValue > 0.01;
+  }
 };
 
-// Calculate color thresholds based on max value (5 equal buckets)
+// Calculate color bucket thresholds using percentiles for better distribution
 const calculateColorThresholds = (data, metric) => {
-  if (!data?.features?.length) return [0, 0.001, 0.002, 0.003, 0.004, 0.005];
+  if (!data?.features?.length) return { t20: 0, t40: 0, t60: 0, t80: 0, max: 0 };
 
   const values = data.features
     .map(f => f.properties?.[metric])
-    .filter(v => v !== null && v !== undefined && !isNaN(v));
+    .filter(v => v !== null && v !== undefined && !isNaN(v))
+    .sort((a, b) => a - b);
 
-  if (values.length === 0) return [0, 0.001, 0.002, 0.003, 0.004, 0.005];
+  if (values.length === 0) return { t20: 0, t40: 0, t60: 0, t80: 0, max: 0 };
 
-  const maxValue = Math.max(...values);
+  // Use percentiles for better distribution (quintiles: 20%, 40%, 60%, 80%, 100%)
+  const getPercentile = (arr, p) => {
+    const idx = Math.floor(arr.length * p);
+    return arr[Math.min(idx, arr.length - 1)];
+  };
 
-  // If maxValue is 0 or very small, return small ascending values
-  if (maxValue < 0.000001) return [0, 0.001, 0.002, 0.003, 0.004, 0.005];
-
-  // Create 5 equal buckets from 0 to max
-  const thresholds = [
-    0,
-    maxValue * 0.2,
-    maxValue * 0.4,
-    maxValue * 0.6,
-    maxValue * 0.8,
-    maxValue,
-  ];
-
-  // Ensure strictly ascending order by adding small increments if needed
-  for (let i = 1; i < thresholds.length; i++) {
-    if (thresholds[i] <= thresholds[i - 1]) {
-      thresholds[i] = thresholds[i - 1] + 0.00001;
-    }
-  }
-
-  return thresholds;
+  return {
+    t20: getPercentile(values, 0.2),
+    t40: getPercentile(values, 0.4),
+    t60: getPercentile(values, 0.6),
+    t80: getPercentile(values, 0.8),
+    max: values[values.length - 1]
+  };
 };
 
-// Function to create color expression based on value thresholds
+// Function to create color expression with distinct buckets
 const createColorExpression = (metric, thresholds, hasValidData) => {
   // If no valid data, use neutral gray color
   if (!hasValidData) {
     return "#9ca3af"; // Neutral gray for uncomputed/missing data
   }
 
-  const [t0, t20, t40, t60, t80, t100] = thresholds;
+  const { t20, t40, t60, t80, max } = thresholds;
 
   // Ensure we have meaningful thresholds
   // For normalized metrics (betweenness_norm, closeness_norm), check if max > 0.01
@@ -101,20 +110,21 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
   const isNormalizedMetric = metric.includes("_norm");
   const minThreshold = isCountMetric ? 0 : isNormalizedMetric ? 0.01 : 0.1;
 
-  if (t100 <= minThreshold) {
+  if (max <= minThreshold) {
     return "#9ca3af"; // If max value is too small or zero, use neutral gray
   }
 
+  // Use discrete color buckets based on percentile thresholds
+  // This creates 5 distinct color buckets with clear boundaries
   return [
-    "interpolate",
-    ["linear"],
-    ["coalesce", ["to-number", ["get", metric]], 0],
-    t0, "#e5e7eb",    // Very light gray for near-zero values
-    t20, "#93c5fd",   // Light blue (20-40% of max)
-    t40, "#60a5fa",   // Medium blue (40-60% of max)
-    t60, "#3b82f6",   // Blue (60-80% of max)
-    t80, "#1d4ed8",   // Dark blue (80-100% of max)
-    t100, "#1e40af",  // Very dark blue (100% of max)
+    "case",
+    ["==", ["coalesce", ["to-number", ["get", metric]], -999], -999], "#e5e7eb",  // Null/missing - Very light gray
+    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], 0], "#e5e7eb",  // Zero values - Very light gray
+    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20], "#bfdbfe",  // Bucket 1: 0-20% - Very light blue
+    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40], "#93c5fd",  // Bucket 2: 20-40% - Light blue
+    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60], "#60a5fa",  // Bucket 3: 40-60% - Medium blue
+    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80], "#3b82f6",  // Bucket 4: 60-80% - Blue
+    "#1d4ed8"  // Bucket 5: 80-100% - Dark blue (default/fallback)
   ];
 };
 
