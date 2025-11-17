@@ -175,14 +175,41 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
   // Update map paint properties when metrics or data change
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded() || !map.getLayer("roads")) return;
+    if (!map) return;
 
-    try {
-      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, colorThresholds, dataHasValidScores));
-      map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric, data));
-    } catch (e) {
-      console.error("Failed to update paint properties:", e);
+    const updatePaintProperties = () => {
+      if (!map.getLayer("roads")) return;
+
+      try {
+        const colorExpr = createColorExpression(colorMetric, colorThresholds, dataHasValidScores);
+        const widthExpr = createWidthExpression(thicknessMetric, data);
+
+        map.setPaintProperty("roads", "line-color", colorExpr);
+        map.setPaintProperty("roads", "line-width", widthExpr);
+
+        console.log(`Updated paint properties - Color: ${colorMetric}, Thickness: ${thicknessMetric}`);
+      } catch (e) {
+        console.error("Failed to update paint properties:", e);
+      }
+    };
+
+    // Update immediately if style is loaded
+    if (map.isStyleLoaded()) {
+      updatePaintProperties();
     }
+
+    // Also listen for style load events to handle async style changes
+    const onStyleData = () => {
+      if (map.getSource("road-network")) {
+        updatePaintProperties();
+      }
+    };
+
+    map.on("styledata", onStyleData);
+
+    return () => {
+      map.off("styledata", onStyleData);
+    };
   }, [colorMetric, thicknessMetric, colorThresholds, dataHasValidScores, data]);
 
   useEffect(() => {
