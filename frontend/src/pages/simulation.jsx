@@ -784,47 +784,70 @@ export default function Simulation() {
 
   // Find affected roads
   useEffect(() => {
-    if (floodInputMethod !== "manual" || !floodMarkers.length) {
-      setAffectedRoads([]);
-      return;
-    }
+    // Handle manual mode
+    if (floodInputMethod === "manual") {
+      if (!floodMarkers.length) {
+        setAffectedRoads([]);
+        return;
+      }
 
-    const seenRnIds = new Set();
-    const roads = [];
+      const seenRnIds = new Set();
+      const roads = [];
 
-    for (const marker of floodMarkers) {
-      const radDeg = marker.radius / 111000;
-      const rad2 = radDeg * radDeg;
-      const center = [marker.lng, marker.lat];
+      for (const marker of floodMarkers) {
+        const radDeg = marker.radius / 111000;
+        const rad2 = radDeg * radDeg;
+        const center = [marker.lng, marker.lat];
 
-      for (const e of graph.edges) {
-        if (e.rn_id == null || seenRnIds.has(e.rn_id)) continue;
+        for (const e of graph.edges) {
+          if (e.rn_id == null || seenRnIds.has(e.rn_id)) continue;
 
-        let affected = false;
-        if (Array.isArray(e.coords)) {
-          for (const pt of e.coords) {
-            if (dist2(pt, center) <= rad2) {
-              affected = true;
-              break;
+          let affected = false;
+          if (Array.isArray(e.coords)) {
+            for (const pt of e.coords) {
+              if (dist2(pt, center) <= rad2) {
+                affected = true;
+                break;
+              }
             }
           }
-        }
 
-        if (affected) {
-          seenRnIds.add(e.rn_id);
-          const props = e.feature?.properties || {};
-          roads.push({
-            rn_id: e.rn_id,
-            name: props.name ?? props.NAME ?? `Road ${e.rn_id}`,
-            coords: e.coords,
-            selected: true,
-          });
+          if (affected) {
+            seenRnIds.add(e.rn_id);
+            const props = e.feature?.properties || {};
+            roads.push({
+              rn_id: e.rn_id,
+              name: props.name ?? props.NAME ?? `Road ${e.rn_id}`,
+              coords: e.coords,
+              selected: true,
+            });
+          }
         }
       }
-    }
 
-    setAffectedRoads(roads);
-  }, [floodMarkers, floodInputMethod, graph.edges]);
+      setAffectedRoads(roads);
+    }
+    // Handle scenario mode
+    else if (floodInputMethod === "scenario" && selectedScenario) {
+      const scenario = flood_scenarios.find(s => s.name === selectedScenario);
+      if (scenario) {
+        const roads = scenario.roads.map(r => ({
+          rn_id: r.rn_id,
+          name: r.name,
+          pa_name: r.pa_name,
+          coords: null, // Coords not needed for scenarios
+          selected: true,
+        }));
+        setAffectedRoads(roads);
+      } else {
+        setAffectedRoads([]);
+      }
+    }
+    // Clear if no valid mode
+    else {
+      setAffectedRoads([]);
+    }
+  }, [floodMarkers, floodInputMethod, selectedScenario, flood_scenarios, graph.edges]);
 
   // Update roads on config map
   useEffect(() => {
@@ -2100,7 +2123,7 @@ export default function Simulation() {
               </Button>
             )}
             {step === 4 && (
-              <Button variant="outline" onClick={() => { setStep(1); setFloodMarkers([]); setAffectedRoads([]); setBaselineStats(null); setFloodedStats(null); setPaDeltas([]); setSelectedPA(null); }}>
+              <Button onClick={() => { setStep(1); setFloodMarkers([]); setAffectedRoads([]); setBaselineStats(null); setFloodedStats(null); setPaDeltas([]); setSelectedPA(null); }}>
                 Start New Simulation
               </Button>
             )}
