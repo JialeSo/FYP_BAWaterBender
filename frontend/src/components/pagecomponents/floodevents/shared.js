@@ -6,9 +6,9 @@ export const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 
 // Flood type configurations with weights
 export const FLOOD_TYPE_PRESETS = {
-  all: {
-    name: "All Flood Types",
-    description: "Include all flood event types",
+  balanced: {
+    name: "Default Balanced",
+    description: "Weighted priorities for flood severity",
     types: {
       flash_flood: true,
       flash_flood_risk: true,
@@ -22,23 +22,7 @@ export const FLOOD_TYPE_PRESETS = {
       drainage_issue: 1.0,
     },
   },
-  critical: {
-    name: "Critical Events Only",
-    description: "Focus on flash floods and high-risk areas",
-    types: {
-      flash_flood: true,
-      flash_flood_risk: true,
-      ponding: false,
-      drainage_issue: false,
-    },
-    weights: {
-      flash_flood: 3.0,
-      flash_flood_risk: 2.0,
-      ponding: 0.5,
-      drainage_issue: 0.5,
-    },
-  },
-  balanced: {
+  equal: {
     name: "Equal Weights",
     description: "All flood types weighted equally",
     types: {
@@ -52,6 +36,22 @@ export const FLOOD_TYPE_PRESETS = {
       flash_flood_risk: 1.0,
       ponding: 1.0,
       drainage_issue: 1.0,
+    },
+  },
+  critical: {
+    name: "Critical Events Focus",
+    description: "Prioritize flash floods and high-risk areas",
+    types: {
+      flash_flood: true,
+      flash_flood_risk: true,
+      ponding: true,
+      drainage_issue: true,
+    },
+    weights: {
+      flash_flood: 5.0,
+      flash_flood_risk: 3.0,
+      ponding: 1.0,
+      drainage_issue: 0.5,
     },
   },
 };

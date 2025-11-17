@@ -7,11 +7,13 @@ import { useMapData } from "@/context/mapDataContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Info } from "lucide-react";
+import { Check, Info } from "lucide-react";
+import { NumberInput } from "@/components/numberInput";
 import {
   FLOOD_TYPE_PRESETS,
   DATE_RANGE_PRESETS,
@@ -66,15 +68,25 @@ export default function FloodEvents() {
     [planningAreaCounts]
   );
 
-  // Default flood type enabled state (all enabled)
+  // Default flood type enabled state and weights (from Default Balanced preset)
   const default_flood_enabled = useMemo(() => {
     const e = {};
     for (const k of floodTypeKeys) e[k] = true;
     return e;
   }, [floodTypeKeys]);
 
+  const default_flood_weights = useMemo(() => {
+    const w = {};
+    for (const k of floodTypeKeys) {
+      // Use preset weights if available, otherwise default to 1.0
+      w[k] = FLOOD_TYPE_PRESETS.balanced.weights[k] || 1.0;
+    }
+    return w;
+  }, [floodTypeKeys]);
+
   // Active states (used for filtering)
   const [floodTypesEnabled, setFloodTypesEnabled] = useState(default_flood_enabled);
+  const [floodTypeWeights, setFloodTypeWeights] = useState(default_flood_weights);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedPlanningAreas, setSelectedPlanningAreas] = useState([]);
@@ -83,6 +95,7 @@ export default function FloodEvents() {
 
   // Pending states (modified by UI, applied on button click)
   const [pendingFloodTypesEnabled, setPendingFloodTypesEnabled] = useState(default_flood_enabled);
+  const [pendingFloodTypeWeights, setPendingFloodTypeWeights] = useState(default_flood_weights);
   const [pendingDateFrom, setPendingDateFrom] = useState("");
   const [pendingDateTo, setPendingDateTo] = useState("");
   const [pendingSelectedPlanningAreas, setPendingSelectedPlanningAreas] = useState([]);
@@ -94,7 +107,16 @@ export default function FloodEvents() {
     const preset = FLOOD_TYPE_PRESETS[presetKey];
     if (!preset) return;
 
-    // Apply to pending states
+    // Apply weights to pending states
+    setPendingFloodTypeWeights((prev) => {
+      const updated = { ...prev };
+      Object.keys(preset.weights).forEach(type => {
+        updated[type] = preset.weights[type];
+      });
+      return updated;
+    });
+
+    // Apply toggles to pending states
     setPendingFloodTypesEnabled((prev) => {
       const updated = { ...prev };
       Object.keys(preset.types).forEach(type => {
@@ -118,11 +140,18 @@ export default function FloodEvents() {
     const preset = FLOOD_TYPE_PRESETS[presetKey];
     if (!preset) return false;
 
-    // Check if all flood types match the preset
-    return Object.keys(preset.types).every(type =>
+    // Check if weights match
+    const weightsMatch = Object.keys(preset.weights).every(type =>
+      Math.abs((pendingFloodTypeWeights[type] || 0) - preset.weights[type]) < 0.01
+    );
+
+    // Check if toggles match
+    const togglesMatch = Object.keys(preset.types).every(type =>
       pendingFloodTypesEnabled[type] === preset.types[type]
     );
-  }, [pendingFloodTypesEnabled]);
+
+    return weightsMatch && togglesMatch;
+  }, [pendingFloodTypeWeights, pendingFloodTypesEnabled]);
 
   // Check if a date range preset is currently active (based on pending values)
   const isDateRangePresetActive = useCallback((presetKey) => {
@@ -140,6 +169,11 @@ export default function FloodEvents() {
       pendingFloodTypesEnabled[type] !== floodTypesEnabled[type]
     );
 
+    // Check flood type weights
+    const weightChanges = Object.keys(pendingFloodTypeWeights).some(type =>
+      Math.abs((pendingFloodTypeWeights[type] || 0) - (floodTypeWeights[type] || 0)) > 0.001
+    );
+
     // Check date range
     const dateChanges = pendingDateFrom !== dateFrom || pendingDateTo !== dateTo;
 
@@ -154,9 +188,10 @@ export default function FloodEvents() {
     // Check search query
     const searchChanges = pendingSearchQuery !== searchQuery;
 
-    return floodTypeChanges || dateChanges || planningAreaChanges || severityChanges || searchChanges;
+    return floodTypeChanges || weightChanges || dateChanges || planningAreaChanges || severityChanges || searchChanges;
   }, [
     pendingFloodTypesEnabled, floodTypesEnabled,
+    pendingFloodTypeWeights, floodTypeWeights,
     pendingDateFrom, dateFrom, pendingDateTo, dateTo,
     pendingSelectedPlanningAreas, selectedPlanningAreas,
     pendingSelectedSeverities, selectedSeverities,
@@ -166,22 +201,29 @@ export default function FloodEvents() {
   // Apply pending filters to active filters
   const applyFilters = useCallback(() => {
     setFloodTypesEnabled(pendingFloodTypesEnabled);
+    setFloodTypeWeights(pendingFloodTypeWeights);
     setDateFrom(pendingDateFrom);
     setDateTo(pendingDateTo);
     setSelectedPlanningAreas(pendingSelectedPlanningAreas);
     setSelectedSeverities(pendingSelectedSeverities);
     setSearchQuery(pendingSearchQuery);
   }, [
-    pendingFloodTypesEnabled, pendingDateFrom, pendingDateTo,
+    pendingFloodTypesEnabled, pendingFloodTypeWeights, pendingDateFrom, pendingDateTo,
     pendingSelectedPlanningAreas, pendingSelectedSeverities, pendingSearchQuery
   ]);
 
-  // Clear all filters (both pending and active)
+  // Clear all filters (both pending and active) - Reset to Default Balanced preset
   const clearAllFilters = useCallback(() => {
+    const defaultPreset = FLOOD_TYPE_PRESETS.balanced;
     const resetFloodTypes = {};
-    for (const k of floodTypeKeys) resetFloodTypes[k] = true;
+    const resetFloodWeights = {};
+    for (const k of floodTypeKeys) {
+      resetFloodTypes[k] = true;
+      resetFloodWeights[k] = defaultPreset.weights[k] || 1.0;
+    }
 
     setFloodTypesEnabled(resetFloodTypes);
+    setFloodTypeWeights(resetFloodWeights);
     setDateFrom("");
     setDateTo("");
     setSelectedPlanningAreas([]);
@@ -189,6 +231,7 @@ export default function FloodEvents() {
     setSearchQuery("");
 
     setPendingFloodTypesEnabled(resetFloodTypes);
+    setPendingFloodTypeWeights(resetFloodWeights);
     setPendingDateFrom("");
     setPendingDateTo("");
     setPendingSelectedPlanningAreas([]);
@@ -206,6 +249,16 @@ export default function FloodEvents() {
     setPendingFloodTypesEnabled((prev) => {
       const next = { ...prev };
       for (const k of floodTypeKeys) if (!(k in next)) next[k] = true;
+      return next;
+    });
+    setFloodTypeWeights((prev) => {
+      const next = { ...prev };
+      for (const k of floodTypeKeys) if (!(k in next)) next[k] = FLOOD_TYPE_PRESETS.balanced.weights[k] || 1.0;
+      return next;
+    });
+    setPendingFloodTypeWeights((prev) => {
+      const next = { ...prev };
+      for (const k of floodTypeKeys) if (!(k in next)) next[k] = FLOOD_TYPE_PRESETS.balanced.weights[k] || 1.0;
       return next;
     });
   }, [floodTypeKeys]);
@@ -430,23 +483,23 @@ export default function FloodEvents() {
             <AccordionContent className="px-4 pb-4 pt-2">
               {/* each subsection is its own accordion */}
               <Accordion type="multiple" className="space-y-3">
-                {/* Flood Type Filters */}
+                {/* Flood Type Configuration */}
                 <AccordionItem value="flood-types" className="overflow-hidden rounded-xl border bg-card shadow-sm">
                   <AccordionTrigger className="px-4 py-2.5 text-base font-semibold">
-                    Flood Type Filters
+                    Flood Type Configuration
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4 pt-2 space-y-3">
                     <Card className="border bg-background/80 shadow-none">
                       <CardHeader>
-                        <CardTitle className="text-base">Filter by Flood Type</CardTitle>
+                        <CardTitle className="text-base">Per-Type Toggles & Multipliers</CardTitle>
                         <CardDescription>
-                          Select which types of flood events to include in the analysis
+                          Adjust weights for different flood types to prioritize severity levels
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {/* Flood Type Presets */}
+                        {/* Flood Type Weight Presets */}
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium">Type Presets</Label>
+                          <Label className="text-sm font-medium">Weight Presets</Label>
                           <div className="grid gap-2 sm:grid-cols-3">
                             {Object.entries(FLOOD_TYPE_PRESETS).map(([key, preset]) => {
                               const isActive = isFloodTypePresetActive(key);
@@ -454,51 +507,76 @@ export default function FloodEvents() {
                                 <button
                                   key={key}
                                   onClick={() => applyFloodTypePreset(key)}
-                                  className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
+                                  className={`rounded-lg p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
                                     isActive ? 'border-2 border-primary bg-primary/10' : 'border-border bg-background'
                                   }`}
                                 >
-                                  <div className="font-semibold text-sm mb-1">
-                                    {preset.name}
-                                    {isActive && <span className="ml-2 text-xs text-primary">✓</span>}
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h4 className="font-semibold text-sm">{preset.name}</h4>
+                                    {isActive && <Check className="h-4 w-4 text-primary" />}
                                   </div>
-                                  <div className="text-xs text-muted-foreground">{preset.description}</div>
+                                  <p className="text-xs text-muted-foreground">{preset.description}</p>
                                 </button>
                               );
                             })}
                           </div>
                         </div>
 
-                        <ScrollArea className="max-h-[300px]">
-                          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pr-4">
-                            {floodTypeKeys.map((type) => {
-                              const enabled = !!pendingFloodTypesEnabled[type];
-                              const count = floodTypeCounts[type] || 0;
-                              return (
-                                <div key={type} className="space-y-1.5 rounded-lg bg-muted/30 p-2.5">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">{to_title_case(type)}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
+                        {/* Per-Type Toggles & Multipliers */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Per-Type Configuration</Label>
+                          <ScrollArea className="max-h-[300px]">
+                            <div className="space-y-3 pr-4">
+                              {floodTypeKeys.map((type) => {
+                                const enabled = !!pendingFloodTypesEnabled[type];
+                                const weight = pendingFloodTypeWeights[type] || 1.0;
+                                const count = floodTypeCounts[type] || 0;
+                                return (
+                                  <div key={type} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+                                    {/* Toggle */}
                                     <div className="flex items-center gap-2">
                                       <Switch
-                                        id={`flood-type-${type}`}
+                                        id={`flood-${type}`}
                                         checked={enabled}
-                                        onCheckedChange={(ck) =>
-                                          setPendingFloodTypesEnabled((prev) => ({ ...prev, [type]: !!ck }))
-                                        }
+                                        onCheckedChange={(checked) => {
+                                          setPendingFloodTypesEnabled(prev => ({...prev, [type]: checked}));
+                                        }}
                                       />
-                                      <Label htmlFor={`flood-type-${type}`} className="text-xs cursor-pointer">
-                                        enable
+                                      <Label htmlFor={`flood-${type}`} className="text-xs cursor-pointer min-w-[120px]">
+                                        {to_title_case(type)} ({count})
                                       </Label>
                                     </div>
-                                    <span className="text-xs text-muted-foreground">{count} events</span>
+
+                                    {/* Slider */}
+                                    <Slider
+                                      value={[Math.round(weight * 100)]}
+                                      onValueChange={(v) => setPendingFloodTypeWeights(prev => ({...prev, [type]: (v[0] || 0) / 100}))}
+                                      disabled={!enabled}
+                                      min={0}
+                                      max={500}
+                                      step={10}
+                                      className="flex-1"
+                                    />
+
+                                    {/* NumberInput */}
+                                    <NumberInput
+                                      value={Math.round(weight * 100)}
+                                      onValueChange={(v) => setPendingFloodTypeWeights(prev => ({...prev, [type]: (v || 0) / 100}))}
+                                      suffix="%"
+                                      min={0}
+                                      max={500}
+                                      step={10}
+                                      decimalScale={0}
+                                      disabled={!enabled}
+                                      hideSteppers={true}
+                                      className="w-20"
+                                    />
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </ScrollArea>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
+                        </div>
                       </CardContent>
                     </Card>
                   </AccordionContent>
@@ -665,8 +743,21 @@ export default function FloodEvents() {
 
               {/* Apply Changes and Reset All buttons */}
               <div className="flex justify-between items-center pt-4 mt-4 border-t">
-                <Button variant="outline" onClick={clearAllFilters}>
-                  Reset All Filters
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Reset to defaults (Default Balanced preset)
+                    const defaultPreset = FLOOD_TYPE_PRESETS.balanced;
+                    setPendingFloodTypeWeights(defaultPreset.weights);
+                    setPendingFloodTypesEnabled(defaultPreset.types);
+                    setPendingDateFrom("");
+                    setPendingDateTo("");
+                    setPendingSelectedPlanningAreas([]);
+                    setPendingSelectedSeverities([]);
+                    setPendingSearchQuery("");
+                  }}
+                >
+                  Reset All to Default
                 </Button>
                 <Button
                   onClick={applyFilters}
