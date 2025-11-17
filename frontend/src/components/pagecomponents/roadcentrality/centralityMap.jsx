@@ -71,26 +71,31 @@ const hasValidScores = (data, metric) => {
 const calculateColorThresholds = (data, metric) => {
   if (!data?.features?.length) return { t20: 0, t40: 0, t60: 0, t80: 0, max: 0 };
 
-  const values = data.features
+  // Get all non-zero values for better bucket distribution
+  const allValues = data.features
     .map(f => f.properties?.[metric])
-    .filter(v => v !== null && v !== undefined && !isNaN(v))
-    .sort((a, b) => a - b);
+    .filter(v => v !== null && v !== undefined && !isNaN(v));
 
-  if (values.length === 0) return { t20: 0, t40: 0, t60: 0, t80: 0, max: 0 };
+  const nonZeroValues = allValues.filter(v => v > 0).sort((a, b) => a - b);
 
-  // Use percentiles for better distribution (quintiles: 20%, 40%, 60%, 80%, 100%)
+  if (nonZeroValues.length === 0) return { t20: 0, t40: 0, t60: 0, t80: 0, max: 0 };
+
+  // Use percentiles of NON-ZERO values for better distribution
   const getPercentile = (arr, p) => {
     const idx = Math.floor(arr.length * p);
     return arr[Math.min(idx, arr.length - 1)];
   };
 
-  return {
-    t20: getPercentile(values, 0.2),
-    t40: getPercentile(values, 0.4),
-    t60: getPercentile(values, 0.6),
-    t80: getPercentile(values, 0.8),
-    max: values[values.length - 1]
+  const thresholds = {
+    t20: getPercentile(nonZeroValues, 0.2),
+    t40: getPercentile(nonZeroValues, 0.4),
+    t60: getPercentile(nonZeroValues, 0.6),
+    t80: getPercentile(nonZeroValues, 0.8),
+    max: nonZeroValues[nonZeroValues.length - 1]
   };
+
+  console.log(`Thresholds for ${metric}:`, thresholds);
+  return thresholds;
 };
 
 // Function to create color expression with distinct buckets
@@ -103,9 +108,6 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
   const { t20, t40, t60, t80, max } = thresholds;
 
   // Ensure we have meaningful thresholds
-  // For normalized metrics (betweenness_norm, closeness_norm), check if max > 0.01
-  // For count metrics (flood_count_total, amenity_count_total), check if max > 0
-  // For importance, check if max > 0.1
   const isCountMetric = metric.includes("_count_") || metric === "flood_count_total" || metric === "amenity_count_total";
   const isNormalizedMetric = metric.includes("_norm");
   const minThreshold = isCountMetric ? 0 : isNormalizedMetric ? 0.01 : 0.1;
@@ -115,16 +117,23 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
   }
 
   // Use discrete color buckets based on percentile thresholds
-  // This creates 5 distinct color buckets with clear boundaries
+  // Roads are colored based on which bucket their value falls into
   return [
     "case",
-    ["==", ["coalesce", ["to-number", ["get", metric]], -999], -999], "#e5e7eb",  // Null/missing - Very light gray
-    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], 0], "#e5e7eb",  // Zero values - Very light gray
-    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20], "#bfdbfe",  // Bucket 1: 0-20% - Very light blue
-    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40], "#93c5fd",  // Bucket 2: 20-40% - Light blue
-    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60], "#60a5fa",  // Bucket 3: 40-60% - Medium blue
-    ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80], "#3b82f6",  // Bucket 4: 60-80% - Blue
-    "#1d4ed8"  // Bucket 5: 80-100% - Dark blue (default/fallback)
+    // First check: if value is null/undefined/missing
+    ["!", ["has", metric]], "#e5e7eb",
+    // Second check: if value is exactly 0 or negative
+    ["<=", ["get", metric], 0], "#e5e7eb",
+    // Bucket 1: > 0 and <= 20th percentile
+    ["<=", ["get", metric], t20], "#bfdbfe",
+    // Bucket 2: > 20th and <= 40th percentile
+    ["<=", ["get", metric], t40], "#93c5fd",
+    // Bucket 3: > 40th and <= 60th percentile
+    ["<=", ["get", metric], t60], "#60a5fa",
+    // Bucket 4: > 60th and <= 80th percentile
+    ["<=", ["get", metric], t80], "#3b82f6",
+    // Bucket 5: > 80th percentile (highest values)
+    "#1d4ed8"
   ];
 };
 
@@ -191,11 +200,14 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
     const colorExpr = createColorExpression(colorMetric, colorThresholds, dataHasValidScores);
     const widthExpr = createWidthExpression(thicknessMetric, data);
 
+    console.log(`Updating colors for metric: ${colorMetric}, hasValidScores: ${dataHasValidScores}`);
+
     // Use requestAnimationFrame to batch updates and reduce lag
     const rafId = requestAnimationFrame(() => {
       try {
         map.setPaintProperty("roads", "line-color", colorExpr);
         map.setPaintProperty("roads", "line-width", widthExpr);
+        console.log(`Paint properties updated successfully for ${colorMetric}`);
       } catch (e) {
         console.error("Failed to update paint properties:", e);
       }
@@ -663,33 +675,50 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
       </div>
 
       {/* Dynamic Legend - Bottom Left */}
-      <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-xl bg-card/95 backdrop-blur-sm border p-3 text-xs shadow-lg">
-        <p className="font-semibold mb-2">Legend</p>
-        <div className="space-y-2">
-          <div>
-            <p className="text-muted-foreground mb-1">Colour = {colorLabel}</p>
-            <div className="h-2 rounded" style={{ background: "linear-gradient(to right, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1d4ed8, #1e40af)" }} />
-            <div className="mt-1 flex justify-between text-muted-foreground text-[9px]">
-              <span>{format_number(colorThresholds[0], 1)}</span>
-              <span>{format_number(colorThresholds[5], 1)}</span>
-            </div>
-            <div className="mt-0.5 text-center text-muted-foreground text-[8px]">
-              Range: 0 to {format_number(colorThresholds[5], 2)} (max)
-            </div>
-          </div>
-          {thicknessMetric !== "none" && (
-            <div>
-              <p className="text-muted-foreground mb-1">Thickness = {thicknessLabel}</p>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block h-[2px] w-10 bg-muted-foreground" />
-                  <span className="text-muted-foreground text-[10px]">low</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-block h-[6px] w-10 bg-foreground" />
-                  <span className="text-muted-foreground text-[10px]">high</span>
-                </div>
+      <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-xl bg-card/95 backdrop-blur-sm border p-3 text-xs shadow-lg min-w-[200px]">
+        <p className="font-semibold mb-2">{colorLabel}</p>
+        <div className="space-y-1">
+          {dataHasValidScores ? (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-3 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
+                <span className="text-[10px] text-muted-foreground">
+                  {format_number(colorThresholds.t80, 2)} - {format_number(colorThresholds.max, 2)} (Very High)
+                </span>
               </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-3 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
+                <span className="text-[10px] text-muted-foreground">
+                  {format_number(colorThresholds.t60, 2)} - {format_number(colorThresholds.t80, 2)} (High)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-3 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
+                <span className="text-[10px] text-muted-foreground">
+                  {format_number(colorThresholds.t40, 2)} - {format_number(colorThresholds.t60, 2)} (Medium)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-3 rounded" style={{ backgroundColor: "#93c5fd" }}></div>
+                <span className="text-[10px] text-muted-foreground">
+                  {format_number(colorThresholds.t20, 2)} - {format_number(colorThresholds.t40, 2)} (Low)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-3 rounded" style={{ backgroundColor: "#bfdbfe" }}></div>
+                <span className="text-[10px] text-muted-foreground">
+                  &gt; 0 - {format_number(colorThresholds.t20, 2)} (Very Low)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-3 rounded" style={{ backgroundColor: "#e5e7eb" }}></div>
+                <span className="text-[10px] text-muted-foreground">0 or No Data</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-3 rounded" style={{ backgroundColor: "#9ca3af" }}></div>
+              <span className="text-[10px] text-muted-foreground">No valid data</span>
             </div>
           )}
         </div>
