@@ -104,10 +104,13 @@ export default function Centrality() {
     [floodCounts]
   );
 
-  // Default multipliers and per-category toggles
+  // Default multipliers and per-category toggles - using "Default Balanced" presets
   const default_amenity_weights = useMemo(() => {
     const w = {};
-    for (const k of amenityCategoryKeys) w[k] = 5.0;
+    for (const k of amenityCategoryKeys) {
+      // Use preset weights if available, otherwise default to 1.0
+      w[k] = AMENITY_PRESETS.default.weights[k] || 1.0;
+    }
     return w;
   }, [amenityCategoryKeys]);
   const default_amenity_enabled = useMemo(() => {
@@ -118,7 +121,10 @@ export default function Centrality() {
 
   const default_flood_weights = useMemo(() => {
     const w = {};
-    for (const k of floodTypeKeys) w[k] = 5.0;
+    for (const k of floodTypeKeys) {
+      // Use preset weights if available, otherwise default to 1.0
+      w[k] = FLOOD_PRESETS.default.weights[k] || 1.0;
+    }
     return w;
   }, [floodTypeKeys]);
   const default_flood_enabled = useMemo(() => {
