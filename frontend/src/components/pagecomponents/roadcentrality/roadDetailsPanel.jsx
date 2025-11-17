@@ -174,24 +174,24 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
   }
 
   return (
-    <Card className="mb-4 border-2 border-primary">
-      <CardHeader className="pb-3">
+    <Card className="mb-3 border-2 border-primary">
+      <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-lg">{p.name || "Unnamed Road"}</CardTitle>
-            <CardDescription className="mt-1">
+            <CardTitle className="text-base">{p.name || "Unnamed Road"}</CardTitle>
+            <CardDescription className="mt-0.5 text-xs">
               RN ID: {p.RN_ID ?? "—"} {p.PLN_AREA_N ? `· ${p.PLN_AREA_N}` : ""}
             </CardDescription>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0" aria-label="Close road details">
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Close road details">
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 px-4 pb-3">
         {/* Unified KPI Section */}
-        <div className="rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-background p-4">
+        <div className="rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-background p-3">
           <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Key Performance Indicators</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {/* Importance */}
@@ -268,26 +268,16 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
         </div>
 
         {/* 50/50 Amenities and Flood Events */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {/* Amenities Section */}
-          <div className="rounded-lg border-2 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20 p-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="rounded-lg border-2 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20 p-3">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300">
                 Amenities ({filteredAmenities.length})
               </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={exportAmenities}
-                disabled={!filteredAmenities.length}
-                className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-              >
-                <Download className="h-3 w-3 mr-1" />
-                Export
-              </Button>
             </div>
 
-            <div className="relative mb-3">
+            <div className="relative mb-2">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
               <Input
                 placeholder="Search amenities..."
@@ -323,24 +313,14 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
           </div>
 
           {/* Flood Events Section */}
-          <div className="rounded-lg border-2 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20 p-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="rounded-lg border-2 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20 p-3">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-orange-700 dark:text-orange-300">
                 Flood Events ({filteredFloods.length})
               </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={exportFloods}
-                disabled={!filteredFloods.length}
-                className="h-7 px-2 text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
-              >
-                <Download className="h-3 w-3 mr-1" />
-                Export
-              </Button>
             </div>
 
-            <div className="relative mb-3">
+            <div className="relative mb-2">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
               <Input
                 placeholder="Search flood events..."

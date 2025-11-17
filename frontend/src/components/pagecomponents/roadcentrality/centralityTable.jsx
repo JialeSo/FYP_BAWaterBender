@@ -177,11 +177,6 @@ export function CentralityTable({
           </Popover>
 
           <Input value={tableQ} onChange={(e) => setTableQ(e.target.value)} placeholder="filter table..." className="w-56" />
-
-          <Button onClick={exportCsv} size="sm" className="gap-2">
-            <Download className="h-4 w-4" />
-            export csv
-          </Button>
         </div>
       </div>
 

@@ -340,6 +340,11 @@ export default function Centrality() {
 
   const [q, setQ] = useState("");
 
+  // Pending road filter states (modified by UI, applied on button click)
+  const [pendingPlanningSelected, setPendingPlanningSelected] = useState([]);
+  const [pendingRoadTypesSelected, setPendingRoadTypesSelected] = useState([]);
+  const [pendingQ, setPendingQ] = useState("");
+
   /* ===== advanced filters ===== */
   // Active filter states (used for actual filtering)
   const [amenityCountMin, setAmenityCountMin] = useState("");
@@ -380,7 +385,10 @@ export default function Centrality() {
       pendingClosenessMax !== closenessMax ||
       pendingImportanceMin !== importanceMin ||
       pendingImportanceMax !== importanceMax ||
-      JSON.stringify(pendingSlaCategories.sort()) !== JSON.stringify(slaCategories.sort())
+      JSON.stringify(pendingSlaCategories.sort()) !== JSON.stringify(slaCategories.sort()) ||
+      JSON.stringify(pendingPlanningSelected.sort()) !== JSON.stringify(planningSelected.sort()) ||
+      JSON.stringify(pendingRoadTypesSelected.sort()) !== JSON.stringify(roadTypesSelected.sort()) ||
+      pendingQ !== q
     );
   }, [
     pendingAmenityCountMin, amenityCountMin, pendingAmenityCountMax, amenityCountMax,
@@ -388,11 +396,18 @@ export default function Centrality() {
     pendingBetweennessMin, betweennessMin, pendingBetweennessMax, betweennessMax,
     pendingClosenessMin, closenessMin, pendingClosenessMax, closenessMax,
     pendingImportanceMin, importanceMin, pendingImportanceMax, importanceMax,
-    pendingSlaCategories, slaCategories
+    pendingSlaCategories, slaCategories,
+    pendingPlanningSelected, planningSelected, pendingRoadTypesSelected, roadTypesSelected,
+    pendingQ, q
   ]);
 
   // Apply pending filters to active filters
   const applyTableFilters = useCallback(() => {
+    // Apply road filters
+    setPlanningSelected(pendingPlanningSelected);
+    setRoadTypesSelected(pendingRoadTypesSelected);
+    setQ(pendingQ);
+    // Apply table filters
     setAmenityCountMin(pendingAmenityCountMin);
     setAmenityCountMax(pendingAmenityCountMax);
     setFloodCountMin(pendingFloodCountMin);
@@ -405,6 +420,7 @@ export default function Centrality() {
     setImportanceMax(pendingImportanceMax);
     setSlaCategories(pendingSlaCategories);
   }, [
+    pendingPlanningSelected, pendingRoadTypesSelected, pendingQ,
     pendingAmenityCountMin, pendingAmenityCountMax,
     pendingFloodCountMin, pendingFloodCountMax,
     pendingBetweennessMin, pendingBetweennessMax,
@@ -415,6 +431,14 @@ export default function Centrality() {
 
   // Clear all filters (both pending and active)
   const clearAllTableFilters = useCallback(() => {
+    // Clear road filters
+    setPlanningSelected([]);
+    setRoadTypesSelected([]);
+    setQ("");
+    setPendingPlanningSelected([]);
+    setPendingRoadTypesSelected([]);
+    setPendingQ("");
+    // Clear table filters
     setAmenityCountMin("");
     setAmenityCountMax("");
     setFloodCountMin("");
@@ -1020,13 +1044,13 @@ export default function Centrality() {
                           <button
                             key={key}
                             onClick={() => applyAmenityPreset(key)}
-                            className={`rounded-lg border-2 bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
-                              isActive ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30' : 'border-transparent'
+                            className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
+                              isActive ? 'border-2 border-primary bg-primary/10' : 'border border-transparent bg-muted/30'
                             }`}
                           >
                             <div className="font-semibold text-sm mb-1">
                               {preset.name}
-                              {isActive && <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">✓</span>}
+                              {isActive && <span className="ml-2 text-xs text-primary">✓</span>}
                             </div>
                             <div className="text-xs text-muted-foreground">{preset.description}</div>
                           </button>
@@ -1035,12 +1059,13 @@ export default function Centrality() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <ScrollArea className="h-[300px]">
+                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 pr-4">
                     {amenityCategoryKeys.map((cat) => {
-                      const val = amenityWeights[cat] ?? 1.0;
-                      const enabled = !!amenityEnabled[cat];
+                      const val = pendingAmenityWeights[cat] ?? 1.0;
+                      const enabled = !!pendingAmenityEnabled[cat];
                       return (
-                        <div key={cat} className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                        <div key={cat} className="space-y-1.5 rounded-lg bg-muted/30 p-2.5">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">{to_title_case(cat)}</span>
                           </div>
@@ -1050,7 +1075,7 @@ export default function Centrality() {
                               <Switch
                                 id={`amen-${cat}`}
                                 checked={enabled}
-                                onCheckedChange={(ck) => setAmenityEnabled((prev) => ({ ...prev, [cat]: !!ck }))}
+                                onCheckedChange={(ck) => setPendingAmenityEnabled((prev) => ({ ...prev, [cat]: !!ck }))}
                               />
                               <Label htmlFor={`amen-${cat}`} className="text-xs cursor-pointer">enable</Label>
                             </div>
@@ -1059,7 +1084,7 @@ export default function Centrality() {
                               value={val}
                               onValueChange={(numVal) => {
                                 if (numVal !== undefined) {
-                                  setAmenityWeights((prev) => ({ ...prev, [cat]: numVal }));
+                                  setPendingAmenityWeights((prev) => ({ ...prev, [cat]: numVal }));
                                 }
                               }}
                               min={1}
@@ -1075,6 +1100,7 @@ export default function Centrality() {
                       );
                     })}
                   </div>
+                  </ScrollArea>
                 </CardContent>
               </Card>
             </AccordionContent>
@@ -1144,13 +1170,13 @@ export default function Centrality() {
                           <button
                             key={key}
                             onClick={() => applyFloodPreset(key)}
-                            className={`rounded-lg border-2 bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
-                              isActive ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-950/30' : 'border-transparent'
+                            className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
+                              isActive ? 'border-2 border-primary bg-primary/10' : 'border border-transparent bg-muted/30'
                             }`}
                           >
                             <div className="font-semibold text-sm mb-1">
                               {preset.name}
-                              {isActive && <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">✓</span>}
+                              {isActive && <span className="ml-2 text-xs text-primary">✓</span>}
                             </div>
                             <div className="text-xs text-muted-foreground">{preset.description}</div>
                           </button>
@@ -1159,12 +1185,13 @@ export default function Centrality() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <ScrollArea className="h-[300px]">
+                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 pr-4">
                     {floodTypeKeys.map((type) => {
-                      const val = floodWeights[type] ?? 1.0;
-                      const enabled = !!floodEnabled[type];
+                      const val = pendingFloodWeights[type] ?? 1.0;
+                      const enabled = !!pendingFloodEnabled[type];
                       return (
-                        <div key={type} className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                        <div key={type} className="space-y-1.5 rounded-lg bg-muted/30 p-2.5">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">{to_title_case(type)}</span>
                           </div>
@@ -1174,7 +1201,7 @@ export default function Centrality() {
                               <Switch
                                 id={`flood-${type}`}
                                 checked={enabled}
-                                onCheckedChange={(ck) => setFloodEnabled((prev) => ({ ...prev, [type]: !!ck }))}
+                                onCheckedChange={(ck) => setPendingFloodEnabled((prev) => ({ ...prev, [type]: !!ck }))}
                               />
                               <Label htmlFor={`flood-${type}`} className="text-xs cursor-pointer">enable</Label>
                             </div>
@@ -1183,7 +1210,7 @@ export default function Centrality() {
                               value={val}
                               onValueChange={(numVal) => {
                                 if (numVal !== undefined) {
-                                  setFloodWeights((prev) => ({ ...prev, [type]: numVal }));
+                                  setPendingFloodWeights((prev) => ({ ...prev, [type]: numVal }));
                                 }
                               }}
                               min={1}
@@ -1199,6 +1226,7 @@ export default function Centrality() {
                       );
                     })}
                   </div>
+                  </ScrollArea>
                 </CardContent>
               </Card>
             </AccordionContent>
@@ -1261,7 +1289,7 @@ export default function Centrality() {
                       <CardDescription>Adjust sliders, then click "Apply Changes" to recalculate importance scores.</CardDescription>
                     </div>
                     {hasUnappliedWeightChanges && (
-                      <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                      <span className="px-2 py-1 rounded-md text-sm font-bold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700">
                         • Unapplied Changes
                       </span>
                     )}
@@ -1640,73 +1668,17 @@ export default function Centrality() {
           </p>
         </div>
 
-        {/* Road Filters */}
-        <Card className="border bg-muted/30 shadow-none mb-4">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Filter Roads</CardTitle>
-            <CardDescription>Filter the road network by location, type, or search term. Note: Filters hide roads but don't recalculate centrality metrics.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3 mb-4">
-              <MultiSelectCombobox
-                label="Planning Area"
-                options={planningOptions}
-                selected={planningSelected}
-                onChange={setPlanningSelected}
-                placeholder="All areas"
-                searchPlaceholder="Search areas…"
-                popoverWidthClass="w-[300px]"
-              />
-
-              <MultiSelectCombobox
-                label="Road Type"
-                options={roadTypeOptions}
-                selected={roadTypesSelected}
-                onChange={setRoadTypesSelected}
-                placeholder="All types"
-                searchPlaceholder="Search types…"
-                popoverWidthClass="w-[300px]"
-              />
-
-              <div className="space-y-1.5">
-                <Label htmlFor="road-search">Search</Label>
-                <Input
-                  id="road-search"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Name, RN ID, area…"
-                />
-              </div>
-            </div>
-            {(planningSelected.length > 0 || roadTypesSelected.length > 0 || q) && (
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setPlanningSelected([]);
-                    setRoadTypesSelected([]);
-                    setQ("");
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Table Filters Accordion */}
+        {/* Filters Accordion */}
         <Accordion type="single" collapsible className="mb-4">
           <AccordionItem value="filters" className="border rounded-lg">
             <AccordionTrigger className="px-4 py-3 hover:no-underline">
               <div className="flex items-center gap-2">
-                <span className="text-base font-semibold">Table Filters</span>
+                <span className="text-base font-semibold">Filters</span>
                 <span className="text-xs text-muted-foreground">
-                  ({[amenityCountMin, amenityCountMax, floodCountMin, floodCountMax, betweennessMin, betweennessMax, closenessMin, closenessMax, importanceMin, importanceMax].filter(v => v !== "").length > 0 || slaCategories.length > 0 ? 'Active' : 'None'})
+                  ({[amenityCountMin, amenityCountMax, floodCountMin, floodCountMax, betweennessMin, betweennessMax, closenessMin, closenessMax, importanceMin, importanceMax].filter(v => v !== "").length > 0 || slaCategories.length > 0 || planningSelected.length > 0 || roadTypesSelected.length > 0 || q ? 'Active' : 'None'})
                 </span>
                 {hasUnappliedFilterChanges && (
-                  <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                  <span className="px-2 py-1 rounded-md text-sm font-bold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700">
                     • Unapplied Changes
                   </span>
                 )}
@@ -1714,9 +1686,48 @@ export default function Centrality() {
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4">
               <p className="text-sm text-muted-foreground mb-4">
-                Adjust sliders to set filter ranges, then click "Apply Filters" to update the table and map.
+                Adjust filters below, then click "Apply Filters" to update the table and map. Note: Filters hide roads but don't recalculate centrality metrics.
               </p>
               <div className="space-y-4">
+                {/* Road Filters */}
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <Label className="text-sm font-medium mb-3 block">Road Filters</Label>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <MultiSelectCombobox
+                      label="Planning Area"
+                      options={planningOptions}
+                      selected={pendingPlanningSelected}
+                      onChange={setPendingPlanningSelected}
+                      placeholder="All areas"
+                      searchPlaceholder="Search areas…"
+                      popoverWidthClass="w-[300px]"
+                    />
+
+                    <MultiSelectCombobox
+                      label="Road Type"
+                      options={roadTypeOptions}
+                      selected={pendingRoadTypesSelected}
+                      onChange={setPendingRoadTypesSelected}
+                      placeholder="All types"
+                      searchPlaceholder="Search types…"
+                      popoverWidthClass="w-[300px]"
+                    />
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="road-search">Search</Label>
+                      <Input
+                        id="road-search"
+                        value={pendingQ}
+                        onChange={(e) => setPendingQ(e.target.value)}
+                        placeholder="Name, RN ID, area…"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table Filters */}
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <Label className="text-sm font-medium mb-3 block">Value Filters</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Amenity Count */}
                   <div className="space-y-2">
@@ -1850,6 +1861,7 @@ export default function Centrality() {
                       searchPlaceholder="Search categories…"
                     />
                   </div>
+                </div>
                 </div>
 
                 {/* Action buttons */}
