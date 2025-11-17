@@ -334,7 +334,6 @@ export default function singaporehistoricalfloodmap({
   const szPopupRef = useRef(null);
   const markerPopupRef = useRef(null);
   const selectedPlanningAreasRef = useRef(selectedPlanningAreas);
-  const bubbleVisibilityRef = useRef({ pa: "visible", sz: "none" });
 
   // Keep ref updated
   useEffect(() => {
@@ -929,21 +928,13 @@ const legendValueMap = useMemo(() => {
           if (!feature) return;
           showMarkerPopup(e.lngLat, FLOOD_POINT_HTML(feature.properties || {}));
           map.getCanvas().style.cursor = "pointer";
-          // Hide bubble markers when hovering flood markers
-          if (map.getLayer(PA_BUBBLE_CIRCLES)) map.setLayoutProperty(PA_BUBBLE_CIRCLES, "visibility", "none");
-          if (map.getLayer(PA_BUBBLE_LABELS)) map.setLayoutProperty(PA_BUBBLE_LABELS, "visibility", "none");
-          if (map.getLayer(SZ_BUBBLE_CIRCLES)) map.setLayoutProperty(SZ_BUBBLE_CIRCLES, "visibility", "none");
-          if (map.getLayer(SZ_BUBBLE_LABELS)) map.setLayoutProperty(SZ_BUBBLE_LABELS, "visibility", "none");
+          // Hide PA/SZ popups when hovering flood markers
+          try { paPopupRef.current?.remove(); } catch {}
+          try { szPopupRef.current?.remove(); } catch {}
         });
         map.on("mouseleave", FLOOD_POINTS, () => {
           markerPopupRef.current?.remove();
           map.getCanvas().style.cursor = "";
-          // Restore bubble markers visibility based on current state
-          const { pa, sz } = bubbleVisibilityRef.current;
-          if (map.getLayer(PA_BUBBLE_CIRCLES)) map.setLayoutProperty(PA_BUBBLE_CIRCLES, "visibility", pa);
-          if (map.getLayer(PA_BUBBLE_LABELS)) map.setLayoutProperty(PA_BUBBLE_LABELS, "visibility", pa);
-          if (map.getLayer(SZ_BUBBLE_CIRCLES)) map.setLayoutProperty(SZ_BUBBLE_CIRCLES, "visibility", sz);
-          if (map.getLayer(SZ_BUBBLE_LABELS)) map.setLayoutProperty(SZ_BUBBLE_LABELS, "visibility", sz);
         });
       }
 
@@ -953,21 +944,13 @@ const legendValueMap = useMemo(() => {
           if (!feature) return;
           showMarkerPopup(e.lngLat, AMENITY_POINT_HTML(feature.properties || {}));
           map.getCanvas().style.cursor = "pointer";
-          // Hide bubble markers when hovering amenity markers
-          if (map.getLayer(PA_BUBBLE_CIRCLES)) map.setLayoutProperty(PA_BUBBLE_CIRCLES, "visibility", "none");
-          if (map.getLayer(PA_BUBBLE_LABELS)) map.setLayoutProperty(PA_BUBBLE_LABELS, "visibility", "none");
-          if (map.getLayer(SZ_BUBBLE_CIRCLES)) map.setLayoutProperty(SZ_BUBBLE_CIRCLES, "visibility", "none");
-          if (map.getLayer(SZ_BUBBLE_LABELS)) map.setLayoutProperty(SZ_BUBBLE_LABELS, "visibility", "none");
+          // Hide PA/SZ popups when hovering amenity markers
+          try { paPopupRef.current?.remove(); } catch {}
+          try { szPopupRef.current?.remove(); } catch {}
         });
         map.on("mouseleave", AMENITY_POINTS, () => {
           markerPopupRef.current?.remove();
           map.getCanvas().style.cursor = "";
-          // Restore bubble markers visibility based on current state
-          const { pa, sz } = bubbleVisibilityRef.current;
-          if (map.getLayer(PA_BUBBLE_CIRCLES)) map.setLayoutProperty(PA_BUBBLE_CIRCLES, "visibility", pa);
-          if (map.getLayer(PA_BUBBLE_LABELS)) map.setLayoutProperty(PA_BUBBLE_LABELS, "visibility", pa);
-          if (map.getLayer(SZ_BUBBLE_CIRCLES)) map.setLayoutProperty(SZ_BUBBLE_CIRCLES, "visibility", sz);
-          if (map.getLayer(SZ_BUBBLE_LABELS)) map.setLayoutProperty(SZ_BUBBLE_LABELS, "visibility", sz);
         });
       }
 
@@ -1130,9 +1113,6 @@ const legendValueMap = useMemo(() => {
     // --- bubbles (PA vs SZ) ---
     const paBubbleVis = showChoropleth && !showDetailLayers ? "visible" : "none";
     const szBubbleVis = showChoropleth && showDetailLayers ? "visible" : "none";
-
-    // Store bubble visibility in ref for use in marker hover handlers
-    bubbleVisibilityRef.current = { pa: paBubbleVis, sz: szBubbleVis };
 
     if (map.getSource(PA_CENTROIDS_SRC)) {
       map.getSource(PA_CENTROIDS_SRC).setData(paBubbleFC);

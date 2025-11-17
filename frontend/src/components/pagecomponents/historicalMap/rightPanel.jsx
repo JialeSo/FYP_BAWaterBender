@@ -121,7 +121,7 @@ const HorizontalBarCard = ({ title, description, data, emptyLabel }) => (
     <CardContent className="h-64">
       {data?.length ? (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ left: 8, right: 32, top: 8, bottom: 8 }} barCategoryGap={10}>
+          <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }} barCategoryGap={10}>
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
             <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
             <YAxis
@@ -130,8 +130,8 @@ const HorizontalBarCard = ({ title, description, data, emptyLabel }) => (
               stroke="var(--muted-foreground)"
               tickLine={false}
               axisLine={false}
-              width={210}
-              tickMargin={8}
+              width={140}
+              tickMargin={4}
               tick={<MultiLineYAxisTick />}
               interval={0}
             />
@@ -262,22 +262,22 @@ export default function RightPanel({
     return rows.sort((a, b) => b.count - a.count)
   }, [safeFlood.bySubzone])
 
-  // roads list (top 10) with PA/Subzone under label
-  const topRoadsFlood = (safeFlood.topRoads || []).slice(0, 10).map((r) => {
+  // roads list with PA/Subzone under label - show all when zoomed, top 10 otherwise
+  const topRoadsFlood = (safeFlood.topRoads || []).map((r) => {
     const pa = formatName(r.planningArea || planningAreaName || "—")
     const sub = formatName(r.subzone || (feature?.properties?.SUBZONE_N ?? safeFlood.focusSubzoneName) || null)
     const subLabel = sub ? `${sub} • ${pa}` : pa
     return { label: formatName(r.name), subLabel, count: r.count }
   })
 
-  // subzone footer list with PA shown
+  // subzone footer list with PA shown - show all when zoomed, top 10 otherwise
   const subzoneFooterListFlood = useMemo(() => {
     const rows = (safeFlood.bySubzone || []).map(({ label, count, planningArea }) => ({
       label: formatName(label),
       subLabel: formatName(planningArea || planningAreaName || "—"),
       count,
     }))
-    return rows.sort((a, b) => b.count - a.count).slice(0, 10)
+    return rows.sort((a, b) => b.count - a.count)
   }, [safeFlood.bySubzone, planningAreaName])
 
   /* ---------------- Amenities helpers (mirrors floods) ---------------- */
@@ -307,22 +307,22 @@ export default function RightPanel({
     return rows.sort((a, b) => b.count - a.count)
   }, [safeAmen.bySubzone])
 
-  // roads list (top 10) with PA/Subzone under label
-  const topRoadsAmen = (safeAmen.topRoads || []).slice(0, 10).map((r) => {
+  // roads list with PA/Subzone under label - show all when zoomed, top 10 otherwise
+  const topRoadsAmen = (safeAmen.topRoads || []).map((r) => {
     const pa = formatName(r.planningArea || planningAreaName || "—")
     const sub = formatName(r.subzone || (feature?.properties?.SUBZONE_N ?? null))
     const subLabel = sub ? `${sub} • ${pa}` : pa
     return { label: formatName(r.name), subLabel, count: r.count }
   })
 
-  // subzone footer list with PA shown
+  // subzone footer list with PA shown - show all when zoomed, top 10 otherwise
   const subzoneFooterListAmen = useMemo(() => {
     const rows = (safeAmen.bySubzone || []).map(({ label, count, planningArea }) => ({
       label: formatName(label),
       subLabel: formatName(planningArea || planningAreaName || "—"),
       count,
     }))
-    return rows.sort((a, b) => b.count - a.count).slice(0, 10)
+    return rows.sort((a, b) => b.count - a.count)
   }, [safeAmen.bySubzone, planningAreaName])
 
   const zoomedSubzoneData = (isFloods ? subzoneFooterListFlood : subzoneFooterListAmen).map(({ label, subLabel, count }) => ({
@@ -423,7 +423,7 @@ export default function RightPanel({
               <div className="h-56 overflow-y-auto pr-2">
                 <div style={{ height: Math.max((floodTypesList?.length || 0) * 28, 224) }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={floodTypesList} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
+                    <BarChart data={floodTypesList} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }} barCategoryGap={8}>
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                       <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis
@@ -432,8 +432,8 @@ export default function RightPanel({
                         stroke="var(--muted-foreground)"
                         tickLine={false}
                         axisLine={false}
-                        width={210}
-                        tickMargin={8}
+                        width={140}
+                        tickMargin={4}
                         interval={0}
                         tick={<MultiLineYAxisTick />}
                       />
@@ -463,10 +463,10 @@ export default function RightPanel({
                 <div className="h-56 overflow-y-auto pr-2">
                   <div style={{ height: Math.max(floodsByPAAll.length * 28, 224) }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={floodsByPAAll} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
+                      <BarChart data={floodsByPAAll} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }} barCategoryGap={8}>
                         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                         <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={170} tickMargin={6} />
+                        <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={140} tickMargin={4} />
                         <Tooltip formatter={(v) => formatNumber(v)} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
                         <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} barSize={18}>
                           <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(v)} />
@@ -485,7 +485,7 @@ export default function RightPanel({
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-sm font-semibold text-muted-foreground">
-                      Top 10 Subzones{planningAreaName ? ` – ${formatName(planningAreaName).toUpperCase()}` : ""}
+                      Subzones{planningAreaName ? ` – ${formatName(planningAreaName).toUpperCase()}` : ""}
                     </CardTitle>
                     <CardDescription>Floods by subzone</CardDescription>
                   </div>
@@ -495,7 +495,7 @@ export default function RightPanel({
                 <div className="h-56 overflow-y-auto pr-2">
                   <div style={{ height: Math.max(floodsBySubzoneInPA.length * 28, 224) }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={floodsBySubzoneInPA} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
+                      <BarChart data={floodsBySubzoneInPA} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }} barCategoryGap={8}>
                         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                         <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis
@@ -504,8 +504,8 @@ export default function RightPanel({
                         stroke="var(--muted-foreground)"
                         tickLine={false}
                         axisLine={false}
-                        width={210}
-                        tickMargin={8}
+                        width={140}
+                        tickMargin={4}
                         interval={0}
                         tick={<MultiLineYAxisTick />}
                       />
@@ -567,7 +567,7 @@ export default function RightPanel({
               <div className="h-56 overflow-y-auto pr-2">
                 <div style={{ height: Math.max((amenCategoriesList?.length || 0) * 28, 224) }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={amenCategoriesList} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
+                    <BarChart data={amenCategoriesList} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }} barCategoryGap={8}>
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                       <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis
@@ -576,8 +576,8 @@ export default function RightPanel({
                         stroke="var(--muted-foreground)"
                         tickLine={false}
                         axisLine={false}
-                        width={210}
-                        tickMargin={8}
+                        width={140}
+                        tickMargin={4}
                         interval={0}
                         tick={<MultiLineYAxisTick />}
                       />
@@ -606,7 +606,7 @@ export default function RightPanel({
               <div className="h-56 overflow-y-auto pr-2">
                 <div style={{ height: Math.max((amenTypesList?.length || 0) * 28, 224) }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={amenTypesList} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
+                    <BarChart data={amenTypesList} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }} barCategoryGap={8}>
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                       <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis
@@ -615,8 +615,8 @@ export default function RightPanel({
                         stroke="var(--muted-foreground)"
                         tickLine={false}
                         axisLine={false}
-                        width={210}
-                        tickMargin={8}
+                        width={140}
+                        tickMargin={4}
                         interval={0}
                         tick={<MultiLineYAxisTick />}
                       />
@@ -646,10 +646,10 @@ export default function RightPanel({
                 <div className="h-56 overflow-y-auto pr-2">
                   <div style={{ height: Math.max(amenitiesByPAAll.length * 28, 224) }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={amenitiesByPAAll} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
+                      <BarChart data={amenitiesByPAAll} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }} barCategoryGap={8}>
                         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                         <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={170} tickMargin={6} />
+                        <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={140} tickMargin={4} />
                         <Tooltip formatter={(v) => formatNumber(v)} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
                         <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} barSize={18}>
                           <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(v)} />
@@ -668,7 +668,7 @@ export default function RightPanel({
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-sm font-semibold text-muted-foreground">
-                      Top 10 Subzones{planningAreaName ? ` – ${formatName(planningAreaName).toUpperCase()}` : ""}
+                      Subzones{planningAreaName ? ` – ${formatName(planningAreaName).toUpperCase()}` : ""}
                     </CardTitle>
                     <CardDescription>Amenities by subzone</CardDescription>
                   </div>
@@ -678,10 +678,10 @@ export default function RightPanel({
                 <div className="h-56 overflow-y-auto pr-2">
                   <div style={{ height: Math.max(amenitiesBySubzoneInPA.length * 28, 224) }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={amenitiesBySubzoneInPA} layout="vertical" margin={{ left: 8, right: 28, top: 8, bottom: 8 }} barCategoryGap={8}>
+                      <BarChart data={amenitiesBySubzoneInPA} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }} barCategoryGap={8}>
                         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.15} horizontal={false} />
                         <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={180} tickMargin={6} />
+                        <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} width={140} tickMargin={4} />
                         <Tooltip formatter={(v) => formatNumber(v)} contentStyle={chartTooltipStyle} labelStyle={chartLabelStyle} />
                         <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 4, 4]} barSize={18}>
                           <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(v)} />
