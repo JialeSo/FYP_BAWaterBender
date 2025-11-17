@@ -333,12 +333,6 @@ export default function singaporehistoricalfloodmap({
   const paPopupRef = useRef(null);
   const szPopupRef = useRef(null);
   const markerPopupRef = useRef(null);
-  const selectedPlanningAreasRef = useRef(selectedPlanningAreas);
-
-  // Keep ref updated
-  useEffect(() => {
-    selectedPlanningAreasRef.current = selectedPlanningAreas;
-  }, [selectedPlanningAreas]);
 
   const [metric, setMetric] = useState("flood_count");
   const [showChoropleth, setShowChoropleth] = useState(true);
@@ -968,11 +962,8 @@ const legendValueMap = useMemo(() => {
         const features = map.queryRenderedFeatures(e.point, { layers: [PA_FILL, SZ_FILL] });
         if (features && features.length) return;
         // Reset to all planning areas and zoom out to default view
-        if (selectedPlanningAreasRef.current.length > 0) {
-          onPlanningAreaToggle?.(null);
-          // Zoom back to default view
-          map.easeTo({ center: default_center, zoom: default_zoom, duration: 600 });
-        }
+        onPlanningAreaToggle?.(null);
+        map.easeTo({ center: default_center, zoom: default_zoom, duration: 600 });
         try { paPopupRef.current?.remove(); } catch {}
         try { szPopupRef.current?.remove(); } catch {}
       };
