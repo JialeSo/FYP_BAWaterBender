@@ -288,7 +288,7 @@ async def get_floods_geojson():
 ######################
 
 @router.post("/upload")
-async def upload_floods_csv(file: UploadFile = File(...)):
+async def upload_flood_csv(file: UploadFile = File(...)):
     """
     Upload a CSV from the frontend, validate columns, run the floods ETL pipeline,
     replace flood_3layers_test table contents with the new dataset.

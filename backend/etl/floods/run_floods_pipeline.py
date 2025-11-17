@@ -34,7 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def execute_floods_pipeline(table_name="floods_3layers"):
+async def execute_floods_pipeline(table_name="flood_3layers"):
     """Run the floods pipeline."""
     logger.info("="*80)
     logger.info("FLOODS ETL PIPELINE")
@@ -55,4 +55,4 @@ async def execute_floods_pipeline(table_name="floods_3layers"):
 
 
 if __name__ == "__main__":
-    asyncio.run(execute_floods_pipeline(table_name="floods_3layers"))
+    asyncio.run(execute_floods_pipeline(table_name="flood_3layers"))
