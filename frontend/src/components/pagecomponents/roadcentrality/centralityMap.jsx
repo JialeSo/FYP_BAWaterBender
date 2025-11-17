@@ -37,6 +37,18 @@ const THICKNESS_METRICS = [
   { value: "closeness_norm", label: "Closeness (Normalized)" },
 ];
 
+// Check if data has valid computed scores (not all zero or missing)
+const hasValidScores = (data, metric) => {
+  if (!data?.features?.length) return false;
+
+  const values = data.features
+    .map(f => f.properties?.[metric])
+    .filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
+
+  // If more than 10% of roads have non-zero values, consider it valid
+  return values.length > data.features.length * 0.1 && Math.max(...values, 0) > 0.01;
+};
+
 // Calculate color thresholds based on max value (5 equal buckets)
 const calculateColorThresholds = (data, metric) => {
   if (!data?.features?.length) return [0, 0.001, 0.002, 0.003, 0.004, 0.005];
@@ -73,27 +85,67 @@ const calculateColorThresholds = (data, metric) => {
 };
 
 // Function to create color expression based on value thresholds
-const createColorExpression = (metric, thresholds) => {
+const createColorExpression = (metric, thresholds, hasValidData) => {
+  // If no valid data, use neutral gray color
+  if (!hasValidData) {
+    return "#9ca3af"; // Neutral gray for uncomputed/missing data
+  }
+
   const [t0, t20, t40, t60, t80, t100] = thresholds;
 
   return [
-    "interpolate",
-    ["linear"],
-    ["coalesce", ["to-number", ["get", metric]], 0],
-    t0, "#dbeafe",    // Light blue (0-20% of max) - visible even at 0
-    t20, "#93c5fd",   // Light blue (20-40% of max)
-    t40, "#60a5fa",   // Medium blue (40-60% of max)
-    t60, "#3b82f6",   // Blue (60-80% of max)
-    t80, "#1d4ed8",   // Dark blue (80-100% of max)
-    t100, "#1e40af",  // Very dark blue (100% of max)
+    "case",
+    // If value is null, undefined, or 0, use neutral gray
+    ["==", ["get", metric], null], "#e5e7eb",
+    [
+      "interpolate",
+      ["linear"],
+      ["coalesce", ["to-number", ["get", metric]], 0],
+      t0, "#e5e7eb",    // Very light gray for near-zero values
+      t20, "#93c5fd",   // Light blue (20-40% of max)
+      t40, "#60a5fa",   // Medium blue (40-60% of max)
+      t60, "#3b82f6",   // Blue (60-80% of max)
+      t80, "#1d4ed8",   // Dark blue (80-100% of max)
+      t100, "#1e40af",  // Very dark blue (100% of max)
+    ]
   ];
 };
 
-// Function to create width expression based on metric
-const createWidthExpression = (metric) => {
+// Function to create width expression based on metric with five thickness categories
+const createWidthExpression = (metric, data) => {
   if (metric === "none") {
     return 3; // Uniform width
   }
+
+  // For importance, use five discrete thickness categories
+  if (metric === "importance" && data?.features?.length) {
+    const values = data.features
+      .map(f => f.properties?.importance)
+      .filter(v => v !== null && v !== undefined && !isNaN(v));
+
+    if (values.length === 0) return 3;
+
+    const maxValue = Math.max(...values);
+    if (maxValue < 0.01) return 3;
+
+    // Create five thickness thresholds (quintiles)
+    const t20 = maxValue * 0.2;  // Very low importance
+    const t40 = maxValue * 0.4;  // Low importance
+    const t60 = maxValue * 0.6;  // Medium importance
+    const t80 = maxValue * 0.8;  // High importance
+    // Above t80 is very high importance
+
+    return [
+      "case",
+      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20], 1.5,   // Very low: thin
+      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40], 2.5,   // Low: slightly thicker
+      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60], 3.5,   // Medium: medium thickness
+      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80], 5,     // High: thick
+      7  // Very high: very thick
+    ];
+  }
+
+  // For other metrics, use continuous interpolation
   return [
     "interpolate", ["linear"], ["coalesce", ["to-number", ["get", metric]], 0],
     0, 1, 0.05, 1.5, 0.1, 2.5, 0.3, 4, 0.6, 6, 1, 8,
@@ -104,12 +156,17 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const [colorMetric, setColorMetric] = useState("importance");
-  const [thicknessMetric, setThicknessMetric] = useState("none");
+  const [thicknessMetric, setThicknessMetric] = useState("importance");
   const markerRef = useRef(null);
 
   // Calculate color thresholds based on max value
   const colorThresholds = useMemo(() => {
     return calculateColorThresholds(data, colorMetric);
+  }, [data, colorMetric]);
+
+  // Check if data has valid scores
+  const dataHasValidScores = useMemo(() => {
+    return hasValidScores(data, colorMetric);
   }, [data, colorMetric]);
 
   // Update map paint properties when metrics or data change
@@ -118,12 +175,12 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
     if (!map || !map.isStyleLoaded() || !map.getLayer("roads")) return;
 
     try {
-      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, colorThresholds));
-      map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric));
+      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, colorThresholds, dataHasValidScores));
+      map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric, data));
     } catch (e) {
       console.error("Failed to update paint properties:", e);
     }
-  }, [colorMetric, thicknessMetric, colorThresholds]);
+  }, [colorMetric, thicknessMetric, colorThresholds, dataHasValidScores, data]);
 
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return;
@@ -166,8 +223,8 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
           source: "road-network",
           layout: { visibility: "visible", "line-cap": "round", "line-join": "round" },
           paint: {
-            "line-color": createColorExpression(colorMetric, colorThresholds),
-            "line-width": createWidthExpression(thicknessMetric),
+            "line-color": "#9ca3af", // Neutral gray initially (no data loaded yet)
+            "line-width": 3, // Uniform width initially
             "line-opacity": 0.95
           },
         });

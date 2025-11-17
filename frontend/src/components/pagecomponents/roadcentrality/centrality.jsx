@@ -191,6 +191,15 @@ export default function Centrality() {
       });
       return updated;
     });
+
+    // Enable all categories in the preset
+    setPendingAmenityEnabled((prev) => {
+      const updated = { ...prev };
+      Object.keys(preset.weights).forEach(key => {
+        updated[key] = true;
+      });
+      return updated;
+    });
   }, []);
 
   const applyFloodPreset = useCallback((presetKey) => {
@@ -205,51 +214,62 @@ export default function Centrality() {
       });
       return updated;
     });
+
+    // Enable all flood types in the preset
+    setPendingFloodEnabled((prev) => {
+      const updated = { ...prev };
+      Object.keys(preset.weights).forEach(key => {
+        updated[key] = true;
+      });
+      return updated;
+    });
   }, []);
 
-  // Check if a main preset is currently active
+  // Check if a main preset is currently active (based on pending values)
   const isMainPresetActive = useCallback((presetKey) => {
     const preset = PRESETS[presetKey];
     if (!preset) return false;
 
-    // Check if weights match
+    // Check if pending weights match
     const weightsMatch =
-      Math.abs(w_betweenness - preset.weights.betweenness) < 0.01 &&
-      Math.abs(w_closeness - preset.weights.closeness) < 0.01 &&
-      Math.abs(w_amenity - preset.weights.amenity) < 0.01 &&
-      Math.abs(w_flood - preset.weights.flood) < 0.01;
+      Math.abs(pending_w_betweenness - preset.weights.betweenness) < 0.01 &&
+      Math.abs(pending_w_closeness - preset.weights.closeness) < 0.01 &&
+      Math.abs(pending_w_amenity - preset.weights.amenity) < 0.01 &&
+      Math.abs(pending_w_flood - preset.weights.flood) < 0.01;
 
-    // Check if toggles match
+    // Check if pending toggles match
     const togglesMatch =
-      useCompBetweenness === preset.toggles.betweenness &&
-      useCompCloseness === preset.toggles.closeness &&
-      useCompAmenity === preset.toggles.amenity &&
-      useCompFlood === preset.toggles.flood;
+      pendingUseCompBetweenness === preset.toggles.betweenness &&
+      pendingUseCompCloseness === preset.toggles.closeness &&
+      pendingUseCompAmenity === preset.toggles.amenity &&
+      pendingUseCompFlood === preset.toggles.flood;
 
     return weightsMatch && togglesMatch;
-  }, [w_betweenness, w_closeness, w_amenity, w_flood, useCompBetweenness, useCompCloseness, useCompAmenity, useCompFlood]);
+  }, [pending_w_betweenness, pending_w_closeness, pending_w_amenity, pending_w_flood, pendingUseCompBetweenness, pendingUseCompCloseness, pendingUseCompAmenity, pendingUseCompFlood]);
 
-  // Check if an amenity preset is currently active
+  // Check if an amenity preset is currently active (based on pending values)
   const isAmenityPresetActive = useCallback((presetKey) => {
     const preset = AMENITY_PRESETS[presetKey];
     if (!preset || !preset.weights) return false;
 
-    // Check if all weights match
+    // Check if all weights match and all categories are enabled
     return Object.keys(preset.weights).every(key =>
-      Math.abs((amenityWeights[key] || 0) - preset.weights[key]) < 0.01
+      Math.abs((pendingAmenityWeights[key] || 0) - preset.weights[key]) < 0.01 &&
+      pendingAmenityEnabled[key] === true
     );
-  }, [amenityWeights]);
+  }, [pendingAmenityWeights, pendingAmenityEnabled]);
 
-  // Check if a flood preset is currently active
+  // Check if a flood preset is currently active (based on pending values)
   const isFloodPresetActive = useCallback((presetKey) => {
     const preset = FLOOD_PRESETS[presetKey];
     if (!preset || !preset.weights) return false;
 
-    // Check if all weights match
+    // Check if all weights match and all flood types are enabled
     return Object.keys(preset.weights).every(key =>
-      Math.abs((floodWeights[key] || 0) - preset.weights[key]) < 0.01
+      Math.abs((pendingFloodWeights[key] || 0) - preset.weights[key]) < 0.01 &&
+      pendingFloodEnabled[key] === true
     );
-  }, [floodWeights]);
+  }, [pendingFloodWeights, pendingFloodEnabled]);
 
   // Check if there are unapplied weight changes
   const hasUnappliedWeightChanges = useMemo(() => {
@@ -1293,17 +1313,8 @@ export default function Centrality() {
               </Card>
               <Card className="border bg-background/80 shadow-none">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">Adjust Component Contribution</CardTitle>
-                      <CardDescription>Adjust sliders, then click "Apply Changes" to recalculate importance scores.</CardDescription>
-                    </div>
-                    {hasUnappliedWeightChanges && (
-                      <span className="px-2 py-1 rounded-md text-sm font-bold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700">
-                        • Unapplied Changes
-                      </span>
-                    )}
-                  </div>
+                  <CardTitle className="text-base">Adjust Component Contribution</CardTitle>
+                  <CardDescription>Adjust sliders, then click "Apply Changes" to recalculate importance scores.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-6 md:grid-cols-2">
