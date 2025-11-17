@@ -93,9 +93,16 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
 
   const [t0, t20, t40, t60, t80, t100] = thresholds;
 
-  // Ensure we have meaningful thresholds (not all tiny values)
-  if (t100 < 0.1) {
-    return "#9ca3af"; // If max value is very small, use neutral gray
+  // Ensure we have meaningful thresholds
+  // For normalized metrics (betweenness_norm, closeness_norm), check if max > 0.01
+  // For count metrics (flood_count_total, amenity_count_total), check if max > 0
+  // For importance, check if max > 0.1
+  const isCountMetric = metric.includes("_count_") || metric === "flood_count_total" || metric === "amenity_count_total";
+  const isNormalizedMetric = metric.includes("_norm");
+  const minThreshold = isCountMetric ? 0 : isNormalizedMetric ? 0.01 : 0.1;
+
+  if (t100 <= minThreshold) {
+    return "#9ca3af"; // If max value is too small or zero, use neutral gray
   }
 
   return [
@@ -152,7 +159,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const [colorMetric, setColorMetric] = useState("importance");
-  const [thicknessMetric, setThicknessMetric] = useState("importance");
+  const [thicknessMetric, setThicknessMetric] = useState("none");
   const markerRef = useRef(null);
 
   // Calculate color thresholds based on max value
@@ -339,6 +346,19 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
 
           // Log for debugging
           console.log(`Map data updated: ${data?.features?.length || 0} features`);
+
+          // Update paint properties after data is set to ensure colors appear on initial load
+          if (map.getLayer("roads")) {
+            const validScores = hasValidScores(data, colorMetric);
+            const thresholds = calculateColorThresholds(data, colorMetric);
+
+            try {
+              map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, thresholds, validScores));
+              map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric, data));
+            } catch (e) {
+              console.error("Failed to update paint properties after data load:", e);
+            }
+          }
         }
         if (data?.features?.length) {
           const b = computeBounds(data);
@@ -511,7 +531,6 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
                <div style="font-weight: 600; margin-bottom: 10px; color: #60a5fa; font-size: 15px;">${name}</div>
                <div style="display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px; color: #cbd5e1;">
                  <div style="color: #94a3b8;">Category</div><div>${formatLabel(item.category)}</div>
-                 <div style="color: #94a3b8;">Type</div><div>${formatLabel(item.properties?.amenity)}</div>
                  ${item.properties?.postal_code ? `<div style="color: #94a3b8;">Postal Code</div><div>${item.properties.postal_code}</div>` : ''}
                </div>
                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; font-size: 11px; color: #94a3b8;">

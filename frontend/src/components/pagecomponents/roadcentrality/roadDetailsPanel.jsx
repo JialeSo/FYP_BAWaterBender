@@ -300,8 +300,7 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
                     {filteredAmenities.map((item, idx) => (
                       <div
                         key={idx}
-                        onClick={() => handleAmenityClick(item, idx)}
-                        className={`flex items-center justify-between text-xs rounded px-2 py-2 bg-muted/30 hover:bg-muted cursor-pointer transition-colors ${
+                        className={`flex items-center justify-between text-xs rounded px-2 py-2 bg-muted/30 hover:bg-muted transition-colors ${
                           selectedAmenityIdx === idx ? 'border-2 border-primary bg-primary/10' : 'border border-transparent'
                         }`}
                       >
@@ -309,7 +308,17 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
                           <span className="font-medium text-foreground">{item.name}</span>
                           <span className="text-[10px] text-muted-foreground">{to_title_case(item.category)}</span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground font-medium">{item._distm?.toFixed(0)}m</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground font-medium">{item._distm?.toFixed(0)}m</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleAmenityClick(item, idx)}
+                            className="h-6 px-2 text-[10px] hover:bg-primary/10"
+                          >
+                            View on Map
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
