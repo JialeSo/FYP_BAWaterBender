@@ -7,14 +7,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from etl.common.pipeline_stage import PipelineStage
+from backend.etl.common.pipeline_stage import PipelineStage
 from common.db import DatabaseConnection
-from etl.onemap.onemap_extended import OneMapClient
-from etl.common.spatial_geocoding import (
+from backend.etl.onemap.onemap_extended import OneMapClient
+from backend.etl.common.spatial_geocoding import (
     add_three_layer_geocoding,
     get_default_geojson_paths,
 )
-from etl.common.postal_code_utils import load_postal_codes_lookup
+from backend.etl.common.postal_code_utils import load_postal_codes_lookup
 
 
 logger = logging.getLogger(__name__)

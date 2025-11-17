@@ -13,8 +13,21 @@ The PA/SZ geojson files must be generated first as they are required by all
 subsequent pipelines for spatial geocoding.
 
 Usage:
-    # Run complete master pipeline
+
+    # activate your venv
+    source .venv/bin/activate      # macOS/Linux
+    # .\.venv\Scripts\Activate.ps1 # Windows PowerShell
+
+    # add backend/ to PYTHONPATH so `common` is importable
+    export PYTHONPATH="$PWD/backend:$PYTHONPATH"
+
+    ## OPTIONS: 
+
+    # Run complete master pipeline (normal mode)
     python -m backend.etl.master_pipeline
+
+    # Run in dry-run mode (no Supabase writes, just to test the pipeline is working)
+    ETL_DRY_RUN=1 python -m backend.etl.master_pipeline
 
     # Or import and use programmatically
     from backend.etl.master_pipeline import run_master_pipeline

@@ -6,4 +6,8 @@ geopandas
 shapely
 scikit-learn
 matplotlib
-
+networkx
+osmnx
+scipy
+pointpats
+spacy

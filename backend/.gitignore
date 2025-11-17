@@ -19,6 +19,7 @@ etl/data
 etl/data/geojson_layers
 etl/data/geojson/layers
 etl/data/onemap/raw
+etl/**/*.csv
 
 
 
