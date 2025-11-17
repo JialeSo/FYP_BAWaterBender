@@ -55,7 +55,7 @@ const BASE_COLUMNS = [
   { key: "amenity_count_total", label: "Amenity Count", type: "number" },
   { key: "flood_count_total", label: "Flood Count", type: "number" },
   { key: "importance", label: "Importance", type: "number", format: (v) => format_number(v, 2) },
-  { key: "sla_priority", label: "SLA Category", type: "string" },
+  { key: "sla_priority", label: "Maintenance Category", type: "string" },
 ];
 
 export default function Centrality() {
@@ -705,16 +705,16 @@ export default function Centrality() {
     const arr = [...scored];
     arr.sort((a, b) => (b.properties.importance || 0) - (a.properties.importance || 0));
 
-    // Add SLA category labels after sorting
+    // Add Maintenance Category labels after sorting
     return arr.map((f, index) => {
       const importance = f.properties.importance;
       const percentile = (index / arr.length) * 100;
 
-      let slaCategory = "5-Year SLA";
+      let slaCategory = "5 year";
       if (percentile < slaTop1Year) {
-        slaCategory = "1-Year SLA";
+        slaCategory = "1 year";
       } else if (percentile < slaTop1Year + slaNext3Year) {
-        slaCategory = "3-Year SLA";
+        slaCategory = "3 year";
       }
 
       return {
@@ -795,7 +795,10 @@ export default function Centrality() {
     return defs;
   }, [scored]);
 
-  const mapData = useMemo(() => (filteredSorted.length ? { type: "FeatureCollection", features: filteredSorted } : EMPTY_COLLECTION), [filteredSorted]);
+  const mapData = useMemo(() => {
+    // Always create a new object to ensure React detects changes
+    return { type: "FeatureCollection", features: [...filteredSorted] };
+  }, [filteredSorted]);
 
    // Selected road state
   const [selectedRoadId, setSelectedRoadId] = useState(null);
@@ -832,12 +835,12 @@ export default function Centrality() {
     return 5;
   }, [useSLAMapping, slaTop1Year, slaNext3Year, sortedByImportance]);
 
-  // Convert SLA tier to category label
+  // Convert maintenance tier to category label
   const getSLACategory = useCallback((importance) => {
     const tier = getSLATier(importance);
-    if (tier === 1) return "1-Year";
-    if (tier === 3) return "3-Year";
-    if (tier === 5) return "5-Year";
+    if (tier === 1) return "1 year";
+    if (tier === 3) return "3 year";
+    if (tier === 5) return "5 year";
     return "—";
   }, [getSLATier]);
 
@@ -1539,18 +1542,18 @@ export default function Centrality() {
             </AccordionContent>
           </AccordionItem>
 
-          {/* SLA Configuration */}
+          {/* Maintenance Category Configuration */}
 <AccordionItem value="sla" className="overflow-hidden rounded-xl border bg-card shadow-sm">
   <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-    SLA Configuration
+    Maintenance Category Configuration
   </AccordionTrigger>
   <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
     <Card className="border bg-background/80 shadow-none">
       <CardHeader>
-        <CardTitle className="text-base">Configure SLA Tiers by Percentile</CardTitle>
+        <CardTitle className="text-base">Configure Maintenance Tiers by Percentile</CardTitle>
         <CardDescription>
-          Automatically assign SLA priorities based on importance percentiles.
-          Roads in the top X% get 1-year SLA, next Y% get 3-year, remainder get 5-year.
+          Automatically assign maintenance priorities based on importance percentiles.
+          Roads in the top X% get 1 year, next Y% get 3 year, remainder get 5 year.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -1558,7 +1561,7 @@ export default function Centrality() {
         <div className="space-y-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>1-Year SLA (Top Percentile)</Label>
+              <Label>1 year (Top Percentile)</Label>
               <span className="text-sm font-semibold">{slaTop1Year}%</span>
             </div>
             <Slider
@@ -1575,7 +1578,7 @@ export default function Centrality() {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>3-Year SLA (Next Percentile)</Label>
+              <Label>3 year (Next Percentile)</Label>
               <span className="text-sm font-semibold">{slaNext3Year}%</span>
             </div>
             <Slider
@@ -1591,7 +1594,7 @@ export default function Centrality() {
           </div>
 
           <div className="rounded-lg border bg-muted/40 p-4">
-            <Label className="text-sm">5-Year SLA (Remainder)</Label>
+            <Label className="text-sm">5 year (Remainder)</Label>
             <p className="text-xs text-muted-foreground mt-1">
               Remaining {100 - slaTop1Year - slaNext3Year}% of roads
             </p>
@@ -1604,18 +1607,18 @@ export default function Centrality() {
             <h4 className="text-sm font-semibold mb-3">Preview Distribution</h4>
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
-                <span>1-Year SLA:</span>
+                <span>1 year:</span>
                 <strong>{Math.round(sortedByImportance.length * slaTop1Year / 100)} roads</strong>
               </div>
               <div className="flex justify-between">
-                <span>3-Year SLA:</span>
+                <span>3 year:</span>
                 <strong>{Math.round(sortedByImportance.length * slaNext3Year / 100)} roads</strong>
               </div>
               <div className="flex justify-between">
-                <span>5-Year SLA:</span>
+                <span>5 year:</span>
                 <strong>
-                  {sortedByImportance.length - 
-                   Math.round(sortedByImportance.length * slaTop1Year / 100) - 
+                  {sortedByImportance.length -
+                   Math.round(sortedByImportance.length * slaTop1Year / 100) -
                    Math.round(sortedByImportance.length * slaNext3Year / 100)} roads
                 </strong>
               </div>
@@ -1849,12 +1852,12 @@ export default function Centrality() {
                     />
                   </div>
 
-                  {/* SLA Category */}
+                  {/* Maintenance Category */}
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">SLA Category</Label>
+                    <Label className="text-sm font-medium">Maintenance Category</Label>
                     <MultiSelectCombobox
                       label=""
-                      options={["1-Year SLA", "3-Year SLA", "5-Year SLA"]}
+                      options={["1 year", "3 year", "5 year"]}
                       selected={pendingSlaCategories}
                       onChange={setPendingSlaCategories}
                       placeholder="All categories"

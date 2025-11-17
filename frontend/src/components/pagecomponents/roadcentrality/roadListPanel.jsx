@@ -103,7 +103,7 @@ export function RoadListPanel({ roads, selectedRoadId, onSelectRoad }) {
                   onClick={() => toggleSort("importance")}
                 />
                 <ThSort
-                  text="SLA"
+                  text="Maint. Cat."
                   active={sortKey === "sla_priority"}
                   dir={sortDir}
                   onClick={() => toggleSort("sla_priority")}

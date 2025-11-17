@@ -214,9 +214,9 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
               <div className="text-xl font-bold text-primary">{format_number(p.importance, 2) ?? "—"}</div>
             </div>
 
-            {/* SLA Category */}
+            {/* Maintenance Category */}
             <div className="space-y-1">
-              <div className="text-[9px] font-medium text-muted-foreground uppercase">SLA Category</div>
+              <div className="text-[9px] font-medium text-muted-foreground uppercase">Maintenance Category</div>
               <div className="text-sm font-bold text-green-600 dark:text-green-400 mt-5">{p.sla_priority || "—"}</div>
             </div>
 

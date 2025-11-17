@@ -224,7 +224,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
               <div style="color:#94a3b8;">Closeness</div><div style="color:#f1f5f9;">${format_number(p.closeness_norm, 4) ?? "—"}</div>
               <div style="color:#94a3b8;">Amenity Count</div><div style="color:#f1f5f9;">${p.amenity_count_total ?? "0"}</div>
               <div style="color:#94a3b8;">Flood Count</div><div style="color:#f1f5f9;">${p.flood_count_total ?? "0"}</div>
-              <div style="color:#94a3b8;">SLA Category</div><div style="color:#10b981; font-weight:600;">${slaCategory}</div>
+              <div style="color:#94a3b8;">Maintenance Category</div><div style="color:#10b981; font-weight:600;">${slaCategory}</div>
             </div>
           </div>
         `;
@@ -280,7 +280,12 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
       try {
         const src = map.getSource("road-network");
         if (src && src.setData) {
-          src.setData(data?.features?.length ? data : EMPTY_COLLECTION);
+          // Always update the data, even if it's empty
+          const newData = data?.features?.length ? data : EMPTY_COLLECTION;
+          src.setData(newData);
+
+          // Log for debugging
+          console.log(`Map data updated: ${data?.features?.length || 0} features`);
         }
         if (data?.features?.length) {
           const b = computeBounds(data);
@@ -290,16 +295,31 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
             } catch {}
           }
         }
-        map.once("idle", () => {
-          try {
-            map.resize();
-          } catch {}
-        });
-      } catch {}
+      } catch (err) {
+        console.error("Error updating map data:", err);
+      }
     };
 
-    if (map.isStyleLoaded()) apply();
-    else map.once("load", apply);
+    // Try to apply immediately if style is loaded
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      // If not loaded, wait for it
+      map.once("load", apply);
+    }
+
+    // Also listen for styledata event to handle style changes
+    const onStyleData = () => {
+      const src = map.getSource("road-network");
+      if (src) {
+        apply();
+      }
+    };
+    map.on("styledata", onStyleData);
+
+    return () => {
+      map.off("styledata", onStyleData);
+    };
   }, [data]);
 
   useEffect(() => {
