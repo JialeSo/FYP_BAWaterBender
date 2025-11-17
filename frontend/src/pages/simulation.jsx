@@ -336,6 +336,15 @@ export default function Simulation() {
   const [roadSortColumn, setRoadSortColumn] = useState("delta_time");
   const [roadSortDirection, setRoadSortDirection] = useState("desc");
 
+  // Table search/filter states
+  const [paSearchTerm, setPaSearchTerm] = useState("");
+  const [roadNameFilter, setRoadNameFilter] = useState("");
+  const [roadPaFilter, setRoadPaFilter] = useState("");
+  const [roadCategoryFilter, setRoadCategoryFilter] = useState("all");
+
+  // Map control ref
+  const mapContainerRef = useRef(null);
+
   // Enrich paDeltas with road statistics
   const enrichedPaDeltas = useMemo(() => {
     if (!paDeltas.length || !graph?.edges || !graph?.nodes || !affectedRoads.length) return paDeltas;
@@ -564,6 +573,43 @@ export default function Simulation() {
     return sorted;
   }, [roadLevelData, roadSortColumn, roadSortDirection]);
 
+  // Filter sorted planning areas by search term
+  const filteredPaDeltas = useMemo(() => {
+    if (!paSearchTerm.trim()) return sortedPaDeltas;
+    const searchLower = paSearchTerm.toLowerCase().trim();
+    return sortedPaDeltas.filter(pa =>
+      pa.pa_name?.toLowerCase().includes(searchLower)
+    );
+  }, [sortedPaDeltas, paSearchTerm]);
+
+  // Filter sorted roads by name, PA, and category
+  const filteredRoads = useMemo(() => {
+    let filtered = sortedRoads;
+
+    // Filter by road name
+    if (roadNameFilter.trim()) {
+      const nameLower = roadNameFilter.toLowerCase().trim();
+      filtered = filtered.filter(road =>
+        road.name?.toLowerCase().includes(nameLower) ||
+        String(road.rn_id).includes(nameLower)
+      );
+    }
+
+    // Filter by planning area
+    if (roadPaFilter.trim()) {
+      const paLower = roadPaFilter.toLowerCase().trim();
+      filtered = filtered.filter(road =>
+        road.pa_name?.toLowerCase().includes(paLower)
+      );
+    }
+
+    // Filter by category
+    if (roadCategoryFilter !== "all") {
+      filtered = filtered.filter(road => road.category === roadCategoryFilter);
+    }
+
+    return filtered;
+  }, [sortedRoads, roadNameFilter, roadPaFilter, roadCategoryFilter]);
 
   // Scenarios now loaded from context - no need to fetch here
   useEffect(() => {
@@ -1670,8 +1716,9 @@ export default function Simulation() {
             </Accordion>
 
             {/* Unified Map */}
-            <div className="relative w-full rounded-lg overflow-hidden" style={{ height: "500px" }}>
+            <div id="simulation-map" className="relative w-full rounded-lg overflow-hidden" style={{ height: "500px" }}>
                 <SimulationMapContainer
+                  ref={mapContainerRef}
                   planning_fc_raw={planning_fc_raw}
                   amenity_fc_enriched={amenity_fc_enriched}
                   graph={graph}
@@ -1732,7 +1779,19 @@ export default function Simulation() {
 
                   {/* Planning Area Summary Tab */}
                   <TabsContent value="planning-areas">
-                <div className="border rounded-lg overflow-auto max-h-[600px]">
+                    {/* Search input */}
+                    <div className="mb-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search planning areas..."
+                          value={paSearchTerm}
+                          onChange={(e) => setPaSearchTerm(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="border rounded-lg overflow-auto max-h-[600px]">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-muted z-10">
                       <tr className="[&>th]:px-2 [&>th]:py-2 text-left text-xs">
@@ -1775,11 +1834,17 @@ export default function Simulation() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedPaDeltas.map((d, i) => (
+                      {filteredPaDeltas.map((d, i) => (
                         <tr
                           key={i}
                           className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => setSelectedPA(d.pa_id)}
+                          onClick={() => {
+                            setSelectedPA(d.pa_id);
+                            // Zoom to planning area on map
+                            if (mapContainerRef.current?.zoomToPlanningArea) {
+                              mapContainerRef.current.zoomToPlanningArea(d.pa_id);
+                            }
+                          }}
                         >
                           <td className="font-medium">{d.pa_name}</td>
                           <td className="text-muted-foreground">{fmtM(d.base_min_s)}</td>
@@ -1807,7 +1872,41 @@ export default function Simulation() {
                         Select a planning area in the summary table or on the map to view road-level details.
                       </div>
                     ) : (
-                      <div className="border rounded-lg overflow-auto max-h-[600px]">
+                      <>
+                        {/* Filter inputs */}
+                        <div className="mb-3 grid grid-cols-3 gap-3">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Filter by road name or ID..."
+                              value={roadNameFilter}
+                              onChange={(e) => setRoadNameFilter(e.target.value)}
+                              className="pl-9"
+                            />
+                          </div>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Filter by planning area..."
+                              value={roadPaFilter}
+                              onChange={(e) => setRoadPaFilter(e.target.value)}
+                              className="pl-9"
+                            />
+                          </div>
+                          <Select value={roadCategoryFilter} onValueChange={setRoadCategoryFilter}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="All Categories" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Categories</SelectItem>
+                              <SelectItem value="Unaffected">Unaffected</SelectItem>
+                              <SelectItem value="Affected">Affected</SelectItem>
+                              <SelectItem value="Blocked (Flooded)">Blocked (Flooded)</SelectItem>
+                              <SelectItem value="Unreachable">Unreachable</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="border rounded-lg overflow-auto max-h-[600px]">
                         <table className="w-full text-sm">
                           <thead className="sticky top-0 bg-muted z-10">
                             <tr className="[&>th]:px-2 [&>th]:py-2 text-left text-xs">
@@ -1845,10 +1944,26 @@ export default function Simulation() {
                           </thead>
 
                           <tbody>
-                            {sortedRoads
+                            {filteredRoads
                               .filter(r => r.pa_id === selectedPA)  // only show selected PA's roads
                               .map((road, i) => (
-                                <tr key={i} className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50">
+                                <tr
+                                  key={i}
+                                  className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50 cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    // Scroll to map
+                                    const mapElement = document.getElementById('simulation-map');
+                                    if (mapElement) {
+                                      mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }
+                                    // Show road popup on map
+                                    if (mapContainerRef.current?.showRoadPopup) {
+                                      setTimeout(() => {
+                                        mapContainerRef.current.showRoadPopup(road.rn_id);
+                                      }, 500);
+                                    }
+                                  }}
+                                >
                                   <td className="font-mono text-xs">{road.rn_id}</td>
                                   <td className="font-medium">{road.name}</td>
                                   <td className="text-muted-foreground">{road.pa_name}</td>
@@ -1877,6 +1992,7 @@ export default function Simulation() {
                           </tbody>
                         </table>
                       </div>
+                      </>
                     )}
                   </TabsContent>
                 </Tabs>

@@ -4,7 +4,7 @@
  * Handles choropleth visualization, road networks, amenity markers, and all interactions
  */
 
-import { useRef, useEffect, useCallback, useState, useMemo } from "react";
+import { useRef, useEffect, useCallback, useState, useMemo, useImperativeHandle, forwardRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
@@ -25,7 +25,7 @@ const DEFAULT_ZOOM = 11;
 /**
  * Main Map Container Component
  */
-export function SimulationMapContainer({
+export const SimulationMapContainer = forwardRef(function SimulationMapContainer({
   planning_fc_raw,
   amenity_fc_enriched,
   graph,
@@ -40,7 +40,7 @@ export function SimulationMapContainer({
   onPlanningAreaSelect,
   selectedPA,
   showAmenities = true,
-}) {
+}, ref) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const paPopupRef = useRef(null);
@@ -894,6 +894,105 @@ export function SimulationMapContainer({
     }
   }, [mapReady, selectedPA]);
 
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    zoomToPlanningArea: (paId) => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded() || !planning_fc_raw?.features) return;
+
+      // Find the planning area feature
+      const feature = planning_fc_raw.features.find(f => {
+        const featurePaId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
+        return featurePaId === paId;
+      });
+
+      if (feature) {
+        // Show roads for this PA
+        showPlanningAreaRoads(paId, feature);
+
+        // Zoom to planning area bounds
+        if (feature.geometry) {
+          const bounds = new mapboxgl.LngLatBounds();
+          if (feature.geometry.type === "Polygon") {
+            feature.geometry.coordinates[0].forEach(coord => bounds.extend(coord));
+          } else if (feature.geometry.type === "MultiPolygon") {
+            feature.geometry.coordinates.forEach(poly => {
+              poly[0].forEach(coord => bounds.extend(coord));
+            });
+          }
+          map.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 1000 });
+        }
+      }
+    },
+
+    showRoadPopup: (rnId) => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded() || !graph?.edges) return;
+
+      // Find the road edge
+      const edge = graph.edges.find(e => e.rn_id === rnId);
+      if (!edge || !edge.feature) return;
+
+      // Get road center coordinate
+      const coords = edge.feature.geometry?.coordinates;
+      if (!coords || !coords.length) return;
+
+      const centerIdx = Math.floor(coords.length / 2);
+      const centerCoord = coords[centerIdx];
+
+      // Create popup HTML
+      const affectedRoadSet = new Set(affectedRoads?.map(r => r.rn_id) || []);
+      const isBlocked = affectedRoadSet.has(rnId);
+      const nodeFrom = graph.nodes.get(edge.from);
+      const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
+      const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
+      const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+        ? floodedDist - baselineDist
+        : null;
+
+      // Get nearest amenities
+      const baselineAmenityId = nearestAmenities?.baselineAmenities?.get(edge.from);
+      const floodedAmenityId = nearestAmenities?.floodedAmenities?.get(edge.from);
+
+      const amenityChange = getNearestAmenityChange(
+        baselineAmenityId,
+        floodedAmenityId,
+        amenity_fc_enriched
+      );
+
+      const roadData = {
+        rn_id: rnId,
+        name: edge.feature.properties?.name || `Road ${rnId}`,
+        pa_name: nodeFrom?.paName || "Unknown",
+        baseline_time: baselineDist,
+        flooded_time: floodedDist,
+        delta_time: delta,
+        is_blocked: isBlocked,
+        ...amenityChange,
+      };
+
+      const popupHTML = generateRoadTooltipHTML(roadData);
+
+      // Remove existing popup
+      if (roadPopupRef.current) {
+        roadPopupRef.current.remove();
+        roadPopupRef.current = null;
+      }
+
+      // Create and show new popup
+      roadPopupRef.current = new mapboxgl.Popup({
+        closeButton: true,
+        closeOnClick: false,
+        maxWidth: "400px",
+      })
+        .setLngLat(centerCoord)
+        .setHTML(popupHTML)
+        .addTo(map);
+
+      // Fly to road
+      map.flyTo({ center: centerCoord, zoom: 15, duration: 1000 });
+    }
+  }), [planning_fc_raw, graph, affectedRoads, baselineNodeDist, floodedNodeDist, nearestAmenities, amenity_fc_enriched, showPlanningAreaRoads]);
 
   return (
     <>
@@ -926,6 +1025,6 @@ export function SimulationMapContainer({
       `}</style>
     </>
   );
-}
+});
 
 export default SimulationMapContainer;
