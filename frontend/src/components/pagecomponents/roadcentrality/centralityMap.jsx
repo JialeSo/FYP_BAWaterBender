@@ -67,34 +67,34 @@ const hasValidScores = (data, metric) => {
   }
 };
 
-// Calculate color bucket thresholds using percentiles for better distribution
+// Calculate color bucket thresholds using equal value ranges
 const calculateColorThresholds = (data, metric) => {
-  if (!data?.features?.length) return { t20: 0, t40: 0, t60: 0, t80: 0, max: 0 };
+  if (!data?.features?.length) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
 
-  // Get all non-zero values for better bucket distribution
+  // Get all values to find the maximum
   const allValues = data.features
     .map(f => f.properties?.[metric])
     .filter(v => v !== null && v !== undefined && !isNaN(v));
 
-  const nonZeroValues = allValues.filter(v => v > 0).sort((a, b) => a - b);
+  if (allValues.length === 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
 
-  if (nonZeroValues.length === 0) return { t20: 0, t40: 0, t60: 0, t80: 0, max: 0 };
+  const maxValue = Math.max(...allValues);
 
-  // Use percentiles of NON-ZERO values for better distribution
-  const getPercentile = (arr, p) => {
-    const idx = Math.floor(arr.length * p);
-    return arr[Math.min(idx, arr.length - 1)];
-  };
+  if (maxValue <= 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+
+  // Divide max value into 5 equal buckets
+  // Example: max = 15 → bucketSize = 3 → buckets: 0-3, 3-6, 6-9, 9-12, 12-15
+  const bucketSize = maxValue / 5;
 
   const thresholds = {
-    t20: getPercentile(nonZeroValues, 0.2),
-    t40: getPercentile(nonZeroValues, 0.4),
-    t60: getPercentile(nonZeroValues, 0.6),
-    t80: getPercentile(nonZeroValues, 0.8),
-    max: nonZeroValues[nonZeroValues.length - 1]
+    b1: bucketSize * 1,      // Bucket 1: > 0 to 20% of max
+    b2: bucketSize * 2,      // Bucket 2: 20% to 40% of max
+    b3: bucketSize * 3,      // Bucket 3: 40% to 60% of max
+    b4: bucketSize * 4,      // Bucket 4: 60% to 80% of max
+    max: maxValue            // Bucket 5: 80% to 100% of max
   };
 
-  console.log(`Thresholds for ${metric}:`, thresholds);
+  console.log(`Thresholds for ${metric} (max: ${maxValue}):`, thresholds);
   return thresholds;
 };
 
@@ -105,7 +105,7 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
     return "#9ca3af"; // Neutral gray for uncomputed/missing data
   }
 
-  const { t20, t40, t60, t80, max } = thresholds;
+  const { b1, b2, b3, b4, max } = thresholds;
 
   // Ensure we have meaningful thresholds
   const isCountMetric = metric.includes("_count_") || metric === "flood_count_total" || metric === "amenity_count_total";
@@ -116,23 +116,24 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
     return "#9ca3af"; // If max value is too small or zero, use neutral gray
   }
 
-  // Use discrete color buckets based on percentile thresholds
-  // Roads are colored based on which bucket their value falls into
+  // Use discrete color buckets based on equal value ranges
+  // Example: max=15 → b1=3, b2=6, b3=9, b4=12, max=15
+  // Bucket 1: 0-3, Bucket 2: 3-6, Bucket 3: 6-9, Bucket 4: 9-12, Bucket 5: 12-15
   return [
     "case",
     // First check: if value is null/undefined/missing
     ["!", ["has", metric]], "#e5e7eb",
     // Second check: if value is exactly 0 or negative
     ["<=", ["get", metric], 0], "#e5e7eb",
-    // Bucket 1: > 0 and <= 20th percentile
-    ["<=", ["get", metric], t20], "#bfdbfe",
-    // Bucket 2: > 20th and <= 40th percentile
-    ["<=", ["get", metric], t40], "#93c5fd",
-    // Bucket 3: > 40th and <= 60th percentile
-    ["<=", ["get", metric], t60], "#60a5fa",
-    // Bucket 4: > 60th and <= 80th percentile
-    ["<=", ["get", metric], t80], "#3b82f6",
-    // Bucket 5: > 80th percentile (highest values)
+    // Bucket 1: > 0 and <= 20% of max
+    ["<=", ["get", metric], b1], "#bfdbfe",
+    // Bucket 2: > 20% and <= 40% of max
+    ["<=", ["get", metric], b2], "#93c5fd",
+    // Bucket 3: > 40% and <= 60% of max
+    ["<=", ["get", metric], b3], "#60a5fa",
+    // Bucket 4: > 60% and <= 80% of max
+    ["<=", ["get", metric], b4], "#3b82f6",
+    // Bucket 5: > 80% and <= 100% of max (highest values)
     "#1d4ed8"
   ];
 };
@@ -683,31 +684,31 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  {format_number(colorThresholds.t80, 2)} - {format_number(colorThresholds.max, 2)} (Very High)
+                  {format_number(colorThresholds.b4, 2)} - {format_number(colorThresholds.max, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#3b82f6" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  {format_number(colorThresholds.t60, 2)} - {format_number(colorThresholds.t80, 2)} (High)
+                  {format_number(colorThresholds.b3, 2)} - {format_number(colorThresholds.b4, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#60a5fa" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  {format_number(colorThresholds.t40, 2)} - {format_number(colorThresholds.t60, 2)} (Medium)
+                  {format_number(colorThresholds.b2, 2)} - {format_number(colorThresholds.b3, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#93c5fd" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  {format_number(colorThresholds.t20, 2)} - {format_number(colorThresholds.t40, 2)} (Low)
+                  {format_number(colorThresholds.b1, 2)} - {format_number(colorThresholds.b2, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#bfdbfe" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  &gt; 0 - {format_number(colorThresholds.t20, 2)} (Very Low)
+                  &gt; 0 - {format_number(colorThresholds.b1, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
