@@ -192,10 +192,10 @@ export default function Centrality() {
       return updated;
     });
 
-    // Enable all categories in the preset
+    // Enable ALL categories (including "Others" and any categories not in preset)
     setPendingAmenityEnabled((prev) => {
       const updated = { ...prev };
-      Object.keys(preset.weights).forEach(key => {
+      Object.keys(prev).forEach(key => {
         updated[key] = true;
       });
       return updated;
@@ -215,10 +215,10 @@ export default function Centrality() {
       return updated;
     });
 
-    // Enable all flood types in the preset
+    // Enable ALL flood types (including any types not in preset)
     setPendingFloodEnabled((prev) => {
       const updated = { ...prev };
-      Object.keys(preset.weights).forEach(key => {
+      Object.keys(prev).forEach(key => {
         updated[key] = true;
       });
       return updated;

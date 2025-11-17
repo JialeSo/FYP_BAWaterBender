@@ -93,21 +93,21 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
 
   const [t0, t20, t40, t60, t80, t100] = thresholds;
 
+  // Ensure we have meaningful thresholds (not all tiny values)
+  if (t100 < 0.1) {
+    return "#9ca3af"; // If max value is very small, use neutral gray
+  }
+
   return [
-    "case",
-    // If value is null, undefined, or 0, use neutral gray
-    ["==", ["get", metric], null], "#e5e7eb",
-    [
-      "interpolate",
-      ["linear"],
-      ["coalesce", ["to-number", ["get", metric]], 0],
-      t0, "#e5e7eb",    // Very light gray for near-zero values
-      t20, "#93c5fd",   // Light blue (20-40% of max)
-      t40, "#60a5fa",   // Medium blue (40-60% of max)
-      t60, "#3b82f6",   // Blue (60-80% of max)
-      t80, "#1d4ed8",   // Dark blue (80-100% of max)
-      t100, "#1e40af",  // Very dark blue (100% of max)
-    ]
+    "interpolate",
+    ["linear"],
+    ["coalesce", ["to-number", ["get", metric]], 0],
+    t0, "#e5e7eb",    // Very light gray for near-zero values
+    t20, "#93c5fd",   // Light blue (20-40% of max)
+    t40, "#60a5fa",   // Medium blue (40-60% of max)
+    t60, "#3b82f6",   // Blue (60-80% of max)
+    t80, "#1d4ed8",   // Dark blue (80-100% of max)
+    t100, "#1e40af",  // Very dark blue (100% of max)
   ];
 };
 
@@ -117,39 +117,35 @@ const createWidthExpression = (metric, data) => {
     return 3; // Uniform width
   }
 
-  // For importance, use five discrete thickness categories
-  if (metric === "importance" && data?.features?.length) {
+  // For any metric, use five discrete thickness buckets
+  if (data?.features?.length) {
     const values = data.features
-      .map(f => f.properties?.importance)
-      .filter(v => v !== null && v !== undefined && !isNaN(v));
+      .map(f => f.properties?.[metric])
+      .filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
 
     if (values.length === 0) return 3;
 
     const maxValue = Math.max(...values);
     if (maxValue < 0.01) return 3;
 
-    // Create five thickness thresholds (quintiles)
-    const t20 = maxValue * 0.2;  // Very low importance
-    const t40 = maxValue * 0.4;  // Low importance
-    const t60 = maxValue * 0.6;  // Medium importance
-    const t80 = maxValue * 0.8;  // High importance
-    // Above t80 is very high importance
+    // Create five thickness thresholds (quintiles) - 20% increments
+    const t20 = maxValue * 0.2;
+    const t40 = maxValue * 0.4;
+    const t60 = maxValue * 0.6;
+    const t80 = maxValue * 0.8;
 
+    // Five thickness buckets increasing by 0.5px: 2, 2.5, 3, 3.5, 4
     return [
       "case",
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20], 1.5,   // Very low: thin
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40], 2.5,   // Low: slightly thicker
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60], 3.5,   // Medium: medium thickness
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80], 5,     // High: thick
-      7  // Very high: very thick
+      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20], 2,     // Bucket 1: 0-20%
+      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40], 2.5,   // Bucket 2: 20-40%
+      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60], 3,     // Bucket 3: 40-60%
+      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80], 3.5,   // Bucket 4: 60-80%
+      4  // Bucket 5: 80-100%
     ];
   }
 
-  // For other metrics, use continuous interpolation
-  return [
-    "interpolate", ["linear"], ["coalesce", ["to-number", ["get", metric]], 0],
-    0, 1, 0.05, 1.5, 0.1, 2.5, 0.3, 4, 0.6, 6, 1, 8,
-  ];
+  return 3; // Default uniform width
 };
 
 export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, selectedMarker = null }) {
@@ -498,24 +494,39 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
         el.style.cursor = 'pointer';
         el.style.boxShadow = '0 3px 6px rgba(0,0,0,0.4)';
 
+        // Helper function to format category/type names
+        const formatLabel = (text) => {
+          if (!text) return 'N/A';
+          return String(text)
+            .replace(/[_-]+/g, ' ')
+            .trim()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+        };
+
         // Create popup with details
         const popupHTML = isAmenity
-          ? `<div style="padding: 10px; max-width: 280px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
-               <div style="font-weight: 600; margin-bottom: 8px; color: #60a5fa; font-size: 14px;">${name}</div>
-               <div style="font-size: 12px; color: #cbd5e1; space-y: 4px;">
-                 <div><strong>Category:</strong> ${item.category || 'N/A'}</div>
-                 <div><strong>Type:</strong> ${item.properties?.amenity || 'N/A'}</div>
-                 ${item.properties?.postal_code ? `<div><strong>Postal Code:</strong> ${item.properties.postal_code}</div>` : ''}
-                 <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+          ? `<div style="padding: 12px; max-width: 300px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
+               <div style="font-weight: 600; margin-bottom: 10px; color: #60a5fa; font-size: 15px;">${name}</div>
+               <div style="display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px; color: #cbd5e1;">
+                 <div style="color: #94a3b8;">Category</div><div>${formatLabel(item.category)}</div>
+                 <div style="color: #94a3b8;">Type</div><div>${formatLabel(item.properties?.amenity)}</div>
+                 ${item.properties?.postal_code ? `<div style="color: #94a3b8;">Postal Code</div><div>${item.properties.postal_code}</div>` : ''}
+               </div>
+               <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; font-size: 11px; color: #94a3b8;">
+                 ${lat.toFixed(5)}, ${lng.toFixed(5)}
                </div>
              </div>`
-          : `<div style="padding: 10px; max-width: 280px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
-               <div style="font-weight: 600; margin-bottom: 8px; color: #fb923c; font-size: 14px;">${name}</div>
-               <div style="font-size: 12px; color: #cbd5e1;">
-                 <div><strong>Type:</strong> ${item.type || 'N/A'}</div>
-                 ${item.date ? `<div><strong>Date:</strong> ${item.date}</div>` : ''}
-                 ${item.properties?.location ? `<div><strong>Location:</strong> ${item.properties.location}</div>` : ''}
-                 <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;"><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+          : `<div style="padding: 12px; max-width: 300px; background: #0f172a; color: #e2e8f0; border-radius: 8px;">
+               <div style="font-weight: 600; margin-bottom: 10px; color: #fb923c; font-size: 15px;">${name}</div>
+               <div style="display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px; color: #cbd5e1;">
+                 <div style="color: #94a3b8;">Type</div><div>${formatLabel(item.type)}</div>
+                 ${item.date ? `<div style="color: #94a3b8;">Date</div><div>${item.date}</div>` : ''}
+                 ${item.properties?.location ? `<div style="color: #94a3b8;">Location</div><div>${item.properties.location}</div>` : ''}
+               </div>
+               <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; font-size: 11px; color: #94a3b8;">
+                 ${lat.toFixed(5)}, ${lng.toFixed(5)}
                </div>
              </div>`;
 
