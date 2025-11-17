@@ -49,15 +49,6 @@ export default function Header() {
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            {/* dashboard map */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/dashboard-map">
-                  <Button variant="ghost" size="sm">Dashboard Map</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-
             {/* simulation */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
@@ -67,12 +58,15 @@ export default function Header() {
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            {/* learn more (kept as requested) */}
+            {/* dashboard map */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Button variant="outline" size="sm">Learn More</Button>
+                <Link to="/uploaddata">
+                  <Button variant="ghost" size="sm">UploadData</Button>
+                </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
+
           </NavigationMenuList>
         </NavigationMenu>
       </nav>
