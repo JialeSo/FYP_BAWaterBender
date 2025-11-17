@@ -1,8 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import LeftPanel from "@/components/pagecomponents/historicalMap/LeftPanel";
-import RightPanel from "./RightPanel";
+import LeftPanel from "@/components/pagecomponents/historicalMap/leftpanel";
+import RightPanel from "./rightpanel";
 import { PanelLeft, PanelRight } from "lucide-react";
 
 /** shared parsers */
