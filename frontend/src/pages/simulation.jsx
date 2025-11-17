@@ -590,7 +590,7 @@ export default function Simulation() {
     if (roadNameFilter.trim()) {
       const nameLower = roadNameFilter.toLowerCase().trim();
       filtered = filtered.filter(road =>
-        road.name?.toLowerCase().includes(nameLower) ||
+        String(road.name || '').toLowerCase().includes(nameLower) ||
         String(road.rn_id).includes(nameLower)
       );
     }
@@ -599,7 +599,7 @@ export default function Simulation() {
     if (roadPaFilter.trim()) {
       const paLower = roadPaFilter.toLowerCase().trim();
       filtered = filtered.filter(road =>
-        road.pa_name?.toLowerCase().includes(paLower)
+        String(road.pa_name || '').toLowerCase().includes(paLower)
       );
     }
 
@@ -1051,9 +1051,9 @@ export default function Simulation() {
     <div className="flex flex-col h-[91vh] bg-background">
       {/* Header with stepper */}
       <div className="border-b shadow-sm flex-shrink-0">
-        <div className="px-6 py-4">
-          <h1 className="text-2xl font-bold mb-4 text-center">Flood Impact Simulation</h1>
-          <div className="flex items-center justify-center gap-2">
+        <div className="px-6 py-2">
+          <h1 className="text-2xl font-bold mb-2 text-center">Flood Impact Simulation</h1>
+          <div className="flex items-center justify-center gap-1.5">
             {[
               { num: 1, title: "Define Flood Input" },
               { num: 2, title: "Configure Details" },
@@ -1061,9 +1061,9 @@ export default function Simulation() {
               { num: 4, title: "View Results" }
             ].map((s, idx) => (
               <div key={s.num} className="flex items-center">
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-0.5">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
                       s.num === step
                         ? "bg-primary text-primary-foreground shadow-lg scale-110"
                         : s.num < step
@@ -1083,7 +1083,7 @@ export default function Simulation() {
                   </span>
                 </div>
                 {idx < 3 && (
-                  <ChevronRight className="h-5 w-5 mx-2 text-muted-foreground flex-shrink-0" />
+                  <ChevronRight className="h-4 w-4 mx-1.5 text-muted-foreground flex-shrink-0" />
                 )}
               </div>
             ))}
@@ -1840,9 +1840,16 @@ export default function Simulation() {
                           className="border-t [&>td]:px-2 [&>td]:py-2 hover:bg-muted/50 cursor-pointer transition-colors"
                           onClick={() => {
                             setSelectedPA(d.pa_id);
+                            // Scroll to map
+                            const mapElement = document.getElementById('simulation-map');
+                            if (mapElement) {
+                              mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
                             // Zoom to planning area on map
                             if (mapContainerRef.current?.zoomToPlanningArea) {
-                              mapContainerRef.current.zoomToPlanningArea(d.pa_id);
+                              setTimeout(() => {
+                                mapContainerRef.current.zoomToPlanningArea(d.pa_id);
+                              }, 500);
                             }
                           }}
                         >
