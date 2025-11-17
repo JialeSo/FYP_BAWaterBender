@@ -7,4 +7,4 @@ telethon
 PyJWT
 requests
 pydantic
-
+python-multipart
