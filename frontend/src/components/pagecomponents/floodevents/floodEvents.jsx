@@ -7,12 +7,10 @@ import { useMapData } from "@/context/mapDataContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Info } from "lucide-react";
 import { NumberInput } from "@/components/numberInput";
 import {
   FLOOD_TYPE_PRESETS,
@@ -68,21 +66,36 @@ export default function FloodEvents() {
     [planningAreaCounts]
   );
 
-  // Default flood type enabled state and weights (from Default Balanced preset)
+  const defaultFloodPreset = useMemo(() => {
+    if (FLOOD_TYPE_PRESETS?.balanced) return FLOOD_TYPE_PRESETS.balanced;
+    const firstKey = Object.keys(FLOOD_TYPE_PRESETS)[0];
+    return FLOOD_TYPE_PRESETS[firstKey];
+  }, []);
+
+  // Default flood type enabled state and multipliers
   const default_flood_enabled = useMemo(() => {
     const e = {};
-    for (const k of floodTypeKeys) e[k] = true;
+    for (const k of floodTypeKeys) {
+      if (defaultFloodPreset?.types && Object.prototype.hasOwnProperty.call(defaultFloodPreset.types, k)) {
+        e[k] = defaultFloodPreset.types[k];
+      } else {
+        e[k] = true;
+      }
+    }
     return e;
-  }, [floodTypeKeys]);
+  }, [floodTypeKeys, defaultFloodPreset]);
 
   const default_flood_weights = useMemo(() => {
     const w = {};
     for (const k of floodTypeKeys) {
-      // Use preset weights if available, otherwise default to 1.0
-      w[k] = FLOOD_TYPE_PRESETS.balanced.weights[k] || 1.0;
+      if (defaultFloodPreset?.weights && Object.prototype.hasOwnProperty.call(defaultFloodPreset.weights, k)) {
+        w[k] = defaultFloodPreset.weights[k];
+      } else {
+        w[k] = 1.0;
+      }
     }
     return w;
-  }, [floodTypeKeys]);
+  }, [floodTypeKeys, defaultFloodPreset]);
 
   // Active states (used for filtering)
   const [floodTypesEnabled, setFloodTypesEnabled] = useState(default_flood_enabled);
@@ -179,11 +192,11 @@ export default function FloodEvents() {
 
     // Check planning areas
     const planningAreaChanges =
-      JSON.stringify(pendingSelectedPlanningAreas.sort()) !== JSON.stringify(selectedPlanningAreas.sort());
+      JSON.stringify([...pendingSelectedPlanningAreas].sort()) !== JSON.stringify([...selectedPlanningAreas].sort());
 
     // Check severities
     const severityChanges =
-      JSON.stringify(pendingSelectedSeverities.sort()) !== JSON.stringify(selectedSeverities.sort());
+      JSON.stringify([...pendingSelectedSeverities].sort()) !== JSON.stringify([...selectedSeverities].sort());
 
     // Check search query
     const searchChanges = pendingSearchQuery !== searchQuery;
@@ -200,27 +213,22 @@ export default function FloodEvents() {
 
   // Apply pending filters to active filters
   const applyFilters = useCallback(() => {
-    setFloodTypesEnabled(pendingFloodTypesEnabled);
-    setFloodTypeWeights(pendingFloodTypeWeights);
+    setFloodTypesEnabled({ ...pendingFloodTypesEnabled });
+    setFloodTypeWeights({ ...pendingFloodTypeWeights });
     setDateFrom(pendingDateFrom);
     setDateTo(pendingDateTo);
-    setSelectedPlanningAreas(pendingSelectedPlanningAreas);
-    setSelectedSeverities(pendingSelectedSeverities);
+    setSelectedPlanningAreas([...pendingSelectedPlanningAreas]);
+    setSelectedSeverities([...pendingSelectedSeverities]);
     setSearchQuery(pendingSearchQuery);
   }, [
     pendingFloodTypesEnabled, pendingFloodTypeWeights, pendingDateFrom, pendingDateTo,
     pendingSelectedPlanningAreas, pendingSelectedSeverities, pendingSearchQuery
   ]);
 
-  // Clear all filters (both pending and active) - Reset to Default Balanced preset
+  // Clear all filters (both pending and active) - Reset to default preset
   const clearAllFilters = useCallback(() => {
-    const defaultPreset = FLOOD_TYPE_PRESETS.balanced;
-    const resetFloodTypes = {};
-    const resetFloodWeights = {};
-    for (const k of floodTypeKeys) {
-      resetFloodTypes[k] = true;
-      resetFloodWeights[k] = defaultPreset.weights[k] || 1.0;
-    }
+    const resetFloodTypes = { ...default_flood_enabled };
+    const resetFloodWeights = { ...default_flood_weights };
 
     setFloodTypesEnabled(resetFloodTypes);
     setFloodTypeWeights(resetFloodWeights);
@@ -237,31 +245,69 @@ export default function FloodEvents() {
     setPendingSelectedPlanningAreas([]);
     setPendingSelectedSeverities([]);
     setPendingSearchQuery("");
-  }, [floodTypeKeys]);
+  }, [default_flood_enabled, default_flood_weights]);
+
+  useEffect(() => {
+    setIsCalculating(true);
+    const timer = setTimeout(() => setIsCalculating(false), 300);
+    return () => clearTimeout(timer);
+  }, [
+    floodTypesEnabled,
+    floodTypeWeights,
+    dateFrom,
+    dateTo,
+    selectedPlanningAreas,
+    selectedSeverities,
+    searchQuery,
+  ]);
 
   /* ===== sync flood types when they change ===== */
   useEffect(() => {
     setFloodTypesEnabled((prev) => {
+      let changed = false;
       const next = { ...prev };
-      for (const k of floodTypeKeys) if (!(k in next)) next[k] = true;
-      return next;
+      for (const k of floodTypeKeys) {
+        if (!(k in next)) {
+          next[k] = default_flood_enabled[k] ?? true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
     setPendingFloodTypesEnabled((prev) => {
+      let changed = false;
       const next = { ...prev };
-      for (const k of floodTypeKeys) if (!(k in next)) next[k] = true;
-      return next;
+      for (const k of floodTypeKeys) {
+        if (!(k in next)) {
+          next[k] = default_flood_enabled[k] ?? true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
     setFloodTypeWeights((prev) => {
+      let changed = false;
       const next = { ...prev };
-      for (const k of floodTypeKeys) if (!(k in next)) next[k] = FLOOD_TYPE_PRESETS.balanced.weights[k] || 1.0;
-      return next;
+      for (const k of floodTypeKeys) {
+        if (!(k in next)) {
+          next[k] = default_flood_weights[k] ?? 1.0;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
     setPendingFloodTypeWeights((prev) => {
+      let changed = false;
       const next = { ...prev };
-      for (const k of floodTypeKeys) if (!(k in next)) next[k] = FLOOD_TYPE_PRESETS.balanced.weights[k] || 1.0;
-      return next;
+      for (const k of floodTypeKeys) {
+        if (!(k in next)) {
+          next[k] = default_flood_weights[k] ?? 1.0;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
-  }, [floodTypeKeys]);
+  }, [floodTypeKeys, default_flood_enabled, default_flood_weights]);
 
   /* ===== filters ===== */
   const features = useMemo(() => floodsFC?.features ?? [], [floodsFC]);
@@ -507,76 +553,71 @@ export default function FloodEvents() {
                                 <button
                                   key={key}
                                   onClick={() => applyFloodTypePreset(key)}
-                                  className={`rounded-lg p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
+                                  className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
                                     isActive ? 'border-2 border-primary bg-primary/10' : 'border-border bg-background'
                                   }`}
                                 >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <h4 className="font-semibold text-sm">{preset.name}</h4>
-                                    {isActive && <Check className="h-4 w-4 text-primary" />}
+                                  <div className="font-semibold text-sm mb-1">
+                                    {preset.name}
+                                    {isActive && <span className="ml-2 text-xs text-primary">Active</span>}
                                   </div>
-                                  <p className="text-xs text-muted-foreground">{preset.description}</p>
+                                  <div className="text-xs text-muted-foreground">{preset.description}</div>
                                 </button>
                               );
                             })}
                           </div>
                         </div>
 
-                        {/* Per-Type Toggles & Multipliers */}
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Per-Type Configuration</Label>
-                          <ScrollArea className="max-h-[300px]">
-                            <div className="space-y-3 pr-4">
-                              {floodTypeKeys.map((type) => {
-                                const enabled = !!pendingFloodTypesEnabled[type];
-                                const weight = pendingFloodTypeWeights[type] || 1.0;
-                                const count = floodTypeCounts[type] || 0;
-                                return (
-                                  <div key={type} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
-                                    {/* Toggle */}
+                        <ScrollArea className="max-h-[400px]">
+                          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pr-4">
+                            {floodTypeKeys.map((type) => {
+                              const enabled = !!pendingFloodTypesEnabled[type];
+                              const weight = pendingFloodTypeWeights[type] ?? 1.0;
+                              const count = floodTypeCounts[type] || 0;
+                              return (
+                                <div key={type} className="space-y-1.5 rounded-lg bg-muted/30 p-2.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">{to_title_case(type)}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {count.toLocaleString()} events
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                       <Switch
                                         id={`flood-${type}`}
                                         checked={enabled}
-                                        onCheckedChange={(checked) => {
-                                          setPendingFloodTypesEnabled(prev => ({...prev, [type]: checked}));
-                                        }}
+                                        onCheckedChange={(checked) =>
+                                          setPendingFloodTypesEnabled((prev) => ({ ...prev, [type]: checked }))
+                                        }
                                       />
-                                      <Label htmlFor={`flood-${type}`} className="text-xs cursor-pointer min-w-[120px]">
-                                        {to_title_case(type)} ({count})
+                                      <Label htmlFor={`flood-${type}`} className="text-xs cursor-pointer">
+                                        enable
                                       </Label>
                                     </div>
 
-                                    {/* Slider */}
-                                    <Slider
-                                      value={[Math.round(weight * 100)]}
-                                      onValueChange={(v) => setPendingFloodTypeWeights(prev => ({...prev, [type]: (v[0] || 0) / 100}))}
-                                      disabled={!enabled}
-                                      min={0}
-                                      max={500}
-                                      step={10}
-                                      className="flex-1"
-                                    />
-
-                                    {/* NumberInput */}
                                     <NumberInput
-                                      value={Math.round(weight * 100)}
-                                      onValueChange={(v) => setPendingFloodTypeWeights(prev => ({...prev, [type]: (v || 0) / 100}))}
-                                      suffix="%"
-                                      min={0}
-                                      max={500}
-                                      step={10}
-                                      decimalScale={0}
+                                      value={weight}
+                                      onValueChange={(val) => {
+                                        if (val !== undefined) {
+                                          setPendingFloodTypeWeights((prev) => ({ ...prev, [type]: val }));
+                                        }
+                                      }}
+                                      min={0.5}
+                                      max={5}
+                                      stepper={0.1}
+                                      decimalScale={1}
+                                      fixedDecimalScale={true}
                                       disabled={!enabled}
                                       hideSteppers={true}
-                                      className="w-20"
                                     />
                                   </div>
-                                );
-                              })}
-                            </div>
-                          </ScrollArea>
-                        </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
                       </CardContent>
                     </Card>
                   </AccordionContent>
@@ -745,19 +786,9 @@ export default function FloodEvents() {
               <div className="flex justify-between items-center pt-4 mt-4 border-t">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    // Reset to defaults (Default Balanced preset)
-                    const defaultPreset = FLOOD_TYPE_PRESETS.balanced;
-                    setPendingFloodTypeWeights(defaultPreset.weights);
-                    setPendingFloodTypesEnabled(defaultPreset.types);
-                    setPendingDateFrom("");
-                    setPendingDateTo("");
-                    setPendingSelectedPlanningAreas([]);
-                    setPendingSelectedSeverities([]);
-                    setPendingSearchQuery("");
-                  }}
+                  onClick={clearAllFilters}
                 >
-                  Reset All to Default
+                  Reset All Settings
                 </Button>
                 <Button
                   onClick={applyFilters}
