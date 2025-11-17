@@ -1054,8 +1054,8 @@ export default function Centrality() {
                           <button
                             key={key}
                             onClick={() => applyAmenityPreset(key)}
-                            className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
-                              isActive ? 'border-2 border-primary bg-primary/10' : 'border border-transparent bg-muted/30'
+                            className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
+                              isActive ? 'border-2 border-primary bg-primary/10' : 'border-border bg-background'
                             }`}
                           >
                             <div className="font-semibold text-sm mb-1">
@@ -1069,7 +1069,7 @@ export default function Centrality() {
                     </div>
                   </div>
 
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="max-h-[400px]">
                   <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pr-4">
                     {amenityCategoryKeys.map((cat) => {
                       const val = pendingAmenityWeights[cat] ?? 1.0;
@@ -1180,8 +1180,8 @@ export default function Centrality() {
                           <button
                             key={key}
                             onClick={() => applyFloodPreset(key)}
-                            className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
-                              isActive ? 'border-2 border-primary bg-primary/10' : 'border border-transparent bg-muted/30'
+                            className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
+                              isActive ? 'border-2 border-primary bg-primary/10' : 'border-border bg-background'
                             }`}
                           >
                             <div className="font-semibold text-sm mb-1">
@@ -1195,7 +1195,7 @@ export default function Centrality() {
                     </div>
                   </div>
 
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="max-h-[400px]">
                   <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pr-4">
                     {floodTypeKeys.map((type) => {
                       const val = pendingFloodWeights[type] ?? 1.0;
@@ -1273,8 +1273,8 @@ export default function Centrality() {
                         <button
                           key={key}
                           onClick={() => applyPreset(key)}
-                          className={`rounded-lg border-2 bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring ${
-                            isActive ? 'border-primary bg-primary/10' : 'border-transparent'
+                          className={`rounded-lg p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
+                            isActive ? 'border-2 border-primary bg-primary/10' : 'border-border bg-background'
                           }`}
                         >
                           <div className="font-semibold text-sm mb-1">
@@ -1468,18 +1468,6 @@ export default function Centrality() {
                     </div>
                   </div>
 
-                  {/* Apply Changes Button */}
-                  <div className="flex justify-end pt-4 border-t">
-                    <Button
-                      onClick={applyWeightChanges}
-                      disabled={!hasUnappliedWeightChanges}
-                      size="sm"
-                      className={hasUnappliedWeightChanges ? "bg-primary" : ""}
-                    >
-                      Apply Changes
-                    </Button>
-                  </div>
-
                   {/* example calculation */}
                   {/* mock example calculation */}
                   <div className="rounded-xl border bg-muted/40 p-4">
@@ -1516,33 +1504,6 @@ export default function Centrality() {
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setPlanningSelected([]); setRoadTypesSelected([]);
-                        setAmenitySelectedLabels([]); setFloodSelectedLabels([]); setQ("");
-
-                        setAmenityWeights(default_amenity_weights);
-                        setAmenityEnabled(default_amenity_enabled);
-                        setFloodWeights(default_flood_weights);
-                        setFloodEnabled(default_flood_enabled);
-
-                        setUseCompBetweenness(true);
-                        setUseCompCloseness(true);
-                        setUseCompAmenity(true);
-                        setUseCompFlood(true);
-
-                        set_w_betweenness(0.4);
-                        set_w_closeness(0.3);
-                        set_w_amenity(0.2);
-                        set_w_flood(0.1);
-                      }}
-                    >
-                      Reset All Settings
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1637,6 +1598,42 @@ export default function Centrality() {
   </AccordionContent>
 </AccordionItem>
               </Accordion>
+
+              {/* Apply Changes and Reset All buttons */}
+              <div className="flex justify-between items-center pt-4 mt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPlanningSelected([]); setRoadTypesSelected([]);
+                    setAmenitySelectedLabels([]); setFloodSelectedLabels([]); setQ("");
+
+                    setAmenityWeights(default_amenity_weights);
+                    setAmenityEnabled(default_amenity_enabled);
+                    setFloodWeights(default_flood_weights);
+                    setFloodEnabled(default_flood_enabled);
+
+                    setUseCompBetweenness(true);
+                    setUseCompCloseness(true);
+                    setUseCompAmenity(true);
+                    setUseCompFlood(true);
+
+                    set_w_betweenness(0.4);
+                    set_w_closeness(0.3);
+                    set_w_amenity(0.2);
+                    set_w_flood(0.1);
+                  }}
+                >
+                  Reset All Settings
+                </Button>
+                <Button
+                  onClick={applyWeightChanges}
+                  disabled={!hasUnappliedWeightChanges}
+                  size="default"
+                  className={hasUnappliedWeightChanges ? "bg-primary" : ""}
+                >
+                  Apply Changes
+                </Button>
+              </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
