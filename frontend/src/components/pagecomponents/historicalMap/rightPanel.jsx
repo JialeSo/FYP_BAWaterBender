@@ -37,9 +37,8 @@ const chartTooltipStyle = {
 const chartLabelStyle = { color: "var(--muted-foreground)" }
 
 const MultiLineYAxisTick = ({ x, y, payload }) => {
-  const words = String(payload.value || "")
-    .split(/\s+/)
-    .filter(Boolean)
+  // Don't split text - keep it on one line
+  const text = String(payload.value || "");
 
   return (
     <g transform={`translate(${x},${y})`}>
@@ -51,13 +50,7 @@ const MultiLineYAxisTick = ({ x, y, payload }) => {
         fill="var(--muted-foreground)"
         fontSize={12}
       >
-        {words.length
-          ? words.map((word, index) => (
-              <tspan key={`${word}-${index}`} x={0} dy={index === 0 ? 0 : 12}>
-                {word}
-              </tspan>
-            ))
-          : payload.value}
+        {text}
       </text>
     </g>
   )
