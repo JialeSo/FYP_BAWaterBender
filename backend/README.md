@@ -45,6 +45,12 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+For running the full ETL/master pipelines locally (including heavy geospatial
+dependencies like `geopandas`), use:
+
+```bash
+pip install -r requirements.etl.txt
+```
 ### 3. Environment Configuration
 
 Copy the example environment file and configure your settings:

@@ -1,0 +1,9 @@
+-r requirements.api.txt
+
+pandas
+numpy
+geopandas
+shapely
+scikit-learn
+matplotlib
+
