@@ -1859,6 +1859,9 @@ export default function Simulation() {
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("delta_avg_s")}>
                           <div className="flex items-center gap-1">Δ Time (s){sortColumn === "delta_avg_s" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("total_roads")}>
+                          <div className="flex items-center gap-1">Total Roads{sortColumn === "total_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                        </th>
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("unaffected_roads")}>
                           <div className="flex items-center gap-1">Unaffected Roads{sortColumn === "unaffected_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
@@ -1904,11 +1907,12 @@ export default function Simulation() {
                           <td>{fmtM(d.flood_max_s)}</td>
                           <td>{fmtM(d.flood_avg_s)}</td>
                           <td className={d.delta_avg_s > 0 ? "text-red-600 font-semibold" : ""}>{d.delta_avg_s > 0 ? `+${Math.round(d.delta_avg_s)}s` : `${Math.round(d.delta_avg_s)}s`}</td>
+                          <td>{d.total_roads || 0}</td>
                           <td className="text-green-600">{d.unaffected_roads || 0}</td>
                           <td className={d.affected_roads > 0 ? "text-yellow-600" : ""}>{d.affected_roads || 0}</td>
                           <td className={d.blocked_roads > 0 ? "text-orange-600 font-semibold" : ""}>{d.blocked_roads || 0}</td>
                           <td className={d.unreachable_roads > 0 ? "text-red-600 font-semibold" : ""}>{d.unreachable_roads || 0}</td>
-                          <td className={d.failed_target_roads > 0 ? "text-purple-600 font-semibold" : ""}>{d.failed_target_roads || 0}</td>
+                          <td>{d.failed_target_roads || 0}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2071,11 +2075,7 @@ export default function Simulation() {
                                     </span>
                                   </td>
                                   <td>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                      road.exceeds_target ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-600"
-                                    }`}>
-                                      {road.exceeds_target ? "Yes" : "No"}
-                                    </span>
+                                    {road.exceeds_target ? "Yes" : "No"}
                                   </td>
                                   <td className="text-muted-foreground text-xs">{road.baseline_amenity}</td>
                                   <td className="text-muted-foreground text-xs">{road.flooded_amenity}</td>
