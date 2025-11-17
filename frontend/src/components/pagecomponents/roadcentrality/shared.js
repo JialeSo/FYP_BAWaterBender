@@ -42,20 +42,20 @@ export const MOCK_EXAMPLE = {
 
 export const PRESETS = {
   balanced: {
-    name: "Balanced (Default)",
+    name: "Default Balanced",
     description: "Equal consideration of all factors",
     weights: { betweenness: 0.4, closeness: 0.3, amenity: 0.2, flood: 0.1 },
     toggles: { betweenness: true, closeness: true, amenity: true, flood: true },
   },
   amenityFlood: {
-    name: "Amenity + Flood Focused",
+    name: "Amenity & Flood Focus",
     description: "Prioritize amenity access and flood risk",
     weights: { betweenness: 0.2, closeness: 0.1, amenity: 0.4, flood: 0.3 },
     toggles: { betweenness: true, closeness: true, amenity: true, flood: true },
   },
   centrality: {
-    name: "Centrality Focused",
-    description: "Emphasize network topology metrics",
+    name: "Network Centrality",
+    description: "Emphasize topology metrics only",
     weights: { betweenness: 0.5, closeness: 0.5, amenity: 0, flood: 0 },
     toggles: { betweenness: true, closeness: true, amenity: false, flood: false },
   },
@@ -63,8 +63,8 @@ export const PRESETS = {
 
 export const AMENITY_PRESETS = {
   default: {
-    name: "Default",
-    description: "Custom weighted priorities",
+    name: "Default Balanced",
+    description: "Weighted priorities for critical services",
     weights: {
       Community_spaces: 2.0,
       Education_institutions: 2.5,
@@ -79,7 +79,7 @@ export const AMENITY_PRESETS = {
     },
   },
   balanced: {
-    name: "Balanced",
+    name: "Equal Weights",
     description: "All categories weighted equally",
     weights: {
       Community_spaces: 1.0,
@@ -95,8 +95,8 @@ export const AMENITY_PRESETS = {
     },
   },
   emergency: {
-    name: "Emergency Focused",
-    description: "Prioritize emergency and healthcare services",
+    name: "Emergency Focus",
+    description: "Prioritize emergency and healthcare",
     weights: {
       Community_spaces: 1.0,
       Education_institutions: 1.5,
@@ -114,7 +114,7 @@ export const AMENITY_PRESETS = {
 
 export const FLOOD_PRESETS = {
   default: {
-    name: "Default",
+    name: "Default Balanced",
     description: "Flash floods weighted higher",
     weights: {
       flash_flood: 2.5,
@@ -122,7 +122,7 @@ export const FLOOD_PRESETS = {
     },
   },
   balanced: {
-    name: "Balanced",
+    name: "Equal Weights",
     description: "All flood types weighted equally",
     weights: {
       flash_flood: 1.0,
@@ -130,7 +130,7 @@ export const FLOOD_PRESETS = {
     },
   },
   emergency: {
-    name: "Emergency Focused",
+    name: "Emergency Focus",
     description: "Prioritize actual flood events",
     weights: {
       flash_flood: 4.0,

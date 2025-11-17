@@ -971,19 +971,26 @@ export default function Centrality() {
       <header className="space-y-5">
         {/* Road Centrality Configuration - Unified Parent Accordion */}
         <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="road-centrality-config" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <AccordionTrigger className="px-6 py-4 text-lg font-bold">
-              Road Centrality Configuration
+          <AccordionItem value="road-centrality-config" className={`overflow-hidden rounded-xl border shadow-sm ${hasUnappliedWeightChanges ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-300 dark:border-orange-700' : 'bg-card'}`}>
+            <AccordionTrigger className="px-4 py-3 text-lg font-bold">
+              <div className="flex items-center gap-2 w-full">
+                <span>Road Centrality Configuration</span>
+                {hasUnappliedWeightChanges && (
+                  <span className="px-2 py-1 rounded-md text-xs font-bold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700">
+                    • Unapplied Changes
+                  </span>
+                )}
+              </div>
             </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6 pt-4">
+            <AccordionContent className="px-4 pb-4 pt-2">
               {/* each subsection is its own accordion */}
-              <Accordion type="multiple" className="space-y-4">
+              <Accordion type="multiple" className="space-y-3">
           {/* Amenity Categories */}
           <AccordionItem value="amenities" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+            <AccordionTrigger className="px-4 py-2.5 text-base font-semibold">
               Amenity Categories
             </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+            <AccordionContent className="px-4 pb-4 pt-2 space-y-3">
               <Card className="border bg-background/80 shadow-none">
                 <CardHeader>
                   <CardTitle className="text-base">Per-Category Toggles & Multipliers</CardTitle>
@@ -991,7 +998,7 @@ export default function Centrality() {
                     Example: if a road has 5 amenities (e.g., 2 hospitals, 3 schools), the weighted total is (2×hospital weight) + (3×school weight). Disabled categories contribute 0.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
                   {/* Example accordion */}
                   <Accordion type="single" collapsible className="rounded-xl border bg-muted/40">
                     <AccordionItem value="example" className="border-0">
@@ -1063,7 +1070,7 @@ export default function Centrality() {
                   </div>
 
                   <ScrollArea className="h-[300px]">
-                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 pr-4">
+                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pr-4">
                     {amenityCategoryKeys.map((cat) => {
                       const val = pendingAmenityWeights[cat] ?? 1.0;
                       const enabled = !!pendingAmenityEnabled[cat];
@@ -1111,10 +1118,10 @@ export default function Centrality() {
 
           {/* Flood Event Types */}
           <AccordionItem value="floods" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+            <AccordionTrigger className="px-4 py-2.5 text-base font-semibold">
               Flood Event Types
             </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+            <AccordionContent className="px-4 pb-4 pt-2 space-y-3">
               <Card className="border bg-background/80 shadow-none">
                 <CardHeader>
                   <CardTitle className="text-base">Per-Type Toggles & Multipliers</CardTitle>
@@ -1162,7 +1169,7 @@ export default function Centrality() {
                     </AccordionItem>
                   </Accordion>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
                   {/* Flood Weight Presets */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Weight Presets</Label>
@@ -1189,7 +1196,7 @@ export default function Centrality() {
                   </div>
 
                   <ScrollArea className="h-[300px]">
-                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 pr-4">
+                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pr-4">
                     {floodTypeKeys.map((type) => {
                       const val = pendingFloodWeights[type] ?? 1.0;
                       const enabled = !!pendingFloodEnabled[type];
@@ -1237,10 +1244,10 @@ export default function Centrality() {
 
           {/* Component Weights */}
           <AccordionItem value="weights" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+            <AccordionTrigger className="px-4 py-2.5 text-base font-semibold">
               Component Weights
             </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6 pt-2 space-y-6">
+            <AccordionContent className="px-4 pb-4 pt-2 space-y-4">
               <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-4">
                 <div className="flex items-start gap-2">
                   <Info className="h-4 w-4 mt-0.5 shrink-0" />
@@ -1298,7 +1305,7 @@ export default function Centrality() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4">
                   <div className="grid gap-6 md:grid-cols-2">
                     {/* betweenness */}
                     <div className="space-y-3">
@@ -1544,10 +1551,10 @@ export default function Centrality() {
 
           {/* Maintenance Category Configuration */}
 <AccordionItem value="sla" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-  <AccordionTrigger className="px-6 py-4 text-base font-semibold">
+  <AccordionTrigger className="px-4 py-2.5 text-base font-semibold">
     Maintenance Category Configuration
   </AccordionTrigger>
-  <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
+  <AccordionContent className="px-4 pb-4 pt-2 space-y-3">
     <Card className="border bg-background/80 shadow-none">
       <CardHeader>
         <CardTitle className="text-base">Configure Maintenance Tiers by Percentile</CardTitle>
@@ -1556,7 +1563,7 @@ export default function Centrality() {
           Roads in the top X% get 1 year, next Y% get 3 year, remainder get 5 year.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         {/* Percentile Thresholds */}
         <div className="space-y-4">
           <div className="space-y-3">
