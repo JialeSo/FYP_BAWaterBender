@@ -1670,10 +1670,10 @@ export default function Centrality() {
 
         {/* Filters Accordion */}
         <Accordion type="single" collapsible className="mb-4">
-          <AccordionItem value="filters" className="border rounded-lg">
-            <AccordionTrigger className="px-4 py-3 hover:no-underline">
+          <AccordionItem value="filters" className="border rounded-lg bg-background">
+            <AccordionTrigger className="px-3 py-2 hover:no-underline">
               <div className="flex items-center gap-2">
-                <span className="text-base font-semibold">Filters</span>
+                <span className="text-sm font-semibold">Filters</span>
                 <span className="text-xs text-muted-foreground">
                   ({[amenityCountMin, amenityCountMax, floodCountMin, floodCountMax, betweennessMin, betweennessMax, closenessMin, closenessMax, importanceMin, importanceMax].filter(v => v !== "").length > 0 || slaCategories.length > 0 || planningSelected.length > 0 || roadTypesSelected.length > 0 || q ? 'Active' : 'None'})
                 </span>
@@ -1684,11 +1684,11 @@ export default function Centrality() {
                 )}
               </div>
             </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              <p className="text-sm text-muted-foreground mb-4">
+            <AccordionContent className="px-3 pb-2">
+              <p className="text-xs text-muted-foreground mb-3">
                 Adjust filters below, then click "Apply Filters" to update the table and map. Note: Filters hide roads but don't recalculate centrality metrics.
               </p>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Road Filters */}
                 <div className="rounded-lg border bg-muted/20 p-3">
                   <Label className="text-sm font-medium mb-3 block">Road Filters</Label>

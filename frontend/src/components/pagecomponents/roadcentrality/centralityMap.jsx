@@ -115,30 +115,14 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
   // Update map paint properties when metrics or data change
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !map.isStyleLoaded() || !map.getLayer("roads")) return;
 
-    const updatePaint = () => {
-      if (!map.isStyleLoaded()) {
-        map.once("styledata", updatePaint);
-        return;
-      }
-
-      if (!map.getLayer("roads")) {
-        console.warn("Layer 'roads' not found, retrying...");
-        setTimeout(updatePaint, 100);
-        return;
-      }
-
-      try {
-        map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, colorThresholds));
-        map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric));
-        map.triggerRepaint();
-      } catch (e) {
-        console.error("Failed to update paint properties:", e);
-      }
-    };
-
-    updatePaint();
+    try {
+      map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, colorThresholds));
+      map.setPaintProperty("roads", "line-width", createWidthExpression(thicknessMetric));
+    } catch (e) {
+      console.error("Failed to update paint properties:", e);
+    }
   }, [colorMetric, thicknessMetric, colorThresholds]);
 
   useEffect(() => {
@@ -294,31 +278,10 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
 
     const apply = () => {
       try {
-        // Ensure map is ready
-        if (!map.isStyleLoaded()) {
-          map.once("styledata", apply);
-          return;
-        }
-
         const src = map.getSource("road-network");
-        if (!src || !src.setData) {
-          console.warn("road-network source not available, retrying...");
-          setTimeout(apply, 100);
-          return;
+        if (src && src.setData) {
+          src.setData(data?.features?.length ? data : EMPTY_COLLECTION);
         }
-
-        // Update the data source
-        const newData = data?.features?.length ? data : EMPTY_COLLECTION;
-        src.setData(newData);
-
-        // Force map to re-render by triggering repaint
-        if (map.getLayer("road-network-line")) {
-          // Trigger a style update to ensure the map repaints
-          map.setPaintProperty("road-network-line", "line-opacity", 0.9);
-          map.triggerRepaint();
-        }
-
-        // Fit bounds if we have data
         if (data?.features?.length) {
           const b = computeBounds(data);
           if (b) {
@@ -327,17 +290,12 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
             } catch {}
           }
         }
-
-        // Resize map after idle to ensure proper rendering
         map.once("idle", () => {
           try {
             map.resize();
-            map.triggerRepaint();
           } catch {}
         });
-      } catch (err) {
-        console.error("Error applying map data:", err);
-      }
+      } catch {}
     };
 
     if (map.isStyleLoaded()) apply();
