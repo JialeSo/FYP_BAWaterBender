@@ -577,13 +577,21 @@ function MapDataProvider({ children }) {
           byScenario.get(scenario).push({ rn_id, name, pa_name });
         }
 
-        const scenarios = Array.from(byScenario.entries()).map(([name, roads]) => ({
-          name,
-          roads,
-          description: name.includes("Historical") ?
-            `Simulates ${name.replace(/_/g, " ")} flood scenario affecting ${roads.length} roads across major arterial routes.` :
-            `${roads.length} roads affected in this scenario.`,
-        }));
+        const scenarios = Array.from(byScenario.entries()).map(([name, roads]) => {
+          let description = `${roads.length} roads affected in this scenario.`;
+
+          if (name === "PUB_100RP_highest60mins") {
+            description = "PUB's 1 in 100 year return period (based on Code of Practice for drainage design) for the highest 60 minute rainfall";
+          } else if (name === "Historical_highest60mins") {
+            description = "Historical extreme for the highest 60 minute rainfall";
+          } else if (name === "V3_future_highest60mins") {
+            description = "Future projected highest 60 minute rainfall";
+          } else if (name.includes("Historical")) {
+            description = `Simulates ${name.replace(/_/g, " ")} flood scenario affecting ${roads.length} roads across major arterial routes.`;
+          }
+
+          return { name, roads, description };
+        });
         set_flood_scenarios(scenarios);
 
       } catch (e) {

@@ -366,6 +366,7 @@ export default function Simulation() {
             affected_roads: new Set(),
             blocked_roads: new Set(),
             unreachable_roads: new Set(),
+            failed_target_roads: new Set(),
           });
         }
 
@@ -378,6 +379,11 @@ export default function Simulation() {
         const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
           ? floodedDist - baselineDist
           : null;
+
+        // Check if road fails travel time target
+        if (Number.isFinite(floodedDist) && floodedDist > travelTime) {
+          stats.failed_target_roads.add(edge.rn_id);
+        }
 
         if (isBlocked) {
           stats.blocked_roads.add(edge.rn_id);
@@ -402,11 +408,12 @@ export default function Simulation() {
           affected_roads: stats.affected_roads.size,
           blocked_roads: stats.blocked_roads.size,
           unreachable_roads: stats.unreachable_roads.size,
+          failed_target_roads: stats.failed_target_roads.size,
         };
       }
       return pa;
     });
-  }, [paDeltas, graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist]);
+  }, [paDeltas, graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist, travelTime]);
 
   // Handle PA table column sorting
   const handleSort = useCallback((column) => {
@@ -503,6 +510,7 @@ export default function Simulation() {
             : null,
           category,
           is_blocked: isBlocked,
+          exceeds_target: Number.isFinite(floodedDist) && floodedDist > travelTime,
           baseline_amenity: baselineAmenityName,
           flooded_amenity: floodedAmenityName,
         });
@@ -519,6 +527,7 @@ export default function Simulation() {
     amenity_fc_enriched,
     baselineNearestAmenity,
     floodedNearestAmenity,
+    travelTime,
   ]);
 
   // Sort enrichedPaDeltas based on current sort state
@@ -1787,8 +1796,16 @@ export default function Simulation() {
                           placeholder="Search planning areas..."
                           value={paSearchTerm}
                           onChange={(e) => setPaSearchTerm(e.target.value)}
-                          className="pl-9"
+                          className="pl-9 pr-9"
                         />
+                        {paSearchTerm && (
+                          <button
+                            onClick={() => setPaSearchTerm("")}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="border rounded-lg overflow-auto max-h-[600px]">
@@ -1831,6 +1848,9 @@ export default function Simulation() {
                         <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("unreachable_roads")}>
                           <div className="flex items-center gap-1">Unreachable Roads{sortColumn === "unreachable_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                         </th>
+                        <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleSort("failed_target_roads")}>
+                          <div className="flex items-center gap-1">Exceeds Target{sortColumn === "failed_target_roads" ? (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1865,6 +1885,7 @@ export default function Simulation() {
                           <td className={d.affected_roads > 0 ? "text-yellow-600" : ""}>{d.affected_roads || 0}</td>
                           <td className={d.blocked_roads > 0 ? "text-orange-600 font-semibold" : ""}>{d.blocked_roads || 0}</td>
                           <td className={d.unreachable_roads > 0 ? "text-red-600 font-semibold" : ""}>{d.unreachable_roads || 0}</td>
+                          <td className={d.failed_target_roads > 0 ? "text-purple-600 font-semibold" : ""}>{d.failed_target_roads || 0}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1881,37 +1902,68 @@ export default function Simulation() {
                     ) : (
                       <>
                         {/* Filter inputs */}
-                        <div className="mb-3 grid grid-cols-3 gap-3">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="Filter by road name or ID..."
-                              value={roadNameFilter}
-                              onChange={(e) => setRoadNameFilter(e.target.value)}
-                              className="pl-9"
-                            />
+                        <div className="mb-3 space-y-2">
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Filter by road name or ID..."
+                                value={roadNameFilter}
+                                onChange={(e) => setRoadNameFilter(e.target.value)}
+                                className="pl-9 pr-9"
+                              />
+                              {roadNameFilter && (
+                                <button
+                                  onClick={() => setRoadNameFilter("")}
+                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Filter by planning area..."
+                                value={roadPaFilter}
+                                onChange={(e) => setRoadPaFilter(e.target.value)}
+                                className="pl-9 pr-9"
+                              />
+                              {roadPaFilter && (
+                                <button
+                                  onClick={() => setRoadPaFilter("")}
+                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                            <Select value={roadCategoryFilter} onValueChange={setRoadCategoryFilter}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="All Categories" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Categories</SelectItem>
+                                <SelectItem value="Unaffected">Unaffected</SelectItem>
+                                <SelectItem value="Affected">Affected</SelectItem>
+                                <SelectItem value="Blocked (Flooded)">Blocked (Flooded)</SelectItem>
+                                <SelectItem value="Unreachable">Unreachable</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="Filter by planning area..."
-                              value={roadPaFilter}
-                              onChange={(e) => setRoadPaFilter(e.target.value)}
-                              className="pl-9"
-                            />
-                          </div>
-                          <Select value={roadCategoryFilter} onValueChange={setRoadCategoryFilter}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="All Categories" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Categories</SelectItem>
-                              <SelectItem value="Unaffected">Unaffected</SelectItem>
-                              <SelectItem value="Affected">Affected</SelectItem>
-                              <SelectItem value="Blocked (Flooded)">Blocked (Flooded)</SelectItem>
-                              <SelectItem value="Unreachable">Unreachable</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {(roadNameFilter || roadPaFilter || roadCategoryFilter !== "all") && (
+                            <button
+                              onClick={() => {
+                                setRoadNameFilter("");
+                                setRoadPaFilter("");
+                                setRoadCategoryFilter("all");
+                              }}
+                              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                            >
+                              <X className="h-3 w-3" />
+                              Clear all filters
+                            </button>
+                          )}
                         </div>
                         <div className="border rounded-lg overflow-auto max-h-[600px]">
                         <table className="w-full text-sm">
@@ -1941,6 +1993,9 @@ export default function Simulation() {
                               <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("category")}>
                                 <div className="flex items-center gap-1">Category{roadSortColumn === "category" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                               </th>
+                              <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("exceeds_target")}>
+                                <div className="flex items-center gap-1">Exceeds Target{roadSortColumn === "exceeds_target" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
+                              </th>
                               <th className="cursor-pointer hover:bg-muted-foreground/10 transition-colors select-none" onClick={() => handleRoadSort("baseline_amenity")}>
                                 <div className="flex items-center gap-1">Dry Scenario Amenity{roadSortColumn === "baseline_amenity" ? (roadSortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3 opacity-40" />)}</div>
                               </th>
@@ -1963,11 +2018,11 @@ export default function Simulation() {
                                     if (mapElement) {
                                       mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                     }
-                                    // Show road popup on map
+                                    // Show road popup on map with longer delay to ensure scroll completes
                                     if (mapContainerRef.current?.showRoadPopup) {
                                       setTimeout(() => {
                                         mapContainerRef.current.showRoadPopup(road.rn_id);
-                                      }, 500);
+                                      }, 1000);
                                     }
                                   }}
                                 >
@@ -1990,6 +2045,13 @@ export default function Simulation() {
                                       "bg-red-100 text-red-800"
                                     }`}>
                                       {road.category}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                      road.exceeds_target ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-600"
+                                    }`}>
+                                      {road.exceeds_target ? "Yes" : "No"}
                                     </span>
                                   </td>
                                   <td className="text-muted-foreground text-xs">{road.baseline_amenity}</td>
