@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { X, Download, Search } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
@@ -12,6 +13,8 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
   // Search state - MUST be called before any conditional returns
   const [amenitySearch, setAmenitySearch] = useState("");
   const [floodSearch, setFloodSearch] = useState("");
+  const [selectedAmenityIdx, setSelectedAmenityIdx] = useState(null);
+  const [selectedFloodIdx, setSelectedFloodIdx] = useState(null);
 
   const p = road?.properties ?? {};
 
@@ -55,13 +58,17 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
   const slaCategory = getSLACategory ? getSLACategory(p.importance) : null;
 
   // Handle clicking on an amenity/flood item - notify parent to show marker
-  const handleAmenityClick = (item) => {
+  const handleAmenityClick = (item, idx) => {
+    setSelectedAmenityIdx(idx);
+    setSelectedFloodIdx(null);
     if (onMarkerClick) {
       onMarkerClick({ item, type: 'amenity' });
     }
   };
 
-  const handleFloodClick = (item) => {
+  const handleFloodClick = (item, idx) => {
+    setSelectedFloodIdx(idx);
+    setSelectedAmenityIdx(null);
     if (onMarkerClick) {
       onMarkerClick({ item, type: 'flood' });
     }
@@ -267,97 +274,103 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
           </div>
         </div>
 
-        {/* 50/50 Amenities and Flood Events */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Amenities and Flood Events Accordions */}
+        <Accordion type="multiple" className="space-y-2">
           {/* Amenities Section */}
-          <div className="rounded-lg border-2 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+          <AccordionItem value="amenities" className="border rounded-lg bg-background">
+            <AccordionTrigger className="px-3 py-2 hover:no-underline">
+              <span className="text-sm font-semibold">
                 Amenities ({filteredAmenities.length})
-              </h3>
-            </div>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-3 pb-2">
+              <div className="relative mb-2">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                <Input
+                  placeholder="Search amenities..."
+                  value={amenitySearch}
+                  onChange={(e) => setAmenitySearch(e.target.value)}
+                  className="pl-7 h-8 text-xs"
+                />
+              </div>
 
-            <div className="relative mb-2">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              <Input
-                placeholder="Search amenities..."
-                value={amenitySearch}
-                onChange={(e) => setAmenitySearch(e.target.value)}
-                className="pl-7 h-8 text-xs"
-              />
-            </div>
-
-            {filteredAmenities.length > 0 ? (
-              <ScrollArea className="h-64">
-                <div className="space-y-1.5 pr-3">
-                  {filteredAmenities.map((item, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => handleAmenityClick(item)}
-                      className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-white dark:bg-slate-900 hover:bg-blue-100 dark:hover:bg-blue-900/40 cursor-pointer transition-colors border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600"
-                    >
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-foreground">{item.name}</span>
-                        <span className="text-[10px] text-muted-foreground">{to_title_case(item.category)}</span>
+              {filteredAmenities.length > 0 ? (
+                <ScrollArea className="h-64">
+                  <div className="space-y-1 pr-3">
+                    {filteredAmenities.map((item, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleAmenityClick(item, idx)}
+                        className={`flex items-center justify-between text-xs rounded px-2 py-2 bg-muted/30 hover:bg-muted cursor-pointer transition-colors ${
+                          selectedAmenityIdx === idx ? 'border-2 border-primary bg-primary/10' : 'border border-transparent'
+                        }`}
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-foreground">{item.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{to_title_case(item.category)}</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-medium">{item._distm?.toFixed(0)}m</span>
                       </div>
-                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">View</span>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            ) : (
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                {amenitySearch ? "No amenities match your search" : "No amenities nearby"}
-              </p>
-            )}
-          </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  {amenitySearch ? "No amenities match your search" : "No amenities nearby"}
+                </p>
+              )}
+            </AccordionContent>
+          </AccordionItem>
 
           {/* Flood Events Section */}
-          <div className="rounded-lg border-2 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-orange-700 dark:text-orange-300">
+          <AccordionItem value="floods" className="border rounded-lg bg-background">
+            <AccordionTrigger className="px-3 py-2 hover:no-underline">
+              <span className="text-sm font-semibold">
                 Flood Events ({filteredFloods.length})
-              </h3>
-            </div>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-3 pb-2">
+              <div className="relative mb-2">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                <Input
+                  placeholder="Search flood events..."
+                  value={floodSearch}
+                  onChange={(e) => setFloodSearch(e.target.value)}
+                  className="pl-7 h-8 text-xs"
+                />
+              </div>
 
-            <div className="relative mb-2">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              <Input
-                placeholder="Search flood events..."
-                value={floodSearch}
-                onChange={(e) => setFloodSearch(e.target.value)}
-                className="pl-7 h-8 text-xs"
-              />
-            </div>
-
-            {filteredFloods.length > 0 ? (
-              <ScrollArea className="h-64">
-                <div className="space-y-1.5 pr-3">
-                  {filteredFloods.map((item, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => handleFloodClick(item)}
-                      className="flex items-center justify-between text-xs rounded px-3 py-2.5 bg-white dark:bg-slate-900 hover:bg-orange-100 dark:hover:bg-orange-900/40 cursor-pointer transition-colors border border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600"
-                    >
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-foreground">{item.name}</span>
-                        <div className="flex gap-2 text-[10px] text-muted-foreground">
-                          <span>{to_title_case(item.type)}</span>
-                          {item.date && <span>• {item.date}</span>}
+              {filteredFloods.length > 0 ? (
+                <ScrollArea className="h-64">
+                  <div className="space-y-1 pr-3">
+                    {filteredFloods.map((item, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleFloodClick(item, idx)}
+                        className={`flex items-center justify-between text-xs rounded px-2 py-2 bg-muted/30 hover:bg-muted cursor-pointer transition-colors ${
+                          selectedFloodIdx === idx ? 'border-2 border-primary bg-primary/10' : 'border border-transparent'
+                        }`}
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-foreground">{item.name}</span>
+                          <div className="flex gap-2 text-[10px] text-muted-foreground">
+                            <span>{to_title_case(item.type)}</span>
+                            {item.date && <span>• {item.date}</span>}
+                          </div>
                         </div>
+                        <span className="text-[10px] text-muted-foreground font-medium">{item._distm?.toFixed(0)}m</span>
                       </div>
-                      <span className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold">View</span>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            ) : (
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                {floodSearch ? "No flood events match your search" : "No flood events recorded"}
-              </p>
-            )}
-          </div>
-        </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  {floodSearch ? "No flood events match your search" : "No flood events recorded"}
+                </p>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
     </Card>
   );
