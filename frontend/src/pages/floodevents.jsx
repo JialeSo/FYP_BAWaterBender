@@ -2761,99 +2761,6 @@ export default function floodevents() {
         </div>
       </div>
       <section className="rounded-3xl border border-border bg-card shadow-sm">
-        <div className="px-6 py-5 space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold">Filters</h2>
-            <p className="text-sm text-muted-foreground">
-              Filter flood events by search, type, planning area, and date range.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-12">
-            <div className="space-y-1.5 md:col-span-4">
-              <Label htmlFor="flood-search">Search</Label>
-              <Input
-                id="flood-search"
-                value={q}
-                onChange={(e) => {
-                  set_q(e.target.value);
-                  set_page(1);
-                }}
-                placeholder="Search by ID, location or road"
-              />
-            </div>
-
-            <div className="md:col-span-3">
-              <MultiSelectFilter
-                id="event-type"
-                label="Event Type"
-                options={event_type_options.filter(opt => opt !== "all")}
-                values={event_types_filter}
-                onChange={(selected) => {
-                  set_event_types_filter(selected);
-                  set_page(1);
-                }}
-                placeholder="All Event Types"
-              />
-            </div>
-
-            <div className="md:col-span-3">
-              <MultiSelectFilter
-                id="planning-area"
-                label="Planning Area"
-                options={pa_options}
-                values={pa_filter}
-                onChange={(next) => {
-                  set_pa_filter(next);
-                  set_page(1);
-                }}
-                placeholder="All Planning Areas"
-              />
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="from-date">From Date</Label>
-              <Input
-                id="from-date"
-                type="date"
-                value={from_str}
-                onChange={(e) => {
-                  set_from_str(e.target.value);
-                  set_page(1);
-                }}
-              />
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="to-date">To Date</Label>
-              <Input
-                id="to-date"
-                type="date"
-                value={to_str}
-                onChange={(e) => {
-                  set_to_str(e.target.value);
-                  set_page(1);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <Switch
-                id="show-page-rings"
-                checked={Boolean(show_page_rings)}
-                onCheckedChange={(checked) => set_show_page_rings(checked)}
-              />
-              <Label htmlFor="show-page-rings" className="text-sm text-muted-foreground">
-                Show rings for visible page
-              </Label>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-border bg-card shadow-sm">
         {/* Table controls */}
         <div className="px-6 py-4 border-b">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2926,30 +2833,93 @@ export default function floodevents() {
           </div>
 
           {/* Filter Accordion */}
-          <Accordion type="single" collapsible className="px-6">
+          <Accordion type="single" collapsible className="mt-4">
             <AccordionItem value="filters" className="border-none">
               <AccordionTrigger className="py-3 text-sm hover:no-underline">
                 <span className="flex items-center gap-2">
-                  Table Filters
-                  {q.trim() && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Active</span>}
+                  Filters
+                  {(event_types_filter.length > 0 || pa_filter.length > 0 || from_str || to_str || q.trim()) && (
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Active</span>
+                  )}
                 </span>
               </AccordionTrigger>
               <AccordionContent className="pb-4">
-                <div className="space-y-2">
-                  <Label htmlFor="table-search" className="text-sm">Search Table</Label>
-                  <Input
-                    id="table-search"
-                    value={q}
-                    onChange={(e) => { set_q(e.target.value); set_page(1); }}
-                    placeholder="Search by ID, location, road..."
-                    className="max-w-md"
-                  />
-                  {q.trim() && (
-                    <Button variant="ghost" size="sm" onClick={() => { set_q(""); set_page(1); }}>
-                      Clear search
-                    </Button>
-                  )}
+                <div className="grid gap-4 md:grid-cols-12 pt-2">
+                  <div className="space-y-1.5 md:col-span-4">
+                    <Label htmlFor="flood-search" className="text-sm">Search</Label>
+                    <Input
+                      id="flood-search"
+                      value={q}
+                      onChange={(e) => {
+                        set_q(e.target.value);
+                        set_page(1);
+                      }}
+                      placeholder="Search by ID, location or road"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <MultiSelectFilter
+                      id="event-type"
+                      label="Event Type"
+                      options={event_type_options.filter(opt => opt !== "all")}
+                      values={event_types_filter}
+                      onChange={(selected) => {
+                        set_event_types_filter(selected);
+                        set_page(1);
+                      }}
+                      placeholder="All Event Types"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <MultiSelectFilter
+                      id="planning-area"
+                      label="Planning Area"
+                      options={pa_options}
+                      values={pa_filter}
+                      onChange={(next) => {
+                        set_pa_filter(next);
+                        set_page(1);
+                      }}
+                      placeholder="All Planning Areas"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-1">
+                    <Label htmlFor="from-date" className="text-sm">From Date</Label>
+                    <Input
+                      id="from-date"
+                      type="date"
+                      value={from_str}
+                      onChange={(e) => {
+                        set_from_str(e.target.value);
+                        set_page(1);
+                      }}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-1">
+                    <Label htmlFor="to-date" className="text-sm">To Date</Label>
+                    <Input
+                      id="to-date"
+                      type="date"
+                      value={to_str}
+                      onChange={(e) => {
+                        set_to_str(e.target.value);
+                        set_page(1);
+                      }}
+                    />
+                  </div>
                 </div>
+
+                {(event_types_filter.length > 0 || pa_filter.length > 0 || from_str || to_str || q.trim()) && (
+                  <div className="mt-3">
+                    <Button variant="ghost" size="sm" onClick={reset_all_filters}>
+                      Clear all filters
+                    </Button>
+                  </div>
+                )}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
