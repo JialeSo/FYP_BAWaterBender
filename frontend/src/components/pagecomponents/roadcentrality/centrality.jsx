@@ -1688,7 +1688,7 @@ export default function Centrality() {
         <div className="mb-4">
           <h2 className="text-lg font-semibold">All Segments</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Complete list of road segments with sortable columns and export capability
+            Complete list of road segments In Singapore
           </p>
         </div>
 
