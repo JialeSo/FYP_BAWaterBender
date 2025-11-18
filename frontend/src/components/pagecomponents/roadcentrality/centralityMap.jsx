@@ -125,15 +125,27 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
     ["!", ["has", metric]], "#e5e7eb",
     // Second check: if value is exactly 0 or negative
     ["<=", ["get", metric], 0], "#e5e7eb",
-    // Bucket 1: > 0 and <= 20% of max
-    ["<=", ["get", metric], b1], "#bfdbfe",
-    // Bucket 2: > 20% and <= 40% of max
-    ["<=", ["get", metric], b2], "#93c5fd",
-    // Bucket 3: > 40% and <= 60% of max
-    ["<=", ["get", metric], b3], "#60a5fa",
-    // Bucket 4: > 60% and <= 80% of max
-    ["<=", ["get", metric], b4], "#3b82f6",
-    // Bucket 5: > 80% and <= 100% of max (highest values)
+    // Bucket 1: 0 < value <= b1 (0-20% of max)
+    ["all",
+      [">", ["get", metric], 0],
+      ["<=", ["get", metric], b1]
+    ], "#bfdbfe",
+    // Bucket 2: b1 < value <= b2 (20-40% of max)
+    ["all",
+      [">", ["get", metric], b1],
+      ["<=", ["get", metric], b2]
+    ], "#93c5fd",
+    // Bucket 3: b2 < value <= b3 (40-60% of max)
+    ["all",
+      [">", ["get", metric], b2],
+      ["<=", ["get", metric], b3]
+    ], "#60a5fa",
+    // Bucket 4: b3 < value <= b4 (60-80% of max)
+    ["all",
+      [">", ["get", metric], b3],
+      ["<=", ["get", metric], b4]
+    ], "#3b82f6",
+    // Bucket 5: b4 < value (80-100% of max - highest values)
     "#1d4ed8"
   ];
 };
@@ -164,11 +176,28 @@ const createWidthExpression = (metric, data) => {
     // Five thickness buckets increasing by 0.5px: 2, 2.5, 3, 3.5, 4
     return [
       "case",
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20], 2,     // Bucket 1: 0-20%
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40], 2.5,   // Bucket 2: 20-40%
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60], 3,     // Bucket 3: 40-60%
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80], 3.5,   // Bucket 4: 60-80%
-      4  // Bucket 5: 80-100%
+      // Bucket 1: 0 < value <= t20 (0-20%)
+      ["all",
+        [">", ["coalesce", ["to-number", ["get", metric]], 0], 0],
+        ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20]
+      ], 2,
+      // Bucket 2: t20 < value <= t40 (20-40%)
+      ["all",
+        [">", ["coalesce", ["to-number", ["get", metric]], 0], t20],
+        ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40]
+      ], 2.5,
+      // Bucket 3: t40 < value <= t60 (40-60%)
+      ["all",
+        [">", ["coalesce", ["to-number", ["get", metric]], 0], t40],
+        ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60]
+      ], 3,
+      // Bucket 4: t60 < value <= t80 (60-80%)
+      ["all",
+        [">", ["coalesce", ["to-number", ["get", metric]], 0], t60],
+        ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80]
+      ], 3.5,
+      // Bucket 5: t80 < value (80-100%)
+      4
     ];
   }
 
