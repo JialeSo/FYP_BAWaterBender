@@ -2100,160 +2100,6 @@ export default function floodevents() {
         </Accordion>
       </header>
 
-      {/* Flood Display Panel - Selected Event Details */}
-      <section className="rounded-3xl border border-border bg-card shadow-sm">
-        <div className="px-6 py-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Flood Event Details</h2>
-              <p className="text-sm text-muted-foreground">
-                {selected ? 'Selected event details with AR Impact analysis' : 'Select a flood event from the table to view details'}
-              </p>
-            </div>
-            {selected && (
-              <Button variant="ghost" size="sm" onClick={() => {
-                set_selected(null);
-                set_selected_props(null);
-                set_selected_stats(null);
-              }}>
-                <X className="h-4 w-4 mr-1" />
-                Clear Selection
-              </Button>
-            )}
-          </div>
-
-          {selected && selected_stats ? (
-            <div className="grid gap-4 md:grid-cols-3">
-              {/* AR Impact Card */}
-              <Card className="border-2 border-primary/20 bg-primary/5">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-muted-foreground">AR Impact Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</div>
-                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                      <span>Betweenness:</span>
-                      <span className="font-mono">{(w_betweenness * (selected_stats.centrality?.bnorm ?? 0)).toFixed(3)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Closeness:</span>
-                      <span className="font-mono">{(w_closeness * (selected_stats.centrality?.cnorm ?? 0)).toFixed(3)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Amenity:</span>
-                      <span className="font-mono">{(w_amenity * (selected_stats.scores?.amenity_score ?? 0)).toFixed(3)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Roads:</span>
-                      <span className="font-mono">{(w_roads * (selected_stats.scores?.roads_score ?? 0)).toFixed(3)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Amenities Affected */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-muted-foreground">Amenities Affected</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{selected_stats.counts?.total ?? 0}</div>
-                  <div className="mt-2 space-y-1 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Inner ring ({r_inner}m):</span>
-                      <span className="font-semibold">{selected_stats.counts?.inner ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Outer ring ({r_outer}m):</span>
-                      <span className="font-semibold">{selected_stats.counts?.outer ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-t pt-1 mt-1">
-                      <span className="text-muted-foreground">Impact Total:</span>
-                      <span className="font-mono">{selected_stats.impact?.total?.toFixed(1) ?? 'N/A'}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Roads Affected */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-muted-foreground">Roads Affected</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{selected_stats.roads_counts?.total ?? 0}</div>
-                  <div className="mt-2 space-y-1 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Inner ring ({r_inner}m):</span>
-                      <span className="font-semibold">{selected_stats.roads_counts?.inner ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Outer ring ({r_outer}m):</span>
-                      <span className="font-semibold">{selected_stats.roads_counts?.outer ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-t pt-1 mt-1">
-                      <span className="text-muted-foreground">Main road:</span>
-                      <span className="text-xs truncate max-w-[120px]" title={selected_props?.parent_road}>
-                        {selected_props?.parent_road ?? 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Event Information */}
-              <Card className="md:col-span-3">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Event Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 text-sm">
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Event ID</div>
-                      <div className="font-mono">{selected_props?.id ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Event Type</div>
-                      <div>{to_title_case(selected_props?.event ?? 'Unknown')}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Date</div>
-                      <div>{selected_props?.event_date ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Location</div>
-                      <div className="truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Planning Area</div>
-                      <div>{selected_props?.start_planning_area ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Postal Code</div>
-                      <div className="font-mono">{selected_props?.start_postal_code ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Coordinates</div>
-                      <div className="font-mono text-xs">
-                        {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <div className="border-2 border-dashed rounded-lg p-12 text-center">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">No flood event selected</p>
-                <p className="text-xs text-muted-foreground">Click on a row in the table below to view detailed AR Impact analysis</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 relative rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden">
             {selected && (
@@ -2270,77 +2116,251 @@ export default function floodevents() {
         </div>
 
           <div className="lg:col-span-1 rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-sm text-muted-foreground mb-1">
-                {panel_tab==="amenities" ? "nearby amenities (≤ outer meters)" : "nearby roads (≤ outer meters)"}
-              </div>
-              <div className="text-base font-semibold truncate">
-                {selected_props ? (selected_props.start_road || selected_props.parent_road || "—") : "—"}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {selected_props ? (selected_props.start_planning_area || "—") : "select a flood to view"}
-              </div>
-            </div>
-            <div className="shrink-0 flex items-center gap-1">
-              <button onClick={()=>set_panel_tab("amenities")} className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${panel_tab==="amenities"?"bg-muted":""}`}>amenities</button>
-              <button onClick={()=>set_panel_tab("roads")} className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${panel_tab==="roads"?"bg-muted":""}`}>roads</button>
-              <button onClick={()=>set_ring_filter("all")}   className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${ring_filter==="all"?"bg-muted":""}`}>all</button>
-              <button onClick={()=>set_ring_filter("inner")} className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${ring_filter==="inner"?"bg-muted":""}`}>≤{r_inner}m</button>
-              <button onClick={()=>set_ring_filter("outer")} className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${ring_filter==="outer"?"bg-muted":""}`}>≤{r_outer}m</button>
-              <button onClick={()=>set_panel_open(v=>!v)} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                {panel_open ? "collapse" : "expand"}
-              </button>
-            </div>
-          </div>
+            <ScrollArea className="flex-1 p-4">
+              {selected && selected_stats ? (
+                <div className="space-y-3">
+                  {/* Header with Close Button */}
+                  <div className="flex items-center justify-between pb-2 border-b">
+                    <div>
+                      <h3 className="text-sm font-semibold">Flood Event Details</h3>
+                      <p className="text-xs text-muted-foreground">{selected_props ? (selected_props.start_planning_area || "—") : "—"}</p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      set_selected(null);
+                      set_selected_props(null);
+                      set_selected_stats(null);
+                    }} className="h-7 w-7 p-0">
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
 
-          {panel_open ? (
-            <div className="flex-1 overflow-y-auto p-3">
-              {selected_stats && (
-                <div className="mb-3 rounded-lg border p-3 text-xs bg-muted/40">
-                  <div className="font-medium mb-1">AR Impact (live)</div>
-                  <div>B:{w_betweenness.toFixed(2)} C:{w_closeness.toFixed(2)} A:{w_amenity.toFixed(2)}</div>
-                  <div className="mt-1">AR Impact = {selected_stats.scores?.ar_impact ?? "—"}</div>
+                  {/* (A) Top Section - Event Details Cards */}
+
+                  {/* Three Metric Cards */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* AR Impact Score */}
+                    <Card className="border-2 border-primary/20 bg-primary/5">
+                      <CardHeader className="pb-2 pt-3 px-3">
+                        <CardDescription className="text-[9px] uppercase font-medium">AR Impact Score</CardDescription>
+                        <CardTitle className="text-xl font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
+                      </CardHeader>
+                    </Card>
+
+                    {/* Amenities Affected */}
+                    <Card className="border-2">
+                      <CardHeader className="pb-2 pt-3 px-3">
+                        <CardDescription className="text-[9px] uppercase font-medium">Amenities Affected</CardDescription>
+                        <CardTitle className="text-xl font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
+                      </CardHeader>
+                    </Card>
+
+                    {/* Roads Affected */}
+                    <Card className="border-2">
+                      <CardHeader className="pb-2 pt-3 px-3">
+                        <CardDescription className="text-[9px] uppercase font-medium">Roads Affected</CardDescription>
+                        <CardTitle className="text-xl font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
+                      </CardHeader>
+                    </Card>
+                  </div>
+
+                  {/* Event Information Grid */}
+                  <Card className="border-2">
+                    <CardHeader className="pb-2 pt-3 px-3">
+                      <CardTitle className="text-xs font-semibold">Event Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Event ID</div>
+                          <div className="font-mono text-xs">{selected_props?.id ?? 'N/A'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Event Type</div>
+                          <div className="text-xs">{to_title_case(selected_props?.event ?? 'Unknown')}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Date</div>
+                          <div className="text-xs">{selected_props?.event_date ?? 'N/A'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Planning Area</div>
+                          <div className="text-xs">{selected_props?.start_planning_area ?? 'N/A'}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Location</div>
+                          <div className="text-xs truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Main Road</div>
+                          <div className="text-xs truncate" title={selected_props?.parent_road}>{selected_props?.parent_road ?? 'N/A'}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Coordinates</div>
+                          <div className="font-mono text-[10px]">
+                            {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* (B) Bottom Section - Tabs with Flat Lists */}
+                  <Card className="border-2">
+                    <Tabs defaultValue="roads" className="w-full">
+                      <div className="border-b px-3 pt-3">
+                        <TabsList className="w-full grid grid-cols-2">
+                          <TabsTrigger value="roads" className="text-xs">
+                            Affected Roads ({selected_stats.roads_counts?.total ?? 0})
+                          </TabsTrigger>
+                          <TabsTrigger value="amenities" className="text-xs">
+                            Affected Amenities ({selected_stats.counts?.total ?? 0})
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
+
+                      {/* Affected Roads Tab */}
+                      <TabsContent value="roads" className="px-3 pb-3 space-y-2 mt-3">
+                        {(() => {
+                          // Flatten roads from both bands
+                          const allRoads = [];
+                          (roads_nearby_state.inner || []).forEach(r => allRoads.push({ ...r, band: 'inner' }));
+                          (roads_nearby_state.outer || []).forEach(r => allRoads.push({ ...r, band: 'outer' }));
+
+                          return allRoads.length > 0 ? (
+                            <ScrollArea className="h-[200px]">
+                              <div className="space-y-1 pr-3">
+                                {allRoads.map((road, idx) => {
+                                  const roadName = road.name || "Unnamed Road";
+                                  const roadId = road.rn_id || road.RN_ID || "";
+                                  const distance = road.d || road._distm;
+                                  const band = road.band || "unknown";
+
+                                  return (
+                                    <div
+                                      key={`${roadId}-${idx}`}
+                                      className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
+                                    >
+                                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                        <span className="font-medium text-foreground truncate">{roadName}</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[10px] text-muted-foreground font-mono">ID: {roadId}</span>
+                                          {distance && (
+                                            <span className="text-[10px] text-muted-foreground font-medium">{distance}m</span>
+                                          )}
+                                          <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${
+                                            band === 'inner'
+                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                          }`}>
+                                            {band}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          const map = map_ref.current;
+                                          if (!map || !road.geometry) return;
+                                          try {
+                                            const bb = turf.bbox({ type: "Feature", geometry: road.geometry, properties: {} });
+                                            map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: 60, duration: 500 });
+                                          } catch {}
+                                        }}
+                                        className="h-7 px-2 text-[10px] hover:bg-primary/10 ml-1 shrink-0"
+                                      >
+                                        Focus
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </ScrollArea>
+                          ) : (
+                            <p className="text-xs text-muted-foreground py-6 text-center">No affected roads</p>
+                          );
+                        })()}
+                      </TabsContent>
+
+                      {/* Affected Amenities Tab */}
+                      <TabsContent value="amenities" className="px-3 pb-3 space-y-2 mt-3">
+                        {(() => {
+                          // Get amenities from selected_stats
+                          const center = selected_stats.center;
+                          if (!center) return <p className="text-xs text-muted-foreground py-6 text-center">No location data</p>;
+
+                          // Query amenities in both rings
+                          const innerAmenities = query_amenities(center.lng, center.lat, r_inner).map(a => ({ ...a, band: 'inner' }));
+                          const outerAmenities = query_amenities(center.lng, center.lat, r_outer)
+                            .filter(a => a._distm > r_inner)
+                            .map(a => ({ ...a, band: 'outer' }));
+                          const allAmenities = [...innerAmenities, ...outerAmenities];
+
+                          return allAmenities.length > 0 ? (
+                            <ScrollArea className="h-[200px]">
+                              <div className="space-y-1 pr-3">
+                                {allAmenities.map((amenity, idx) => {
+                                  const amenityName = amenity.name || "Unnamed Amenity";
+                                  const category = amenity.category || "Unknown";
+                                  const distance = amenity._distm;
+                                  const band = amenity.band || "unknown";
+
+                                  return (
+                                    <div
+                                      key={`${amenity.id}-${idx}`}
+                                      className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
+                                    >
+                                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                        <span className="font-medium text-foreground truncate">{amenityName}</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[10px] text-muted-foreground">{to_title_case(category)}</span>
+                                          {distance && (
+                                            <span className="text-[10px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
+                                          )}
+                                          <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${
+                                            band === 'inner'
+                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                          }`}>
+                                            {band}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          const map = map_ref.current;
+                                          if (!map) return;
+                                          map.flyTo({ center: [amenity.lng, amenity.lat], zoom: 17, essential: true });
+                                        }}
+                                        className="h-7 px-2 text-[10px] hover:bg-primary/10 ml-1 shrink-0"
+                                      >
+                                        Focus
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </ScrollArea>
+                          ) : (
+                            <p className="text-xs text-muted-foreground py-6 text-center">No affected amenities</p>
+                          );
+                        })()}
+                      </TabsContent>
+                    </Tabs>
+                  </Card>
                 </div>
-              )}
-
-              {selected_stats ? (
-                panel_tab === "amenities" ? (
-                  <AmenitiesPanel
-                    center={selected_stats.center}
-                    stats={selected_stats}
-                    amenity_list={amenity_list}
-                    ring_filter={ring_filter}
-                    r_inner={r_inner}
-                    r_outer={r_outer}
-                    on_center={(lng, lat) => map_ref.current?.flyTo({ center: [lng, lat], zoom: 17, essential: true })}
-                  />
-                ) : (
-                  <RoadsPanel
-                    center={selected_stats.center}
-                    roads_pack={roads_nearby_state}
-                    ring_filter={ring_filter}
-                    r_inner={r_inner}
-                    r_outer={r_outer}
-                    on_focus_rn={(geom) => {
-                      const map = map_ref.current;
-                      if (!map || !geom) return;
-                      try {
-                        const bb = turf.bbox({ type:"Feature", geometry: geom, properties:{} });
-                        map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], { padding: 60, duration: 500 });
-                      } catch {}
-                    }}
-                  />
-                )
               ) : (
-                <div className="h-full grid place-items-center text-sm text-muted-foreground p-6">
-                  select a flood on the left to see details here.
+                <div className="h-full grid place-items-center text-sm text-muted-foreground px-6">
+                  <div className="text-center space-y-2">
+                    <MapPin className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                    <p className="text-xs">No flood event selected</p>
+                    <p className="text-[10px]">Click on a row in the table below to view details</p>
+                  </div>
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="p-3 text-xs text-muted-foreground">panel collapsed</div>
-          )}
+            </ScrollArea>
         </div>
       </div>
       <section className="rounded-3xl border border-border bg-card shadow-sm">
