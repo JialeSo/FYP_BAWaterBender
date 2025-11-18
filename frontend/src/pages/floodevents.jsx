@@ -1559,10 +1559,10 @@ export default function floodevents() {
         const id = f?.properties?.id ?? f?.id;
         if (id != null) {
           const idStr = String(id);
-          // Just set selected - useEffect will call focus_select
+          // Use callback form like table row click to ensure proper sequencing
           set_selected(prev => {
             const next = String(prev) === String(idStr) ? null : idStr;
-            if (!next) clear_selection(); // Only clear if toggling off
+            if (next) focus_select(next); else clear_selection();
             return next;
           });
         }
@@ -1582,10 +1582,10 @@ export default function floodevents() {
             const id = leaves[0]?.properties?.id ?? leaves[0]?.id;
             if (id != null) {
               const idStr = String(id);
-              // Just set selected - useEffect will call focus_select
+              // Use callback form like table row click
               set_selected(prev => {
                 const next = String(prev) === String(idStr) ? null : idStr;
-                if (!next) clear_selection(); // Only clear if toggling off
+                if (next) focus_select(next); else clear_selection();
                 return next;
               });
             }
@@ -1640,12 +1640,6 @@ export default function floodevents() {
   //   const target = ids[0];
   //   if (target) focus_select(target);
   // }, [floods_fc, stats_by_flood_distance]);
-
-  // When selected changes, call focus_select to populate details
-  useEffect(() => {
-    if (!selected) return;
-    focus_select(selected);
-  }, [selected]);
 
  
   useEffect(() => {
@@ -3325,7 +3319,7 @@ export default function floodevents() {
                     key={r.id}
                     onClick={() => set_selected(prev => {
                       const next = String(prev) === String(r.id) ? null : r.id;
-                      if (!next) clear_selection(); // Only clear if toggling off, useEffect handles focus_select
+                      if (next) focus_select(next); else clear_selection();
                       return next;
                     })}
                     className={`border-t cursor-pointer hover:bg-muted/60 transition-colors ${active ? "bg-primary/10 border-l-4 border-l-primary" : ""}`}
@@ -3339,7 +3333,7 @@ export default function floodevents() {
                       <button
                         onClick={(e)=>{ e.stopPropagation(); set_selected(prev => {
                           const next = String(prev) === String(r.id) ? null : r.id;
-                          if (!next) clear_selection(); // Only clear if toggling off, useEffect handles focus_select
+                          if (next) focus_select(next); else clear_selection();
                           return next;
                         }); }}
                         className="rounded-lg border px-2 py-1 text-xs hover:bg-muted"
