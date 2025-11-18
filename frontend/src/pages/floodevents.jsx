@@ -276,20 +276,33 @@ function popup_html(p = {}) {
   };
   const typ = to_title_case((p.event || "").replace(/_/g, " ")) || "—";
   const road = p.parent_road || "—";
+  const location = p.location || p.cleaned_location || "—";
+  const pa = p.start_planning_area || p.origin_pa_id || "—";
+  const sz = p.start_sz_id || p.origin_sz_id || "—";
+
   return `
-    <div>
-      <div class="text-xs uppercase opacity-70">Flood</div>
+    <div style="min-width: 220px;">
+      <div class="text-xs uppercase opacity-70 mb-1">Flood Event Details</div>
       <div><b>ID:</b> ${safe(p.id)}</div>
       <div><b>Date:</b> ${safe(p.event_date)}</div>
       <div><b>Type:</b> ${typ}</div>
+      <div><b>Location:</b> ${location}</div>
       <div><b>Road:</b> ${road}</div>
-      <div class="mt-1 text-xs opacity-70">
-        Start: ${coord(p.start_lat, p.start_lng)}
+      <div class="mt-2 pt-2 border-t border-gray-300">
+        <div class="text-xs opacity-70 mb-1"><b>Planning Area:</b> ${pa}</div>
+        <div class="text-xs opacity-70 mb-1"><b>Subzone:</b> ${sz}</div>
+      </div>
+      <div class="mt-2 pt-2 border-t border-gray-300">
+        <div class="text-xs opacity-70">
+          <b>Origin:</b> ${coord(p.origin_lat, p.origin_lng)}<br/>
+          <b>Start:</b> ${coord(p.start_lat, p.start_lng)}
+        </div>
       </div>
       <div class="mt-1 text-xs opacity-70">
-        Pred A: ${coord(p.end100_a_lat, p.end100_a_lng)}<br/>
-        Pred B: ${coord(p.end100_b_lat, p.end100_b_lng)}<br/>
-        End: ${coord(p.end_lat, p.end_lng)}
+        ${p.end_lat && p.end_lng && to_num(p.end_lat) !== 0 ?
+          `<b>End:</b> ${coord(p.end_lat, p.end_lng)}` :
+          `<b>Pred A:</b> ${coord(p.end100_a_lat, p.end100_a_lng)}<br/><b>Pred B:</b> ${coord(p.end100_b_lat, p.end100_b_lng)}`
+        }
       </div>
     </div>
   `;
@@ -1455,40 +1468,39 @@ export default function floodevents() {
 
       if (bounds) map.fitBounds(bounds, { padding: 40, duration: 0 });
 
-      // Show popup on hover for selected flood marker
+      // Show popup on hover for flood markers
       map.on("mousemove", "flood-selected-points", (e) => {
-        const p = selected_props || {};
+        const f = e?.features?.[0];
+        if (!f) return;
+        const p = f.properties || {};
         show_popup(e.lngLat, popup_html(p));
       });
       map.on("mouseleave", "flood-selected-points", () => hide_popup());
 
-      // General click handler - clear selection if clicking on empty space
-      map.on("click", (e) => {
-        const bbox = [[e.point.x - 5, e.point.y - 5],[e.point.x + 5, e.point.y + 5]];
-        const hit = map.queryRenderedFeatures(bbox, {
-          layers: [
-            "flood-selected-points","flood-selected-labels",
-            "amenities-nearby","amenities-nearby-labels",
-            "rings-page-inner-fill","rings-page-outer-fill","rings-selected-inner-fill","rings-selected-outer-fill",
-            "roads-nearby-inner","roads-nearby-outer"
-          ],
-        });
-        if (!hit || hit.length === 0) {
-          clear_selection();
-        }
+      // Show popup on hover for main flood point
+      map.on("mousemove", "flood-points", (e) => {
+        const f = e?.features?.[0];
+        if (!f) return;
+        const p = f.properties || {};
+        show_popup(e.lngLat, popup_html(p));
       });
+      map.on("mouseleave", "flood-points", () => hide_popup());
     })();
 
     try {
       const map = map_ref.current;
-      map.moveLayer("flood-selected-labels");
-      map.moveLayer("flood-selected-lines");
       map.moveLayer("flood-selected-lines-casing");
-      map.moveLayer("amenities-nearby-labels");
+      map.moveLayer("flood-selected-lines");
       map.moveLayer("amenities-nearby");
+      map.moveLayer("amenities-nearby-labels");
       map.moveLayer("roads-nearby-outer");
       map.moveLayer("roads-nearby-inner");
       map.moveLayer("affected-road");
+      map.moveLayer("flood-points");
+      map.moveLayer("flood-selected-points");
+      map.moveLayer("flood-selected-labels");
+      map.moveLayer("focused-amenity");
+      map.moveLayer("focused-road");
     } catch {}
     return () => { try { map_ref.current?.remove(); } catch {} };
   }, [floods_fc, bounds]);
@@ -1613,10 +1625,19 @@ export default function floodevents() {
     }
     const p = feat.properties || {};
 
-    // Get center from start coordinates instead of build_flood_detail (removed to reduce lag)
-    const center = [to_num(p.start_lng), to_num(p.start_lat)];
-    if (Number.isNaN(center[0]) || Number.isNaN(center[1])) {
-      console.warn("Invalid center coordinates for ID:", id_str);
+    // Use origin as center for rings (fallback to start if origin not available)
+    const origin_lng = to_num(p.origin_lng);
+    const origin_lat = to_num(p.origin_lat);
+    const start_lng = to_num(p.start_lng);
+    const start_lat = to_num(p.start_lat);
+
+    let center;
+    if (!Number.isNaN(origin_lng) && !Number.isNaN(origin_lat)) {
+      center = [origin_lng, origin_lat];
+    } else if (!Number.isNaN(start_lng) && !Number.isNaN(start_lat)) {
+      center = [start_lng, start_lat];
+    } else {
+      console.warn("No valid center coordinates for ID:", id_str);
       return;
     }
 
@@ -1631,12 +1652,17 @@ export default function floodevents() {
     // Check if map is fully loaded and style is ready for visualization
     const mapReady = map.isStyleLoaded && map.isStyleLoaded();
 
-    // Update floods source to show only the selected flood marker
+    // Update floods source to show the origin marker (center of flood)
     if (mapReady) {
       try {
+        const originFeature = {
+          type: "Feature",
+          properties: { ...p },
+          geometry: { type: "Point", coordinates: center }
+        };
         map.getSource("floods")?.setData({
           type: "FeatureCollection",
-          features: [feat]
+          features: [originFeature]
         });
         map.setLayoutProperty("flood-points", "visibility", "visible");
       } catch (e) {
@@ -1644,22 +1670,72 @@ export default function floodevents() {
       }
     }
 
-    // REMOVED: Individual flood detail points and lines (causing lag)
-    // const point_features = detail.points.map(pt => ({ ... }));
-    // const line_features  = detail.lines.map(l => ({ ... }));
+    // Create markers for flood endpoints (origin is already shown as main marker)
+    const point_features = [];
+    const label_features = [];
 
-    // Hide the flood detail layers
+    // Helper to create marker
+    const createMarker = (lng, lat, role, label) => {
+      if (Number.isNaN(lng) || Number.isNaN(lat)) return null;
+      return {
+        type: "Feature",
+        properties: { role, label, ...p },
+        geometry: { type: "Point", coordinates: [lng, lat] }
+      };
+    };
+
+    // Check if real end exists
+    const end_lng = to_num(p.end_lng);
+    const end_lat = to_num(p.end_lat);
+    const hasRealEnd = !Number.isNaN(end_lng) && !Number.isNaN(end_lat) &&
+                       Math.abs(end_lng) > 0 && Math.abs(end_lat) > 0;
+
+    if (hasRealEnd) {
+      // Show real end as red marker
+      const endMarker = createMarker(end_lng, end_lat, "end", "End");
+      if (endMarker) {
+        point_features.push(endMarker);
+        label_features.push(endMarker);
+      }
+    } else {
+      // Show predicted endpoints as orange markers
+      const pred_a_lng = to_num(p.end100_a_lng);
+      const pred_a_lat = to_num(p.end100_a_lat);
+      const predAMarker = createMarker(pred_a_lng, pred_a_lat, "pred_a", "Pred A");
+      if (predAMarker) {
+        point_features.push(predAMarker);
+        label_features.push(predAMarker);
+      }
+
+      const pred_b_lng = to_num(p.end100_b_lng);
+      const pred_b_lat = to_num(p.end100_b_lat);
+      const predBMarker = createMarker(pred_b_lng, pred_b_lat, "pred_b", "Pred B");
+      if (predBMarker) {
+        point_features.push(predBMarker);
+        label_features.push(predBMarker);
+      }
+    }
+
+    // Update marker layers
     if (mapReady) {
       try {
-        map.getSource("flood-selected-points")?.setData({ type: "FeatureCollection", features: [] });
+        map.getSource("flood-selected-points")?.setData({
+          type: "FeatureCollection",
+          features: point_features
+        });
+        map.getSource("flood-selected-labels")?.setData({
+          type: "FeatureCollection",
+          features: label_features
+        });
+        map.setLayoutProperty("flood-selected-points", "visibility", point_features.length ? "visible" : "none");
+        map.setLayoutProperty("flood-selected-labels", "visibility", label_features.length ? "visible" : "none");
+
+        // Hide lines (not used in simplified view)
         map.getSource("flood-selected-lines")?.setData({ type: "FeatureCollection", features: [] });
-        map.getSource("flood-selected-labels")?.setData({ type: "FeatureCollection", features: [] });
-        map.setLayoutProperty("flood-selected-points", "visibility", "none");
         map.setLayoutProperty("flood-selected-lines-casing", "visibility", "none");
         map.setLayoutProperty("flood-selected-lines", "visibility", "none");
-        map.setLayoutProperty("flood-selected-labels", "visibility", "none");
       } catch (e) {
-        console.warn("Error hiding flood detail layers:", e);
+        console.warn("Error setting flood markers:", e);
       }
     }
 
