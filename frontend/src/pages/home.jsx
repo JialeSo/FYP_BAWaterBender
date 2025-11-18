@@ -124,10 +124,10 @@ function HeroSection() {
             transition={{ duration: 0.5 }}
             className="font-[montserrat] text-4xl font-extrabold leading-tight tracking-tight md:text-5xl"
           >
-            Visualising Flood Risk in Singapore
+            Flood Risk Analysis for Singapore
           </motion.h1>
           <p className="mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-            One dark map to explore historical flood events, risk hotspots, and nearby amenities. Search a place, fly the map, and share the view.
+            Analyze historical flood patterns, assess infrastructure impact, and prioritize road maintenance using centrality metrics and amenity proximity analysis.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button size="lg">Open the Risk Map</Button>
@@ -179,9 +179,10 @@ function HeroSection() {
 /* ---------------- use cases ---------------- */
 function UseCases() {
   const cases = [
-    { title: "Urban Planning", desc: "Compare planning areas and subzones over years to guide zoning and drainage upgrades." },
-    { title: "Emergency Response", desc: "Locate clinics, shelters, and access roads near hotspots for faster coordination." },
-    { title: "Infrastructure Maintenance", desc: "Prioritise assets by recurrence and proximity to critical amenities." },
+    { title: "Historical Analysis", desc: "Visualize historical flood events across Singapore, identify hotspots, and track patterns over time with an interactive map." },
+    { title: "Impact Assessment", desc: "Calculate AR Impact scores based on road centrality, nearby amenities, and flood frequency to prioritize response efforts." },
+    { title: "Infrastructure Prioritization", desc: "Rank road segments by importance using betweenness, closeness centrality, and infrastructure proximity for maintenance planning." },
+    { title: "Scenario Simulation", desc: "Simulate flood scenarios to assess potential impact on roads and amenities within customizable distance rings." },
   ]
 
   return (
@@ -190,11 +191,11 @@ function UseCases() {
         <h2 className="font-[montserrat] text-3xl font-bold tracking-tight">What Do You Need It For?</h2>
         <p className="mt-2 text-muted-foreground">Pick a path — we’ll shape the map to your goal.</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cases.map((c) => (
           <Card key={c.title} className="border-border bg-card shadow-sm transition hover:shadow-md">
             <CardHeader>
-              <CardTitle className="capitalize">{c.title}</CardTitle>
+              <CardTitle className="text-base">{c.title}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">{c.desc}</CardContent>
           </Card>
@@ -207,12 +208,12 @@ function UseCases() {
 /* ---------------- features (updated) ---------------- */
 function FeaturesGrid() {
   const features = [
-    { title: "Singapore-First Coverage", desc: "Planning areas, subzones, road segments, and amenity overlays — tuned for SG data." },
-    { title: "Historical Flood Layers", desc: "Stack years and filter by event type; spot clusters and recurring hotspots." },
-    { title: "Trend & Rank Views", desc: "Rank areas by cases or density across years with clean charts for slides." },
-    { title: "Amenity Proximity", desc: "See clinics, schools, and shelters near flooded roads for response planning." },
-    { title: "Commercial Insights", desc: "Overlay mall clusters and commercial POIs to assess impact on retail & footfall." },
-    { title: "Property Prices", desc: "Contextualise hotspots with nearby HDB/condo price bands to study exposure." },
+    { title: "Historical Flood Map", desc: "Interactive map showing 615 historical flood events across Singapore with location details and event metadata." },
+    { title: "AR Impact Scoring", desc: "Composite metric combining road centrality (betweenness, closeness), amenity density, and flood frequency for risk assessment." },
+    { title: "Road Centrality Analysis", desc: "Calculate road importance using network centrality metrics with configurable weights for betweenness and closeness." },
+    { title: "Amenity Analysis", desc: "Analyze 37,713 amenities near flood events and roads with category-based filtering and weighted scoring." },
+    { title: "Distance Ring Configuration", desc: "Customizable inner and outer rings (default 200m/500m) with band filtering and multiplier weights for impact zones." },
+    { title: "Maintenance Categorization", desc: "Automated road maintenance priority classification (1-year, 3-year, 5-year cycles) based on importance scores." },
   ]
 
   return (
@@ -241,10 +242,10 @@ function FeaturesGrid() {
 /* ---------------- how it works ---------------- */
 function HowItWorks() {
   const steps = [
-    { step: 1, title: "Search & Locate", desc: "Type a place (e.g., “Tampines”), or use your location to fly the map." },
-    { step: 2, title: "Filter & Explore", desc: "Pick years, planning areas, and event types; hover for rich context." },
-    { step: 3, title: "Prioritise", desc: "Rank hotspots and surface amenities near high-risk roads." },
-    { step: 4, title: "Share", desc: "Export images or share a link — brief stakeholders in one click." },
+    { step: 1, title: "Explore Historical Data", desc: "View 615 flood events on an interactive map, filter by planning area and date range." },
+    { step: 2, title: "Configure Analysis", desc: "Adjust amenity category weights, distance rings, and AR impact component weights using preset configurations." },
+    { step: 3, title: "Analyze Impact", desc: "Select flood events or roads to view AR Impact scores, affected amenities (inner/outer rings), and nearby infrastructure." },
+    { step: 4, title: "Prioritize Maintenance", desc: "Review road importance rankings with centrality metrics and export results for maintenance planning." },
   ]
 
   return (
@@ -271,8 +272,8 @@ function HowItWorks() {
 function MiniGallery() {
   return (
     <section id="gallery" className="mx-auto max-w-7xl px-4 py-12">
-      <h3 className="text-center font-[montserrat] text-2xl font-bold">Screens at a Glance</h3>
-      <p className="mt-2 text-center text-muted-foreground">Test.</p>
+      <h3 className="text-center font-[montserrat] text-2xl font-bold">Application Views</h3>
+      <p className="mt-2 text-center text-muted-foreground">Explore flood events, analyze road centrality, and simulate scenarios with intuitive dashboards.</p>
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         <Card className="overflow-hidden border-border bg-card"><GalleryMapMock variant="layers" /></Card>
         <Card className="overflow-hidden border-border bg-card"><GalleryMapMock /></Card>
@@ -315,23 +316,27 @@ function Credibility() {
       <div className="mx-auto max-w-7xl px-4">
         <div className="grid items-center gap-8 md:grid-cols-2">
           <div>
-            <h3 className="font-[montserrat] text-2xl font-bold">What We’re Building</h3>
-            <p className="mt-2 text-muted-foreground">A simple, fast, SG-tuned web app to explore flood risk with nearby amenities. It’s opinionated about clarity, speed, and shareability.</p>
+            <h3 className="font-[montserrat] text-2xl font-bold">Technical Capabilities</h3>
+            <p className="mt-2 text-muted-foreground">A comprehensive flood risk analysis platform combining spatial analysis, network centrality metrics, and infrastructure impact assessment.</p>
             <ul className="mt-4 list-inside list-disc text-sm text-muted-foreground">
-              <li>Shadcn UI + theme tokens for consistent dark UI</li>
-              <li>Map overlays for floods, roads, and amenities</li>
-              <li>Ranked views for year-on-year trends</li>
+              <li>615 historical flood events with complete metadata</li>
+              <li>45,763 road segments with centrality metrics</li>
+              <li>37,713 amenities across 10+ categories</li>
+              <li>Real-time AR Impact calculations with configurable weights</li>
+              <li>Distance ring analysis with inner/outer band filtering</li>
+              <li>Automated maintenance priority categorization</li>
             </ul>
           </div>
           <Card className="border-border bg-card shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base">Who Benefits</CardTitle>
+              <CardTitle className="text-base">Key Features</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               <div className="space-y-2">
-                <p><strong className="text-foreground">Planners:</strong> Identify hotspots and infrastructure at risk.</p>
-                <p><strong className="text-foreground">Responders:</strong> Check nearby clinics/shelters and route context.</p>
-                <p><strong className="text-foreground">Analysts:</strong> Compare year-on-year trends with ranked views.</p>
+                <p><strong className="text-foreground">Historical Flood Map:</strong> Visualize and explore past flood events with interactive filtering.</p>
+                <p><strong className="text-foreground">Flood Events Dashboard:</strong> Analyze AR Impact scores with amenity and road proximity analysis.</p>
+                <p><strong className="text-foreground">Road Centrality:</strong> Calculate road importance using betweenness/closeness metrics.</p>
+                <p><strong className="text-foreground">Scenario Simulation:</strong> Simulate flood scenarios with customizable parameters.</p>
               </div>
             </CardContent>
           </Card>
@@ -348,12 +353,12 @@ function CtaSection() {
       <Card className="border-border bg-card">
         <CardContent className="flex flex-col items-center gap-4 p-8 text-center md:flex-row md:justify-between md:text-left">
           <div>
-            <h3 className="font-[montserrat] text-2xl font-bold">Get Started in Minutes</h3>
-            <p className="mt-1 max-w-2xl text-muted-foreground">Use sample data or bring your own CSVs. No setup drama — just insights.</p>
+            <h3 className="font-[montserrat] text-2xl font-bold">Start Analyzing Flood Risk</h3>
+            <p className="mt-1 max-w-2xl text-muted-foreground">Access 615 historical flood events, analyze 45K+ road segments, and assess infrastructure impact with real-time calculations.</p>
           </div>
           <div className="flex gap-3">
-            <Button>Launch App</Button>
-            <Button variant="outline">Book a Walkthrough</Button>
+            <Button>Launch Dashboard</Button>
+            <Button variant="outline">View Documentation</Button>
           </div>
         </CardContent>
       </Card>
