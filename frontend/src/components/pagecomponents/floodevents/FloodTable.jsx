@@ -306,7 +306,9 @@ export default function FloodTable({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Roads Affected</Label>
-                    <span className="text-xs text-muted-foreground">Max: {metricRanges.roads_total_max}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {Number(pending_roads_total_min) || 0} - {Number(pending_roads_total_max) || metricRanges.roads_total_max} (Max: {metricRanges.roads_total_max})
+                    </span>
                   </div>
                   <Slider
                     min={0}
@@ -321,34 +323,15 @@ export default function FloodTable({
                       set_pending_roads_total_max(String(values[1]));
                     }}
                   />
-                  <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={pending_roads_total_min}
-                      onChange={(e) => set_pending_roads_total_min(e.target.value)}
-                      className="w-full text-xs h-7"
-                      min={0}
-                      max={metricRanges.roads_total_max}
-                    />
-                    <span>-</span>
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={pending_roads_total_max}
-                      onChange={(e) => set_pending_roads_total_max(e.target.value)}
-                      className="w-full text-xs h-7"
-                      min={0}
-                      max={metricRanges.roads_total_max}
-                    />
-                  </div>
                 </div>
 
                 {/* Amenities Affected Slider */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Amenities Affected</Label>
-                    <span className="text-xs text-muted-foreground">Max: {metricRanges.ring_total_max}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {Number(pending_ring_total_min) || 0} - {Number(pending_ring_total_max) || metricRanges.ring_total_max} (Max: {metricRanges.ring_total_max})
+                    </span>
                   </div>
                   <Slider
                     min={0}
@@ -363,34 +346,15 @@ export default function FloodTable({
                       set_pending_ring_total_max(String(values[1]));
                     }}
                   />
-                  <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={pending_ring_total_min}
-                      onChange={(e) => set_pending_ring_total_min(e.target.value)}
-                      className="w-full text-xs h-7"
-                      min={0}
-                      max={metricRanges.ring_total_max}
-                    />
-                    <span>-</span>
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={pending_ring_total_max}
-                      onChange={(e) => set_pending_ring_total_max(e.target.value)}
-                      className="w-full text-xs h-7"
-                      min={0}
-                      max={metricRanges.ring_total_max}
-                    />
-                  </div>
                 </div>
 
                 {/* AR Impact Slider */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">AR Impact</Label>
-                    <span className="text-xs text-muted-foreground">Max: {metricRanges.ar_impact_max.toFixed(2)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {(Number(pending_ar_impact_min) || 0).toFixed(2)} - {(Number(pending_ar_impact_max) || metricRanges.ar_impact_max).toFixed(2)} (Max: {metricRanges.ar_impact_max.toFixed(2)})
+                    </span>
                   </div>
                   <Slider
                     min={0}
@@ -405,29 +369,6 @@ export default function FloodTable({
                       set_pending_ar_impact_max(String(values[1]));
                     }}
                   />
-                  <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={pending_ar_impact_min}
-                      onChange={(e) => set_pending_ar_impact_min(e.target.value)}
-                      className="w-full text-xs h-7"
-                      step="0.01"
-                      min={0}
-                      max={metricRanges.ar_impact_max}
-                    />
-                    <span>-</span>
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={pending_ar_impact_max}
-                      onChange={(e) => set_pending_ar_impact_max(e.target.value)}
-                      className="w-full text-xs h-7"
-                      step="0.01"
-                      min={0}
-                      max={metricRanges.ar_impact_max}
-                    />
-                  </div>
                 </div>
               </div>
             </div>
