@@ -277,8 +277,8 @@ function popup_html(p = {}) {
   const typ = to_title_case((p.event || "").replace(/_/g, " ")) || "—";
   const road = p.parent_road || "—";
   const location = p.location || p.cleaned_location || "—";
-  const pa = p.start_planning_area || p.origin_pa_id || "—";
-  const sz = p.start_sz_id || p.origin_sz_id || "—";
+  const pa = p.start_planning_area || "—";
+  const sz_name = p.start_subzone || p.subzone || "—";
 
   return `
     <div style="min-width: 220px;">
@@ -290,7 +290,7 @@ function popup_html(p = {}) {
       <div><b>Road:</b> ${road}</div>
       <div class="mt-2 pt-2 border-t border-gray-300">
         <div class="text-xs opacity-70 mb-1"><b>Planning Area:</b> ${pa}</div>
-        <div class="text-xs opacity-70 mb-1"><b>Subzone:</b> ${sz}</div>
+        <div class="text-xs opacity-70 mb-1"><b>Subzone:</b> ${sz_name}</div>
       </div>
       <div class="mt-2 pt-2 border-t border-gray-300">
         <div class="text-xs opacity-70">
@@ -1489,18 +1489,20 @@ export default function floodevents() {
 
     try {
       const map = map_ref.current;
+      // Order layers from bottom to top (roads -> amenities -> markers)
       map.moveLayer("flood-selected-lines-casing");
       map.moveLayer("flood-selected-lines");
-      map.moveLayer("amenities-nearby");
-      map.moveLayer("amenities-nearby-labels");
+      map.moveLayer("affected-road");
       map.moveLayer("roads-nearby-outer");
       map.moveLayer("roads-nearby-inner");
-      map.moveLayer("affected-road");
+      map.moveLayer("amenities-nearby");
+      map.moveLayer("amenities-nearby-labels");
+      map.moveLayer("focused-road");
+      map.moveLayer("focused-amenity");
+      // Markers on top
       map.moveLayer("flood-points");
       map.moveLayer("flood-selected-points");
       map.moveLayer("flood-selected-labels");
-      map.moveLayer("focused-amenity");
-      map.moveLayer("focused-road");
     } catch {}
     return () => { try { map_ref.current?.remove(); } catch {} };
   }, [floods_fc, bounds]);
@@ -2539,16 +2541,46 @@ export default function floodevents() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 relative rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden">
-            {selected && (
+            {selected && selected_props && (
             <>
               {/* Legend */}
               <div className="flood-legend absolute left-3 top-3 z-10 rounded-xl p-3 text-xs shadow-lg">
-                <div className="mb-2 font-medium">legend</div>
-                <div className="flex items-center gap-2 mb-1"><span className="legend-swatch" style={{background:"#22c55e"}} /><span>origin / inner ring / inner roads</span></div>
-                <div className="flex items-center gap-2 mb-1"><span className="legend-swatch" style={{background:"#3b82f6"}} /><span>start</span></div>
-                <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#f59e0b"}} /><span>predicted a / b</span></div>
-                <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#ef4444"}} /><span>end</span></div>
-                <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#0ea5e9"}} /><span>outer ring / outer roads</span></div>
+                <div className="mb-2 font-medium">Legend</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="legend-swatch" style={{background:"#22c55e"}} />
+                  <span>Origin marker & inner ring/roads</span>
+                </div>
+                {(() => {
+                  const end_lng = to_num(selected_props.end_lng);
+                  const end_lat = to_num(selected_props.end_lat);
+                  const hasRealEnd = !Number.isNaN(end_lng) && !Number.isNaN(end_lat) &&
+                                     Math.abs(end_lng) > 0 && Math.abs(end_lat) > 0;
+
+                  if (hasRealEnd) {
+                    return (
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="legend-swatch" style={{background:"#ef4444"}} />
+                        <span>End location marker</span>
+                      </div>
+                    );
+                  } else {
+                    const has_pred_a = !Number.isNaN(to_num(selected_props.end100_a_lng)) && !Number.isNaN(to_num(selected_props.end100_a_lat));
+                    const has_pred_b = !Number.isNaN(to_num(selected_props.end100_b_lng)) && !Number.isNaN(to_num(selected_props.end100_b_lat));
+                    if (has_pred_a || has_pred_b) {
+                      return (
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="legend-swatch" style={{background:"#f59e0b"}} />
+                          <span>Predicted end markers (A/B)</span>
+                        </div>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="legend-swatch" style={{background:"#0ea5e9"}} />
+                  <span>Outer ring & outer roads</span>
+                </div>
               </div>
 
               {/* Count Bubble - positioned to the right */}
@@ -2603,13 +2635,12 @@ export default function floodevents() {
                 <ScrollArea className="flex-1" style={{ height: 'calc(36rem - 0px)' }}>
                   <div className="p-3 space-y-1.5">
                     {/* Header with Close Button */}
-                    <div className="flex items-center justify-between pb-1.5 border-b">
+                    <div className="flex items-center justify-between pb-2 border-b">
                       <div>
-                        <h3 className="text-sm font-semibold">Flood Event Details</h3>
-                        <p className="text-xs text-muted-foreground">{selected_props ? (selected_props.start_planning_area || "—") : "—"}</p>
+                        <h3 className="font-semibold">Flood Event Details</h3>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={clear_selection} className="h-7 w-7 p-0">
-                        <X className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="sm" onClick={clear_selection} className="h-8 w-8 p-0">
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
 
@@ -2698,7 +2729,7 @@ export default function floodevents() {
                     {/* (B) Bottom Section - Tabs with Flat Lists */}
                     <Card className="border">
                       <CardHeader className="pb-1 pt-2 px-2">
-                        <CardTitle className="text-xs font-semibold">Affected Infrastructure</CardTitle>
+                        <CardTitle className="font-semibold">Affected Infrastructure</CardTitle>
                       </CardHeader>
                       <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
                         <div className="border-b px-2 pt-0">
@@ -2713,7 +2744,7 @@ export default function floodevents() {
                         </div>
 
                         {/* Affected Amenities Tab - First */}
-                        <TabsContent value="amenities" className="px-2 pb-2 space-y-1 mt-2">
+                        <TabsContent value="amenities" className="px-2 py-2 space-y-1 mt-2">
                           {(() => {
                             // Get amenities from selected_stats
                             const center = selected_stats.center;
@@ -2749,18 +2780,18 @@ export default function floodevents() {
                             return (
                               <>
                                 {/* Search and Sort Controls */}
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-2">
                                   <div className="relative flex-1">
                                     <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                                     <Input
                                       placeholder="Search amenities..."
                                       value={amenity_search_term}
                                       onChange={(e) => set_amenity_search_term(e.target.value)}
-                                      className="pl-7 h-7 text-xs"
+                                      className="pl-7 h-8 text-xs"
                                     />
                                   </div>
                                   <Select value={amenity_sort} onValueChange={set_amenity_sort}>
-                                    <SelectTrigger className="w-24 h-7 text-xs">
+                                    <SelectTrigger className="w-24 h-8 text-xs">
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -2862,7 +2893,7 @@ export default function floodevents() {
                         </TabsContent>
 
                         {/* Affected Roads Tab - Second */}
-                        <TabsContent value="roads" className="px-2 pb-2 space-y-1 mt-2">
+                        <TabsContent value="roads" className="px-2 py-2 space-y-1 mt-2">
                           {(() => {
                             // Flatten roads from both bands, only if bands are enabled
                             const allRoads = [];
@@ -2889,18 +2920,18 @@ export default function floodevents() {
                             return (
                               <>
                                 {/* Search and Sort Controls */}
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-2">
                                   <div className="relative flex-1">
                                     <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                                     <Input
                                       placeholder="Search roads..."
                                       value={road_search_term}
                                       onChange={(e) => set_road_search_term(e.target.value)}
-                                      className="pl-7 h-7 text-xs"
+                                      className="pl-7 h-8 text-xs"
                                     />
                                   </div>
                                   <Select value={road_sort} onValueChange={set_road_sort}>
-                                    <SelectTrigger className="w-24 h-7 text-xs">
+                                    <SelectTrigger className="w-24 h-8 text-xs">
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
