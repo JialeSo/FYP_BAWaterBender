@@ -1,6 +1,6 @@
 import logging
-from typing import Optional
-from fastapi import APIRouter, Request, HTTPException, Header
+from typing import Optional, Dict, Any
+from fastapi import APIRouter, HTTPException, Header, Body
 from pydantic import BaseModel
 from app.controllers.weather_alerts_controller import weather_alerts_controller
 
@@ -20,21 +20,27 @@ class WeatherAlertProcessResponse(BaseModel):
 
 
 @router.post("/webhook")
-async def weather_alerts_webhook(request: Request):
+async def weather_alerts_webhook(payload: Dict[str, Any] = Body(...)):
     """Webhook endpoint for receiving weather alert messages.
 
     Processes messages through the WeatherAlertsPipeline and saves to database.
     Throws an error if pipeline processing fails.
     """
     try:
-        data = await request.json()
-        msg_id = data.get("id", "unknown")
+        if not isinstance(payload, dict) or not payload:
+            raise HTTPException(
+                status_code=400, detail="Request body must be a non-empty JSON object"
+            )
+
+        msg_id = payload.get("id", "unknown")
         logger.info(f"Received weather alert webhook: {msg_id}")
 
         # Process through the pipeline
-        result = await weather_alerts_controller.process_weather_alert(data)
+        result = await weather_alerts_controller.process_weather_alert(payload)
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing weather alert: {e}")
         raise HTTPException(
