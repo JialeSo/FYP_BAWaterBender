@@ -70,26 +70,52 @@ def parse_alert(text: str, alert_time: datetime) -> Dict[str, Any]:
     location_raw: Optional[str] = None
 
     # --- 1) classify event by stable cues and extract location text ---
-    if low.startswith("[risk of flash floods]"):
+    # Many templates start with emoji and/or brackets; relax to substring checks.
+    if "risk of flash floods" in low:
         out["event"] = "flash_flood_risk"
-        # Location is usually after the last ":" and before the next "[" (time)
-        colon_idx = text.rfind(":")
-        if colon_idx != -1:
-            bracket_idx = text.find("[", colon_idx + 1)
-            if bracket_idx == -1:
-                location_raw = text[colon_idx + 1 :].strip()
-            else:
-                location_raw = text[colon_idx + 1 : bracket_idx].strip()
+        # Prefer bullet-style location if present
+        location_raw = _extract_bullet_location(text)
+        if not location_raw:
+            # Fallback: after last ":" and before next "[" (time)
+            colon_idx = text.rfind(":")
+            if colon_idx != -1:
+                bracket_idx = text.find("[", colon_idx + 1)
+                if bracket_idx == -1:
+                    location_raw = text[colon_idx + 1 :].strip()
+                else:
+                    location_raw = text[colon_idx + 1 : bracket_idx].strip()
 
-    elif low.startswith("[flash flood occurred]"):
+    elif "[flash flood occurred]" in low:
         out["event"] = "flash_flood"
         # "Flash flood at <LOC>."
         location_raw = _text_after_before(text, "at", ".")
+
+    elif "flash flood at the following location" in low:
+        # Template: "Flash flood at the following location:\n\n• <LOC> [time]"
+        out["event"] = "flash_flood"
+        location_raw = _extract_bullet_location(text) or _text_after_before(
+            text, "location:", "["
+        )
+
+    elif "flash flood at" in low:
+        # Generic: "Flash flood at <LOC> ..." (without the special header)
+        out["event"] = out.get("event") or "flash_flood"
+        # Try between "flash flood at" and "[" or "."
+        loc = _text_after_before(text, "flash flood at", "[") or _text_after_before(
+            text, "flash flood at", "."
+        )
+        location_raw = loc or location_raw
 
     elif "subsided at" in low:
         out["event"] = "flood_subsided"
         # "subsided at <LOC>."
         location_raw = _text_after_before(text, "subsided at", ".")
+
+    elif "has subsided" in low and "flash flood at" in low:
+        # Template: "Flash flood at <LOC> has subsided."
+        out["event"] = "flood_subsided"
+        loc = _text_after_before(text, "flash flood at", "has subsided")
+        location_raw = loc or location_raw
 
     elif "heavy rain expected" in low:
         out["event"] = "heavy_rain"
@@ -178,6 +204,30 @@ def _first_bracket_content(s: str) -> Optional[str]:
     if l != -1 and r != -1 and r > l + 1:
         return s[l + 1 : r]
     return None
+
+
+def _extract_bullet_location(s: str) -> Optional[str]:
+    """
+    Extract first bullet-point location, e.g.:
+    - \"• TPE (Punggol West Flyover) [20:27 hours]\"
+    - \"• Enterprise Road [Issued 16:05 hours]\"
+    """
+    bullet_idx = s.find("•")
+    if bullet_idx == -1:
+        return None
+
+    segment = s[bullet_idx + 1 :].lstrip()
+    # Take first non-empty line
+    lines = [ln for ln in segment.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    first = lines[0]
+    # Strip trailing time / bracket section
+    if "[" in first:
+        first = first.split("[", 1)[0]
+    # Remove trailing sentence endings
+    first = first.strip(" .;:-")
+    return first or None
 
 
 def _text_after_before(
