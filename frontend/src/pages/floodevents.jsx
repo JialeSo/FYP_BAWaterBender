@@ -354,6 +354,11 @@ export default function floodevents() {
     });
     return out;
   });
+
+  // Pending state for ring radii
+  const [pendingRInner, setPendingRInner] = useState(200);
+  const [pendingROuter, setPendingROuter] = useState(500);
+
   const [pendingInnerMult, setPendingInnerMult] = useState(2);
   const [pendingOuterMult, setPendingOuterMult] = useState(1);
   const [pendingInnerEnabled, setPendingInnerEnabled] = useState(true);
@@ -375,6 +380,11 @@ export default function floodevents() {
       key => (cat_enabled[key] ?? true) !== (pendingCatEnabled[key] ?? true)
     );
 
+    // Check ring radii
+    const radiusChanges =
+      Math.abs(r_inner - pendingRInner) > 0.001 ||
+      Math.abs(r_outer - pendingROuter) > 0.001;
+
     // Check band weights
     const bandChanges =
       Math.abs(inner_mult - pendingInnerMult) > 0.001 ||
@@ -389,10 +399,12 @@ export default function floodevents() {
       Math.abs(w_amenity - pendingWAmenity) > 0.001 ||
       Math.abs(w_roads - pendingWRoads) > 0.001;
 
-    return catWeightChanges || catEnabledChanges || bandChanges || arWeightChanges;
+    return catWeightChanges || catEnabledChanges || radiusChanges || bandChanges || arWeightChanges;
   }, [
     cat_weights, pendingCatWeights,
     cat_enabled, pendingCatEnabled,
+    r_inner, pendingRInner,
+    r_outer, pendingROuter,
     inner_mult, pendingInnerMult,
     outer_mult, pendingOuterMult,
     inner_enabled, pendingInnerEnabled,
@@ -407,6 +419,8 @@ export default function floodevents() {
   const applyConfigChanges = useCallback(() => {
     setCatWeights({ ...pendingCatWeights });
     setCatEnabled({ ...pendingCatEnabled });
+    set_r_inner(pendingRInner);
+    set_r_outer(pendingROuter);
     set_inner_mult(pendingInnerMult);
     set_outer_mult(pendingOuterMult);
     set_inner_enabled(pendingInnerEnabled);
@@ -417,6 +431,7 @@ export default function floodevents() {
     set_w_roads(pendingWRoads);
   }, [
     pendingCatWeights, pendingCatEnabled,
+    pendingRInner, pendingROuter,
     pendingInnerMult, pendingOuterMult,
     pendingInnerEnabled, pendingOuterEnabled,
     pendingWBetweenness, pendingWCloseness,
@@ -427,6 +442,8 @@ export default function floodevents() {
   const resetConfigChanges = useCallback(() => {
     setPendingCatWeights({ ...cat_weights });
     setPendingCatEnabled({ ...cat_enabled });
+    setPendingRInner(r_inner);
+    setPendingROuter(r_outer);
     setPendingInnerMult(inner_mult);
     setPendingOuterMult(outer_mult);
     setPendingInnerEnabled(inner_enabled);
@@ -437,6 +454,7 @@ export default function floodevents() {
     setPendingWRoads(w_roads);
   }, [
     cat_weights, cat_enabled,
+    r_inner, r_outer,
     inner_mult, outer_mult,
     inner_enabled, outer_enabled,
     w_betweenness, w_closeness,
