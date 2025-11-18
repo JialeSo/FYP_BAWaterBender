@@ -526,6 +526,28 @@ export default function floodevents() {
   const [to_str, set_to_str] = useState("");
   const [pa_filter, set_pa_filter] = useState([]);
   const [metric_filters, set_metric_filters] = useState(createMetricFilterState);
+
+  // Pending filter states (for "Apply Filters" pattern)
+  const [pending_q, set_pending_q] = useState("");
+  const [pending_event_types_filter, set_pending_event_types_filter] = useState([]);
+  const [pending_from_str, set_pending_from_str] = useState("");
+  const [pending_to_str, set_pending_to_str] = useState("");
+  const [pending_pa_filter, set_pending_pa_filter] = useState([]);
+
+  // Slider filter states (active and pending)
+  const [roads_total_min, set_roads_total_min] = useState("");
+  const [roads_total_max, set_roads_total_max] = useState("");
+  const [ring_total_min, set_ring_total_min] = useState("");
+  const [ring_total_max, set_ring_total_max] = useState("");
+  const [ar_impact_min, set_ar_impact_min] = useState("");
+  const [ar_impact_max, set_ar_impact_max] = useState("");
+
+  const [pending_roads_total_min, set_pending_roads_total_min] = useState("");
+  const [pending_roads_total_max, set_pending_roads_total_max] = useState("");
+  const [pending_ring_total_min, set_pending_ring_total_min] = useState("");
+  const [pending_ring_total_max, set_pending_ring_total_max] = useState("");
+  const [pending_ar_impact_min, set_pending_ar_impact_min] = useState("");
+  const [pending_ar_impact_max, set_pending_ar_impact_max] = useState("");
   const from_date = useMemo(() => (from_str ? new Date(from_str) : null), [from_str]);
   const to_date = useMemo(() => (to_str ? new Date(to_str) : null), [to_str]);
   const [selected, set_selected] = useState(null);
@@ -1088,6 +1110,10 @@ export default function floodevents() {
       if (!passesRange(r.impact_inner, metric_filters.impactInner)) return false;
       if (!passesRange(r.impact_outer, metric_filters.impactOuter)) return false;
       if (!passesRange(r.impact_total, metric_filters.impactTotal)) return false;
+      // Check slider filters
+      if (!passesRange(r.roads_total, { min: roads_total_min, max: roads_total_max })) return false;
+      if (!passesRange(r.ring_total, { min: ring_total_min, max: ring_total_max })) return false;
+      if (!passesRange(r.ar_impact, { min: ar_impact_min, max: ar_impact_max })) return false;
       if (!needle) return true;
       const haystacks = [
         r.id,
@@ -1097,7 +1123,7 @@ export default function floodevents() {
       ];
       return haystacks.some((txt) => String(txt).toLowerCase().includes(needle));
     });
-  }, [rows, q, event_types_filter, from_date, to_date, pa_filter, metric_filters]);
+  }, [rows, q, event_types_filter, from_date, to_date, pa_filter, metric_filters, roads_total_min, roads_total_max, ring_total_min, ring_total_max, ar_impact_min, ar_impact_max]);
 
   const has_active_metric_filters = useMemo(() => {
     return Object.values(metric_filters).some((range) => {
@@ -1106,6 +1132,99 @@ export default function floodevents() {
       return minActive || maxActive;
     });
   }, [metric_filters]);
+
+  // Calculate max values for slider filters
+  const maxValues = useMemo(() => {
+    if (!rows.length) return { roads_total: 100, ring_total: 100, ar_impact: 10 };
+    return {
+      roads_total: Math.max(...rows.map(r => r.roads_total || 0)),
+      ring_total: Math.max(...rows.map(r => r.ring_total || 0)),
+      ar_impact: Math.max(...rows.map(r => r.ar_impact || 0)),
+    };
+  }, [rows]);
+
+  // Check if there are unapplied filter changes
+  const hasUnappliedFilterChanges = useMemo(() => {
+    return (
+      pending_q !== q ||
+      JSON.stringify(pending_event_types_filter.sort()) !== JSON.stringify(event_types_filter.sort()) ||
+      pending_from_str !== from_str ||
+      pending_to_str !== to_str ||
+      JSON.stringify(pending_pa_filter.sort()) !== JSON.stringify(pa_filter.sort()) ||
+      pending_roads_total_min !== roads_total_min ||
+      pending_roads_total_max !== roads_total_max ||
+      pending_ring_total_min !== ring_total_min ||
+      pending_ring_total_max !== ring_total_max ||
+      pending_ar_impact_min !== ar_impact_min ||
+      pending_ar_impact_max !== ar_impact_max
+    );
+  }, [
+    pending_q, q,
+    pending_event_types_filter, event_types_filter,
+    pending_from_str, from_str,
+    pending_to_str, to_str,
+    pending_pa_filter, pa_filter,
+    pending_roads_total_min, roads_total_min,
+    pending_roads_total_max, roads_total_max,
+    pending_ring_total_min, ring_total_min,
+    pending_ring_total_max, ring_total_max,
+    pending_ar_impact_min, ar_impact_min,
+    pending_ar_impact_max, ar_impact_max,
+  ]);
+
+  // Apply pending filters to active filters
+  const applyTableFilters = useCallback(() => {
+    set_q(pending_q);
+    set_event_types_filter(pending_event_types_filter);
+    set_from_str(pending_from_str);
+    set_to_str(pending_to_str);
+    set_pa_filter(pending_pa_filter);
+    set_roads_total_min(pending_roads_total_min);
+    set_roads_total_max(pending_roads_total_max);
+    set_ring_total_min(pending_ring_total_min);
+    set_ring_total_max(pending_ring_total_max);
+    set_ar_impact_min(pending_ar_impact_min);
+    set_ar_impact_max(pending_ar_impact_max);
+    set_page(1);
+    // Clear map selection when filters change
+    clear_selection();
+  }, [
+    pending_q, pending_event_types_filter, pending_from_str, pending_to_str, pending_pa_filter,
+    pending_roads_total_min, pending_roads_total_max,
+    pending_ring_total_min, pending_ring_total_max,
+    pending_ar_impact_min, pending_ar_impact_max,
+  ]);
+
+  // Clear all filters (both pending and active)
+  const clearAllTableFilters = useCallback(() => {
+    // Clear active filters
+    set_q("");
+    set_event_types_filter([]);
+    set_from_str("");
+    set_to_str("");
+    set_pa_filter([]);
+    set_roads_total_min("");
+    set_roads_total_max("");
+    set_ring_total_min("");
+    set_ring_total_max("");
+    set_ar_impact_min("");
+    set_ar_impact_max("");
+    // Clear pending filters
+    set_pending_q("");
+    set_pending_event_types_filter([]);
+    set_pending_from_str("");
+    set_pending_to_str("");
+    set_pending_pa_filter([]);
+    set_pending_roads_total_min("");
+    set_pending_roads_total_max("");
+    set_pending_ring_total_min("");
+    set_pending_ring_total_max("");
+    set_pending_ar_impact_min("");
+    set_pending_ar_impact_max("");
+    set_page(1);
+    // Clear map selection
+    clear_selection();
+  }, []);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -2760,169 +2879,266 @@ export default function floodevents() {
             )}
         </div>
       </div>
-      <section className="rounded-3xl border border-border bg-card shadow-sm">
-        {/* Table controls */}
-        <div className="px-6 py-4 border-b">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                Page {page_safe} of {total_pages} ({filtered.length} events)
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    choose columns
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-[360px] max-h-[80vh] p-0">
-                  <div className="p-2 flex flex-col max-h-[80vh]">
-                    <div className="flex items-center justify-between mb-2 shrink-0">
-                      <span className="text-xs font-semibold uppercase tracking-wide">columns</span>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
-                          const allKeys = {};
-                          columns.forEach(c => allKeys[c.key] = true);
-                          set_visible_cols(allKeys);
-                        }}>
-                          all
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
-                          const noneKeys = {};
-                          columns.forEach(c => noneKeys[c.key] = false);
-                          set_visible_cols(noneKeys);
-                        }}>
-                          none
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => set_visible_cols({
-                          id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
-                          roads_total: true, ring_total: true, betweenness_norm: true, closeness_norm: true, ar_impact: true,
-                          roads_inner: false, roads_outer: false, ring_inner: false, ring_outer: false,
-                          impact_inner: false, impact_outer: false, impact_total: false,
-                          start_postal_code: false, start_lat: false, start_lng: false,
-                        })}>
-                          reset
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="overflow-y-auto flex-1 min-h-0 pr-2">
-                      <div className="space-y-1 pb-2">
-                        {columns.map((c) => {
-                          const active = visible_cols[c.key];
-                          return (
-                            <label key={c.key} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted cursor-pointer">
-                              <span className="text-sm truncate mr-2">{c.label}</span>
-                              <input
-                                type="checkbox"
-                                className="accent-primary shrink-0"
-                                checked={active}
-                                onChange={() => {
-                                  set_visible_cols((prev) => ({ ...prev, [c.key]: !active }));
-                                }}
-                              />
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
+      <section className="rounded-3xl border border-border bg-card shadow-sm p-6">
+        {/* Table Header */}
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">All Flood Events</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            All flood events in Singapore, click on any to visualise it on the map
+          </p>
+        </div>
 
-          {/* Filter Accordion */}
-          <Accordion type="single" collapsible className="mt-4">
-            <AccordionItem value="filters" className="border-none">
-              <AccordionTrigger className="py-3 text-sm hover:no-underline">
-                <span className="flex items-center gap-2">
-                  Filters
-                  {(event_types_filter.length > 0 || pa_filter.length > 0 || from_str || to_str || q.trim()) && (
-                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Active</span>
-                  )}
+        {/* Filter Accordion */}
+        <Accordion type="single" collapsible className="mb-4">
+          <AccordionItem value="filters" className="border rounded-lg bg-background">
+            <AccordionTrigger className="px-3 py-2 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">Filters</span>
+                <span className="text-xs text-muted-foreground">
+                  ({(event_types_filter.length > 0 || pa_filter.length > 0 || from_str || to_str || q.trim() || roads_total_min || roads_total_max || ring_total_min || ring_total_max || ar_impact_min || ar_impact_max) ? 'Active' : 'None'})
                 </span>
-              </AccordionTrigger>
-              <AccordionContent className="pb-4">
-                <div className="grid gap-4 md:grid-cols-12 pt-2">
-                  <div className="space-y-1.5 md:col-span-4">
+                {hasUnappliedFilterChanges && (
+                  <span className="px-2 py-1 rounded-md text-sm font-bold text-orange-700">
+                    • Unapplied Changes
+                  </span>
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-3 pb-2">
+              <p className="text-xs text-muted-foreground mb-3">
+                Adjust filters below, then click "Apply Filters" to update the table and map
+              </p>
+
+              {/* Event Filters Card */}
+              <div className="rounded-lg border bg-muted/20 p-3 mb-3">
+                <Label className="text-sm font-medium mb-3 block">Event Filters</Label>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="space-y-1.5">
                     <Label htmlFor="flood-search" className="text-sm">Search</Label>
                     <Input
                       id="flood-search"
-                      value={q}
-                      onChange={(e) => {
-                        set_q(e.target.value);
-                        set_page(1);
-                      }}
+                      value={pending_q}
+                      onChange={(e) => set_pending_q(e.target.value)}
                       placeholder="Search by ID, location or road"
                     />
                   </div>
 
-                  <div className="md:col-span-3">
+                  <div>
                     <MultiSelectFilter
                       id="event-type"
                       label="Event Type"
                       options={event_type_options.filter(opt => opt !== "all")}
-                      values={event_types_filter}
-                      onChange={(selected) => {
-                        set_event_types_filter(selected);
-                        set_page(1);
-                      }}
+                      values={pending_event_types_filter}
+                      onChange={set_pending_event_types_filter}
                       placeholder="All Event Types"
                     />
                   </div>
 
-                  <div className="md:col-span-3">
+                  <div>
                     <MultiSelectFilter
                       id="planning-area"
                       label="Planning Area"
                       options={pa_options}
-                      values={pa_filter}
-                      onChange={(next) => {
-                        set_pa_filter(next);
-                        set_page(1);
-                      }}
+                      values={pending_pa_filter}
+                      onChange={set_pending_pa_filter}
                       placeholder="All Planning Areas"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 md:col-span-1">
-                    <Label htmlFor="from-date" className="text-sm">From Date</Label>
-                    <Input
-                      id="from-date"
-                      type="date"
-                      value={from_str}
-                      onChange={(e) => {
-                        set_from_str(e.target.value);
-                        set_page(1);
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 md:col-span-1">
-                    <Label htmlFor="to-date" className="text-sm">To Date</Label>
-                    <Input
-                      id="to-date"
-                      type="date"
-                      value={to_str}
-                      onChange={(e) => {
-                        set_to_str(e.target.value);
-                        set_page(1);
-                      }}
                     />
                   </div>
                 </div>
 
-                {(event_types_filter.length > 0 || pa_filter.length > 0 || from_str || to_str || q.trim()) && (
-                  <div className="mt-3">
-                    <Button variant="ghost" size="sm" onClick={reset_all_filters}>
-                      Clear all filters
-                    </Button>
+                {/* Date Filters on New Row */}
+                <div className="grid gap-3 md:grid-cols-2 mt-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="from-date" className="text-sm">From Date</Label>
+                    <Input
+                      id="from-date"
+                      type="date"
+                      value={pending_from_str}
+                      onChange={(e) => set_pending_from_str(e.target.value)}
+                    />
                   </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="to-date" className="text-sm">To Date</Label>
+                    <Input
+                      id="to-date"
+                      type="date"
+                      value={pending_to_str}
+                      onChange={(e) => set_pending_to_str(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Value Filters Card */}
+              <div className="rounded-lg border bg-muted/20 p-3 mb-3">
+                <Label className="text-sm font-medium mb-3 block">Value Filters</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Roads Affected */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Roads Affected</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {pending_roads_total_min || 0} - {pending_roads_total_max || maxValues.roads_total}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={maxValues.roads_total}
+                      step={1}
+                      value={[
+                        pending_roads_total_min !== "" ? parseFloat(pending_roads_total_min) : 0,
+                        pending_roads_total_max !== "" ? parseFloat(pending_roads_total_max) : maxValues.roads_total
+                      ]}
+                      onValueChange={([min, max]) => {
+                        set_pending_roads_total_min(String(min));
+                        set_pending_roads_total_max(String(max));
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Amenities Affected */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Amenities Affected</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {pending_ring_total_min || 0} - {pending_ring_total_max || maxValues.ring_total}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={maxValues.ring_total}
+                      step={1}
+                      value={[
+                        pending_ring_total_min !== "" ? parseFloat(pending_ring_total_min) : 0,
+                        pending_ring_total_max !== "" ? parseFloat(pending_ring_total_max) : maxValues.ring_total
+                      ]}
+                      onValueChange={([min, max]) => {
+                        set_pending_ring_total_min(String(min));
+                        set_pending_ring_total_max(String(max));
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* AR Impact */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">AR Impact Score</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {pending_ar_impact_min || "0"} - {pending_ar_impact_max || maxValues.ar_impact.toFixed(3)}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={maxValues.ar_impact}
+                      step={0.001}
+                      value={[
+                        pending_ar_impact_min !== "" ? parseFloat(pending_ar_impact_min) : 0,
+                        pending_ar_impact_max !== "" ? parseFloat(pending_ar_impact_max) : maxValues.ar_impact
+                      ]}
+                      onValueChange={([min, max]) => {
+                        set_pending_ar_impact_min(min.toFixed(3));
+                        set_pending_ar_impact_max(max.toFixed(3));
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex justify-between items-center pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllTableFilters}
+                >
+                  Clear All Filters
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={applyTableFilters}
+                  disabled={!hasUnappliedFilterChanges}
+                  className={hasUnappliedFilterChanges ? "bg-primary" : ""}
+                >
+                  Apply Filters
+                </Button>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {/* Table controls */}
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Page {page_safe} of {total_pages} ({filtered.length} events)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  choose columns
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[360px] max-h-[80vh] p-0">
+                <div className="p-2 flex flex-col max-h-[80vh]">
+                  <div className="flex items-center justify-between mb-2 shrink-0">
+                    <span className="text-xs font-semibold uppercase tracking-wide">columns</span>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
+                        const allKeys = {};
+                        columns.forEach(c => allKeys[c.key] = true);
+                        set_visible_cols(allKeys);
+                      }}>
+                        all
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
+                        const noneKeys = {};
+                        columns.forEach(c => noneKeys[c.key] = false);
+                        set_visible_cols(noneKeys);
+                      }}>
+                        none
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => set_visible_cols({
+                        id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
+                        roads_total: true, ring_total: true, betweenness_norm: true, closeness_norm: true, ar_impact: true,
+                        roads_inner: false, roads_outer: false, ring_inner: false, ring_outer: false,
+                        impact_inner: false, impact_outer: false, impact_total: false,
+                        start_postal_code: false, start_lat: false, start_lng: false,
+                      })}>
+                        reset
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto flex-1 min-h-0 pr-2">
+                    <div className="space-y-1 pb-2">
+                      {columns.map((c) => {
+                        const active = visible_cols[c.key];
+                        return (
+                          <label key={c.key} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted cursor-pointer">
+                            <span className="text-sm truncate mr-2">{c.label}</span>
+                            <input
+                              type="checkbox"
+                              className="accent-primary shrink-0"
+                              checked={active}
+                              onChange={() => {
+                                set_visible_cols((prev) => ({ ...prev, [c.key]: !active }));
+                              }}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         <div className="overflow-auto">
