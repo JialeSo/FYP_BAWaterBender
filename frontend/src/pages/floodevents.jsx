@@ -63,7 +63,15 @@ const format_option_label = (value, fallback) => {
 const date_in_range = (dt, from, to) => { if (!dt) return true; if (from && dt < from) return false; if (to && dt > to) return false; return true; };
 const dist_m = (lng1, lat1, lng2, lat2) => turf.distance([lng1, lat1], [lng2, lat2], { units: "kilometers" }) * 1000;
 
-// Metric filters removed - no longer used in UI
+// Metric filters - keep state for backward compatibility but no UI to change them
+const createMetricFilterState = () => ({
+  inner: { min: "", max: "" },
+  total: { min: "", max: "" },
+  centrality: { min: "", max: "" },
+  impactInner: { min: "", max: "" },
+  impactOuter: { min: "", max: "" },
+  impactTotal: { min: "", max: "" },
+});
 
 const METRIC_SUMMARY_ROWS = [
   {
@@ -2754,18 +2762,11 @@ export default function floodevents() {
       </div>
       <section className="rounded-3xl border border-border bg-card shadow-sm">
         <div className="px-6 py-5 space-y-6">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Filters</h2>
-              <p className="text-sm text-muted-foreground">
-                Use the ranges below to focus the flood list on amenity density, impact and road centrality.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" onClick={reset_metric_filters} disabled={!has_active_metric_filters}>
-                Clear metric ranges
-              </Button>
-            </div>
+          <div>
+            <h2 className="text-lg font-semibold">Filters</h2>
+            <p className="text-sm text-muted-foreground">
+              Filter flood events by search, type, planning area, and date range.
+            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-12">
@@ -2835,50 +2836,6 @@ export default function floodevents() {
                 }}
               />
             </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-            {METRIC_FILTER_CONFIG.map((metric) => {
-              const range = metric_filters[metric.key] || { min: "", max: "" };
-              const step = metric.step ?? 1;
-              const bounds = metric_bounds[metric.key] || { min: 0, max: 100 };
-
-              // Parse current filter values, default to bounds if empty
-              const parsedMin = range.min !== "" ? parseFloat(range.min) : bounds.min;
-              const parsedMax = range.max !== "" ? parseFloat(range.max) : bounds.max;
-              const sliderValue = [
-                Number.isFinite(parsedMin) ? parsedMin : bounds.min,
-                Number.isFinite(parsedMax) ? parsedMax : bounds.max
-              ];
-
-              return (
-                <div key={metric.key} className="space-y-2">
-                  <Label>{metric.label}</Label>
-                  <div className="space-y-3 pt-2">
-                    <Slider
-                      value={sliderValue}
-                      min={bounds.min}
-                      max={bounds.max}
-                      step={step}
-                      onValueChange={(value) => {
-                        if (value && value.length === 2) {
-                          // Only update if values changed from bounds (user is filtering)
-                          const isDefaultRange = value[0] === bounds.min && value[1] === bounds.max;
-                          set_metric_range(metric.key, "min", isDefaultRange ? "" : value[0].toString());
-                          set_metric_range(metric.key, "max", isDefaultRange ? "" : value[1].toString());
-                        }
-                      }}
-                      className="w-full"
-                    />
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{sliderValue[0].toFixed(step < 1 ? 2 : 0)}</span>
-                      <span>{sliderValue[1].toFixed(step < 1 ? 2 : 0)}</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{metric.description}</p>
-                </div>
-              );
-            })}
           </div>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
