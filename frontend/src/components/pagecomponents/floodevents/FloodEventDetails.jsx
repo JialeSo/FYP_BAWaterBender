@@ -3,9 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MapPin, Search, X } from "lucide-react";
 import * as turf from "@turf/turf";
 import { to_title_case } from "./utils";
+import { useState } from "react";
 
 export function FloodEventDetails({
   selected,
@@ -26,6 +34,9 @@ export function FloodEventDetails({
   map_ref,
   onClose,
 }) {
+  const [amenity_sort, set_amenity_sort] = useState("all"); // "all", "inner", "outer"
+  const [road_sort, set_road_sort] = useState("all"); // "all", "inner", "outer"
+
   if (!selected || !selected_stats) {
     return (
       <div className="h-full flex items-center justify-center px-6">
@@ -146,8 +157,11 @@ export function FloodEventDetails({
 
           {/* Tabs with Amenities and Roads Lists */}
           <Card className="border">
+            <CardHeader className="pb-1 pt-1.5 px-2">
+              <CardTitle className="text-xs font-semibold">Affected Infrastructure</CardTitle>
+            </CardHeader>
             <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
-              <div className="border-b px-2 pt-2">
+              <div className="border-b px-2 pt-0">
                 <TabsList className="w-full grid grid-cols-2 h-8">
                   <TabsTrigger value="amenities" className="text-[10px]">
                     Amenities ({selected_stats.counts?.total ?? 0})
@@ -163,7 +177,7 @@ export function FloodEventDetails({
                 {(() => {
                   const center = selected_stats.center;
                   if (!center) {
-                    return <p className="text-xs text-muted-foreground py-6 text-center">No location data</p>;
+                    return <p className="text-xs text-muted-foreground py-3 text-center">No location data</p>;
                   }
 
                   // Query amenities in both rings, only if bands are enabled
@@ -178,24 +192,41 @@ export function FloodEventDetails({
                   const allAmenities = [...innerAmenities, ...outerAmenities];
 
                   // Filter by search
-                  const filteredAmenities = amenity_search_term.trim()
+                  let filteredAmenities = amenity_search_term.trim()
                     ? allAmenities.filter(a =>
                         (a.name || "").toLowerCase().includes(amenity_search_term.toLowerCase()) ||
                         (a.category || "").toLowerCase().includes(amenity_search_term.toLowerCase())
                       )
                     : allAmenities;
 
+                  // Filter by band
+                  if (amenity_sort !== "all") {
+                    filteredAmenities = filteredAmenities.filter(a => a.band === amenity_sort);
+                  }
+
                   return (
                     <>
-                      {/* Search input */}
-                      <div className="relative">
-                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                        <Input
-                          placeholder="Search amenities..."
-                          value={amenity_search_term}
-                          onChange={(e) => set_amenity_search_term(e.target.value)}
-                          className="pl-7 h-7 text-xs"
-                        />
+                      {/* Search and Sort Controls */}
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                          <Input
+                            placeholder="Search amenities..."
+                            value={amenity_search_term}
+                            onChange={(e) => set_amenity_search_term(e.target.value)}
+                            className="pl-7 h-7 text-xs"
+                          />
+                        </div>
+                        <Select value={amenity_sort} onValueChange={set_amenity_sort}>
+                          <SelectTrigger className="w-24 h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all" className="text-xs">All</SelectItem>
+                            <SelectItem value="inner" className="text-xs">Inner</SelectItem>
+                            <SelectItem value="outer" className="text-xs">Outer</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {filteredAmenities.length > 0 ? (
@@ -258,8 +289,8 @@ export function FloodEventDetails({
                           </div>
                         </ScrollArea>
                       ) : (
-                        <p className="text-xs text-muted-foreground py-6 text-center">
-                          {amenity_search_term.trim() ? "No amenities match your search" : "No affected amenities"}
+                        <p className="text-xs text-muted-foreground py-3 text-center">
+                          {amenity_search_term.trim() || amenity_sort !== "all" ? "No amenities match your filters" : "No affected amenities"}
                         </p>
                       )}
                     </>
@@ -280,24 +311,41 @@ export function FloodEventDetails({
                   }
 
                   // Filter by search
-                  const filteredRoads = road_search_term.trim()
+                  let filteredRoads = road_search_term.trim()
                     ? allRoads.filter(r =>
                         (r.name || "").toLowerCase().includes(road_search_term.toLowerCase()) ||
                         String(r.rn_id || r.RN_ID || "").includes(road_search_term)
                       )
                     : allRoads;
 
+                  // Filter by band
+                  if (road_sort !== "all") {
+                    filteredRoads = filteredRoads.filter(r => r.band === road_sort);
+                  }
+
                   return (
                     <>
-                      {/* Search input */}
-                      <div className="relative">
-                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                        <Input
-                          placeholder="Search roads..."
-                          value={road_search_term}
-                          onChange={(e) => set_road_search_term(e.target.value)}
-                          className="pl-7 h-7 text-xs"
-                        />
+                      {/* Search and Sort Controls */}
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                          <Input
+                            placeholder="Search roads..."
+                            value={road_search_term}
+                            onChange={(e) => set_road_search_term(e.target.value)}
+                            className="pl-7 h-7 text-xs"
+                          />
+                        </div>
+                        <Select value={road_sort} onValueChange={set_road_sort}>
+                          <SelectTrigger className="w-24 h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all" className="text-xs">All</SelectItem>
+                            <SelectItem value="inner" className="text-xs">Inner</SelectItem>
+                            <SelectItem value="outer" className="text-xs">Outer</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {filteredRoads.length > 0 ? (
@@ -369,8 +417,8 @@ export function FloodEventDetails({
                           </div>
                         </ScrollArea>
                       ) : (
-                        <p className="text-xs text-muted-foreground py-6 text-center">
-                          {road_search_term.trim() ? "No roads match your search" : "No affected roads"}
+                        <p className="text-xs text-muted-foreground py-3 text-center">
+                          {road_search_term.trim() || road_sort !== "all" ? "No roads match your filters" : "No affected roads"}
                         </p>
                       )}
                     </>

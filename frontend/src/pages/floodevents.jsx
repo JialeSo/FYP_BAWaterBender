@@ -1250,7 +1250,30 @@ export default function floodevents() {
     return sorted.slice(start, start + page_size);
   }, [sorted, page_safe]);
 
+  // Create filtered GeoJSON for map
+  const filtered_fc = useMemo(() => {
+    if (!floods_fc?.features) return { type: "FeatureCollection", features: [] };
+    const filtered_ids = new Set(filtered.map(r => String(r.id)));
+    const filtered_features = floods_fc.features.filter(f => {
+      const id = String(f.properties?.id ?? f.id ?? "");
+      return filtered_ids.has(id);
+    });
+    return { type: "FeatureCollection", features: filtered_features };
+  }, [floods_fc, filtered]);
+
   const bounds = useMemo(() => bounds_from_floods(floods_fc), [floods_fc]);
+
+  // Update map when filters change
+  useEffect(() => {
+    const map = map_ref.current;
+    if (!map || !map.getSource("floods")) return;
+
+    try {
+      map.getSource("floods").setData(filtered_fc);
+    } catch (error) {
+      console.error("Error updating map floods source:", error);
+    }
+  }, [filtered_fc]);
 
   /* ===== map init ===== */
   useEffect(() => {
@@ -2881,11 +2904,77 @@ export default function floodevents() {
       </div>
       <section className="rounded-3xl border border-border bg-card shadow-sm p-6">
         {/* Table Header */}
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">All Flood Events</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            All flood events in Singapore, click on any to visualise it on the map
-          </p>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">All Flood Events</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              All flood events in Singapore, click on any to visualise it on the map
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  choose columns
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[360px] max-h-[80vh] p-0">
+                <div className="p-2 flex flex-col max-h-[80vh]">
+                  <div className="flex items-center justify-between mb-2 shrink-0">
+                    <span className="text-xs font-semibold uppercase tracking-wide">columns</span>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
+                        const allKeys = {};
+                        columns.forEach(c => allKeys[c.key] = true);
+                        set_visible_cols(allKeys);
+                      }}>
+                        all
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
+                        const noneKeys = {};
+                        columns.forEach(c => noneKeys[c.key] = false);
+                        set_visible_cols(noneKeys);
+                      }}>
+                        none
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => set_visible_cols({
+                        id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
+                        roads_total: true, ring_total: true, betweenness_norm: true, closeness_norm: true, ar_impact: true,
+                        roads_inner: false, roads_outer: false, ring_inner: false, ring_outer: false,
+                        impact_inner: false, impact_outer: false, impact_total: false,
+                        start_postal_code: false, start_lat: false, start_lng: false,
+                      })}>
+                        reset
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto flex-1 min-h-0 pr-2">
+                    <div className="space-y-1 pb-2">
+                      {columns.map((c) => {
+                        const active = visible_cols[c.key];
+                        return (
+                          <label key={c.key} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted cursor-pointer">
+                            <span className="text-sm truncate mr-2">{c.label}</span>
+                            <input
+                              type="checkbox"
+                              className="accent-primary shrink-0"
+                              checked={active}
+                              onChange={() => {
+                                set_visible_cols((prev) => ({ ...prev, [c.key]: !active }));
+                              }}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button variant="secondary" size="sm" onClick={export_csv}>
+              Export CSV
+            </Button>
+          </div>
         </div>
 
         {/* Filter Accordion */}
@@ -3071,73 +3160,28 @@ export default function floodevents() {
           </AccordionItem>
         </Accordion>
 
-        {/* Table controls */}
+        {/* Table controls - Pagination */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <span className="text-sm text-muted-foreground">
+            Page {page_safe} of {total_pages} ({filtered.length} events)
+          </span>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Page {page_safe} of {total_pages} ({filtered.length} events)
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  choose columns
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-[360px] max-h-[80vh] p-0">
-                <div className="p-2 flex flex-col max-h-[80vh]">
-                  <div className="flex items-center justify-between mb-2 shrink-0">
-                    <span className="text-xs font-semibold uppercase tracking-wide">columns</span>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
-                        const allKeys = {};
-                        columns.forEach(c => allKeys[c.key] = true);
-                        set_visible_cols(allKeys);
-                      }}>
-                        all
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
-                        const noneKeys = {};
-                        columns.forEach(c => noneKeys[c.key] = false);
-                        set_visible_cols(noneKeys);
-                      }}>
-                        none
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => set_visible_cols({
-                        id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
-                        roads_total: true, ring_total: true, betweenness_norm: true, closeness_norm: true, ar_impact: true,
-                        roads_inner: false, roads_outer: false, ring_inner: false, ring_outer: false,
-                        impact_inner: false, impact_outer: false, impact_total: false,
-                        start_postal_code: false, start_lat: false, start_lng: false,
-                      })}>
-                        reset
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="overflow-y-auto flex-1 min-h-0 pr-2">
-                    <div className="space-y-1 pb-2">
-                      {columns.map((c) => {
-                        const active = visible_cols[c.key];
-                        return (
-                          <label key={c.key} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted cursor-pointer">
-                            <span className="text-sm truncate mr-2">{c.label}</span>
-                            <input
-                              type="checkbox"
-                              className="accent-primary shrink-0"
-                              checked={active}
-                              onChange={() => {
-                                set_visible_cols((prev) => ({ ...prev, [c.key]: !active }));
-                              }}
-                            />
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => set_page((p) => clamp(p - 1, 1, total_pages))}
+              disabled={page_safe <= 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => set_page((p) => clamp(p + 1, 1, total_pages))}
+              disabled={page_safe >= total_pages}
+            >
+              Next
+            </Button>
           </div>
         </div>
 
@@ -3203,16 +3247,14 @@ export default function floodevents() {
           </table>
         </div>
 
-        <div className="flex flex-col gap-3 border-t px-6 py-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t px-6 py-4">
           <span className="text-sm text-muted-foreground">
-            Page {page_safe} of {total_pages}
+            Page {page_safe} of {total_pages} ({filtered.length} events)
           </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" onClick={reset_all_filters}>
-              Reset Filters
-            </Button>
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => set_page((p) => clamp(p - 1, 1, total_pages))}
               disabled={page_safe <= 1}
             >
@@ -3220,13 +3262,11 @@ export default function floodevents() {
             </Button>
             <Button
               variant="outline"
+              size="sm"
               onClick={() => set_page((p) => clamp(p + 1, 1, total_pages))}
               disabled={page_safe >= total_pages}
             >
               Next
-            </Button>
-            <Button variant="secondary" onClick={export_csv}>
-              Export CSV
             </Button>
           </div>
         </div>
