@@ -1559,8 +1559,12 @@ export default function floodevents() {
         const id = f?.properties?.id ?? f?.id;
         if (id != null) {
           const idStr = String(id);
-          set_selected(idStr);
-          focus_select(idStr);
+          // Use callback form like table row click to ensure proper sequencing
+          set_selected(prev => {
+            const next = String(prev) === String(idStr) ? null : idStr;
+            if (next) focus_select(next); else clear_selection();
+            return next;
+          });
         }
       });
 
@@ -1578,8 +1582,12 @@ export default function floodevents() {
             const id = leaves[0]?.properties?.id ?? leaves[0]?.id;
             if (id != null) {
               const idStr = String(id);
-              set_selected(idStr);
-              focus_select(idStr);
+              // Use callback form like table row click
+              set_selected(prev => {
+                const next = String(prev) === String(idStr) ? null : idStr;
+                if (next) focus_select(next); else clear_selection();
+                return next;
+              });
             }
           });
         } else {
@@ -1727,8 +1735,9 @@ export default function floodevents() {
   function hide_popup() { try { popup_ref.current?.remove(); } catch {} popup_ref.current = null; }
 
   /* ===== selection ===== */
-  async function focus_select(id_str) {
-    set_selected(id_str);
+  function focus_select(id_str) {
+    // Note: set_selected is called by the caller (table row or map click handler)
+    // We don't call it here to avoid redundant state updates
 
     const feat = (floods_fc?.features || []).find((ft) => String(ft.properties?.id ?? ft.id) === String(id_str));
     if (!feat) return;
