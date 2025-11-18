@@ -63,53 +63,7 @@ const format_option_label = (value, fallback) => {
 const date_in_range = (dt, from, to) => { if (!dt) return true; if (from && dt < from) return false; if (to && dt > to) return false; return true; };
 const dist_m = (lng1, lat1, lng2, lat2) => turf.distance([lng1, lat1], [lng2, lat2], { units: "kilometers" }) * 1000;
 
-const createMetricFilterState = () => ({
-  inner: { min: "", max: "" },
-  total: { min: "", max: "" },
-  centrality: { min: "", max: "" },
-  impactInner: { min: "", max: "" },
-  impactOuter: { min: "", max: "" },
-  impactTotal: { min: "", max: "" },
-});
-
-const METRIC_FILTER_CONFIG = [
-  {
-    key: "inner",
-    label: "Amenity Inner Count",
-    description: "Total amenities captured within the inner catchment radius.",
-    step: 1,
-  },
-  {
-    key: "total",
-    label: "Total Amenity Count",
-    description: "Combined amenities from both the inner and outer catchments.",
-    step: 1,
-  },
-  {
-    key: "centrality",
-    label: "Road Centrality Index",
-    description: "Blended centrality score based on configurable betweenness and closeness weights.",
-    step: 0.01,
-  },
-  {
-    key: "impactInner",
-    label: "Impact (Inner)",
-    description: "Weighted amenity impact contributed by the inner catchment.",
-    step: 1,
-  },
-  {
-    key: "impactOuter",
-    label: "Impact (Outer)",
-    description: "Weighted amenity impact contributed by the outer catchment.",
-    step: 1,
-  },
-  {
-    key: "impactTotal",
-    label: "Impact (Total)",
-    description: "Total weighted amenity impact used in the index calculation.",
-    step: 1,
-  },
-];
+// Metric filters removed - no longer used in UI
 
 const METRIC_SUMMARY_ROWS = [
   {
@@ -1419,7 +1373,11 @@ export default function floodevents() {
       map.on("click", "flood-points", (e) => {
         const f = e?.features?.[0];
         const id = f?.properties?.id ?? f?.id;
-        if (id != null) focus_select(String(id));
+        if (id != null) {
+          const idStr = String(id);
+          set_selected(idStr);
+          focus_select(idStr);
+        }
       });
       map.on("click", "flood-clusters", (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: ["flood-clusters"] });
@@ -2936,9 +2894,37 @@ export default function floodevents() {
                   </div>
                 </PopoverContent>
               </Popover>
-              <Input value={q} onChange={(e) => { set_q(e.target.value); set_page(1); }} placeholder="filter table..." className="w-56" />
             </div>
           </div>
+
+          {/* Filter Accordion */}
+          <Accordion type="single" collapsible className="px-6">
+            <AccordionItem value="filters" className="border-none">
+              <AccordionTrigger className="py-3 text-sm hover:no-underline">
+                <span className="flex items-center gap-2">
+                  Table Filters
+                  {q.trim() && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Active</span>}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pb-4">
+                <div className="space-y-2">
+                  <Label htmlFor="table-search" className="text-sm">Search Table</Label>
+                  <Input
+                    id="table-search"
+                    value={q}
+                    onChange={(e) => { set_q(e.target.value); set_page(1); }}
+                    placeholder="Search by ID, location, road..."
+                    className="max-w-md"
+                  />
+                  {q.trim() && (
+                    <Button variant="ghost" size="sm" onClick={() => { set_q(""); set_page(1); }}>
+                      Clear search
+                    </Button>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
 
         <div className="overflow-auto">
