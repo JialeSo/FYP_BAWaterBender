@@ -577,6 +577,8 @@ export default function floodevents() {
   const [show_page_rings, set_show_page_rings] = useState(false);
   const [sort_key, set_sort_key] = useState("dt_desc");
   const [page, set_page] = useState(1);
+  const [amenity_search_term, set_amenity_search_term] = useState("");
+  const [road_search_term, set_road_search_term] = useState("");
   const [visible_cols, set_visible_cols] = useState({
     id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
     roads_total: true, ring_total: true, betweenness_norm: true, closeness_norm: true, ar_impact: true,
@@ -755,13 +757,8 @@ export default function floodevents() {
     const preset = AMENITY_WEIGHT_PRESETS[presetKey];
     if (!preset || !preset.weights) return;
 
-    setPendingCatWeights((prev) => {
-      const updated = { ...prev };
-      Object.keys(preset.weights).forEach(key => {
-        updated[key] = preset.weights[key];
-      });
-      return updated;
-    });
+    // Replace all pending weights with preset weights
+    setPendingCatWeights({ ...preset.weights });
   }, []);
 
   const applyARImpactPreset = useCallback((presetKey) => {
@@ -2285,9 +2282,9 @@ export default function floodevents() {
             {selected && selected_stats ? (
               <div className="flex flex-col h-full overflow-hidden">
                 <ScrollArea className="flex-1" style={{ height: 'calc(36rem - 0px)' }}>
-                  <div className="p-4 space-y-2">
+                  <div className="p-3 space-y-1.5">
                     {/* Header with Close Button */}
-                    <div className="flex items-center justify-between pb-2 border-b">
+                    <div className="flex items-center justify-between pb-1.5 border-b">
                       <div>
                         <h3 className="text-sm font-semibold">Flood Event Details</h3>
                         <p className="text-xs text-muted-foreground">{selected_props ? (selected_props.start_planning_area || "—") : "—"}</p>
@@ -2303,40 +2300,40 @@ export default function floodevents() {
 
                     {/* (A) Top Section - Event Details Cards */}
 
-                    {/* Three Metric Cards - Smaller */}
-                    <div className="grid grid-cols-3 gap-1.5">
+                    {/* Three Metric Cards - Tighter */}
+                    <div className="grid grid-cols-3 gap-1">
                       {/* AR Impact Score */}
                       <Card className="border border-primary/20 bg-primary/5">
-                        <CardHeader className="pb-1 pt-2 px-2">
+                        <CardHeader className="pb-0.5 pt-1.5 px-1.5">
                           <CardDescription className="text-[8px] uppercase font-medium">AR Impact</CardDescription>
-                          <CardTitle className="text-lg font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
+                          <CardTitle className="text-base font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
                         </CardHeader>
                       </Card>
 
                       {/* Amenities Affected */}
                       <Card className="border">
-                        <CardHeader className="pb-1 pt-2 px-2">
+                        <CardHeader className="pb-0.5 pt-1.5 px-1.5">
                           <CardDescription className="text-[8px] uppercase font-medium">Amenities</CardDescription>
-                          <CardTitle className="text-lg font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
+                          <CardTitle className="text-base font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
                         </CardHeader>
                       </Card>
 
                       {/* Roads Affected */}
                       <Card className="border">
-                        <CardHeader className="pb-1 pt-2 px-2">
+                        <CardHeader className="pb-0.5 pt-1.5 px-1.5">
                           <CardDescription className="text-[8px] uppercase font-medium">Roads</CardDescription>
-                          <CardTitle className="text-lg font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
+                          <CardTitle className="text-base font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
                         </CardHeader>
                       </Card>
                     </div>
 
-                    {/* Event Information Grid - Smaller */}
+                    {/* Event Information Grid - Tighter */}
                     <Card className="border">
-                      <CardHeader className="pb-1 pt-2 px-2">
+                      <CardHeader className="pb-0.5 pt-1.5 px-1.5">
                         <CardTitle className="text-[10px] font-semibold">Event Information</CardTitle>
                       </CardHeader>
-                      <CardContent className="px-2 pb-2">
-                        <div className="grid grid-cols-2 gap-1.5 text-xs">
+                      <CardContent className="px-1.5 pb-1.5">
+                        <div className="grid grid-cols-2 gap-1 text-xs">
                           <div>
                             <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Event ID</div>
                             <div className="font-mono text-[10px]">{selected_props?.id ?? 'N/A'}</div>
@@ -2394,19 +2391,40 @@ export default function floodevents() {
 
                             // Query amenities in both rings, only if bands are enabled
                             const innerAmenities = inner_enabled
-                              ? query_amenities(center.lng, center.lat, r_inner).map(a => ({ ...a, band: 'inner' }))
+                              ? query_amenities(center[0], center[1], r_inner).map(a => ({ ...a, band: 'inner' }))
                               : [];
                             const outerAmenities = outer_enabled
-                              ? query_amenities(center.lng, center.lat, r_outer)
+                              ? query_amenities(center[0], center[1], r_outer)
                                   .filter(a => a._distm > r_inner)
                                   .map(a => ({ ...a, band: 'outer' }))
                               : [];
                             const allAmenities = [...innerAmenities, ...outerAmenities];
 
-                            return allAmenities.length > 0 ? (
+                            // Filter by search
+                            const filteredAmenities = amenity_search_term.trim()
+                              ? allAmenities.filter(a =>
+                                  (a.name || "").toLowerCase().includes(amenity_search_term.toLowerCase()) ||
+                                  (a.category || "").toLowerCase().includes(amenity_search_term.toLowerCase())
+                                )
+                              : allAmenities;
+
+                            return (
+                              <>
+                                {/* Search input */}
+                                <div className="relative">
+                                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                  <Input
+                                    placeholder="Search amenities..."
+                                    value={amenity_search_term}
+                                    onChange={(e) => set_amenity_search_term(e.target.value)}
+                                    className="pl-7 h-7 text-xs"
+                                  />
+                                </div>
+
+                                {filteredAmenities.length > 0 ? (
                               <ScrollArea className="h-[200px]">
                                 <div className="space-y-1 pr-2">
-                                  {allAmenities.map((amenity, idx) => {
+                                  {filteredAmenities.map((amenity, idx) => {
                                     const amenityName = amenity.name || "Unnamed Amenity";
                                     const category = amenity.category || "Unknown";
                                     const distance = amenity._distm;
@@ -2451,7 +2469,11 @@ export default function floodevents() {
                                 </div>
                               </ScrollArea>
                             ) : (
-                              <p className="text-xs text-muted-foreground py-6 text-center">No affected amenities</p>
+                              <p className="text-xs text-muted-foreground py-6 text-center">
+                                {amenity_search_term.trim() ? "No amenities match your search" : "No affected amenities"}
+                              </p>
+                            )}
+                            </>
                             );
                           })()}
                         </TabsContent>
@@ -2468,10 +2490,31 @@ export default function floodevents() {
                               (roads_nearby_state.outer || []).forEach(r => allRoads.push({ ...r, band: 'outer' }));
                             }
 
-                            return allRoads.length > 0 ? (
+                            // Filter by search
+                            const filteredRoads = road_search_term.trim()
+                              ? allRoads.filter(r =>
+                                  (r.name || "").toLowerCase().includes(road_search_term.toLowerCase()) ||
+                                  String(r.rn_id || r.RN_ID || "").includes(road_search_term)
+                                )
+                              : allRoads;
+
+                            return (
+                              <>
+                                {/* Search input */}
+                                <div className="relative">
+                                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                  <Input
+                                    placeholder="Search roads..."
+                                    value={road_search_term}
+                                    onChange={(e) => set_road_search_term(e.target.value)}
+                                    className="pl-7 h-7 text-xs"
+                                  />
+                                </div>
+
+                                {filteredRoads.length > 0 ? (
                               <ScrollArea className="h-[200px]">
                                 <div className="space-y-1 pr-2">
-                                  {allRoads.map((road, idx) => {
+                                  {filteredRoads.map((road, idx) => {
                                     const roadName = road.name || "Unnamed Road";
                                     const roadId = road.rn_id || road.RN_ID || "";
                                     const distance = road.d || road._distm;
@@ -2519,7 +2562,11 @@ export default function floodevents() {
                                 </div>
                               </ScrollArea>
                             ) : (
-                              <p className="text-xs text-muted-foreground py-6 text-center">No affected roads</p>
+                              <p className="text-xs text-muted-foreground py-6 text-center">
+                                {road_search_term.trim() ? "No roads match your search" : "No affected roads"}
+                              </p>
+                            )}
+                            </>
                             );
                           })()}
                         </TabsContent>
