@@ -2103,264 +2103,279 @@ export default function floodevents() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 relative rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden">
             {selected && (
-            <div className="flood-legend absolute left-3 top-3 z-10 rounded-xl p-3 text-xs shadow-lg">
-              <div className="mb-2 font-medium">legend</div>
-              <div className="flex items-center gap-2 mb-1"><span className="legend-swatch" style={{background:"#22c55e"}} /><span>origin / inner ring / inner roads</span></div>
-              <div className="flex items-center gap-2 mb-1"><span className="legend-swatch" style={{background:"#3b82f6"}} /><span>start</span></div>
-              <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#f59e0b"}} /><span>predicted a / b</span></div>
-              <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#ef4444"}} /><span>end</span></div>
-              <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#0ea5e9"}} /><span>outer ring / outer roads</span></div>
-            </div>
+            <>
+              {/* Legend */}
+              <div className="flood-legend absolute left-3 top-3 z-10 rounded-xl p-3 text-xs shadow-lg">
+                <div className="mb-2 font-medium">legend</div>
+                <div className="flex items-center gap-2 mb-1"><span className="legend-swatch" style={{background:"#22c55e"}} /><span>origin / inner ring / inner roads</span></div>
+                <div className="flex items-center gap-2 mb-1"><span className="legend-swatch" style={{background:"#3b82f6"}} /><span>start</span></div>
+                <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#f59e0b"}} /><span>predicted a / b</span></div>
+                <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#ef4444"}} /><span>end</span></div>
+                <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#0ea5e9"}} /><span>outer ring / outer roads</span></div>
+              </div>
+
+              {/* Count Bubble - positioned to the right */}
+              <div className="absolute right-3 top-3 z-10 rounded-xl p-3 text-xs shadow-lg bg-background border-2 border-primary">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-primary">{panel_tab === "amenities" ? (selected_stats.counts?.total ?? 0) : (selected_stats.roads_counts?.total ?? 0)}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-medium mt-1">
+                    {panel_tab === "amenities" ? "Amenities" : "Roads"}
+                  </div>
+                </div>
+              </div>
+            </>
           )}
           <div ref={container_ref} className="h-full w-full min-h-[36rem]" />
         </div>
 
           <div className="lg:col-span-1 rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden flex flex-col">
-            <ScrollArea className="flex-1 p-4">
-              {selected && selected_stats ? (
-                <div className="space-y-3">
-                  {/* Header with Close Button */}
-                  <div className="flex items-center justify-between pb-2 border-b">
-                    <div>
-                      <h3 className="text-sm font-semibold">Flood Event Details</h3>
-                      <p className="text-xs text-muted-foreground">{selected_props ? (selected_props.start_planning_area || "—") : "—"}</p>
+            {selected && selected_stats ? (
+              <div className="flex flex-col h-full overflow-hidden">
+                <ScrollArea className="flex-1" style={{ height: 'calc(36rem - 0px)' }}>
+                  <div className="p-4 space-y-2">
+                    {/* Header with Close Button */}
+                    <div className="flex items-center justify-between pb-2 border-b">
+                      <div>
+                        <h3 className="text-sm font-semibold">Flood Event Details</h3>
+                        <p className="text-xs text-muted-foreground">{selected_props ? (selected_props.start_planning_area || "—") : "—"}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        set_selected(null);
+                        set_selected_props(null);
+                        set_selected_stats(null);
+                      }} className="h-7 w-7 p-0">
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      set_selected(null);
-                      set_selected_props(null);
-                      set_selected_stats(null);
-                    }} className="h-7 w-7 p-0">
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
 
-                  {/* (A) Top Section - Event Details Cards */}
+                    {/* (A) Top Section - Event Details Cards */}
 
-                  {/* Three Metric Cards */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {/* AR Impact Score */}
-                    <Card className="border-2 border-primary/20 bg-primary/5">
-                      <CardHeader className="pb-2 pt-3 px-3">
-                        <CardDescription className="text-[9px] uppercase font-medium">AR Impact Score</CardDescription>
-                        <CardTitle className="text-xl font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
+                    {/* Three Metric Cards - Smaller */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {/* AR Impact Score */}
+                      <Card className="border border-primary/20 bg-primary/5">
+                        <CardHeader className="pb-1 pt-2 px-2">
+                          <CardDescription className="text-[8px] uppercase font-medium">AR Impact</CardDescription>
+                          <CardTitle className="text-lg font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
+                        </CardHeader>
+                      </Card>
+
+                      {/* Amenities Affected */}
+                      <Card className="border">
+                        <CardHeader className="pb-1 pt-2 px-2">
+                          <CardDescription className="text-[8px] uppercase font-medium">Amenities</CardDescription>
+                          <CardTitle className="text-lg font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
+                        </CardHeader>
+                      </Card>
+
+                      {/* Roads Affected */}
+                      <Card className="border">
+                        <CardHeader className="pb-1 pt-2 px-2">
+                          <CardDescription className="text-[8px] uppercase font-medium">Roads</CardDescription>
+                          <CardTitle className="text-lg font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
+                        </CardHeader>
+                      </Card>
+                    </div>
+
+                    {/* Event Information Grid - Smaller */}
+                    <Card className="border">
+                      <CardHeader className="pb-1 pt-2 px-2">
+                        <CardTitle className="text-[10px] font-semibold">Event Information</CardTitle>
                       </CardHeader>
-                    </Card>
-
-                    {/* Amenities Affected */}
-                    <Card className="border-2">
-                      <CardHeader className="pb-2 pt-3 px-3">
-                        <CardDescription className="text-[9px] uppercase font-medium">Amenities Affected</CardDescription>
-                        <CardTitle className="text-xl font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
-                      </CardHeader>
-                    </Card>
-
-                    {/* Roads Affected */}
-                    <Card className="border-2">
-                      <CardHeader className="pb-2 pt-3 px-3">
-                        <CardDescription className="text-[9px] uppercase font-medium">Roads Affected</CardDescription>
-                        <CardTitle className="text-xl font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
-                      </CardHeader>
-                    </Card>
-                  </div>
-
-                  {/* Event Information Grid */}
-                  <Card className="border-2">
-                    <CardHeader className="pb-2 pt-3 px-3">
-                      <CardTitle className="text-xs font-semibold">Event Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3">
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Event ID</div>
-                          <div className="font-mono text-xs">{selected_props?.id ?? 'N/A'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Event Type</div>
-                          <div className="text-xs">{to_title_case(selected_props?.event ?? 'Unknown')}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Date</div>
-                          <div className="text-xs">{selected_props?.event_date ?? 'N/A'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Planning Area</div>
-                          <div className="text-xs">{selected_props?.start_planning_area ?? 'N/A'}</div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Location</div>
-                          <div className="text-xs truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Main Road</div>
-                          <div className="text-xs truncate" title={selected_props?.parent_road}>{selected_props?.parent_road ?? 'N/A'}</div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="text-[9px] text-muted-foreground mb-0.5 uppercase">Coordinates</div>
-                          <div className="font-mono text-[10px]">
-                            {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
+                      <CardContent className="px-2 pb-2">
+                        <div className="grid grid-cols-2 gap-1.5 text-xs">
+                          <div>
+                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Event ID</div>
+                            <div className="font-mono text-[10px]">{selected_props?.id ?? 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Event Type</div>
+                            <div className="text-[10px]">{to_title_case(selected_props?.event ?? 'Unknown')}</div>
+                          </div>
+                          <div>
+                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Date</div>
+                            <div className="text-[10px]">{selected_props?.event_date ?? 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Planning Area</div>
+                            <div className="text-[10px]">{selected_props?.start_planning_area ?? 'N/A'}</div>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Location</div>
+                            <div className="text-[10px] truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Main Road</div>
+                            <div className="text-[10px] truncate" title={selected_props?.parent_road}>{selected_props?.parent_road ?? 'N/A'}</div>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Coordinates</div>
+                            <div className="font-mono text-[9px]">
+                              {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
 
-                  {/* (B) Bottom Section - Tabs with Flat Lists */}
-                  <Card className="border-2">
-                    <Tabs defaultValue="roads" className="w-full">
-                      <div className="border-b px-3 pt-3">
-                        <TabsList className="w-full grid grid-cols-2">
-                          <TabsTrigger value="roads" className="text-xs">
-                            Affected Roads ({selected_stats.roads_counts?.total ?? 0})
-                          </TabsTrigger>
-                          <TabsTrigger value="amenities" className="text-xs">
-                            Affected Amenities ({selected_stats.counts?.total ?? 0})
-                          </TabsTrigger>
-                        </TabsList>
-                      </div>
+                    {/* (B) Bottom Section - Tabs with Flat Lists */}
+                    <Card className="border">
+                      <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
+                        <div className="border-b px-2 pt-2">
+                          <TabsList className="w-full grid grid-cols-2 h-8">
+                            <TabsTrigger value="amenities" className="text-[10px]">
+                              Amenities ({selected_stats.counts?.total ?? 0})
+                            </TabsTrigger>
+                            <TabsTrigger value="roads" className="text-[10px]">
+                              Roads ({selected_stats.roads_counts?.total ?? 0})
+                            </TabsTrigger>
+                          </TabsList>
+                        </div>
 
-                      {/* Affected Roads Tab */}
-                      <TabsContent value="roads" className="px-3 pb-3 space-y-2 mt-3">
-                        {(() => {
-                          // Flatten roads from both bands
-                          const allRoads = [];
-                          (roads_nearby_state.inner || []).forEach(r => allRoads.push({ ...r, band: 'inner' }));
-                          (roads_nearby_state.outer || []).forEach(r => allRoads.push({ ...r, band: 'outer' }));
+                        {/* Affected Amenities Tab - First */}
+                        <TabsContent value="amenities" className="px-2 pb-2 space-y-1 mt-2">
+                          {(() => {
+                            // Get amenities from selected_stats
+                            const center = selected_stats.center;
+                            if (!center) return <p className="text-xs text-muted-foreground py-6 text-center">No location data</p>;
 
-                          return allRoads.length > 0 ? (
-                            <ScrollArea className="h-[200px]">
-                              <div className="space-y-1 pr-3">
-                                {allRoads.map((road, idx) => {
-                                  const roadName = road.name || "Unnamed Road";
-                                  const roadId = road.rn_id || road.RN_ID || "";
-                                  const distance = road.d || road._distm;
-                                  const band = road.band || "unknown";
+                            // Query amenities in both rings
+                            const innerAmenities = query_amenities(center.lng, center.lat, r_inner).map(a => ({ ...a, band: 'inner' }));
+                            const outerAmenities = query_amenities(center.lng, center.lat, r_outer)
+                              .filter(a => a._distm > r_inner)
+                              .map(a => ({ ...a, band: 'outer' }));
+                            const allAmenities = [...innerAmenities, ...outerAmenities];
 
-                                  return (
-                                    <div
-                                      key={`${roadId}-${idx}`}
-                                      className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
-                                    >
-                                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                        <span className="font-medium text-foreground truncate">{roadName}</span>
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[10px] text-muted-foreground font-mono">ID: {roadId}</span>
-                                          {distance && (
-                                            <span className="text-[10px] text-muted-foreground font-medium">{distance}m</span>
-                                          )}
-                                          <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${
-                                            band === 'inner'
-                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                                          }`}>
-                                            {band}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          const map = map_ref.current;
-                                          if (!map || !road.geometry) return;
-                                          try {
-                                            const bb = turf.bbox({ type: "Feature", geometry: road.geometry, properties: {} });
-                                            map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: 60, duration: 500 });
-                                          } catch {}
-                                        }}
-                                        className="h-7 px-2 text-[10px] hover:bg-primary/10 ml-1 shrink-0"
+                            return allAmenities.length > 0 ? (
+                              <ScrollArea className="h-[200px]">
+                                <div className="space-y-1 pr-2">
+                                  {allAmenities.map((amenity, idx) => {
+                                    const amenityName = amenity.name || "Unnamed Amenity";
+                                    const category = amenity.category || "Unknown";
+                                    const distance = amenity._distm;
+                                    const band = amenity.band || "unknown";
+
+                                    return (
+                                      <div
+                                        key={`${amenity.id}-${idx}`}
+                                        className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
                                       >
-                                        Focus
-                                      </Button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </ScrollArea>
-                          ) : (
-                            <p className="text-xs text-muted-foreground py-6 text-center">No affected roads</p>
-                          );
-                        })()}
-                      </TabsContent>
-
-                      {/* Affected Amenities Tab */}
-                      <TabsContent value="amenities" className="px-3 pb-3 space-y-2 mt-3">
-                        {(() => {
-                          // Get amenities from selected_stats
-                          const center = selected_stats.center;
-                          if (!center) return <p className="text-xs text-muted-foreground py-6 text-center">No location data</p>;
-
-                          // Query amenities in both rings
-                          const innerAmenities = query_amenities(center.lng, center.lat, r_inner).map(a => ({ ...a, band: 'inner' }));
-                          const outerAmenities = query_amenities(center.lng, center.lat, r_outer)
-                            .filter(a => a._distm > r_inner)
-                            .map(a => ({ ...a, band: 'outer' }));
-                          const allAmenities = [...innerAmenities, ...outerAmenities];
-
-                          return allAmenities.length > 0 ? (
-                            <ScrollArea className="h-[200px]">
-                              <div className="space-y-1 pr-3">
-                                {allAmenities.map((amenity, idx) => {
-                                  const amenityName = amenity.name || "Unnamed Amenity";
-                                  const category = amenity.category || "Unknown";
-                                  const distance = amenity._distm;
-                                  const band = amenity.band || "unknown";
-
-                                  return (
-                                    <div
-                                      key={`${amenity.id}-${idx}`}
-                                      className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
-                                    >
-                                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                        <span className="font-medium text-foreground truncate">{amenityName}</span>
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[10px] text-muted-foreground">{to_title_case(category)}</span>
-                                          {distance && (
-                                            <span className="text-[10px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
-                                          )}
-                                          <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${
-                                            band === 'inner'
-                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                                          }`}>
-                                            {band}
-                                          </span>
+                                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                          <span className="font-medium text-foreground truncate text-[10px]">{amenityName}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-[9px] text-muted-foreground">{to_title_case(category)}</span>
+                                            {distance && (
+                                              <span className="text-[9px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
+                                            )}
+                                            <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
+                                              band === 'inner'
+                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                            }`}>
+                                              {band}
+                                            </span>
+                                          </div>
                                         </div>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            const map = map_ref.current;
+                                            if (!map) return;
+                                            map.flyTo({ center: [amenity.lng, amenity.lat], zoom: 17, essential: true });
+                                          }}
+                                          className="h-6 px-1.5 text-[9px] hover:bg-primary/10 ml-1 shrink-0"
+                                        >
+                                          Focus
+                                        </Button>
                                       </div>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          const map = map_ref.current;
-                                          if (!map) return;
-                                          map.flyTo({ center: [amenity.lng, amenity.lat], zoom: 17, essential: true });
-                                        }}
-                                        className="h-7 px-2 text-[10px] hover:bg-primary/10 ml-1 shrink-0"
+                                    );
+                                  })}
+                                </div>
+                              </ScrollArea>
+                            ) : (
+                              <p className="text-xs text-muted-foreground py-6 text-center">No affected amenities</p>
+                            );
+                          })()}
+                        </TabsContent>
+
+                        {/* Affected Roads Tab - Second */}
+                        <TabsContent value="roads" className="px-2 pb-2 space-y-1 mt-2">
+                          {(() => {
+                            // Flatten roads from both bands
+                            const allRoads = [];
+                            (roads_nearby_state.inner || []).forEach(r => allRoads.push({ ...r, band: 'inner' }));
+                            (roads_nearby_state.outer || []).forEach(r => allRoads.push({ ...r, band: 'outer' }));
+
+                            return allRoads.length > 0 ? (
+                              <ScrollArea className="h-[200px]">
+                                <div className="space-y-1 pr-2">
+                                  {allRoads.map((road, idx) => {
+                                    const roadName = road.name || "Unnamed Road";
+                                    const roadId = road.rn_id || road.RN_ID || "";
+                                    const distance = road.d || road._distm;
+                                    const band = road.band || "unknown";
+
+                                    return (
+                                      <div
+                                        key={`${roadId}-${idx}`}
+                                        className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
                                       >
-                                        Focus
-                                      </Button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </ScrollArea>
-                          ) : (
-                            <p className="text-xs text-muted-foreground py-6 text-center">No affected amenities</p>
-                          );
-                        })()}
-                      </TabsContent>
-                    </Tabs>
-                  </Card>
-                </div>
-              ) : (
-                <div className="h-full grid place-items-center text-sm text-muted-foreground px-6">
-                  <div className="text-center space-y-2">
-                    <MapPin className="h-8 w-8 mx-auto text-muted-foreground/50" />
-                    <p className="text-xs">No flood event selected</p>
-                    <p className="text-[10px]">Click on a row in the table below to view details</p>
+                                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                          <span className="font-medium text-foreground truncate text-[10px]">{roadName}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-[9px] text-muted-foreground font-mono">ID: {roadId}</span>
+                                            {distance && (
+                                              <span className="text-[9px] text-muted-foreground font-medium">{distance}m</span>
+                                            )}
+                                            <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
+                                              band === 'inner'
+                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                            }`}>
+                                              {band}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            const map = map_ref.current;
+                                            if (!map || !road.geometry) return;
+                                            try {
+                                              const bb = turf.bbox({ type: "Feature", geometry: road.geometry, properties: {} });
+                                              map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: 60, duration: 500 });
+                                            } catch {}
+                                          }}
+                                          className="h-6 px-1.5 text-[9px] hover:bg-primary/10 ml-1 shrink-0"
+                                        >
+                                          Focus
+                                        </Button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </ScrollArea>
+                            ) : (
+                              <p className="text-xs text-muted-foreground py-6 text-center">No affected roads</p>
+                            );
+                          })()}
+                        </TabsContent>
+                      </Tabs>
+                    </Card>
                   </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center px-6">
+                <div className="text-center space-y-2">
+                  <MapPin className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                  <p className="text-xs text-muted-foreground">No flood event selected</p>
+                  <p className="text-[10px] text-muted-foreground">Click on a row in the table below to view details</p>
                 </div>
-              )}
-            </ScrollArea>
+              </div>
+            )}
         </div>
       </div>
       <section className="rounded-3xl border border-border bg-card shadow-sm">
