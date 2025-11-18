@@ -1870,6 +1870,170 @@ export default function floodevents() {
           container_ref={container_ref}
           to_num={to_num}
         />
+
+        {/* Details Panel */}
+        <div className="lg:col-span-1 rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden flex flex-col">
+          {selected && selected_stats ? (
+            <div className="flex flex-col h-full overflow-hidden">
+              <ScrollArea className="flex-1" style={{ height: 'calc(36rem - 0px)' }}>
+                <div className="p-3 space-y-1.5">
+                  {/* Header with Close Button */}
+                  <div className="flex items-center justify-between pb-2 border-b">
+                    <div>
+                      <h3 className="font-semibold">Flood Event Details</h3>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={clear_selection} className="h-8 w-8 p-0">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Three Metric Cards - Compact with Rankings */}
+                  {(() => {
+                    // Calculate rank based on AR Impact
+                    const rankIndex = sorted.findIndex(f => f.id === selected);
+                    const totalCount = sorted.length;
+                    const rankPercent = totalCount > 0 ? ((rankIndex + 1) / totalCount * 100).toFixed(1) : null;
+
+                    return (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {/* AR Impact Score */}
+                        <Card className="border border-primary/20 bg-primary/5">
+                          <CardHeader className="p-1.5">
+                            <CardDescription className="text-[10px] uppercase font-medium">AR Impact</CardDescription>
+                            <CardTitle className="text-base font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
+                            {rankPercent && <p className="text-[9px] text-muted-foreground mt-0.5">Top {rankPercent}%</p>}
+                          </CardHeader>
+                        </Card>
+
+                        {/* Amenities Affected */}
+                        <Card className="border">
+                          <CardHeader className="p-1.5">
+                            <CardDescription className="text-[10px] uppercase font-medium">Amenities</CardDescription>
+                            <CardTitle className="text-base font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
+                            <p className="text-[9px] text-muted-foreground mt-0.5">Affected</p>
+                          </CardHeader>
+                        </Card>
+
+                        {/* Roads Affected */}
+                        <Card className="border">
+                          <CardHeader className="p-1.5">
+                            <CardDescription className="text-[10px] uppercase font-medium">Roads</CardDescription>
+                            <CardTitle className="text-base font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
+                            <p className="text-[9px] text-muted-foreground mt-0.5">Affected</p>
+                          </CardHeader>
+                        </Card>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Event Information Grid */}
+                  <Card className="border">
+                    <CardHeader className="p-1.5 pb-1">
+                      <CardTitle className="text-xs font-semibold">Event Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-1.5 pb-1.5 pt-0">
+                      <div className="grid grid-cols-2 gap-1 text-xs">
+                        <div>
+                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">ID</div>
+                          <div className="font-mono text-xs">{selected_props?.id ?? 'N/A'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Type</div>
+                          <div className="text-xs">{to_title_case(selected_props?.event ?? 'Unknown')}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Date</div>
+                          <div className="text-xs">{selected_props?.event_date ?? 'N/A'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Area</div>
+                          <div className="text-xs truncate">{selected_props?.start_planning_area ?? 'N/A'}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Location</div>
+                          <div className="text-xs truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Main Road</div>
+                          <div className="text-xs truncate" title={selected_props?.parent_road}>{selected_props?.parent_road ?? 'N/A'}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Coordinates</div>
+                          <div className="font-mono text-[10px]">
+                            {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Affected Infrastructure Tabs */}
+                  <Card className="border">
+                    <CardHeader className="p-1.5 pb-1">
+                      <CardTitle className="font-semibold">Affected Infrastructure</CardTitle>
+                    </CardHeader>
+                    <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
+                      <div className="border-b px-2 pt-0">
+                        <TabsList className="w-full grid grid-cols-2 h-8">
+                          <TabsTrigger value="amenities" className="text-[10px]">
+                            Amenities ({selected_stats.counts?.total ?? 0})
+                          </TabsTrigger>
+                          <TabsTrigger value="roads" className="text-[10px]">
+                            Roads ({selected_stats.roads_counts?.total ?? 0})
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
+
+                      <TabsContent value="amenities" className="mt-0">
+                        <AmenitiesPanel
+                          center={[to_num(selected_props.start_lng), to_num(selected_props.start_lat)]}
+                          stats={selected_stats}
+                          amenity_list={amenity_list}
+                          ring_filter={ring_filter}
+                          r_inner={r_inner}
+                          r_outer={r_outer}
+                          on_center={() => {
+                            if (map_ref.current) {
+                              map_ref.current.flyTo({
+                                center: [to_num(selected_props.start_lng), to_num(selected_props.start_lat)],
+                                zoom: 15,
+                              });
+                            }
+                          }}
+                        />
+                      </TabsContent>
+
+                      <TabsContent value="roads" className="mt-0">
+                        <RoadsPanel
+                          center={[to_num(selected_props.start_lng), to_num(selected_props.start_lat)]}
+                          roads_nearby={roads_nearby_state}
+                          ring_filter={ring_filter}
+                          r_inner={r_inner}
+                          r_outer={r_outer}
+                          on_center={() => {
+                            if (map_ref.current) {
+                              map_ref.current.flyTo({
+                                center: [to_num(selected_props.start_lng), to_num(selected_props.start_lat)],
+                                zoom: 15,
+                              });
+                            }
+                          }}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </Card>
+                </div>
+              </ScrollArea>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full p-6">
+              <div className="text-center text-muted-foreground">
+                <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Select a flood event to view details</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       <FloodTable
         paged={paged}
