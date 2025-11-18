@@ -287,27 +287,32 @@ export default function floodevents() {
     return { ...defaultPreset.weights };
   });
 
-   /* amenities flat list */
-  const amenity_list = useMemo(() => {
-    const feats = amenity_fc?.features || [];
-    const arr = [];
-    for (const f of feats) {
-      const p = f?.properties || {};
-      const c = f?.geometry?.coordinates || [];
-      const lng = +c[0], lat = +c[1];
-      if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-      const catname =
-        p.amenity_category_name ||
-        category_lookup?.by_id?.[p.amenity_category_id || 0]?.amenity_category ||
-        "others";
-      arr.push({
-        id: p.amenity_id ?? f.id ?? `${Math.random()}`,
-        lng, lat,
-        name: p.amenity_name ?? p.name ?? p.poi_name ?? p.display_name ?? p.place_name ?? "(unnamed)",
-        category: catname,
-      });
-    }
-    return arr;
+   /* amenities flat list - deferred to avoid blocking navigation */
+  const [amenity_list, set_amenity_list] = useState([]);
+  useEffect(() => {
+    // Defer amenity processing to avoid blocking page navigation
+    const timer = setTimeout(() => {
+      const feats = amenity_fc?.features || [];
+      const arr = [];
+      for (const f of feats) {
+        const p = f?.properties || {};
+        const c = f?.geometry?.coordinates || [];
+        const lng = +c[0], lat = +c[1];
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+        const catname =
+          p.amenity_category_name ||
+          category_lookup?.by_id?.[p.amenity_category_id || 0]?.amenity_category ||
+          "others";
+        arr.push({
+          id: p.amenity_id ?? f.id ?? `${Math.random()}`,
+          lng, lat,
+          name: p.amenity_name ?? p.name ?? p.poi_name ?? p.display_name ?? p.place_name ?? "(unnamed)",
+          category: catname,
+        });
+      }
+      set_amenity_list(arr);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [amenity_fc, category_lookup]);
   const categories = useMemo(() => {
     const items = Object.values(category_lookup?.by_id || {});
