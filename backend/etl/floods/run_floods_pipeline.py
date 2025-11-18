@@ -34,14 +34,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def execute_floods_pipeline(table_name="flood_3layers"):
+async def main():
     """Run the floods pipeline."""
     logger.info("="*80)
     logger.info("FLOODS ETL PIPELINE")
     logger.info("="*80)
 
     try:
-        await run_floods_pipeline(table_name=table_name)
+        await run_floods_pipeline(table_name="flood_3layers")
 
         logger.info("="*80)
         logger.info("✓ FLOODS PIPELINE COMPLETED SUCCESSFULLY")
@@ -55,4 +55,4 @@ async def execute_floods_pipeline(table_name="flood_3layers"):
 
 
 if __name__ == "__main__":
-    asyncio.run(execute_floods_pipeline(table_name="flood_3layers"))
+    asyncio.run(main())
