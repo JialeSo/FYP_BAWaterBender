@@ -3,8 +3,13 @@
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { clamp } from "./utils";
+import { useMemo } from "react";
 
 export default function FloodTable({
   // Data
@@ -29,6 +34,36 @@ export default function FloodTable({
   sort_asc,
   set_sort_col,
   set_sort_asc,
+
+  // Filter props
+  MultiSelectFilter,
+  pending_q,
+  set_pending_q,
+  event_type_options,
+  pending_event_types_filter,
+  set_pending_event_types_filter,
+  pa_options,
+  pending_pa_filter,
+  set_pending_pa_filter,
+  pending_from_str,
+  set_pending_from_str,
+  pending_to_str,
+  set_pending_to_str,
+  pending_roads_total_min,
+  set_pending_roads_total_min,
+  pending_roads_total_max,
+  set_pending_roads_total_max,
+  pending_ring_total_min,
+  set_pending_ring_total_min,
+  pending_ring_total_max,
+  set_pending_ring_total_max,
+  pending_ar_impact_min,
+  set_pending_ar_impact_min,
+  pending_ar_impact_max,
+  set_pending_ar_impact_max,
+  applyTableFilters,
+  clearAllTableFilters,
+  hasUnappliedFilterChanges,
 }) {
   // Table columns configuration
   const columns = [
@@ -70,6 +105,22 @@ export default function FloodTable({
     { key: "start_lat", label: "Start Latitude", type: "number", optional: true },
     { key: "start_lng", label: "Start Longitude", type: "number", optional: true },
   ];
+
+  // Calculate dynamic max values from filtered data
+  const metricRanges = useMemo(() => {
+    if (!filtered || filtered.length === 0) {
+      return {
+        roads_total_max: 100,
+        ring_total_max: 100,
+        ar_impact_max: 1,
+      };
+    }
+    return {
+      roads_total_max: Math.max(...filtered.map(r => r.roads_total || 0), 1),
+      ring_total_max: Math.max(...filtered.map(r => r.ring_total || 0), 1),
+      ar_impact_max: Math.max(...filtered.map(r => r.ar_impact || 0), 0.001),
+    };
+  }, [filtered]);
 
   // Sort icon helper - shows current sort direction for a column
   const sort_icon = (key) => {
@@ -168,6 +219,239 @@ export default function FloodTable({
           </Button>
         </div>
       </div>
+
+      {/* Table Filters Accordion */}
+      <Accordion type="single" collapsible className="mb-4">
+        <AccordionItem value="table-filters" className="rounded-xl border bg-card shadow-sm">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-semibold">Table Filters</span>
+              {hasUnappliedFilterChanges && (
+                <span className="px-2 py-1 rounded-md text-xs font-bold text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-300">
+                  • Unapplied Changes
+                </span>
+              )}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4 pt-2">
+            {/* Event Filters Card */}
+            <div className="rounded-lg border bg-muted/20 p-3 mb-3">
+              <Label className="text-sm font-medium mb-3 block">Event Filters</Label>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="flood-search">Search</Label>
+                  <Input
+                    id="flood-search"
+                    value={pending_q}
+                    onChange={(e) => set_pending_q(e.target.value)}
+                    placeholder="Search by ID, location or road"
+                    className="w-full"
+                  />
+                </div>
+                {MultiSelectFilter && (
+                  <>
+                    <MultiSelectFilter
+                      id="event-type"
+                      label="Event Type"
+                      options={event_type_options.filter(opt => opt !== "all")}
+                      values={pending_event_types_filter}
+                      onChange={set_pending_event_types_filter}
+                      placeholder="All Event Types"
+                    />
+                    <MultiSelectFilter
+                      id="planning-area"
+                      label="Planning Area"
+                      options={pa_options}
+                      values={pending_pa_filter}
+                      onChange={set_pending_pa_filter}
+                      placeholder="All Planning Areas"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="rounded-lg border bg-muted/20 p-3 mb-3">
+              <Label className="text-sm font-medium mb-3 block">Date Range</Label>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="date-from">From Date</Label>
+                  <Input
+                    id="date-from"
+                    type="date"
+                    value={pending_from_str}
+                    onChange={(e) => set_pending_from_str(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="date-to">To Date</Label>
+                  <Input
+                    id="date-to"
+                    type="date"
+                    value={pending_to_str}
+                    onChange={(e) => set_pending_to_str(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Metric Range Filters with Sliders */}
+            <div className="rounded-lg border bg-muted/20 p-3 mb-3">
+              <Label className="text-sm font-medium mb-3 block">Metric Ranges</Label>
+              <div className="grid gap-4 md:grid-cols-3">
+                {/* Roads Affected Slider */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Roads Affected</Label>
+                    <span className="text-xs text-muted-foreground">Max: {metricRanges.roads_total_max}</span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={metricRanges.roads_total_max}
+                    step={1}
+                    value={[
+                      Number(pending_roads_total_min) || 0,
+                      Number(pending_roads_total_max) || metricRanges.roads_total_max
+                    ]}
+                    onValueChange={(values) => {
+                      set_pending_roads_total_min(String(values[0]));
+                      set_pending_roads_total_max(String(values[1]));
+                    }}
+                  />
+                  <div className="flex gap-2 items-center text-xs text-muted-foreground">
+                    <Input
+                      type="number"
+                      placeholder="Min"
+                      value={pending_roads_total_min}
+                      onChange={(e) => set_pending_roads_total_min(e.target.value)}
+                      className="w-full text-xs h-7"
+                      min={0}
+                      max={metricRanges.roads_total_max}
+                    />
+                    <span>-</span>
+                    <Input
+                      type="number"
+                      placeholder="Max"
+                      value={pending_roads_total_max}
+                      onChange={(e) => set_pending_roads_total_max(e.target.value)}
+                      className="w-full text-xs h-7"
+                      min={0}
+                      max={metricRanges.roads_total_max}
+                    />
+                  </div>
+                </div>
+
+                {/* Amenities Affected Slider */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Amenities Affected</Label>
+                    <span className="text-xs text-muted-foreground">Max: {metricRanges.ring_total_max}</span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={metricRanges.ring_total_max}
+                    step={1}
+                    value={[
+                      Number(pending_ring_total_min) || 0,
+                      Number(pending_ring_total_max) || metricRanges.ring_total_max
+                    ]}
+                    onValueChange={(values) => {
+                      set_pending_ring_total_min(String(values[0]));
+                      set_pending_ring_total_max(String(values[1]));
+                    }}
+                  />
+                  <div className="flex gap-2 items-center text-xs text-muted-foreground">
+                    <Input
+                      type="number"
+                      placeholder="Min"
+                      value={pending_ring_total_min}
+                      onChange={(e) => set_pending_ring_total_min(e.target.value)}
+                      className="w-full text-xs h-7"
+                      min={0}
+                      max={metricRanges.ring_total_max}
+                    />
+                    <span>-</span>
+                    <Input
+                      type="number"
+                      placeholder="Max"
+                      value={pending_ring_total_max}
+                      onChange={(e) => set_pending_ring_total_max(e.target.value)}
+                      className="w-full text-xs h-7"
+                      min={0}
+                      max={metricRanges.ring_total_max}
+                    />
+                  </div>
+                </div>
+
+                {/* AR Impact Slider */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">AR Impact</Label>
+                    <span className="text-xs text-muted-foreground">Max: {metricRanges.ar_impact_max.toFixed(2)}</span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={metricRanges.ar_impact_max}
+                    step={0.01}
+                    value={[
+                      Number(pending_ar_impact_min) || 0,
+                      Number(pending_ar_impact_max) || metricRanges.ar_impact_max
+                    ]}
+                    onValueChange={(values) => {
+                      set_pending_ar_impact_min(String(values[0]));
+                      set_pending_ar_impact_max(String(values[1]));
+                    }}
+                  />
+                  <div className="flex gap-2 items-center text-xs text-muted-foreground">
+                    <Input
+                      type="number"
+                      placeholder="Min"
+                      value={pending_ar_impact_min}
+                      onChange={(e) => set_pending_ar_impact_min(e.target.value)}
+                      className="w-full text-xs h-7"
+                      step="0.01"
+                      min={0}
+                      max={metricRanges.ar_impact_max}
+                    />
+                    <span>-</span>
+                    <Input
+                      type="number"
+                      placeholder="Max"
+                      value={pending_ar_impact_max}
+                      onChange={(e) => set_pending_ar_impact_max(e.target.value)}
+                      className="w-full text-xs h-7"
+                      step="0.01"
+                      min={0}
+                      max={metricRanges.ar_impact_max}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAllTableFilters}
+              >
+                Reset All Filters
+              </Button>
+              <Button
+                size="sm"
+                onClick={applyTableFilters}
+                disabled={!hasUnappliedFilterChanges}
+              >
+                Apply Filters
+              </Button>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* Table controls - Pagination */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">

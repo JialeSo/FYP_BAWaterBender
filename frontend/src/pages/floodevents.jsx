@@ -2307,172 +2307,6 @@ export default function floodevents() {
         </div>
       </div>
 
-      {/* Table Filters Accordion */}
-      <Accordion type="single" collapsible className="mb-4">
-        <AccordionItem value="table-filters" className="rounded-xl border bg-card shadow-sm">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline">
-            <div className="flex items-center gap-2">
-              <span className="text-base font-semibold">Table Filters</span>
-              {hasUnappliedFilterChanges && (
-                <span className="px-2 py-1 rounded-md text-xs font-bold text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-300">
-                  • Unapplied Changes
-                </span>
-              )}
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-2">
-            {/* Event Filters Card */}
-            <div className="rounded-lg border bg-muted/20 p-3 mb-3">
-              <Label className="text-sm font-medium mb-3 block">Event Filters</Label>
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="flood-search">Search</Label>
-                  <Input
-                    id="flood-search"
-                    value={pending_q}
-                    onChange={(e) => set_pending_q(e.target.value)}
-                    placeholder="Search by ID, location or road"
-                    className="w-full"
-                  />
-                </div>
-                <MultiSelectFilter
-                  id="event-type"
-                  label="Event Type"
-                  options={event_type_options.filter(opt => opt !== "all")}
-                  values={pending_event_types_filter}
-                  onChange={set_pending_event_types_filter}
-                  placeholder="All Event Types"
-                />
-                <MultiSelectFilter
-                  id="planning-area"
-                  label="Planning Area"
-                  options={pa_options}
-                  values={pending_pa_filter}
-                  onChange={set_pending_pa_filter}
-                  placeholder="All Planning Areas"
-                />
-              </div>
-            </div>
-
-            {/* Date Range Filter */}
-            <div className="rounded-lg border bg-muted/20 p-3 mb-3">
-              <Label className="text-sm font-medium mb-3 block">Date Range</Label>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="date-from">From Date</Label>
-                  <Input
-                    id="date-from"
-                    type="date"
-                    value={pending_from_str}
-                    onChange={(e) => set_pending_from_str(e.target.value)}
-                    className="w-full"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="date-to">To Date</Label>
-                  <Input
-                    id="date-to"
-                    type="date"
-                    value={pending_to_str}
-                    onChange={(e) => set_pending_to_str(e.target.value)}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Metric Range Filters */}
-            <div className="rounded-lg border bg-muted/20 p-3 mb-3">
-              <Label className="text-sm font-medium mb-3 block">Metric Ranges</Label>
-              <div className="grid gap-3 md:grid-cols-3">
-                {/* Roads Affected */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Roads Affected</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={pending_roads_total_min}
-                      onChange={(e) => set_pending_roads_total_min(e.target.value)}
-                      className="w-full text-xs"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={pending_roads_total_max}
-                      onChange={(e) => set_pending_roads_total_max(e.target.value)}
-                      className="w-full text-xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Amenities Affected */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Amenities Affected</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={pending_ring_total_min}
-                      onChange={(e) => set_pending_ring_total_min(e.target.value)}
-                      className="w-full text-xs"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={pending_ring_total_max}
-                      onChange={(e) => set_pending_ring_total_max(e.target.value)}
-                      className="w-full text-xs"
-                    />
-                  </div>
-                </div>
-
-                {/* AR Impact */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">AR Impact</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={pending_ar_impact_min}
-                      onChange={(e) => set_pending_ar_impact_min(e.target.value)}
-                      className="w-full text-xs"
-                      step="0.01"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={pending_ar_impact_max}
-                      onChange={(e) => set_pending_ar_impact_max(e.target.value)}
-                      className="w-full text-xs"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearAllTableFilters}
-              >
-                Reset All Filters
-              </Button>
-              <Button
-                size="sm"
-                onClick={applyTableFilters}
-                disabled={!hasUnappliedFilterChanges}
-              >
-                Apply Filters
-              </Button>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-
       <FloodTable
         paged={paged}
         sorted={sorted}
@@ -2491,6 +2325,34 @@ export default function floodevents() {
         sort_asc={sort_asc}
         set_sort_col={set_sort_col}
         set_sort_asc={set_sort_asc}
+        MultiSelectFilter={MultiSelectFilter}
+        pending_q={pending_q}
+        set_pending_q={set_pending_q}
+        event_type_options={event_type_options}
+        pending_event_types_filter={pending_event_types_filter}
+        set_pending_event_types_filter={set_pending_event_types_filter}
+        pa_options={pa_options}
+        pending_pa_filter={pending_pa_filter}
+        set_pending_pa_filter={set_pending_pa_filter}
+        pending_from_str={pending_from_str}
+        set_pending_from_str={set_pending_from_str}
+        pending_to_str={pending_to_str}
+        set_pending_to_str={set_pending_to_str}
+        pending_roads_total_min={pending_roads_total_min}
+        set_pending_roads_total_min={set_pending_roads_total_min}
+        pending_roads_total_max={pending_roads_total_max}
+        set_pending_roads_total_max={set_pending_roads_total_max}
+        pending_ring_total_min={pending_ring_total_min}
+        set_pending_ring_total_min={set_pending_ring_total_min}
+        pending_ring_total_max={pending_ring_total_max}
+        set_pending_ring_total_max={set_pending_ring_total_max}
+        pending_ar_impact_min={pending_ar_impact_min}
+        set_pending_ar_impact_min={set_pending_ar_impact_min}
+        pending_ar_impact_max={pending_ar_impact_max}
+        set_pending_ar_impact_max={set_pending_ar_impact_max}
+        applyTableFilters={applyTableFilters}
+        clearAllTableFilters={clearAllTableFilters}
+        hasUnappliedFilterChanges={hasUnappliedFilterChanges}
       />
 
       <style>{`

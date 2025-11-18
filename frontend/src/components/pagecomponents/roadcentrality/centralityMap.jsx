@@ -368,6 +368,14 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
         const p = f.properties || {};
         const name = p.name || p.ref || "Unnamed Road";
         const slaCategory = p.sla_priority || "—";
+
+        // Helper to style the metric based on whether it's the active color metric
+        const getMetricStyle = (metricKey) => {
+          return metricKey === colorMetric
+            ? 'color:#60a5fa; font-weight:700;'
+            : 'color:#f1f5f9;';
+        };
+
         const html = `
           <div style="font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; background:#0f172a; color:#e2e8f0; padding:10px; border-radius:8px;">
             <div style="font-weight:600; margin-bottom:10px; color:#fff; font-size:14px; padding-bottom:8px; border-bottom:1px solid #1e293b;">${name}</div>
@@ -375,11 +383,11 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
               <div style="color:#94a3b8;">Road ID</div><div style="color:#f1f5f9;">${p.RN_ID ?? "—"}</div>
               <div style="color:#94a3b8;">Planning Area</div><div style="color:#f1f5f9;">${p.PLN_AREA_N ?? "—"}</div>
               <div style="color:#94a3b8;">Subzone</div><div style="color:#f1f5f9;">${p.SUBZONE_N ?? "—"}</div>
-              <div style="color:#94a3b8;">Importance</div><div style="color:#60a5fa; font-weight:700;">${format_number(p.importance, 2) ?? "—"}</div>
-              <div style="color:#94a3b8;">Betweenness</div><div style="color:#f1f5f9;">${format_number(p.betweenness_norm, 4) ?? "—"}</div>
-              <div style="color:#94a3b8;">Closeness</div><div style="color:#f1f5f9;">${format_number(p.closeness_norm, 4) ?? "—"}</div>
-              <div style="color:#94a3b8;">Amenity Count</div><div style="color:#f1f5f9;">${p.amenity_count_total ?? "0"}</div>
-              <div style="color:#94a3b8;">Flood Count</div><div style="color:#f1f5f9;">${p.flood_count_total ?? "0"}</div>
+              <div style="color:#94a3b8;">Importance</div><div style="${getMetricStyle('importance')}">${format_number(p.importance, 2) ?? "—"}</div>
+              <div style="color:#94a3b8;">Betweenness</div><div style="${getMetricStyle('betweenness_norm')}">${format_number(p.betweenness_norm, 4) ?? "—"}</div>
+              <div style="color:#94a3b8;">Closeness</div><div style="${getMetricStyle('closeness_norm')}">${format_number(p.closeness_norm, 4) ?? "—"}</div>
+              <div style="color:#94a3b8;">Amenity Count</div><div style="${getMetricStyle('amenity_count_total')}">${p.amenity_count_total ?? "0"}</div>
+              <div style="color:#94a3b8;">Flood Count</div><div style="${getMetricStyle('flood_count_total')}">${p.flood_count_total ?? "0"}</div>
               <div style="color:#94a3b8;">Maintenance Category</div><div style="color:#10b981; font-weight:600;">${slaCategory}</div>
             </div>
           </div>
