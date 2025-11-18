@@ -1277,10 +1277,16 @@ export default function floodevents() {
   // Update map when filters change
   useEffect(() => {
     const map = map_ref.current;
-    if (!map || !map.getSource("floods")) return;
+    if (!map) return;
+
+    // Check if style is loaded before accessing sources
+    if (!map.isStyleLoaded || !map.isStyleLoaded()) return;
+
+    const source = map.getSource("floods");
+    if (!source) return;
 
     try {
-      map.getSource("floods").setData(filtered_fc);
+      source.setData(filtered_fc);
     } catch (error) {
       console.error("Error updating map floods source:", error);
     }
@@ -1569,6 +1575,9 @@ export default function floodevents() {
       });
 
       map.on("click", "flood-clusters", (e) => {
+        // Defensive check - ensure style is loaded
+        if (!map.isStyleLoaded || !map.isStyleLoaded()) return;
+
         const features = map.queryRenderedFeatures(e.point, { layers: ["flood-clusters"] });
         const cluster_id = features[0]?.properties?.cluster_id;
         const point_count = features[0]?.properties?.point_count;
