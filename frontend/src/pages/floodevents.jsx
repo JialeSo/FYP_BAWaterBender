@@ -27,7 +27,7 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, } from "@/components/ui/collapsible";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronsUpDown, MapPin, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronsUpDown, MapPin, Search, X } from "lucide-react";
 import { NumberInput } from "@/components/numberInput";
 import { FloodEventsLearnDialog } from "./floodEventsLearnDialog";
 
