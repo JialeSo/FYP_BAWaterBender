@@ -1985,41 +1985,295 @@ export default function floodevents() {
                         </TabsList>
                       </div>
 
-                      <TabsContent value="amenities" className="px-2 py-2 mt-0">
-                        <AmenitiesPanel
-                          center={[to_num(selected_props.start_lng), to_num(selected_props.start_lat)]}
-                          stats={selected_stats}
-                          amenity_list={amenity_list}
-                          ring_filter={ring_filter}
-                          r_inner={r_inner}
-                          r_outer={r_outer}
-                          on_center={() => {
-                            if (map_ref.current) {
-                              map_ref.current.flyTo({
-                                center: [to_num(selected_props.start_lng), to_num(selected_props.start_lat)],
-                                zoom: 15,
-                              });
-                            }
-                          }}
-                        />
+                      <TabsContent value="amenities" className="px-2 py-2 space-y-1 mt-2">
+                        {(() => {
+                          // Get amenities from selected_stats
+                          const center = selected_stats.center;
+                          if (!center) return <p className="text-xs text-muted-foreground py-6 text-center">No location data</p>;
+
+                          // Query amenities in both rings, only if bands are enabled
+                          // Filter by enabled categories
+                          const innerAmenities = inner_enabled
+                            ? query_amenities(center[0], center[1], r_inner)
+                                .filter(a => cat_enabled[a.category] ?? true)
+                                .map(a => ({ ...a, band: 'inner' }))
+                            : [];
+                          const outerAmenities = outer_enabled
+                            ? query_amenities(center[0], center[1], r_outer)
+                                .filter(a => a._distm > r_inner && (cat_enabled[a.category] ?? true))
+                                .map(a => ({ ...a, band: 'outer' }))
+                            : [];
+                          const allAmenities = [...innerAmenities, ...outerAmenities];
+
+                          // Filter by search
+                          let filteredAmenities = amenity_search_term.trim()
+                            ? allAmenities.filter(a =>
+                                (a.name || "").toLowerCase().includes(amenity_search_term.toLowerCase()) ||
+                                (a.category || "").toLowerCase().includes(amenity_search_term.toLowerCase())
+                              )
+                            : allAmenities;
+
+                          // Filter by band
+                          if (amenity_sort !== "all") {
+                            filteredAmenities = filteredAmenities.filter(a => a.band === amenity_sort);
+                          }
+
+                          return (
+                            <>
+                              {/* Search and Sort Controls */}
+                              <div className="flex items-center gap-2">
+                                <div className="relative flex-1">
+                                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                  <Input
+                                    placeholder="Search amenities..."
+                                    value={amenity_search_term}
+                                    onChange={(e) => set_amenity_search_term(e.target.value)}
+                                    className="pl-7 h-8 text-xs"
+                                  />
+                                </div>
+                                <Select value={amenity_sort} onValueChange={set_amenity_sort}>
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all" className="text-xs">All</SelectItem>
+                                    <SelectItem value="inner" className="text-xs">Inner</SelectItem>
+                                    <SelectItem value="outer" className="text-xs">Outer</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {filteredAmenities.length > 0 ? (
+                            <ScrollArea className="h-[200px]">
+                              <div className="space-y-1 pr-2">
+                                {filteredAmenities.map((amenity, idx) => {
+                                  const amenityName = amenity.name || "Unnamed Amenity";
+                                  const category = amenity.category || "Unknown";
+                                  const distance = amenity._distm;
+                                  const band = amenity.band || "unknown";
+
+                                  return (
+                                    <div
+                                      key={`${amenity.id}-${idx}`}
+                                      className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
+                                    >
+                                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                        <span className="font-medium text-foreground truncate text-[10px]">{amenityName}</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[9px] text-muted-foreground">{to_title_case(category)}</span>
+                                          {distance && (
+                                            <span className="text-[9px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
+                                          )}
+                                          <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
+                                            band === 'inner'
+                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                          }`}>
+                                            {band}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant={focused_amenity?.id === amenity.id ? "default" : "ghost"}
+                                        onClick={() => {
+                                          const map = map_ref.current;
+                                          if (!map) return;
+
+                                          // Toggle focus
+                                          if (focused_amenity?.id === amenity.id) {
+                                            // Unfocus
+                                            set_focused_amenity(null);
+                                            map.getSource("focused-amenity")?.setData({ type: "FeatureCollection", features: [] });
+                                            map.setLayoutProperty("focused-amenity", "visibility", "none");
+                                            hide_popup();
+                                          } else {
+                                            // Focus on this amenity
+                                            set_focused_amenity(amenity);
+                                            const feature = {
+                                              type: "Feature",
+                                              geometry: { type: "Point", coordinates: [amenity.lng, amenity.lat] },
+                                              properties: { name: amenityName }
+                                            };
+                                            map.getSource("focused-amenity")?.setData({ type: "FeatureCollection", features: [feature] });
+                                            map.setLayoutProperty("focused-amenity", "visibility", "visible");
+
+                                            // Show popup with amenity details
+                                            const popupContent = `
+                                              <div class="text-xs">
+                                                <div class="font-semibold mb-1">${amenityName}</div>
+                                                <div class="text-muted-foreground">
+                                                  <div>Category: ${to_title_case(category)}</div>
+                                                  <div>Distance: ${distance ? distance.toFixed(0) + 'm' : 'N/A'}</div>
+                                                  <div>Band: ${band}</div>
+                                                </div>
+                                              </div>
+                                            `;
+                                            show_popup({ lng: amenity.lng, lat: amenity.lat }, popupContent);
+
+                                            map.flyTo({ center: [amenity.lng, amenity.lat], zoom: 17, essential: true });
+                                          }
+                                        }}
+                                        className="h-6 px-1.5 text-[9px] hover:bg-primary/10 ml-1 shrink-0"
+                                      >
+                                        {focused_amenity?.id === amenity.id ? "Unfocus" : "Focus"}
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </ScrollArea>
+                          ) : (
+                            <p className="text-xs text-muted-foreground py-6 text-center">
+                              {amenity_search_term.trim() ? "No amenities match your search" : "No affected amenities"}
+                            </p>
+                          )}
+                          </>
+                          );
+                        })()}
                       </TabsContent>
 
-                      <TabsContent value="roads" className="px-2 py-2 mt-0">
-                        <RoadsPanel
-                          center={[to_num(selected_props.start_lng), to_num(selected_props.start_lat)]}
-                          roads_pack={roads_nearby_state}
-                          ring_filter={ring_filter}
-                          r_inner={r_inner}
-                          r_outer={r_outer}
-                          on_focus_rn={() => {
-                            if (map_ref.current) {
-                              map_ref.current.flyTo({
-                                center: [to_num(selected_props.start_lng), to_num(selected_props.start_lat)],
-                                zoom: 15,
-                              });
-                            }
-                          }}
-                        />
+                      <TabsContent value="roads" className="px-2 py-2 space-y-1 mt-2">
+                        {(() => {
+                          // Flatten roads from both bands, only if bands are enabled
+                          const allRoads = [];
+                          if (inner_enabled) {
+                            (roads_nearby_state.inner || []).forEach(r => allRoads.push({ ...r, band: 'inner' }));
+                          }
+                          if (outer_enabled) {
+                            (roads_nearby_state.outer || []).forEach(r => allRoads.push({ ...r, band: 'outer' }));
+                          }
+
+                          // Filter by search
+                          let filteredRoads = road_search_term.trim()
+                            ? allRoads.filter(r =>
+                                (r.name || "").toLowerCase().includes(road_search_term.toLowerCase()) ||
+                                String(r.rn_id || r.RN_ID || "").includes(road_search_term)
+                              )
+                            : allRoads;
+
+                          // Filter by band
+                          if (road_sort !== "all") {
+                            filteredRoads = filteredRoads.filter(r => r.band === road_sort);
+                          }
+
+                          return (
+                            <>
+                              {/* Search and Sort Controls */}
+                              <div className="flex items-center gap-2">
+                                <div className="relative flex-1">
+                                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                  <Input
+                                    placeholder="Search roads..."
+                                    value={road_search_term}
+                                    onChange={(e) => set_road_search_term(e.target.value)}
+                                    className="pl-7 h-8 text-xs"
+                                  />
+                                </div>
+                                <Select value={road_sort} onValueChange={set_road_sort}>
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all" className="text-xs">All</SelectItem>
+                                    <SelectItem value="inner" className="text-xs">Inner</SelectItem>
+                                    <SelectItem value="outer" className="text-xs">Outer</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {filteredRoads.length > 0 ? (
+                            <ScrollArea className="h-[200px]">
+                              <div className="space-y-1 pr-2">
+                                {filteredRoads.map((road, idx) => {
+                                  const roadName = road.name || "Unnamed Road";
+                                  const roadId = road.rn_id || road.RN_ID || "";
+                                  const distance = road.d || road._distm;
+                                  const band = road.band || "unknown";
+
+                                  return (
+                                    <div
+                                      key={`${roadId}-${idx}`}
+                                      className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
+                                    >
+                                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                        <span className="font-medium text-foreground truncate text-[10px]">{roadName}</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[9px] text-muted-foreground font-mono">ID: {roadId}</span>
+                                          {distance && (
+                                            <span className="text-[9px] text-muted-foreground font-medium">{distance}m</span>
+                                          )}
+                                          <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
+                                            band === 'inner'
+                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                          }`}>
+                                            {band}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant={focused_road?.rn_id === roadId ? "default" : "ghost"}
+                                        onClick={() => {
+                                          const map = map_ref.current;
+                                          if (!map || !road.geometry) return;
+                                          try {
+                                            // Toggle focus
+                                            if (focused_road?.rn_id === roadId) {
+                                              // Unfocus
+                                              set_focused_road(null);
+                                              map.getSource("focused-road")?.setData({ type: "FeatureCollection", features: [] });
+                                              map.setLayoutProperty("focused-road", "visibility", "none");
+                                              hide_popup();
+                                            } else {
+                                              // Focus on this road
+                                              set_focused_road({ ...road, rn_id: roadId });
+                                              const feature = {
+                                                type: "Feature",
+                                                geometry: road.geometry,
+                                                properties: { name: roadName }
+                                              };
+                                              map.getSource("focused-road")?.setData({ type: "FeatureCollection", features: [feature] });
+                                              map.setLayoutProperty("focused-road", "visibility", "visible");
+
+                                              // Show popup with road details
+                                              const bb = turf.bbox({ type: "Feature", geometry: road.geometry, properties: {} });
+                                              const centerLng = (bb[0] + bb[2]) / 2;
+                                              const centerLat = (bb[1] + bb[3]) / 2;
+                                              const popupContent = `
+                                                <div class="text-xs">
+                                                  <div class="font-semibold mb-1">${roadName}</div>
+                                                  <div class="text-muted-foreground">
+                                                    <div>ID: ${roadId}</div>
+                                                    <div>Distance: ${distance ? distance + 'm' : 'N/A'}</div>
+                                                    <div>Band: ${band}</div>
+                                                  </div>
+                                                </div>
+                                              `;
+                                              show_popup({ lng: centerLng, lat: centerLat }, popupContent);
+
+                                              map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: 60, duration: 500 });
+                                            }
+                                          } catch {}
+                                        }}
+                                        className="h-6 px-1.5 text-[9px] hover:bg-primary/10 ml-1 shrink-0"
+                                      >
+                                        {focused_road?.rn_id === roadId ? "Unfocus" : "Focus"}
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </ScrollArea>
+                          ) : (
+                            <p className="text-xs text-muted-foreground py-6 text-center">
+                              {road_search_term.trim() ? "No roads match your search" : "No affected roads"}
+                            </p>
+                          )}
+                          </>
+                          );
+                        })()}
                       </TabsContent>
                     </Tabs>
                   </Card>
@@ -2089,225 +2343,6 @@ export default function floodevents() {
           border: 1px solid rgba(0,0,0,.4);
         }
       `}</style>
-    </div>
-  );
-}
-
-/* ===== amenities panel (capitalized component) ===== */
-function AmenitiesPanel({ center, stats, amenity_list, ring_filter, r_inner, r_outer, on_center }) {
-  const [q, set_q] = useState("");
-  const [open_band, set_open_band] = useState({ inner: true, outer: true });
-  const [open_types, set_open_types] = useState({});
-  const [limit_per_type, set_limit_per_type] = useState(200);
-
-  const list = useMemo(() => {
-    if (!center || !stats) return [];
-    const pad = 0.009;
-    const arr = [];
-    for (const a of amenity_list) {
-      if (a.lng < center[0] - pad || a.lng > center[0] + pad || a.lat < center[1] - pad || a.lat > center[1] + pad) continue;
-      const d = turf.distance([center[0], center[1]], [a.lng, a.lat], { units: "kilometers" }) * 1000;
-      if (d <= Math.max(r_inner, r_outer)) {
-        arr.push({ ...a, distm: Math.round(d), band: d <= Math.max(0, Math.min(r_inner, r_outer)) ? "inner" : "outer" });
-      }
-    }
-    return arr;
-  }, [center, stats, amenity_list, r_inner, r_outer]);
-
-  const needle = q.trim().toLowerCase();
-  const filtered = list
-    .filter(r => (ring_filter === "all" || r.band === ring_filter))
-    .filter(r => !needle || (r.name || "").toLowerCase().includes(needle) || (r.category || "").toLowerCase().includes(needle));
-
-  const grouped = useMemo(() => {
-    const g = { inner: new Map(), outer: new Map() };
-    for (const r of filtered) {
-      const key = r.category || "others";
-      const bucket_map = g[r.band];
-      if (!bucket_map.has(key)) bucket_map.set(key, []);
-      bucket_map.get(key).push(r);
-    }
-    return g;
-  }, [filtered]);
-
-  const totals = useMemo(() => {
-    if (!stats) return { inner: 0, outer: 0, total: 0, types_inner: 0, types_outer: 0 };
-    const inner = stats.counts?.inner || 0;
-    const outer = stats.counts?.outer || 0;
-    return { inner, outer, total: inner + outer, types_inner: grouped.inner.size, types_outer: grouped.outer.size };
-  }, [stats, grouped]);
-
-  if (!center || !stats) return <div className="text-sm text-muted-foreground p-3">select a flood to compute nearby amenities.</div>;
-  if (totals.total === 0) return <div className="text-sm text-muted-foreground p-3">no amenities within ≤{r_outer} m.</div>;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <input value={q} onChange={(e)=>set_q(e.target.value)} placeholder="search name / category…" className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring" />
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          total: <b>{totals.total}</b> · AR Impact: <b>{stats.scores?.ar_impact ?? "—"}</b>
-        </span>
-      </div>
-
-      {(["inner","outer"]).filter(b => ring_filter==="all" || ring_filter===b).map((band)=>{
-        const m = grouped[band];
-        const is_open = open_band[band];
-        const count = band==="inner" ? totals.inner : totals.outer;
-        const label = band==="inner" ? `≤${r_inner} m` : `≤${r_outer} m`;
-        if (count===0) return null;
-        return (
-          <div key={band} className="rounded-2xl border">
-            <div className="flex items-center justify-between p-3">
-              <div className="space-y-0.5">
-                <div className="text-xs text-muted-foreground uppercase">{label}</div>
-                <div className="text-sm"><b>{count}</b> amenities</div>
-              </div>
-              <button onClick={()=>set_open_band((s)=>({ ...s, [band]: !s[band] }))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                {is_open ? "collapse" : "expand"}
-              </button>
-            </div>
-
-            {is_open && (
-              <div className="p-2 pt-0">
-                {[...m.keys()].sort((a,b)=>a.localeCompare(b)).map((bucket)=>{
-                  const items = m.get(bucket) || [];
-                  const tkey = `${band}::${bucket}`;
-                  const open = (open_types[tkey] ?? true);
-                  const show = open ? items.slice(0, limit_per_type) : [];
-                  const more = open && items.length > limit_per_type;
-
-                  return (
-                    <div key={bucket} className="mb-2 rounded-xl border">
-                      <div className="flex items-center justify-between p-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-xs capitalize">{bucket}</span>
-                          <span className="text-xs text-muted-foreground">· {items.length}</span>
-                        </div>
-                        <button onClick={()=>set_open_types((s)=>({ ...s, [tkey]: !(s[tkey] ?? true) }))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                          {open ? "hide" : "show"}
-                        </button>
-                      </div>
-
-                      {open && (
-                        <div className="max-h-64 overflow-auto divide-y">
-                          {show.map((a)=>(
-                            <div key={a.id} className="p-2 text-sm flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="font-medium truncate">{a.name || "(unnamed)"}</div>
-                                <div className="text-[11px] text-muted-foreground font-mono">{fmt(a.lat,5)}, {fmt(a.lng,5)} · {a.distm} m</div>
-                              </div>
-                              <div className="shrink-0">
-                                <button className="rounded-lg border px-2 py-1 text-xs hover:bg-muted" onClick={()=>on_center?.(a.lng, a.lat)}>focus</button>
-                              </div>
-                            </div>
-                          ))}
-                          {more && (
-                            <div className="p-2 text-center">
-                              <button onClick={()=>set_limit_per_type((n)=>clamp(n+200,0,5000))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                                show more…
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ===== roads panel (capitalized component) ===== */
-function RoadsPanel({ center, roads_pack, ring_filter, r_inner, r_outer, on_focus_rn }) {
-  const [q, set_q] = useState("");
-  const [open_band, set_open_band] = useState({ inner: true, outer: true });
-  const [limit, set_limit] = useState(300);
-
-  const list = useMemo(() => {
-    const rows = [];
-    for (const band of ["inner","outer"]) {
-      for (const r of roads_pack[band] || []) {
-        rows.push({ ...r, band });
-      }
-    }
-    return rows;
-  }, [roads_pack]);
-
-  const needle = q.trim().toLowerCase();
-  const filtered = list
-    .filter(r => (ring_filter === "all" || r.band === ring_filter))
-    .filter(r => !needle || (r.name || "").toLowerCase().includes(needle) || String(r.rn_id || "").includes(needle));
-
-  const grouped = useMemo(() => {
-    return {
-      inner: (filtered.filter(x=>x.band==="inner")),
-      outer: (filtered.filter(x=>x.band==="outer")),
-    };
-  }, [filtered]);
-
-  const totals = useMemo(() => ({
-    inner: roads_pack.inner?.length || 0,
-    outer: roads_pack.outer?.length || 0,
-    total: (roads_pack.inner?.length || 0) + (roads_pack.outer?.length || 0),
-  }), [roads_pack]);
-
-  if (!center) return <div className="text-sm text-muted-foreground p-3">select a flood to compute nearby roads.</div>;
-  if (totals.total === 0) return <div className="text-sm text-muted-foreground p-3">no roads within ≤{r_outer} m.</div>;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <input value={q} onChange={(e)=>set_q(e.target.value)} placeholder="search road name / rn id…" className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring" />
-        <span className="text-xs text-muted-foreground whitespace-nowrap">total: <b>{totals.total}</b></span>
-      </div>
-
-      {(["inner","outer"]).filter(b => ring_filter==="all" || ring_filter===b).map((band)=>{
-        const rows = grouped[band] || [];
-        if (!rows.length) return null;
-        const is_open = open_band[band];
-        const label = band==="inner" ? `≤${r_inner} m` : `≤${r_outer} m`;
-        return (
-          <div key={band} className="rounded-2xl border">
-            <div className="flex items-center justify-between p-3">
-              <div className="space-y-0.5">
-                <div className="text-xs text-muted-foreground uppercase">{label}</div>
-                <div className="text-sm"><b>{rows.length}</b> roads</div>
-              </div>
-              <button onClick={()=>set_open_band((s)=>({ ...s, [band]: !s[band] }))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                {is_open ? "collapse" : "expand"}
-              </button>
-            </div>
-
-            {is_open && ( 
-              <div className="max-h-64 overflow-auto divide-y">
-                {rows.slice(0, limit).map((r, i)=>(
-                  <div key={`${r.rn_id}-${i}-${r.d}`} className="p-2 text-sm flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{r.name}</div>
-                      <div className="text-[11px] text-muted-foreground font-mono">rn_id: {r.rn_id ?? "—"} · {r.d} m</div>
-                    </div>
-                    <div className="shrink-0">
-                      <button className="rounded-lg border px-2 py-1 text-xs hover:bg-muted" onClick={()=>on_focus_rn?.(r.geometry)}>focus</button>
-                    </div>
-                  </div>
-                ))}
-                {rows.length > limit && (
-                  <div className="p-2 text-center">
-                    <button onClick={()=>set_limit(n=>clamp(n+300,0,5000))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                      show more…
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }
