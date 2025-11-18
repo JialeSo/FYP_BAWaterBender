@@ -1752,27 +1752,38 @@ export default function floodevents() {
 
     set_selected_props({ ...p });
 
-    try {
-      // Keep all flood points visible so users can click other markers
-      // Only hide clusters when a flood is selected
-      map.setLayoutProperty("flood-clusters", "visibility", "none");
-      map.setLayoutProperty("flood-cluster-count", "visibility", "none");
-    } catch {}
+    // Check if map is fully loaded and style is ready for visualization
+    const mapReady = map.isStyleLoaded && map.isStyleLoaded();
+
+    if (mapReady) {
+      try {
+        // Keep all flood points visible so users can click other markers
+        // Only hide clusters when a flood is selected
+        map.setLayoutProperty("flood-clusters", "visibility", "none");
+        map.setLayoutProperty("flood-cluster-count", "visibility", "none");
+      } catch (e) {
+        console.warn("Error setting cluster visibility:", e);
+      }
+    }
 
     // REMOVED: Individual flood detail points and lines (causing lag)
     // const point_features = detail.points.map(pt => ({ ... }));
     // const line_features  = detail.lines.map(l => ({ ... }));
 
     // Hide the flood detail layers
-    try {
-      map.getSource("flood-selected-points")?.setData({ type: "FeatureCollection", features: [] });
-      map.getSource("flood-selected-lines")?.setData({ type: "FeatureCollection", features: [] });
-      map.getSource("flood-selected-labels")?.setData({ type: "FeatureCollection", features: [] });
-      map.setLayoutProperty("flood-selected-points", "visibility", "none");
-      map.setLayoutProperty("flood-selected-lines-casing", "visibility", "none");
-      map.setLayoutProperty("flood-selected-lines", "visibility", "none");
-      map.setLayoutProperty("flood-selected-labels", "visibility", "none");
-    } catch {}
+    if (mapReady) {
+      try {
+        map.getSource("flood-selected-points")?.setData({ type: "FeatureCollection", features: [] });
+        map.getSource("flood-selected-lines")?.setData({ type: "FeatureCollection", features: [] });
+        map.getSource("flood-selected-labels")?.setData({ type: "FeatureCollection", features: [] });
+        map.setLayoutProperty("flood-selected-points", "visibility", "none");
+        map.setLayoutProperty("flood-selected-lines-casing", "visibility", "none");
+        map.setLayoutProperty("flood-selected-lines", "visibility", "none");
+        map.setLayoutProperty("flood-selected-labels", "visibility", "none");
+      } catch (e) {
+        console.warn("Error hiding flood detail layers:", e);
+      }
+    }
 
     /* Affected roads highlight - includes origin, real end, or predicted endpoints */
     // Helper function to get all affected road IDs for this flood event
@@ -1824,13 +1835,17 @@ export default function floodevents() {
       }
     }
 
-    try {
-      map.getSource("affected-road")?.setData({
-        type: "FeatureCollection",
-        features: affected_road_feats
-      });
-      map.setLayoutProperty("affected-road", "visibility", affected_road_feats.length ? "visible" : "none");
-    } catch {}
+    if (mapReady) {
+      try {
+        map.getSource("affected-road")?.setData({
+          type: "FeatureCollection",
+          features: affected_road_feats
+        });
+        map.setLayoutProperty("affected-road", "visibility", affected_road_feats.length ? "visible" : "none");
+      } catch (e) {
+        console.warn("Error setting affected roads:", e);
+      }
+    }
 
     /* rings for this selection */
     /* rings for this selection — independent of page rings */
@@ -1839,16 +1854,20 @@ export default function floodevents() {
     const inner = turf.circle(center, r_in,  { steps: 128, units: "meters" });
     const outer = turf.circle(center, r_out, { steps: 128, units: "meters" });
 
-    
-    try {
-      map.getSource("rings-selected-inner")?.setData(inner);
-      map.getSource("rings-selected-outer")?.setData(outer);
 
-      map.setLayoutProperty("rings-selected-inner-fill", "visibility", "visible");
-      map.setLayoutProperty("rings-selected-outer-fill", "visibility", "visible");
-      map.setLayoutProperty("rings-selected-inner-line", "visibility", "visible");
-      map.setLayoutProperty("rings-selected-outer-line", "visibility", "visible");
-    } catch {}
+    if (mapReady) {
+      try {
+        map.getSource("rings-selected-inner")?.setData(inner);
+        map.getSource("rings-selected-outer")?.setData(outer);
+
+        map.setLayoutProperty("rings-selected-inner-fill", "visibility", "visible");
+        map.setLayoutProperty("rings-selected-outer-fill", "visibility", "visible");
+        map.setLayoutProperty("rings-selected-inner-line", "visibility", "visible");
+        map.setLayoutProperty("rings-selected-outer-line", "visibility", "visible");
+      } catch (e) {
+        console.warn("Error setting rings:", e);
+      }
+    }
 
     /* amenities near */
     const near = query_amenities(center[0], center[1], r_out);
@@ -1878,18 +1897,22 @@ export default function floodevents() {
     const roads_pack = roads_within_rings(road_fc, center, r_in, r_out);
     set_roads_nearby_state(roads_pack);
 
-    try {
-      map.getSource("roads-nearby-inner")?.setData({
-        type: "FeatureCollection",
-        features: roads_pack.inner.map(r => ({ type: "Feature", properties: { band: "inner", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
-      });
-      map.getSource("roads-nearby-outer")?.setData({
-        type: "FeatureCollection",
-        features: roads_pack.outer.map(r => ({ type: "Feature", properties: { band: "outer", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
-      });
-      map.setLayoutProperty("roads-nearby-inner", roads_pack.inner.length ? "visible" : "none");
-      map.setLayoutProperty("roads-nearby-outer", roads_pack.outer.length ? "visible" : "none");
-    } catch {}
+    if (mapReady) {
+      try {
+        map.getSource("roads-nearby-inner")?.setData({
+          type: "FeatureCollection",
+          features: roads_pack.inner.map(r => ({ type: "Feature", properties: { band: "inner", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
+        });
+        map.getSource("roads-nearby-outer")?.setData({
+          type: "FeatureCollection",
+          features: roads_pack.outer.map(r => ({ type: "Feature", properties: { band: "outer", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
+        });
+        map.setLayoutProperty("roads-nearby-inner", roads_pack.inner.length ? "visible" : "none");
+        map.setLayoutProperty("roads-nearby-outer", roads_pack.outer.length ? "visible" : "none");
+      } catch (e) {
+        console.warn("Error setting nearby roads:", e);
+      }
+    }
 
     /* scores - calculate centrality using all affected roads */
     let bnorm = 0, cnorm = 0;
@@ -1935,11 +1958,15 @@ export default function floodevents() {
       scores: { amenity_score: +amenity_score.toFixed(3), roads_score: +roads_score.toFixed(3), roads_impact: +roads_impact.toFixed(2), ar_impact: +ar_impact.toFixed(3) },
     });
 
-    const rin = Math.max(0, Math.min(r_inner, r_outer));
-    const rout = Math.max(rin, r_outer);
-    paint_selected_rings(center, rin, rout);
+    if (mapReady) {
+      const rin = Math.max(0, Math.min(r_inner, r_outer));
+      const rout = Math.max(rin, r_outer);
+      paint_selected_rings(center, rin, rout);
 
-    try { map.flyTo({ center, zoom: 15, essential: true }); } catch {}
+      try { map.flyTo({ center, zoom: 15, essential: true }); } catch (e) {
+        console.warn("Error flying to location:", e);
+      }
+    }
   }
 
   function clear_selection() {
