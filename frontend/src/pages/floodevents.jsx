@@ -771,6 +771,30 @@ export default function floodevents() {
     setPendingWRoads(preset.weights.roads);
   }, []);
 
+  // Check if an amenity weight preset is currently active
+  const isAmenityWeightPresetActive = useCallback((presetKey) => {
+    const preset = AMENITY_WEIGHT_PRESETS[presetKey];
+    if (!preset || !preset.weights) return false;
+
+    // Check if all weights match the preset
+    return Object.keys(preset.weights).every(key =>
+      Math.abs((pendingCatWeights[key] || 0) - preset.weights[key]) < 0.01
+    );
+  }, [pendingCatWeights]);
+
+  // Check if an AR Impact preset is currently active
+  const isARImpactPresetActive = useCallback((presetKey) => {
+    const preset = AR_IMPACT_PRESETS[presetKey];
+    if (!preset || !preset.weights) return false;
+
+    return (
+      Math.abs(pendingWBetweenness - preset.weights.betweenness) < 0.01 &&
+      Math.abs(pendingWCloseness - preset.weights.closeness) < 0.01 &&
+      Math.abs(pendingWAmenity - preset.weights.amenity) < 0.01 &&
+      Math.abs(pendingWRoads - preset.weights.roads) < 0.01
+    );
+  }, [pendingWBetweenness, pendingWCloseness, pendingWAmenity, pendingWRoads]);
+
   /* roads index by rn_id for centrality */
   const roads_by_id = useMemo(() => {
     const idx = new Map();
@@ -1850,16 +1874,21 @@ export default function floodevents() {
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Weight Presets</Label>
                           <div className="grid gap-2 sm:grid-cols-3">
-                            {Object.entries(AMENITY_WEIGHT_PRESETS).map(([key, preset]) => (
-                              <button
-                                key={key}
-                                onClick={() => applyAmenityPreset(key)}
-                                className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-                              >
-                                <div className="font-semibold text-sm mb-1">{preset.name}</div>
-                                <div className="text-xs text-muted-foreground">{preset.description}</div>
-                              </button>
-                            ))}
+                            {Object.entries(AMENITY_WEIGHT_PRESETS).map(([key, preset]) => {
+                              const isActive = isAmenityWeightPresetActive(key);
+                              return (
+                                <button
+                                  key={key}
+                                  onClick={() => applyAmenityPreset(key)}
+                                  className={`rounded-lg p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
+                                    isActive ? 'border-2 border-primary bg-primary/10' : 'border-border bg-muted/30'
+                                  }`}
+                                >
+                                  <div className="font-semibold text-sm mb-1">{preset.name}</div>
+                                  <div className="text-xs text-muted-foreground">{preset.description}</div>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 
@@ -2061,20 +2090,25 @@ export default function floodevents() {
                       </CardHeader>
                       <CardContent>
                         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-                          {Object.entries(AR_IMPACT_PRESETS).map(([key, preset]) => (
-                            <button
-                              key={key}
-                              onClick={() => applyARImpactPreset(key)}
-                              className="rounded-lg border bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-                            >
-                              <div className="font-semibold text-sm mb-1">{preset.name}</div>
-                              <div className="text-xs text-muted-foreground">{preset.description}</div>
-                              <div className="mt-2 text-[10px] font-mono text-muted-foreground space-y-0.5">
-                                <div>B:{preset.weights.betweenness} C:{preset.weights.closeness}</div>
-                                <div>A:{preset.weights.amenity} R:{preset.weights.roads}</div>
-                              </div>
-                            </button>
-                          ))}
+                          {Object.entries(AR_IMPACT_PRESETS).map(([key, preset]) => {
+                            const isActive = isARImpactPresetActive(key);
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => applyARImpactPreset(key)}
+                                className={`rounded-lg p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring border ${
+                                  isActive ? 'border-2 border-primary bg-primary/10' : 'border-border bg-muted/30'
+                                }`}
+                              >
+                                <div className="font-semibold text-sm mb-1">{preset.name}</div>
+                                <div className="text-xs text-muted-foreground">{preset.description}</div>
+                                <div className="mt-2 text-[10px] font-mono text-muted-foreground space-y-0.5">
+                                  <div>B:{preset.weights.betweenness} C:{preset.weights.closeness}</div>
+                                  <div>A:{preset.weights.amenity} R:{preset.weights.roads}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </CardContent>
                     </Card>
@@ -2774,6 +2808,79 @@ export default function floodevents() {
       </section>
 
       <section className="rounded-3xl border border-border bg-card shadow-sm">
+        {/* Table controls */}
+        <div className="px-6 py-4 border-b">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Page {page_safe} of {total_pages} ({filtered.length} events)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    choose columns
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[360px] max-h-[80vh] p-0">
+                  <div className="p-2 flex flex-col max-h-[80vh]">
+                    <div className="flex items-center justify-between mb-2 shrink-0">
+                      <span className="text-xs font-semibold uppercase tracking-wide">columns</span>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
+                          const allKeys = {};
+                          columns.forEach(c => allKeys[c.key] = true);
+                          set_visible_cols(allKeys);
+                        }}>
+                          all
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => {
+                          const noneKeys = {};
+                          columns.forEach(c => noneKeys[c.key] = false);
+                          set_visible_cols(noneKeys);
+                        }}>
+                          none
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => set_visible_cols({
+                          id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
+                          roads_total: true, ring_total: true, betweenness_norm: true, closeness_norm: true, ar_impact: true,
+                          roads_inner: false, roads_outer: false, ring_inner: false, ring_outer: false,
+                          impact_inner: false, impact_outer: false, impact_total: false,
+                          start_postal_code: false, start_lat: false, start_lng: false,
+                        })}>
+                          reset
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="overflow-y-auto flex-1 min-h-0 pr-2">
+                      <div className="space-y-1 pb-2">
+                        {columns.map((c) => {
+                          const active = visible_cols[c.key];
+                          return (
+                            <label key={c.key} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted cursor-pointer">
+                              <span className="text-sm truncate mr-2">{c.label}</span>
+                              <input
+                                type="checkbox"
+                                className="accent-primary shrink-0"
+                                checked={active}
+                                onChange={() => {
+                                  set_visible_cols((prev) => ({ ...prev, [c.key]: !active }));
+                                }}
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Input value={q} onChange={(e) => { set_q(e.target.value); set_page(1); }} placeholder="filter table..." className="w-56" />
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -2781,11 +2888,11 @@ export default function floodevents() {
                 {columns.filter(c=>visible_cols[c.key]).map((c)=>{
                   const k = c.key === "event_date" ? "dt" : c.key;
                   return (
-                    <th key={c.key} className="px-4 py-3">
-                      <button onClick={()=>toggle_sort(k)} className="inline-flex items-center gap-1">
+                    <th key={c.key} className="px-4 py-3 cursor-pointer select-none" onClick={()=>toggle_sort(k)} title="click to sort">
+                      <div className="flex items-center gap-2">
                         <span>{c.label}</span>
-                        <span className="opacity-70">{sort_icon(k)}</span>
-                      </button>
+                        <span className="text-xs">{sort_icon(k)}</span>
+                      </div>
                     </th>
                   );
                 })}
@@ -2803,7 +2910,7 @@ export default function floodevents() {
                       if (next) focus_select(next); else clear_selection();
                       return next;
                     })}
-                    className={`cursor-pointer hover:bg-muted/60 ${active ? "bg-muted/80 font-medium" : ""}`}
+                    className={`border-t cursor-pointer hover:bg-muted/60 transition-colors ${active ? "bg-primary/10 border-l-4 border-l-primary" : ""}`}
                   >
                     {columns.filter(c=>visible_cols[c.key]).map((c)=>(
                       <td key={c.key} className="px-4 py-2">
