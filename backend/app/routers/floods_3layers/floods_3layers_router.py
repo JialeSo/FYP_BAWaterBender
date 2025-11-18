@@ -5,8 +5,6 @@ from common.db import db
 import csv
 import io
 
-from ....etl.floods.run_floods_pipeline import execute_floods_pipeline
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
