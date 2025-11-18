@@ -264,7 +264,7 @@ function build_flood_detail(p) {
   return { points, lines, center };
 }
 
-function popup_html(p = {}) {
+function popup_html(p = {}, lookups = {}) {
   const safe = (x) => (x ?? "—");
   const coord = (lat, lng) => {
     const latNum = to_num(lat);
@@ -277,8 +277,22 @@ function popup_html(p = {}) {
   const typ = to_title_case((p.event || "").replace(/_/g, " ")) || "—";
   const road = p.parent_road || "—";
   const location = p.location || p.cleaned_location || "—";
-  const pa = p.start_planning_area || "—";
-  const sz_name = p.start_subzone || p.subzone || "—";
+
+  // Use pickName approach for planning area
+  const planning_by_id = lookups?.planning?.by_id || {};
+  const pa = p.start_planning_area ||
+             planning_by_id[p.start_pa_id]?.name ||
+             planning_by_id[p.origin_pa_id]?.name ||
+             planning_by_id[p.end_pa_id]?.name ||
+             "—";
+
+  // Use lookup for subzone
+  const subzone_by_id = lookups?.subzone?.by_id || {};
+  const sz_name = p.start_subzone ||
+                  p.subzone ||
+                  subzone_by_id[p.start_sz_id]?.name ||
+                  subzone_by_id[p.origin_sz_id]?.name ||
+                  "—";
 
   return `
     <div style="min-width: 220px;">
@@ -1473,7 +1487,7 @@ export default function floodevents() {
         const f = e?.features?.[0];
         if (!f) return;
         const p = f.properties || {};
-        show_popup(e.lngLat, popup_html(p));
+        show_popup(e.lngLat, popup_html(p, lookups));
       });
       map.on("mouseleave", "flood-selected-points", () => hide_popup());
 
@@ -1482,7 +1496,7 @@ export default function floodevents() {
         const f = e?.features?.[0];
         if (!f) return;
         const p = f.properties || {};
-        show_popup(e.lngLat, popup_html(p));
+        show_popup(e.lngLat, popup_html(p, lookups));
       });
       map.on("mouseleave", "flood-points", () => hide_popup());
     })();
@@ -1871,6 +1885,11 @@ export default function floodevents() {
         if (map.getLayer("roads-nearby-outer")) {
           map.setLayoutProperty("roads-nearby-outer", "visibility", roads_pack.outer.length ? "visible" : "none");
         }
+
+        // Ensure markers stay on top after updating roads
+        if (map.getLayer("flood-points")) map.moveLayer("flood-points");
+        if (map.getLayer("flood-selected-points")) map.moveLayer("flood-selected-points");
+        if (map.getLayer("flood-selected-labels")) map.moveLayer("flood-selected-labels");
       } catch (e) {
         console.warn("Error setting nearby roads:", e);
       }
@@ -2657,7 +2676,7 @@ export default function floodevents() {
                         <div className="grid grid-cols-3 gap-1.5">
                           {/* AR Impact Score */}
                           <Card className="border border-primary/20 bg-primary/5">
-                            <CardHeader className="pb-1 pt-2 px-2">
+                            <CardHeader className="p-1.5">
                               <CardDescription className="text-[10px] uppercase font-medium">AR Impact</CardDescription>
                               <CardTitle className="text-base font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
                               {rankPercent && <p className="text-[9px] text-muted-foreground mt-0.5">Top {rankPercent}%</p>}
@@ -2666,7 +2685,7 @@ export default function floodevents() {
 
                           {/* Amenities Affected */}
                           <Card className="border">
-                            <CardHeader className="pb-1 pt-2 px-2">
+                            <CardHeader className="p-1.5">
                               <CardDescription className="text-[10px] uppercase font-medium">Amenities</CardDescription>
                               <CardTitle className="text-base font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
                               <p className="text-[9px] text-muted-foreground mt-0.5">Affected</p>
@@ -2675,7 +2694,7 @@ export default function floodevents() {
 
                           {/* Roads Affected */}
                           <Card className="border">
-                            <CardHeader className="pb-1 pt-2 px-2">
+                            <CardHeader className="p-1.5">
                               <CardDescription className="text-[10px] uppercase font-medium">Roads</CardDescription>
                               <CardTitle className="text-base font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
                               <p className="text-[9px] text-muted-foreground mt-0.5">Affected</p>
@@ -2687,10 +2706,10 @@ export default function floodevents() {
 
                     {/* Event Information Grid */}
                     <Card className="border">
-                      <CardHeader className="pb-1 pt-2 px-2">
+                      <CardHeader className="p-1.5 pb-1">
                         <CardTitle className="text-xs font-semibold">Event Information</CardTitle>
                       </CardHeader>
-                      <CardContent className="px-2 pb-2 pt-1">
+                      <CardContent className="px-1.5 pb-1.5 pt-0">
                         <div className="grid grid-cols-2 gap-1 text-xs">
                           <div>
                             <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">ID</div>
@@ -2728,7 +2747,7 @@ export default function floodevents() {
 
                     {/* (B) Bottom Section - Tabs with Flat Lists */}
                     <Card className="border">
-                      <CardHeader className="pb-1 pt-2 px-2">
+                      <CardHeader className="p-1.5 pb-1">
                         <CardTitle className="font-semibold">Affected Infrastructure</CardTitle>
                       </CardHeader>
                       <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
