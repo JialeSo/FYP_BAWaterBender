@@ -68,22 +68,50 @@ const hasValidScores = (data, metric) => {
 };
 
 // Calculate color bucket thresholds using equal value ranges
-const calculateColorThresholds = (data, metric) => {
+const calculateColorThresholds = (data, metric, globalMaxValues = null) => {
   if (!data?.features?.length) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
 
-  // Get all values to find the maximum
-  const allValues = data.features
-    .map(f => f.properties?.[metric])
-    .filter(v => v !== null && v !== undefined && !isNaN(v));
+  let maxValue = 0;
 
-  if (allValues.length === 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+  // Use global max if provided (to handle filtered data correctly)
+  if (globalMaxValues) {
+    switch (metric) {
+      case "amenity_count_total":
+        maxValue = globalMaxValues.amenity || 0;
+        break;
+      case "flood_count_total":
+        maxValue = globalMaxValues.flood || 0;
+        break;
+      case "betweenness_norm":
+        maxValue = globalMaxValues.betweenness || 0;
+        break;
+      case "closeness_norm":
+        maxValue = globalMaxValues.closeness || 0;
+        break;
+      case "importance":
+        maxValue = globalMaxValues.importance || 0;
+        break;
+      default:
+        // Fallback to calculating from current data
+        const allValues = data.features
+          .map(f => f.properties?.[metric])
+          .filter(v => v !== null && v !== undefined && !isNaN(v));
+        maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
+    }
+  } else {
+    // Get all values to find the maximum
+    const allValues = data.features
+      .map(f => f.properties?.[metric])
+      .filter(v => v !== null && v !== undefined && !isNaN(v));
 
-  const maxValue = Math.max(...allValues);
+    if (allValues.length === 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+    maxValue = Math.max(...allValues);
+  }
 
   if (maxValue <= 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
 
   // Divide max value into 5 equal buckets
-  // Example: max = 15 → bucketSize = 3 → buckets: 0-3, 3-6, 6-9, 9-12, 12-15
+  // Example: max = 100 → bucketSize = 20 → buckets: 0-20, 20-40, 40-60, 60-80, 80-100
   const bucketSize = maxValue / 5;
 
   const thresholds = {
@@ -204,7 +232,7 @@ const createWidthExpression = (metric, data) => {
   return 3; // Default uniform width
 };
 
-export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, selectedMarker = null }) {
+export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, selectedMarker = null, maxValues = null }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const [colorMetric, setColorMetric] = useState("importance");
@@ -213,7 +241,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
 
   // Calculate color thresholds based on max value
   const colorThresholds = useMemo(() => {
-    const thresholds = calculateColorThresholds(data, colorMetric);
+    const thresholds = calculateColorThresholds(data, colorMetric, maxValues);
 
     // Debug: Log thresholds and sample data
     if (data?.features?.length) {
@@ -247,7 +275,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
     }
 
     return thresholds;
-  }, [data, colorMetric]);
+  }, [data, colorMetric, maxValues]);
 
   // Check if data has valid scores
   const dataHasValidScores = useMemo(() => {
@@ -454,7 +482,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
           // Update paint properties after data is set to ensure colors appear on initial load
           if (map.getLayer("roads")) {
             const validScores = hasValidScores(data, colorMetric);
-            const thresholds = calculateColorThresholds(data, colorMetric);
+            const thresholds = calculateColorThresholds(data, colorMetric, maxValues);
 
             try {
               map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, thresholds, validScores));

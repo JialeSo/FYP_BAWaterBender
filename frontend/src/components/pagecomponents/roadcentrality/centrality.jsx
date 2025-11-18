@@ -1676,6 +1676,7 @@ export default function Centrality() {
             onMapLoad={setMapInstance}
             onRoadClick={handleRoadSelect}
             selectedMarker={selectedMarker}
+            maxValues={maxValues}
           />
         </div>
 
