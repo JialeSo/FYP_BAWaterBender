@@ -6,15 +6,36 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-import { X, Search, MapPin, Calendar, AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { X, Search, MapPin, Calendar, AlertTriangle, Settings2 } from "lucide-react";
 import { format_date, to_title_case, SEVERITY_LEVELS } from "./shared";
+
+// Visualization modes
+const VIZ_MODES = [
+  { value: "markers", label: "Markers (Points)" },
+  { value: "heatmap", label: "Heatmap (Density)" },
+  { value: "both", label: "Both" },
+];
+
+// Color metrics for flood events
+const COLOR_METRICS = [
+  { value: "type", label: "Flood Type" },
+  { value: "severity", label: "Severity" },
+  { value: "date", label: "Date (Recent)" },
+];
 
 export function FloodDetailsPanel({
   flood,
   onClose,
   nearbyRoads = [],
   nearbyAmenities = [],
-  onViewOnMap = null
+  onViewOnMap = null,
+  // Map visualization controls
+  vizMode = "markers",
+  onVizModeChange = null,
+  colorMetric = "type",
+  onColorMetricChange = null,
 }) {
   // Search state - MUST be called before any conditional returns
   const [roadSearch, setRoadSearch] = useState("");
@@ -180,8 +201,52 @@ export function FloodDetailsPanel({
           </div>
         </div>
 
-        {/* Nearby Roads and Amenities Accordions */}
-        <Accordion type="multiple" className="space-y-2">
+        {/* Map Settings and Nearby Infrastructure Accordions */}
+        <Accordion type="multiple" defaultValue={["map-settings"]} className="space-y-2">
+          {/* Map Settings Section */}
+          <AccordionItem value="map-settings" className="border rounded-lg bg-background">
+            <AccordionTrigger className="px-3 py-2 hover:no-underline">
+              <span className="text-sm font-semibold flex items-center gap-2">
+                <Settings2 className="h-4 w-4" />
+                Map Settings
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-3 pb-3 space-y-3">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Visualization Mode</Label>
+                  <Select value={vizMode} onValueChange={onVizModeChange}>
+                    <SelectTrigger className="w-full h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VIZ_MODES.map((mode) => (
+                        <SelectItem key={mode.value} value={mode.value}>
+                          {mode.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Color By</Label>
+                  <Select value={colorMetric} onValueChange={onColorMetricChange}>
+                    <SelectTrigger className="w-full h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COLOR_METRICS.map((metric) => (
+                        <SelectItem key={metric.value} value={metric.value}>
+                          {metric.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
           {/* Nearby Roads Section */}
           <AccordionItem value="roads" className="border rounded-lg bg-background">
             <AccordionTrigger className="px-3 py-2 hover:no-underline">

@@ -13,27 +13,10 @@ import {
   to_title_case,
   SEVERITY_LEVELS,
 } from "./shared";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-
 const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 if (typeof mapboxgl.setTelemetryEnabled === "function") mapboxgl.setTelemetryEnabled(false);
-
-// Visualization modes
-const VIZ_MODES = [
-  { value: "markers", label: "Markers (Points)" },
-  { value: "heatmap", label: "Heatmap (Density)" },
-  { value: "both", label: "Both" },
-];
-
-// Color metrics for flood events
-const COLOR_METRICS = [
-  { value: "type", label: "Flood Type" },
-  { value: "severity", label: "Severity" },
-  { value: "date", label: "Date (Recent)" },
-];
 
 // Color schemes
 const TYPE_COLORS = {
@@ -86,11 +69,9 @@ const createColorExpression = (metric, data) => {
   return "#ef4444"; // default red
 };
 
-export function FloodEventsMap({ data, selectedFloodId, onMapLoad, onFloodClick }) {
+export function FloodEventsMap({ data, selectedFloodId, onMapLoad, onFloodClick, vizMode = "markers", colorMetric = "type" }) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
-  const [vizMode, setVizMode] = useState("markers");
-  const [colorMetric, setColorMetric] = useState("type");
   const markerRefs = useRef([]);
 
   // Update map paint properties when metrics change
@@ -424,8 +405,11 @@ export function FloodEventsMap({ data, selectedFloodId, onMapLoad, onFloodClick 
     }
   }, [selectedFloodId, data]);
 
-  const colorLabel = COLOR_METRICS.find(m => m.value === colorMetric)?.label || "Flood Type";
-  const vizLabel = VIZ_MODES.find(m => m.value === vizMode)?.label || "Markers";
+  // Get color label from metric
+  const colorLabel = colorMetric === "type" ? "Flood Type"
+    : colorMetric === "severity" ? "Severity"
+    : colorMetric === "date" ? "Date (Recent)"
+    : "Flood Type";
 
   // Generate legend based on color metric
   const legendItems = useMemo(() => {
@@ -446,42 +430,6 @@ export function FloodEventsMap({ data, selectedFloodId, onMapLoad, onFloodClick 
   return (
     <div className="relative w-full h-[600px] rounded-2xl overflow-hidden bg-slate-950">
       <div ref={containerRef} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, width: '100%', height: '100%' }} />
-
-      {/* Controls - Top Right */}
-      <div className="absolute top-4 right-4 z-10 space-y-2 pointer-events-auto">
-        <div className="rounded-xl bg-card/95 backdrop-blur-sm border p-3 shadow-lg space-y-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">Visualization</Label>
-            <Select value={vizMode} onValueChange={setVizMode}>
-              <SelectTrigger className="w-[160px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VIZ_MODES.map((mode) => (
-                  <SelectItem key={mode.value} value={mode.value}>
-                    {mode.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">Color By</Label>
-            <Select value={colorMetric} onValueChange={setColorMetric}>
-              <SelectTrigger className="w-[160px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {COLOR_METRICS.map((metric) => (
-                  <SelectItem key={metric.value} value={metric.value}>
-                    {metric.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
 
       {/* Legend - Bottom Left */}
       <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-xl bg-card/95 backdrop-blur-sm border p-3 text-xs shadow-lg min-w-[200px]">

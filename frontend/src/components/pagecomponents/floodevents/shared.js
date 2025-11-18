@@ -176,3 +176,57 @@ export const get_subzone = (props = {}) =>
 
 export const get_location = (props = {}) =>
   props.location ?? props.address ?? props.origin_road ?? props.start_street_name ?? "—";
+
+/**
+ * Calculate haversine distance between two points
+ * @param {number} lat1 - Latitude of first point
+ * @param {number} lng1 - Longitude of first point
+ * @param {number} lat2 - Latitude of second point
+ * @param {number} lng2 - Longitude of second point
+ * @returns {number} Distance in meters
+ */
+export function calculateHaversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
+/**
+ * Find features within a radius using haversine distance
+ * @param {Array} features - Array of GeoJSON features
+ * @param {number} centerLat - Center latitude
+ * @param {number} centerLng - Center longitude
+ * @param {number} radiusMeters - Search radius in meters
+ * @param {Function} coordsExtractor - Function to extract coordinates from feature
+ * @returns {Array} Features within radius with _distm property
+ */
+export function findFeaturesWithinRadius(features, centerLat, centerLng, radiusMeters, coordsExtractor) {
+  if (!features || !centerLat || !centerLng) return [];
+
+  return features
+    .map(feature => {
+      const coords = coordsExtractor(feature);
+      if (!coords || coords.length < 2) return null;
+
+      const [lng, lat] = coords;
+      const distance = calculateHaversineDistance(centerLat, centerLng, lat, lng);
+
+      if (distance > radiusMeters) return null;
+
+      return {
+        ...feature,
+        _distm: distance,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a._distm - b._distm);
+}

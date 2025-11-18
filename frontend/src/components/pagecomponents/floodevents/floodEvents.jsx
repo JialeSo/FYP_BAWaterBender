@@ -21,6 +21,7 @@ import {
   get_flood_type,
   get_planning_area,
   get_subzone,
+  findFeaturesWithinRadius,
 } from "./shared";
 import { FloodEventsMap } from "./floodEventsMap";
 import { FloodDetailsPanel } from "./floodDetailsPanel";
@@ -100,6 +101,10 @@ export default function FloodEvents() {
   // Active states (used for filtering)
   const [floodTypesEnabled, setFloodTypesEnabled] = useState(default_flood_enabled);
   const [floodTypeWeights, setFloodTypeWeights] = useState(default_flood_weights);
+
+  // Map visualization state
+  const [vizMode, setVizMode] = useState("markers");
+  const [colorMetric, setColorMetric] = useState("type");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedPlanningAreas, setSelectedPlanningAreas] = useState([]);
@@ -395,92 +400,49 @@ export default function FloodEvents() {
     });
   }, [selectedFloodId, sorted]);
 
-  // Get nearby roads for selected flood (within 500m)
+  // Get nearby roads for selected flood (within 500m) - optimized with shared utility
   const nearbyRoads = useMemo(() => {
     if (!selectedFlood || !roadFC) return [];
     const floodLat = selectedFlood.properties?.origin_lat || selectedFlood.properties?.latitude;
     const floodLng = selectedFlood.properties?.origin_lng || selectedFlood.properties?.longitude;
     if (!floodLat || !floodLng) return [];
 
-    // Simple distance calculation (approximate)
-    const roads = (roadFC.features || [])
-      .map(road => {
-        // Get road centroid (simplified - just use first coordinate)
-        const coords = road.geometry?.coordinates?.[0];
-        if (!coords || coords.length < 2) return null;
+    const roads = findFeaturesWithinRadius(
+      roadFC.features || [],
+      floodLat,
+      floodLng,
+      500, // 500m radius
+      (road) => road.geometry?.coordinates?.[0] // Extract first coordinate from LineString
+    );
 
-        const roadLng = coords[0];
-        const roadLat = coords[1];
-
-        // Calculate distance in meters (haversine approximation)
-        const R = 6371e3; // Earth radius in meters
-        const φ1 = (floodLat * Math.PI) / 180;
-        const φ2 = (roadLat * Math.PI) / 180;
-        const Δφ = ((roadLat - floodLat) * Math.PI) / 180;
-        const Δλ = ((roadLng - floodLng) * Math.PI) / 180;
-
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = R * c;
-
-        if (distance > 500) return null; // Only include roads within 500m
-
-        return {
-          ...road,
-          _distm: distance,
-          name: road.properties?.name || "Unnamed Road",
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a._distm - b._distm);
-
-    return roads;
+    // Add name property for display
+    return roads.map(road => ({
+      ...road,
+      name: road.properties?.name || "Unnamed Road",
+    }));
   }, [selectedFlood, roadFC]);
 
-  // Get nearby amenities for selected flood (within 500m)
+  // Get nearby amenities for selected flood (within 500m) - optimized with shared utility
   const nearbyAmenities = useMemo(() => {
     if (!selectedFlood || !amenityFC) return [];
     const floodLat = selectedFlood.properties?.origin_lat || selectedFlood.properties?.latitude;
     const floodLng = selectedFlood.properties?.origin_lng || selectedFlood.properties?.longitude;
     if (!floodLat || !floodLng) return [];
 
-    // Simple distance calculation
-    const amenities = (amenityFC.features || [])
-      .map(amenity => {
-        const coords = amenity.geometry?.coordinates;
-        if (!coords || coords.length < 2) return null;
+    const amenities = findFeaturesWithinRadius(
+      amenityFC.features || [],
+      floodLat,
+      floodLng,
+      500, // 500m radius
+      (amenity) => amenity.geometry?.coordinates // Extract coordinates from Point
+    );
 
-        const amenityLng = coords[0];
-        const amenityLat = coords[1];
-
-        // Calculate distance in meters (haversine approximation)
-        const R = 6371e3;
-        const φ1 = (floodLat * Math.PI) / 180;
-        const φ2 = (amenityLat * Math.PI) / 180;
-        const Δφ = ((amenityLat - floodLat) * Math.PI) / 180;
-        const Δλ = ((amenityLng - floodLng) * Math.PI) / 180;
-
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = R * c;
-
-        if (distance > 500) return null; // Only include amenities within 500m
-
-        return {
-          ...amenity,
-          _distm: distance,
-          name: amenity.properties?.amenity_name || amenity.properties?.name || "Unnamed Amenity",
-          category: amenity.properties?.amenity_category || amenity.properties?.category || "Unknown",
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a._distm - b._distm);
-
-    return amenities;
+    // Add name and category properties for display
+    return amenities.map(amenity => ({
+      ...amenity,
+      name: amenity.properties?.amenity_name || amenity.properties?.name || "Unnamed Amenity",
+      category: amenity.properties?.amenity_category || amenity.properties?.category || "Unknown",
+    }));
   }, [selectedFlood, amenityFC]);
 
   /* ===== ui ===== */
@@ -841,6 +803,8 @@ export default function FloodEvents() {
             selectedFloodId={selectedFloodId}
             onMapLoad={setMapInstance}
             onFloodClick={handleFloodSelect}
+            vizMode={vizMode}
+            colorMetric={colorMetric}
           />
         </div>
 
@@ -851,6 +815,10 @@ export default function FloodEvents() {
             onClose={() => setSelectedFloodId(null)}
             nearbyRoads={nearbyRoads}
             nearbyAmenities={nearbyAmenities}
+            vizMode={vizMode}
+            onVizModeChange={setVizMode}
+            colorMetric={colorMetric}
+            onColorMetricChange={setColorMetric}
           />
         </div>
 
