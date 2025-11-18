@@ -49,7 +49,6 @@ export default function Home() {
       <UseCases />
       <FeaturesGrid />
       <HowItWorks />
-      <MiniGallery />
       <Credibility />
       <CtaSection />
       <SiteFooter />
@@ -176,28 +175,67 @@ function HeroSection() {
   )
 }
 
-/* ---------------- use cases ---------------- */
+/* ---------------- use cases with visual previews ---------------- */
 function UseCases() {
   const cases = [
-    { title: "Historical Analysis", desc: "Visualize historical flood events across Singapore, identify hotspots, and track patterns over time with an interactive map." },
-    { title: "Impact Assessment", desc: "Calculate AR Impact scores based on road centrality, nearby amenities, and flood frequency to prioritize response efforts." },
-    { title: "Infrastructure Prioritization", desc: "Rank road segments by importance using betweenness, closeness centrality, and infrastructure proximity for maintenance planning." },
-    { title: "Scenario Simulation", desc: "Simulate flood scenarios to assess potential impact on roads and amenities within customizable distance rings." },
+    {
+      title: "Historical Flood Map",
+      tagline: "Explore 615 Past Events",
+      desc: "Interactive timeline of flood incidents across Singapore. Filter by location, date, and severity to identify recurring hotspots and vulnerable areas.",
+      link: "/historicalFloodMap",
+      visual: "clusters"
+    },
+    {
+      title: "Flood Events Analysis",
+      tagline: "AR Impact & Risk Scoring",
+      desc: "Deep-dive into each event with AR Impact scores combining road centrality, amenity proximity, and infrastructure density within customizable rings.",
+      link: "/floodevents",
+      visual: "rings"
+    },
+    {
+      title: "Road Centrality",
+      tagline: "Network Importance Ranking",
+      desc: "Prioritize maintenance using betweenness and closeness metrics. Identify critical road segments with weighted scoring for amenities and flood exposure.",
+      link: "/roadcentrality",
+      visual: "heatmap"
+    },
+    {
+      title: "Scenario Simulation",
+      tagline: "What-If Planning",
+      desc: "Model flood scenarios with adjustable parameters. Assess potential impact on infrastructure and simulate response strategies before they happen.",
+      link: "/simulation",
+      visual: "compare"
+    },
   ]
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12">
       <div className="mb-8 text-center">
-        <h2 className="font-[montserrat] text-3xl font-bold tracking-tight">What Do You Need It For?</h2>
-        <p className="mt-2 text-muted-foreground">Pick a path — we’ll shape the map to your goal.</p>
+        <h2 className="font-[montserrat] text-3xl font-bold tracking-tight">Four Powerful Tools, One Platform</h2>
+        <p className="mt-2 text-muted-foreground">From historical analysis to predictive planning — everything you need to understand flood risk.</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2">
         {cases.map((c) => (
-          <Card key={c.title} className="border-border bg-card shadow-sm transition hover:shadow-md">
+          <Card key={c.title} className="border-border bg-card shadow-sm transition hover:shadow-lg overflow-hidden group">
+            {/* Map Visual Preview */}
+            <div className="relative h-48 bg-slate-900 overflow-hidden">
+              <FeatureMapPreview variant={c.visual} />
+              <div className="absolute top-3 left-3 z-10">
+                <Badge className="bg-primary/90 backdrop-blur text-primary-foreground">{c.tagline}</Badge>
+              </div>
+            </div>
+
             <CardHeader>
-              <CardTitle className="text-base">{c.title}</CardTitle>
+              <CardTitle className="text-lg group-hover:text-primary transition-colors">{c.title}</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">{c.desc}</CardContent>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">{c.desc}</p>
+              <Button variant="outline" size="sm" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors" asChild>
+                <a href={c.link}>
+                  Explore <ArrowRight className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+            </CardContent>
           </Card>
         ))}
       </div>
@@ -205,29 +243,114 @@ function UseCases() {
   )
 }
 
-/* ---------------- features (updated) ---------------- */
+// Feature preview maps (non-interactive SVG illustrations)
+function FeatureMapPreview({ variant }) {
+  return (
+    <svg viewBox="0 0 400 200" className="w-full h-full" role="img">
+      <defs>
+        <linearGradient id="mapGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style={{ stopColor: "rgb(15, 23, 42)", stopOpacity: 1 }} />
+          <stop offset="100%" style={{ stopColor: "rgb(30, 41, 59)", stopOpacity: 1 }} />
+        </linearGradient>
+      </defs>
+      <rect width="400" height="200" fill="url(#mapGradient)" />
+
+      {/* Road network background */}
+      <g stroke="rgb(71, 85, 105)" strokeOpacity="0.3" strokeWidth="0.5">
+        <path d="M20,50 L380,50" />
+        <path d="M20,100 L380,100" />
+        <path d="M20,150 L380,150" />
+        <path d="M100,20 L100,180" />
+        <path d="M200,20 L200,180" />
+        <path d="M300,20 L300,180" />
+      </g>
+
+      {variant === "clusters" && (
+        <g>
+          {/* Flood event clusters */}
+          <circle cx="280" cy="80" r="28" fill="rgb(239, 68, 68)" fillOpacity="0.15" />
+          <circle cx="280" cy="80" r="18" fill="rgb(239, 68, 68)" fillOpacity="0.25" />
+          <circle cx="280" cy="80" r="8" fill="rgb(239, 68, 68)" fillOpacity="0.8" />
+
+          <circle cx="150" cy="120" r="22" fill="rgb(59, 130, 246)" fillOpacity="0.15" />
+          <circle cx="150" cy="120" r="14" fill="rgb(59, 130, 246)" fillOpacity="0.25" />
+          <circle cx="150" cy="120" r="6" fill="rgb(59, 130, 246)" fillOpacity="0.8" />
+
+          <circle cx="320" cy="140" r="16" fill="rgb(251, 146, 60)" fillOpacity="0.15" />
+          <circle cx="320" cy="140" r="10" fill="rgb(251, 146, 60)" fillOpacity="0.25" />
+          <circle cx="320" cy="140" r="5" fill="rgb(251, 146, 60)" fillOpacity="0.8" />
+        </g>
+      )}
+
+      {variant === "rings" && (
+        <g>
+          {/* Distance rings around selected point */}
+          <circle cx="200" cy="100" r="70" fill="none" stroke="rgb(96, 165, 250)" strokeWidth="2" strokeOpacity="0.4" strokeDasharray="4 2" />
+          <circle cx="200" cy="100" r="45" fill="none" stroke="rgb(59, 130, 246)" strokeWidth="2" strokeOpacity="0.6" strokeDasharray="4 2" />
+          <circle cx="200" cy="100" r="8" fill="rgb(239, 68, 68)" />
+
+          {/* Amenity markers */}
+          <circle cx="180" cy="70" r="4" fill="rgb(34, 197, 94)" />
+          <circle cx="230" cy="85" r="4" fill="rgb(34, 197, 94)" />
+          <circle cx="170" cy="120" r="4" fill="rgb(34, 197, 94)" />
+          <circle cx="240" cy="130" r="4" fill="rgb(34, 197, 94)" />
+          <circle cx="150" cy="100" r="4" fill="rgb(34, 197, 94)" />
+        </g>
+      )}
+
+      {variant === "heatmap" && (
+        <g>
+          {/* Road segments with varying importance */}
+          <path d="M50,100 L150,100" stroke="rgb(191, 219, 254)" strokeWidth="3" strokeOpacity="0.7" />
+          <path d="M150,100 L250,100" stroke="rgb(96, 165, 250)" strokeWidth="5" strokeOpacity="0.8" />
+          <path d="M250,100 L350,100" stroke="rgb(29, 78, 216)" strokeWidth="7" strokeOpacity="0.9" />
+
+          <path d="M200,40 L200,80" stroke="rgb(59, 130, 246)" strokeWidth="4" strokeOpacity="0.7" />
+          <path d="M200,120 L200,160" stroke="rgb(147, 197, 253)" strokeWidth="3" strokeOpacity="0.6" />
+        </g>
+      )}
+
+      {variant === "compare" && (
+        <g>
+          {/* Split view comparison */}
+          <line x1="200" y1="0" x2="200" y2="200" stroke="rgb(148, 163, 184)" strokeWidth="2" />
+
+          {/* Before scenario - left */}
+          <circle cx="120" cy="100" r="25" fill="rgb(251, 146, 60)" fillOpacity="0.2" />
+          <circle cx="120" cy="100" r="6" fill="rgb(251, 146, 60)" />
+
+          {/* After scenario - right */}
+          <circle cx="280" cy="100" r="35" fill="rgb(239, 68, 68)" fillOpacity="0.2" />
+          <circle cx="280" cy="100" r="8" fill="rgb(239, 68, 68)" />
+        </g>
+      )}
+    </svg>
+  )
+}
+
+/* ---------------- core capabilities ---------------- */
 function FeaturesGrid() {
   const features = [
-    { title: "Historical Flood Map", desc: "Interactive map showing 615 historical flood events across Singapore with location details and event metadata." },
-    { title: "AR Impact Scoring", desc: "Composite metric combining road centrality (betweenness, closeness), amenity density, and flood frequency for risk assessment." },
-    { title: "Road Centrality Analysis", desc: "Calculate road importance using network centrality metrics with configurable weights for betweenness and closeness." },
-    { title: "Amenity Analysis", desc: "Analyze 37,713 amenities near flood events and roads with category-based filtering and weighted scoring." },
-    { title: "Distance Ring Configuration", desc: "Customizable inner and outer rings (default 200m/500m) with band filtering and multiplier weights for impact zones." },
-    { title: "Maintenance Categorization", desc: "Automated road maintenance priority classification (1-year, 3-year, 5-year cycles) based on importance scores." },
+    { title: "615 Historical Events", desc: "Complete dataset of flood incidents with timestamps, locations, and event metadata for pattern analysis." },
+    { title: "45K+ Road Segments", desc: "Full Singapore road network with betweenness and closeness centrality metrics for importance ranking." },
+    { title: "37K Amenities Mapped", desc: "Schools, clinics, shelters, and infrastructure categorized with proximity analysis for impact assessment." },
+    { title: "AR Impact Scoring", desc: "Composite risk metric combining centrality, amenity density, and flood frequency with configurable weights." },
+    { title: "Distance Ring Analysis", desc: "Customizable inner/outer rings (200m/500m default) with band filtering and multiplier weights." },
+    { title: "Real-time Calculations", desc: "Instant recalculation of scores when adjusting weights, filters, or analysis parameters." },
   ]
 
   return (
     <section id="features" className="mx-auto max-w-7xl px-4 py-12">
       <div className="mb-8 text-center">
-        <h2 className="font-[montserrat] text-3xl font-bold tracking-tight">Why Teams Use Waterbenders</h2>
-        <p className="mt-2 text-muted-foreground">Built for planners, responders, and analysts who need clarity in minutes.</p>
+        <h2 className="font-[montserrat] text-3xl font-bold tracking-tight">Built on Comprehensive Data</h2>
+        <p className="mt-2 text-muted-foreground">Extensive datasets combined with flexible analysis tools for actionable insights.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {features.map((f) => (
           <Card key={f.title} className="border-border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-[var(--radius-lg)] bg-muted">
-                <span className="text-xs text-foreground/70">★</span>
+              <div className="grid h-10 w-10 place-items-center rounded-[var(--radius-lg)] bg-primary/10 text-primary">
+                <LineChart className="h-5 w-5" />
               </div>
               <CardTitle className="text-base">{f.title}</CardTitle>
             </CardHeader>
@@ -265,47 +388,6 @@ function HowItWorks() {
         </div>
       </div>
     </section>
-  )
-}
-
-/* ---------------- gallery (svg mocks) ---------------- */
-function MiniGallery() {
-  return (
-    <section id="gallery" className="mx-auto max-w-7xl px-4 py-12">
-      <h3 className="text-center font-[montserrat] text-2xl font-bold">Application Views</h3>
-      <p className="mt-2 text-center text-muted-foreground">Explore flood events, analyze road centrality, and simulate scenarios with intuitive dashboards.</p>
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <Card className="overflow-hidden border-border bg-card"><GalleryMapMock variant="layers" /></Card>
-        <Card className="overflow-hidden border-border bg-card"><GalleryMapMock /></Card>
-        <Card className="overflow-hidden border-border bg-card"><GalleryMapMock variant="compare" /></Card>
-      </div>
-    </section>
-  )
-}
-
-// lightweight inline “mapbox-like” svg for gallery tiles
-function GalleryMapMock({ variant = "default" }) {
-  return (
-    <svg viewBox="0 0 800 300" className="h-48 w-full" role="img" aria-label="map mock">
-      <rect width="800" height="300" fill="var(--card)" />
-      <g stroke="var(--foreground)" strokeOpacity="0.2">
-        <path d="M20,40 L780,260" />
-        <path d="M60,280 L420,40" />
-        <path d="M740,60 L120,260" />
-      </g>
-      <g>
-        <circle cx="520" cy="120" r="30" fill="var(--primary)" fillOpacity="0.12" />
-        <circle cx="280" cy="180" r="28" fill="var(--foreground)" fillOpacity="0.10" />
-        <circle cx="380" cy="140" r="22" fill="var(--primary)" fillOpacity="0.12" />
-      </g>
-      {variant === "layers" && (
-        <g>
-          <rect x="18" y="18" width="150" height="80" rx="8" fill="var(--background)" opacity="0.85" />
-          <text x="30" y="42" fontSize="12" fill="var(--foreground)" opacity="0.9">Layers</text>
-        </g>
-      )}
-      {variant === "compare" && <rect x="260" y="0" width="4" height="300" fill="var(--border)" />}
-    </svg>
   )
 }
 
@@ -380,7 +462,9 @@ function SiteFooter() {
         <div className="flex items-center justify-start gap-4 md:justify-end">
           <a className="text-sm text-muted-foreground hover:text-foreground" href="#features">Features</a>
           <a className="text-sm text-muted-foreground hover:text-foreground" href="#how">How It Works</a>
-          <a className="text-sm text-muted-foreground hover:text-foreground" href="#gallery">Screens</a>
+          <a className="text-sm text-muted-foreground hover:text-foreground" href="/historicalFloodMap">Historical Map</a>
+          <a className="text-sm text-muted-foreground hover:text-foreground" href="/floodevents">Flood Events</a>
+          <a className="text-sm text-muted-foreground hover:text-foreground" href="/roadcentrality">Road Centrality</a>
         </div>
       </div>
     </footer>
