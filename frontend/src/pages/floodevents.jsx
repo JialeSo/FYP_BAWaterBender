@@ -1617,15 +1617,20 @@ export default function floodevents() {
       });
 
       map.on("click", (e) => {
-        const bbox = [[e.point.x - 2, e.point.y - 2],[e.point.x + 2, e.point.y + 2]];
+        const bbox = [[e.point.x - 5, e.point.y - 5],[e.point.x + 5, e.point.y + 5]];
         const hit = map.queryRenderedFeatures(bbox, {
           layers: [
             "flood-clusters","flood-cluster-count","flood-points","flood-selected-points",
             "flood-selected-labels","amenities-nearby","amenities-nearby-labels",
-            "rings-page-inner-fill","rings-page-outer-fill","roads-nearby-inner","roads-nearby-outer"
+            "rings-page-inner-fill","rings-page-outer-fill","rings-selected-inner-fill","rings-selected-outer-fill",
+            "roads-nearby-inner","roads-nearby-outer"
           ],
         });
-        if (!hit || hit.length === 0) clear_selection();
+        console.log("General click handler, hit layers:", hit?.length || 0);
+        if (!hit || hit.length === 0) {
+          console.log("No layers hit, clearing selection");
+          clear_selection();
+        }
       });
     })();
 
