@@ -560,6 +560,8 @@ export default function floodevents() {
   const [page, set_page] = useState(1);
   const [amenity_search_term, set_amenity_search_term] = useState("");
   const [road_search_term, set_road_search_term] = useState("");
+  const [amenity_sort, set_amenity_sort] = useState("all"); // "all", "inner", "outer"
+  const [road_sort, set_road_sort] = useState("all"); // "all", "inner", "outer"
   const [focused_amenity, set_focused_amenity] = useState(null);
   const [focused_road, set_focused_road] = useState(null);
   const [visible_cols, set_visible_cols] = useState({
@@ -1813,13 +1815,22 @@ export default function floodevents() {
     const near = query_amenities(center[0], center[1], r_out);
     let inner_count = 0, outer_count = 0, impact_inner = 0, impact_outer = 0;
 
-    // Count amenities by band
+    // Count amenities by band - only include enabled categories
     for (const a of near) {
       const band = a._distm <= r_in ? "inner" : "outer";
       const enabled = cat_enabled[a.category] ?? true;
-      const w = enabled ? (+cat_weights[a.category] || 0) : 0;
-      if (band === "inner") { inner_count++; impact_inner += w * inner_mult; }
-      else { outer_count++; impact_outer += w * outer_mult; }
+
+      // Only count and add impact if category is enabled
+      if (enabled) {
+        const w = +cat_weights[a.category] || 0;
+        if (band === "inner") {
+          inner_count++;
+          impact_inner += w * inner_mult;
+        } else {
+          outer_count++;
+          impact_outer += w * outer_mult;
+        }
+      }
     }
 
     // Amenity bubbles removed - no longer displaying count markers on map
@@ -2508,9 +2519,27 @@ export default function floodevents() {
               {/* Count Bubble - positioned to the right */}
               <div className="absolute right-3 top-3 z-10 rounded-xl p-3 text-xs shadow-lg bg-background border-2 border-primary">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{panel_tab === "amenities" ? (selected_stats.counts?.total ?? 0) : (selected_stats.roads_counts?.total ?? 0)}</div>
+                  <div className="text-2xl font-bold text-primary">
+                    {panel_tab === "amenities" ? (selected_stats.counts?.total ?? 0) : (selected_stats.roads_counts?.total ?? 0)}
+                  </div>
                   <div className="text-[10px] text-muted-foreground uppercase font-medium mt-1">
                     {panel_tab === "amenities" ? "Amenities" : "Roads"}
+                  </div>
+                  {/* Breakdown */}
+                  <div className="flex items-center justify-center gap-2 mt-2 pt-2 border-t border-primary/20">
+                    <div className="text-center">
+                      <div className="text-xs font-bold text-blue-600">
+                        {panel_tab === "amenities" ? (selected_stats.counts?.inner ?? 0) : (selected_stats.roads_counts?.inner ?? 0)}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground">Inner</div>
+                    </div>
+                    <div className="text-muted-foreground">·</div>
+                    <div className="text-center">
+                      <div className="text-xs font-bold text-gray-600">
+                        {panel_tab === "amenities" ? (selected_stats.counts?.outer ?? 0) : (selected_stats.roads_counts?.outer ?? 0)}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground">Outer</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2619,8 +2648,11 @@ export default function floodevents() {
 
                     {/* (B) Bottom Section - Tabs with Flat Lists */}
                     <Card className="border">
+                      <CardHeader className="pb-1 pt-2 px-2">
+                        <CardTitle className="text-xs font-semibold">Affected Infrastructure</CardTitle>
+                      </CardHeader>
                       <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
-                        <div className="border-b px-2 pt-2">
+                        <div className="border-b px-2 pt-0">
                           <TabsList className="w-full grid grid-cols-2 h-8">
                             <TabsTrigger value="amenities" className="text-[10px]">
                               Amenities ({selected_stats.counts?.total ?? 0})
@@ -2639,35 +2671,55 @@ export default function floodevents() {
                             if (!center) return <p className="text-xs text-muted-foreground py-6 text-center">No location data</p>;
 
                             // Query amenities in both rings, only if bands are enabled
+                            // Filter by enabled categories
                             const innerAmenities = inner_enabled
-                              ? query_amenities(center[0], center[1], r_inner).map(a => ({ ...a, band: 'inner' }))
+                              ? query_amenities(center[0], center[1], r_inner)
+                                  .filter(a => cat_enabled[a.category] ?? true)
+                                  .map(a => ({ ...a, band: 'inner' }))
                               : [];
                             const outerAmenities = outer_enabled
                               ? query_amenities(center[0], center[1], r_outer)
-                                  .filter(a => a._distm > r_inner)
+                                  .filter(a => a._distm > r_inner && (cat_enabled[a.category] ?? true))
                                   .map(a => ({ ...a, band: 'outer' }))
                               : [];
                             const allAmenities = [...innerAmenities, ...outerAmenities];
 
                             // Filter by search
-                            const filteredAmenities = amenity_search_term.trim()
+                            let filteredAmenities = amenity_search_term.trim()
                               ? allAmenities.filter(a =>
                                   (a.name || "").toLowerCase().includes(amenity_search_term.toLowerCase()) ||
                                   (a.category || "").toLowerCase().includes(amenity_search_term.toLowerCase())
                                 )
                               : allAmenities;
 
+                            // Filter by band
+                            if (amenity_sort !== "all") {
+                              filteredAmenities = filteredAmenities.filter(a => a.band === amenity_sort);
+                            }
+
                             return (
                               <>
-                                {/* Search input */}
-                                <div className="relative">
-                                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                  <Input
-                                    placeholder="Search amenities..."
-                                    value={amenity_search_term}
-                                    onChange={(e) => set_amenity_search_term(e.target.value)}
-                                    className="pl-7 h-7 text-xs"
-                                  />
+                                {/* Search and Sort Controls */}
+                                <div className="flex gap-2">
+                                  <div className="relative flex-1">
+                                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                    <Input
+                                      placeholder="Search amenities..."
+                                      value={amenity_search_term}
+                                      onChange={(e) => set_amenity_search_term(e.target.value)}
+                                      className="pl-7 h-7 text-xs"
+                                    />
+                                  </div>
+                                  <Select value={amenity_sort} onValueChange={set_amenity_sort}>
+                                    <SelectTrigger className="w-24 h-7 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all" className="text-xs">All</SelectItem>
+                                      <SelectItem value="inner" className="text-xs">Inner</SelectItem>
+                                      <SelectItem value="outer" className="text-xs">Outer</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
 
                                 {filteredAmenities.length > 0 ? (
@@ -2773,24 +2825,41 @@ export default function floodevents() {
                             }
 
                             // Filter by search
-                            const filteredRoads = road_search_term.trim()
+                            let filteredRoads = road_search_term.trim()
                               ? allRoads.filter(r =>
                                   (r.name || "").toLowerCase().includes(road_search_term.toLowerCase()) ||
                                   String(r.rn_id || r.RN_ID || "").includes(road_search_term)
                                 )
                               : allRoads;
 
+                            // Filter by band
+                            if (road_sort !== "all") {
+                              filteredRoads = filteredRoads.filter(r => r.band === road_sort);
+                            }
+
                             return (
                               <>
-                                {/* Search input */}
-                                <div className="relative">
-                                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                  <Input
-                                    placeholder="Search roads..."
-                                    value={road_search_term}
-                                    onChange={(e) => set_road_search_term(e.target.value)}
-                                    className="pl-7 h-7 text-xs"
-                                  />
+                                {/* Search and Sort Controls */}
+                                <div className="flex gap-2">
+                                  <div className="relative flex-1">
+                                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                    <Input
+                                      placeholder="Search roads..."
+                                      value={road_search_term}
+                                      onChange={(e) => set_road_search_term(e.target.value)}
+                                      className="pl-7 h-7 text-xs"
+                                    />
+                                  </div>
+                                  <Select value={road_sort} onValueChange={set_road_sort}>
+                                    <SelectTrigger className="w-24 h-7 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all" className="text-xs">All</SelectItem>
+                                      <SelectItem value="inner" className="text-xs">Inner</SelectItem>
+                                      <SelectItem value="outer" className="text-xs">Outer</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
 
                                 {filteredRoads.length > 0 ? (
