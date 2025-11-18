@@ -78,28 +78,36 @@ const calculateColorThresholds = (data, metric, globalMaxValues = null) => {
     switch (metric) {
       case "amenity_count_total":
         maxValue = globalMaxValues.amenity || 0;
+        console.log(`[calculateColorThresholds] Using global amenity max: ${maxValue}`);
         break;
       case "flood_count_total":
         maxValue = globalMaxValues.flood || 0;
+        console.log(`[calculateColorThresholds] Using global flood max: ${maxValue}`);
         break;
       case "betweenness_norm":
         maxValue = globalMaxValues.betweenness || 0;
+        console.log(`[calculateColorThresholds] Using global betweenness max: ${maxValue}`);
         break;
       case "closeness_norm":
         maxValue = globalMaxValues.closeness || 0;
+        console.log(`[calculateColorThresholds] Using global closeness max: ${maxValue}`);
         break;
       case "importance":
         maxValue = globalMaxValues.importance || 0;
+        console.log(`[calculateColorThresholds] Using global importance max: ${maxValue}`);
         break;
       default:
         // Fallback to calculating from current data
+        console.log(`[calculateColorThresholds] Metric ${metric} not in global maxValues, calculating from data`);
         const allValues = data.features
           .map(f => f.properties?.[metric])
           .filter(v => v !== null && v !== undefined && !isNaN(v));
         maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
+        console.log(`[calculateColorThresholds] Calculated max from data: ${maxValue}`);
     }
   } else {
     // Get all values to find the maximum
+    console.log(`[calculateColorThresholds] No global maxValues provided, calculating from data`);
     const allValues = data.features
       .map(f => f.properties?.[metric])
       .filter(v => v !== null && v !== undefined && !isNaN(v));
@@ -108,7 +116,10 @@ const calculateColorThresholds = (data, metric, globalMaxValues = null) => {
     maxValue = Math.max(...allValues);
   }
 
-  if (maxValue <= 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+  if (maxValue <= 0) {
+    console.log(`[calculateColorThresholds] maxValue is ${maxValue}, returning zero thresholds`);
+    return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+  }
 
   // Divide max value into 5 equal buckets
   // Example: max = 100 → bucketSize = 20 → buckets: 0-20, 20-40, 40-60, 60-80, 80-100
@@ -122,7 +133,7 @@ const calculateColorThresholds = (data, metric, globalMaxValues = null) => {
     max: maxValue            // Bucket 5: 80% to 100% of max
   };
 
-  console.log(`Thresholds for ${metric} (max: ${maxValue}):`, thresholds);
+  console.log(`[calculateColorThresholds] Final thresholds for ${metric} (max: ${maxValue}):`, thresholds);
   return thresholds;
 };
 
@@ -239,8 +250,19 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
   const [thicknessMetric, setThicknessMetric] = useState("none");
   const markerRef = useRef(null);
 
+  // Log when maxValues changes
+  useEffect(() => {
+    console.log(`[CentralityMap] maxValues updated:`, maxValues);
+  }, [maxValues]);
+
+  // Log when colorMetric changes
+  useEffect(() => {
+    console.log(`[CentralityMap] colorMetric changed to: ${colorMetric}`);
+  }, [colorMetric]);
+
   // Calculate color thresholds based on max value
   const colorThresholds = useMemo(() => {
+    console.log(`[CentralityMap] Recalculating colorThresholds for metric: ${colorMetric}, maxValues:`, maxValues);
     const thresholds = calculateColorThresholds(data, colorMetric, maxValues);
 
     // Debug: Log thresholds and sample data
