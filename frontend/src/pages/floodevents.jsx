@@ -215,6 +215,7 @@ export default function floodevents() {
     road_fc_enriched: road_fc,
     category_lookup,
     lookups,
+    loading,
   } = useMapData();
 
   const [isCalculating, setIsCalculating] = useState(false);
@@ -1792,12 +1793,12 @@ export default function floodevents() {
   return (
     <div className="mx-auto flex w-full flex-col gap-5 p-6 relative">
       {/* Loading overlay */}
-      {isCalculating && (
+      {(loading || isCalculating) && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="rounded-lg border bg-card p-6 shadow-lg">
             <div className="flex items-center gap-3">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <span className="text-sm font-medium">Recalculating...</span>
+              <span className="text-sm font-medium">{loading ? "Loading data..." : "Recalculating..."}</span>
             </div>
           </div>
         </div>
@@ -1928,10 +1929,10 @@ export default function floodevents() {
 
                   {/* Event Information Grid */}
                   <Card className="border">
-                    <CardHeader className="p-1.5 pb-1">
+                    <CardHeader className="pb-1 pt-2 px-2">
                       <CardTitle className="text-xs font-semibold">Event Information</CardTitle>
                     </CardHeader>
-                    <CardContent className="px-1.5 pb-1.5 pt-0">
+                    <CardContent className="px-2 pb-2 pt-1">
                       <div className="grid grid-cols-2 gap-1 text-xs">
                         <div>
                           <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">ID</div>
@@ -1969,7 +1970,7 @@ export default function floodevents() {
 
                   {/* Affected Infrastructure Tabs */}
                   <Card className="border">
-                    <CardHeader className="p-1.5 pb-1">
+                    <CardHeader className="pb-1 pt-2 px-2">
                       <CardTitle className="font-semibold">Affected Infrastructure</CardTitle>
                     </CardHeader>
                     <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
@@ -1984,7 +1985,7 @@ export default function floodevents() {
                         </TabsList>
                       </div>
 
-                      <TabsContent value="amenities" className="mt-0">
+                      <TabsContent value="amenities" className="px-2 py-2 mt-0">
                         <AmenitiesPanel
                           center={[to_num(selected_props.start_lng), to_num(selected_props.start_lat)]}
                           stats={selected_stats}
@@ -2003,14 +2004,14 @@ export default function floodevents() {
                         />
                       </TabsContent>
 
-                      <TabsContent value="roads" className="mt-0">
+                      <TabsContent value="roads" className="px-2 py-2 mt-0">
                         <RoadsPanel
                           center={[to_num(selected_props.start_lng), to_num(selected_props.start_lat)]}
-                          roads_nearby={roads_nearby_state}
+                          roads_pack={roads_nearby_state}
                           ring_filter={ring_filter}
                           r_inner={r_inner}
                           r_outer={r_outer}
-                          on_center={() => {
+                          on_focus_rn={() => {
                             if (map_ref.current) {
                               map_ref.current.flyTo({
                                 center: [to_num(selected_props.start_lng), to_num(selected_props.start_lat)],
