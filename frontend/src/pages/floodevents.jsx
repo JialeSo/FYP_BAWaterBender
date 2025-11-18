@@ -845,10 +845,31 @@ export default function floodevents() {
         total: activeInnerRoads + activeOuterRoads
       };
 
+      // Calculate centrality using all affected roads (origin, real end, or predicted endpoints)
       let bnorm = 0, cnorm = 0;
-      if (p.start_rn_id != null) {
-        const rlist = roads_by_id.get(String(p.start_rn_id)) || [];
-        let bmax = -Infinity, cmax = -Infinity;
+      const getAffectedRoadIds = (props) => {
+        const ids = [];
+        const origin_id = props.origin_rn_id ?? props.start_rn_id;
+        if (origin_id != null) ids.push(String(origin_id));
+
+        const hasRealEnd = props.end_rn_id != null &&
+                           props.end_lat != null && props.end_lng != null &&
+                           to_num(props.end_lat) !== 0 && to_num(props.end_lng) !== 0;
+
+        if (hasRealEnd) {
+          ids.push(String(props.end_rn_id));
+        } else {
+          if (props.end100_a_rn_id != null) ids.push(String(props.end100_a_rn_id));
+          if (props.end100_b_rn_id != null) ids.push(String(props.end100_b_rn_id));
+        }
+        return ids;
+      };
+
+      const affected_road_ids = getAffectedRoadIds(p);
+      let bmax = -Infinity, cmax = -Infinity;
+
+      for (const rid of affected_road_ids) {
+        const rlist = roads_by_id.get(rid) || [];
         for (const r of rlist) {
           const rp = r.properties || {};
           const b = +((rp.betweenness_norm ?? rp.betweenness ?? rp.BETWEENNESS_NORM ?? rp.BETWEENNESS) || NaN);
@@ -856,9 +877,10 @@ export default function floodevents() {
           if (Number.isFinite(b)) bmax = Math.max(bmax, b);
           if (Number.isFinite(c)) cmax = Math.max(cmax, c);
         }
-        if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
-        if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
       }
+
+      if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
+      if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
 
       const amenity_score = 1 - Math.exp(-(impact_total) / 10.0);
 
@@ -1561,15 +1583,62 @@ export default function floodevents() {
       map.setLayoutProperty("flood-selected-labels", "visibility", "none");
     } catch {}
 
-    /* start road highlight (original) */
-    const road_id = p.start_rn_id == null ? null : String(p.start_rn_id);
-    const road_feats = road_id ? (roads_by_id.get(road_id) || []) : [];
+    /* Affected roads highlight - includes origin, real end, or predicted endpoints */
+    // Helper function to get all affected road IDs for this flood event
+    const getAffectedRoadIds = (props) => {
+      const ids = [];
+
+      // 1. Always include origin road (start_rn_id or origin_rn_id)
+      const origin_id = props.origin_rn_id ?? props.start_rn_id;
+      if (origin_id != null) {
+        ids.push(String(origin_id));
+      }
+
+      // 2. Check if real end point exists (end coordinates and end_rn_id)
+      const hasRealEnd = props.end_rn_id != null &&
+                         props.end_lat != null && props.end_lng != null &&
+                         to_num(props.end_lat) !== 0 && to_num(props.end_lng) !== 0;
+
+      if (hasRealEnd) {
+        // Use real end road
+        ids.push(String(props.end_rn_id));
+      } else {
+        // 3. Fall back to predicted endpoints A and B
+        if (props.end100_a_rn_id != null) {
+          ids.push(String(props.end100_a_rn_id));
+        }
+        if (props.end100_b_rn_id != null) {
+          ids.push(String(props.end100_b_rn_id));
+        }
+      }
+
+      return ids;
+    };
+
+    const affected_road_ids = getAffectedRoadIds(p);
+    const affected_road_feats = [];
+
+    for (const rid of affected_road_ids) {
+      const rlist = roads_by_id.get(rid) || [];
+      for (const r of rlist) {
+        affected_road_feats.push({
+          type: "Feature",
+          properties: {
+            rn_id: r.properties?.rn_id ?? r.properties?.RN_ID ?? null,
+            name: r.properties?.name || "",
+            is_origin: rid === String(p.origin_rn_id ?? p.start_rn_id)
+          },
+          geometry: r.geometry
+        });
+      }
+    }
+
     try {
       map.getSource("affected-road")?.setData({
         type: "FeatureCollection",
-        features: road_feats.map(r => ({ type: "Feature", properties: { rn_id: r.properties?.rn_id ?? r.properties?.RN_ID ?? null, name: r.properties?.name || "" }, geometry: r.geometry })),
+        features: affected_road_feats
       });
-      map.setLayoutProperty("affected-road", "visibility", road_feats.length ? "visible" : "none");
+      map.setLayoutProperty("affected-road", "visibility", affected_road_feats.length ? "visible" : "none");
     } catch {}
 
     /* rings for this selection */
@@ -1622,11 +1691,12 @@ export default function floodevents() {
       map.setLayoutProperty("roads-nearby-outer", roads_pack.outer.length ? "visible" : "none");
     } catch {}
 
-    /* scores */
+    /* scores - calculate centrality using all affected roads */
     let bnorm = 0, cnorm = 0;
-    if (p.start_rn_id != null) {
-      const rlist = roads_by_id.get(String(p.start_rn_id)) || [];
-      let bmax = -Infinity, cmax = -Infinity;
+    let bmax = -Infinity, cmax = -Infinity;
+
+    for (const rid of affected_road_ids) {
+      const rlist = roads_by_id.get(rid) || [];
       for (const r of rlist) {
         const rp = r.properties || {};
         const b = +((rp.betweenness_norm ?? rp.betweenness ?? rp.BETWEENNESS_NORM ?? rp.BETWEENNESS) || NaN);
@@ -1634,9 +1704,10 @@ export default function floodevents() {
         if (Number.isFinite(b)) bmax = Math.max(bmax, b);
         if (Number.isFinite(c)) cmax = Math.max(cmax, c);
       }
-      if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
-      if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
     }
+
+    if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
+    if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
     const impact_total = impact_inner + impact_outer;
     const amenity_score = 1 - Math.exp(-impact_total / 10.0);
 
