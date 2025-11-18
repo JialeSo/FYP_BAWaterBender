@@ -261,7 +261,8 @@ export default function floodevents() {
   const [panel_tab, set_panel_tab] = useState("amenities"); // "amenities" | "roads"
   const [ring_filter, set_ring_filter] = useState("all");
   const [show_page_rings, set_show_page_rings] = useState(false);
-  const [sort_key, set_sort_key] = useState("dt_desc");
+  const [sort_col, set_sort_col] = useState("dt");
+  const [sort_asc, set_sort_asc] = useState(false); // dt_desc means descending
   const [page, set_page] = useState(1);
   const [amenity_search_term, set_amenity_search_term] = useState("");
   const [road_search_term, set_road_search_term] = useState("");
@@ -971,11 +972,11 @@ export default function floodevents() {
         return sgn * ((va ?? 0) - (vb ?? 0));
       });
     };
-    if (sort_key === "dt_desc") by("dt", "desc");
-    else if (sort_key.endsWith("_asc"))  by(sort_key.slice(0, -4), "asc");
-    else if (sort_key.endsWith("_desc")) by(sort_key.slice(0, -5), "desc");
+    if (sort_col) {
+      by(sort_col, sort_asc ? "asc" : "desc");
+    }
     return arr;
-  }, [filtered, sort_key]);
+  }, [filtered, sort_col, sort_asc]);
 
   const total_pages = Math.max(1, Math.ceil(sorted.length / page_size));
   const page_safe = clamp(page, 1, total_pages);
@@ -1786,21 +1787,6 @@ export default function floodevents() {
     { key: "start_lng", label: "Start Longitude", type: "number", optional: true },
   ];
 
-  const sort_icon = (key) => {
-    if (key === "dt") return sort_key === "dt_desc" ? "↓" : "↑";
-    if (sort_key === `${key}_asc`) return "↑";
-    if (sort_key === `${key}_desc`) return "↓";
-    return "↕";
-  };
-  const toggle_sort = (key) => {
-    if (key === "dt") {
-      set_sort_key(sort_key === "dt_desc" ? "dt_asc" : "dt_desc");
-      return;
-    }
-    if (sort_key === `${key}_asc`) set_sort_key(`${key}_desc`);
-    else if (sort_key === `${key}_desc`) set_sort_key(`${key}_asc`);
-    else set_sort_key(`${key}_asc`);
-  };
 
   /* ===== ui header with accordions ===== */
   return (
