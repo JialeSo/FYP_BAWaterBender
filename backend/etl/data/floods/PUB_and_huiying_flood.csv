@@ -175,8 +175,8 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 174,,,2020-08-13,,,ALJUNIED ROAD,flash_flood,,,,,1.322313,103.881475,370023,,,,,,,,
 175,,,2020-08-14,,,CRAIG ROAD,flash_flood,,,,,1.277854,103.842278,089688,,,,,,,,
 176,,,2020-08-14,,,TANJONG PAGAR ROAD,flash_flood,,,,,1.273715,103.842919,088542,,,,,,,,
-179,,,2020-11-02,,,MOUNT VERNON ROAD,flash_flood,,,,,1.34041,103.879577,361222,,,,,,,,
 177,,,2020-11-02,,,UPPER PAYA LEBAR ROAD,flash_flood,,,,,1.335184,103.888238,534803,,,,,,,,
+179,,,2020-11-02,,,MOUNT VERNON ROAD,flash_flood,,,,,1.34041,103.879577,361222,,,,,,,,
 178,,,2020-11-02,,,LORONG GAMBIR,flash_flood,,,,,1.345476,103.875567,556140,,,,,,,,
 180,,,2020-11-07,,,ALJUNIED ROAD,flash_flood,,,,,1.322313,103.881475,370023,,,,,,,,
 181,,,2021-01-01,,,LORONG HALUS,flash_flood,,,,,1.386169,103.923226,533850,,,,,,,,
@@ -212,6 +212,16 @@ id,created_at,text,event_date,sender_id,msg_id,location,event,start_loc,end_loc,
 211,,,2023-11-28,,,21229 (BUS STOP),flash_flood,,,,,1.342064,103.71602,648923,,,,,,,,
 212,,,2024-02-03,,,DUNEARN ROAD,flash_flood,,,,,1.321188,103.825058,297753,,,,,,,,
 213,,,2024-10-14,,,DUNEARN ROAD,flash_flood,,,,,1.321188,103.825058,297753,,,,,,,,
+272,2025-09-07T06:01:28.099047+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Lor Ong Lye (near Lor Lew Lian) [14:12 hours]",2025-09-07,-1001620473383,1158.0,Lor Ong Lye,flash_flood_risk,Lor Ong Lye,Near Lor Lew Lian,,,1.366923,103.801292,nan,1.366923,103.801292,nan,2025-04-13T06:15:53+00:00,,,91.0,91.0
+310,2025-09-07T06:01:34.256619+00:00,"🌊 Risk of Flash Floods
+
+Due to heavy rain, water levels in drains have reached 90% in these areas:
+
+• TPE Slip Rd (Punggol West Flyover) [20:27 hours]
+
+Please avoid the above areas for the next 1 hour. #sgflood",2025-09-07,-1001620473383,86.0,TPE Slip Rd,flash_flood_risk,TPE Slip Rd,Punggol West Flyover,,,1.385923,103.757068,nan,1.400063,103.8959395,820221.0,2022-02-25T12:29:22+00:00,,,74.0,2.0
 308,2025-09-07T06:01:33.871176+00:00,"🌊 Risk of Flash Floods
 
 • KJE (Slip Road to PIE) [16:17 hours]
@@ -254,25 +264,10 @@ Due to heavy rain, please avoid this location for the next 1 hour: Jln Pokok Ser
 178,2025-09-07T06:01:12.059223+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten Rd leading to Jln Seaview [02:08 hours]",2025-09-07,-1001620473383,1293.0,Mountbatten Rd Leading To Jln Seaview,flash_flood_risk,Mountbatten Rd Leading To Jln Seaview,,,,1.366923,103.801292,nan,,,nan,2025-08-12T18:10:36+00:00,,,91.0,
-310,2025-09-07T06:01:34.256619+00:00,"🌊 Risk of Flash Floods
-
-Due to heavy rain, water levels in drains have reached 90% in these areas:
-
-• TPE Slip Rd (Punggol West Flyover) [20:27 hours]
-
-Please avoid the above areas for the next 1 hour. #sgflood",2025-09-07,-1001620473383,86.0,TPE Slip Rd,flash_flood_risk,TPE Slip Rd,Punggol West Flyover,,,1.385923,103.757068,nan,1.400063,103.8959395,820221.0,2022-02-25T12:29:22+00:00,,,74.0,2.0
 311,2025-09-07T06:01:34.433141+00:00,"With more wet weather ⛈️ heading our way, it’s more important than ever to be flood ready. Here's a set of guidelines and safety tips to help you do just that! Share this with your family and friends to help them stay safe during rainy days. 🥰",2025-09-07,-1001620473383,54.0,,,,,,,,,nan,,,nan,2021-11-26T08:36:31+00:00,,,,
-305,2025-09-07T06:01:33.360476+00:00,"[Risk of Flash Floods]
+177,2025-09-07T06:01:11.864453+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [15:28 hours]",2025-09-07,-1001620473383,986.0,Punggol West Flyover,flash_flood_risk,Punggol West Flyover,punggol west flyover,,,1.400063,103.8959395,820221.0,1.400063,103.8959395,820221.0,2024-11-16T07:30:47+00:00,,,2.0,2.0
-176,2025-09-07T06:01:11.694761+00:00,"[Risk of Flash Floods] 
-
-Due to heavy rain, please avoid this location for the next 1 hour: Jurong Town Hall Road (towards PIE) before Jurong East Street 11 [Issued 07:43hours]",2025-09-07,-1001620473383,1298.0,Jurong Town Hall Road,flash_flood_risk,Jurong Town Hall Road,PIE,,,1.3331728,103.7377991,609080.0,1.341385,103.7493551,659537.0,2025-08-23T23:55:47+00:00,,,11.0,12.0
-312,2025-09-07T06:01:34.618143+00:00,"Stay safe on rainy days by avoiding flooded areas. 
-
-Subscribe to our Telegram channel to get up-to-date alerts on impending heavy rain, areas at risk of flash floods and flash floods occurrences. 
-
-Spread the word and invite your family and friends to join this Telegram channel today. https://t.me/pubfloodalerts",2025-09-07,-1001620473383,4.0,,flash_flood_risk,,,,,,,nan,,,nan,2021-10-26T11:29:32+00:00,,,,
+Due to heavy rain, please avoid this location for the next 1 hour: Dunearn Rd (Yarwood Ave to Binjai Pk) [07:21 hours]",2025-09-07,-1001620473383,1297.0,Yarwood Ave,flash_flood_risk,Yarwood Ave,Binjai Pk,,,1.3396186,103.7826758,587997.0,1.3404925,103.787472,589874.0,2025-08-23T23:25:22+00:00,,,175.0,367.0
 273,2025-09-07T06:01:28.237661+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Junction of Toa Payoh Lor 1 and Toa Payoh Lor 2
@@ -289,15 +284,17 @@ Flash flood at Yishun Avenue 7. Please avoid the area. PUB officers have been de
 278,2025-09-07T06:01:29.010003+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: TPE Slip Rd towards Punggol Rd [13:56 hours]",2025-09-07,-1001620473383,1152.0,TPE Slip Rd Towards Punggol Rd,flash_flood_risk,TPE Slip Rd Towards Punggol Rd,,,,1.400883,103.905556,nan,,,nan,2025-04-13T06:00:29+00:00,,,149.0,
-177,2025-09-07T06:01:11.864453+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Dunearn Rd (Yarwood Ave to Binjai Pk) [07:21 hours]",2025-09-07,-1001620473383,1297.0,Yarwood Ave,flash_flood_risk,Yarwood Ave,Binjai Pk,,,1.3396186,103.7826758,587997.0,1.3404925,103.787472,589874.0,2025-08-23T23:25:22+00:00,,,175.0,367.0
 279,2025-09-07T06:01:29.155392+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: KPE(ECP) after Buangkok East Dr Exit [13:53 hours]",2025-09-07,-1001620473383,1151.0,Buangkok East Dr Exit,flash_flood_risk,Buangkok East Dr Exit,ecp,,,1.371346,103.907861,nan,1.2925115,103.8619746,39193.0,2025-04-13T05:55:33+00:00,,,342.0,136.0
-170,2025-09-07T06:01:10.693335+00:00,"[Risk of Flash Floods]
+312,2025-09-07T06:01:34.618143+00:00,"Stay safe on rainy days by avoiding flooded areas. 
 
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",2025-09-07,-1001620473383,1308.0,Punggol West Flyover,flash_flood_risk,Punggol West Flyover,punggol west flyover,,,1.400063,103.8959395,820221.0,1.400063,103.8959395,820221.0,2025-09-05T01:30:26+00:00,,,2.0,2.0
+Subscribe to our Telegram channel to get up-to-date alerts on impending heavy rain, areas at risk of flash floods and flash floods occurrences. 
+
+Spread the word and invite your family and friends to join this Telegram channel today. https://t.me/pubfloodalerts",2025-09-07,-1001620473383,4.0,,flash_flood_risk,,,,,,,nan,,,nan,2021-10-26T11:29:32+00:00,,,,
+280,2025-09-07T06:01:29.308793+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [13:51 hours]",2025-09-07,-1001620473383,1150.0,Punggol West Flyover,flash_flood_risk,Punggol West Flyover,punggol west flyover,,,1.400063,103.8959395,820221.0,1.400063,103.8959395,820221.0,2025-04-13T05:55:32+00:00,,,2.0,2.0
 171,2025-09-07T06:01:10.831987+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Junction of Yishun Ave 2 and Yishun Ave 5 [09:16 hours]",2025-09-07,-1001620473383,1307.0,Yishun Ave 2,flash_flood_risk,Yishun Ave 2,Yishun Ave 5,,,1.4346576,103.8346712,760224.0,1.4304225,103.8334205,760741.0,2025-09-05T01:20:22+00:00,,,394.0,395.0
@@ -311,15 +308,18 @@ Due to heavy rain, please avoid this location for the next 1 hour:   Dunearn Roa
 175,2025-09-07T06:01:11.51741+00:00,"[FLASH FLOOD OCCURRED]  
 
 Flash flood at Jurong Town Hall Road (towards PIE) before Jurong East Street 11. Please avoid the area. Issued 0749 hours.",2025-09-07,-1001620473383,1299.0,Jurong Town Hall Road,flash_flood,Jurong Town Hall Road,PIE,,,1.3331728,103.7377991,609080.0,1.341385,103.7493551,659537.0,2025-08-23T23:55:48+00:00,,,11.0,12.0
-280,2025-09-07T06:01:29.308793+00:00,"[Risk of Flash Floods]
+176,2025-09-07T06:01:11.694761+00:00,"[Risk of Flash Floods] 
 
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [13:51 hours]",2025-09-07,-1001620473383,1150.0,Punggol West Flyover,flash_flood_risk,Punggol West Flyover,punggol west flyover,,,1.400063,103.8959395,820221.0,1.400063,103.8959395,820221.0,2025-04-13T05:55:32+00:00,,,2.0,2.0
+Due to heavy rain, please avoid this location for the next 1 hour: Jurong Town Hall Road (towards PIE) before Jurong East Street 11 [Issued 07:43hours]",2025-09-07,-1001620473383,1298.0,Jurong Town Hall Road,flash_flood_risk,Jurong Town Hall Road,PIE,,,1.3331728,103.7377991,609080.0,1.341385,103.7493551,659537.0,2025-08-23T23:55:47+00:00,,,11.0,12.0
+170,2025-09-07T06:01:10.693335+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",2025-09-07,-1001620473383,1308.0,Punggol West Flyover,flash_flood_risk,Punggol West Flyover,punggol west flyover,,,1.400063,103.8959395,820221.0,1.400063,103.8959395,820221.0,2025-09-05T01:30:26+00:00,,,2.0,2.0
 187,2025-09-07T06:01:13.734416+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Jln Pokok Serunai [17:51 hours]",2025-09-07,-1001620473383,1274.0,Jln Pokok Serunai,flash_flood_risk,Jln Pokok Serunai,,,,1.3144068,103.9363546,466433.0,,,nan,2025-07-04T09:55:19+00:00,,,114.0,
-197,2025-09-07T06:01:15.48716+00:00,"[Risk of Flash Floods]
+199,2025-09-07T06:01:15.81889+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: Craig Rd (Duxton Rd to TG Pagar Rd) [03:46 hours]",2025-09-07,-1001620473383,1258.0,Duxton Rd,flash_flood_risk,Duxton Rd,Tg Pagar Rd,,,1.2785461,103.8433236,89539.0,1.278193,103.843765,nan,2025-06-07T19:50:37+00:00,,,408.0,404.0
+Due to heavy rain, please avoid this location for the next 1 hour: Jln Boon Lay (Enterprise Rd to International Rd) [11:29 hours]",2025-09-07,-1001620473383,1254.0,Enterprise Rd,flash_flood_risk,Enterprise Rd,International Rd,,,1.3327484,103.7084845,629813.0,1.3278187,103.6878477,629711.0,2025-05-18T03:40:44+00:00,,,73.0,376.0
 200,2025-09-07T06:01:16.003534+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Lor H Telok Kurau (cul-de-sac);
@@ -372,15 +372,17 @@ Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten R
 193,2025-09-07T06:01:14.834517+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Jln Pokok Serunai [04:09 hours]",2025-09-07,-1001620473383,1262.0,Jln Pokok Serunai,flash_flood_risk,Jln Pokok Serunai,,,,1.3144068,103.9363546,466433.0,,,nan,2025-06-07T20:10:22+00:00,,,114.0,
-313,2025-09-07T10:52:18.795907+00:00,"[Risk of Flash Floods]
+198,2025-09-07T06:01:15.68491+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",2025-09-07,-1003009592462,-1003009592462.0,Punggol West Flyover,flash_flood_risk,Punggol West Flyover,punggol west flyover,,,1.400063,103.8959395,820221.0,1.400063,103.8959395,820221.0,2025-09-07T10:52:18+00:00,,,2.0,2.0
+Due to heavy rain, please avoid this location for the next 1 hour: Dunearn Rd (Yarwood Ave to Binjai Pk) [12:15 hours]",2025-09-07,-1001620473383,1255.0,Yarwood Ave,flash_flood_risk,Yarwood Ave,Binjai Pk,,,1.3396186,103.7826758,587997.0,1.3404925,103.787472,589874.0,2025-05-18T04:20:16+00:00,,,175.0,367.0
 202,2025-09-07T06:01:16.303398+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: KG Java Rd (Newton Circus to CTE) [04:08 hours]",2025-09-07,-1001620473383,1248.0,Newton Circus,flash_flood_risk,Newton Circus,CTE,,,1.312812,103.8390316,229495.0,1.2818208,103.8321045,160075.0,2025-05-10T20:10:22+00:00,,,392.0,393.0
-272,2025-09-07T06:01:28.099047+00:00,"[Risk of Flash Floods]
+258,2025-09-07T06:01:25.746917+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: Lor Ong Lye (near Lor Lew Lian) [14:12 hours]",2025-09-07,-1001620473383,1158.0,Lor Ong Lye,flash_flood_risk,Lor Ong Lye,Near Lor Lew Lian,,,1.366923,103.801292,nan,1.366923,103.801292,nan,2025-04-13T06:15:53+00:00,,,91.0,91.0
+Due to heavy rain, please avoid this location for the next 1 hour: Upp Paya Lebar Service Rd (Lim Teck Boo Rd to Rochdale Rd);
+Jln Lokam (near Upp Paya Lebar Rd);
+Thrift Dr (near Jln Usaha); [16:48 hours]",2025-09-07,-1001620473383,1178.0,Lim Teck Boo Rd,flash_flood_risk,Lim Teck Boo Rd,Rochdale Rd,,,1.3432694,103.8848743,536209.0,1.3433183,103.8835973,535823.0,2025-04-20T08:50:09+00:00,,,368.0,369.0
 190,2025-09-07T06:01:14.297865+00:00,"📢 Flash flood alerts will be available on the On-Board Unit (OBU) in your vehicle from 30 June 2025. Motorists will receive alerts when approaching or travelling along affected roads. 
  
 During intense downpours, our canals and drains may be temporarily overwhelmed, leading to flash floods. While these typically subside within an hour, motorists should avoid flooded areas and use alternative routes.
@@ -405,13 +407,12 @@ Carlisle Rd; [04:03 hours]",2025-09-07,-1001620473383,1245.0,Cambridge Rd,flash_
 201,2025-09-07T06:01:16.159226+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Mountbatten Rd leading to Jln Seaview [04:10 hours]",2025-09-07,-1001620473383,1249.0,Mountbatten Rd Leading To Jln Seaview,flash_flood_risk,Mountbatten Rd Leading To Jln Seaview,,,,1.366923,103.801292,nan,,,nan,2025-05-10T20:15:54+00:00,,,91.0,
+197,2025-09-07T06:01:15.48716+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Craig Rd (Duxton Rd to TG Pagar Rd) [03:46 hours]",2025-09-07,-1001620473383,1258.0,Duxton Rd,flash_flood_risk,Duxton Rd,Tg Pagar Rd,,,1.2785461,103.8433236,89539.0,1.278193,103.843765,nan,2025-06-07T19:50:37+00:00,,,408.0,404.0
 299,2025-09-07T06:01:32.450263+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: ECP (towards Changi Airport) at Tanah Merah Coast Road Entrance [10:20 hours]",2025-09-07,-1001620473383,1116.0,ECP,flash_flood_risk,ECP,Changi Airport,,,1.2925115,103.8619746,39193.0,1.35755735,103.988481200776,819661.0,2025-03-20T02:28:18+00:00,,,136.0,170.0
-184,2025-09-07T06:01:13.16404+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Lor Gambir
- [11:30 hours]",2025-09-07,-1001620473383,1281.0,Lor Gambir,flash_flood_risk,Lor Gambir,,,,1.280284,103.78864,nan,,,nan,2025-07-21T03:30:53+00:00,,,96.0,
 290,2025-09-07T06:01:31.046015+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Puay Hee Ave (near Siak Kew Ave);
@@ -438,23 +439,17 @@ Due to heavy rain, please avoid this location for the next 1 hour: Lor Gambir
 206,2025-09-07T06:01:16.969494+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Orchard Rd (Paterson Rd to Mt Elizabeth) [03:59 hours]",2025-09-07,-1001620473383,1244.0,Paterson Rd,flash_flood_risk,Paterson Rd,Mt Elizabeth,,,1.3049751,103.8315677,238881.0,1.3041628,103.8353148,238862.0,2025-05-10T20:00:54+00:00,,,379.0,380.0
-199,2025-09-07T06:01:15.81889+00:00,"[Risk of Flash Floods]
+184,2025-09-07T06:01:13.16404+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: Jln Boon Lay (Enterprise Rd to International Rd) [11:29 hours]",2025-09-07,-1001620473383,1254.0,Enterprise Rd,flash_flood_risk,Enterprise Rd,International Rd,,,1.3327484,103.7084845,629813.0,1.3278187,103.6878477,629711.0,2025-05-18T03:40:44+00:00,,,73.0,376.0
-198,2025-09-07T06:01:15.68491+00:00,"[Risk of Flash Floods]
+Due to heavy rain, please avoid this location for the next 1 hour: Lor Gambir
+ [11:30 hours]",2025-09-07,-1001620473383,1281.0,Lor Gambir,flash_flood_risk,Lor Gambir,,,,1.280284,103.78864,nan,,,nan,2025-07-21T03:30:53+00:00,,,96.0,
+271,2025-09-07T06:01:27.928562+00:00,"[FLASH FLOOD OCCURRED]  
 
-Due to heavy rain, please avoid this location for the next 1 hour: Dunearn Rd (Yarwood Ave to Binjai Pk) [12:15 hours]",2025-09-07,-1001620473383,1255.0,Yarwood Ave,flash_flood_risk,Yarwood Ave,Binjai Pk,,,1.3396186,103.7826758,587997.0,1.3404925,103.787472,589874.0,2025-05-18T04:20:16+00:00,,,175.0,367.0
-258,2025-09-07T06:01:25.746917+00:00,"[Risk of Flash Floods]
+Flash flood at KPE (Slip Rd to Buangkok East Drive). Please avoid the area. PUB officers have been deployed to render assistance. Issued 1405 hours.",2025-09-07,-1001620473383,1159.0,Slip Rd,flash_flood,Slip Rd,Buangkok East Drive,,,1.371346,103.907861,nan,1.371346,103.907861,nan,2025-04-13T06:15:54+00:00,,,342.0,342.0
+250,2025-09-07T06:01:24.518153+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: Upp Paya Lebar Service Rd (Lim Teck Boo Rd to Rochdale Rd);
-Jln Lokam (near Upp Paya Lebar Rd);
-Thrift Dr (near Jln Usaha); [16:48 hours]",2025-09-07,-1001620473383,1178.0,Lim Teck Boo Rd,flash_flood_risk,Lim Teck Boo Rd,Rochdale Rd,,,1.3432694,103.8848743,536209.0,1.3433183,103.8835973,535823.0,2025-04-20T08:50:09+00:00,,,368.0,369.0
-281,2025-09-07T06:01:29.455913+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Junction of Yishun Ave 2 and Yishun Ave 5 [13:49 hours]",2025-09-07,-1001620473383,1149.0,Yishun Ave 2,flash_flood_risk,Yishun Ave 2,Yishun Ave 5,,,1.4346576,103.8346712,760224.0,1.4304225,103.8334205,760741.0,2025-04-13T05:50:30+00:00,,,394.0,395.0
-242,2025-09-07T06:01:23.292945+00:00,"[FLASH FLOOD OCCURRED]
-
-Flash flood at Junction of Stevens Road and Balmoral Road. Please avoid the area. PUB officers have been deployed to render assistance. Issued 1720 hours.",2025-09-07,-1001620473383,1194.0,Stevens Road,flash_flood,Stevens Road,Balmoral Road,,,1.3166148,103.8258954,259500.0,1.3138798,103.8308999,257831.0,2025-04-20T09:35:08+00:00,,,377.0,378.0
+Due to heavy rain, please avoid this location for the next 1 hour: Orchard Rd (Paterson Rd to Mt Elizabeth) [17:13 hours]",2025-09-07,-1001620473383,1186.0,Paterson Rd,flash_flood_risk,Paterson Rd,Mt Elizabeth,,,1.3049751,103.8315677,238881.0,1.3041628,103.8353148,238862.0,2025-04-20T09:15:17+00:00,,,379.0,380.0
+286,2025-09-07T06:01:30.365061+00:00,"The heavy rain has eased. [Issued by NEA, 16:07 hours]",2025-09-07,-1001620473383,1135.0,,,,,,,,,nan,,,nan,2025-03-27T08:15:49+00:00,,,,
 215,2025-09-07T06:01:18.627876+00:00,"[Risk of Flash Floods] 
 
 Due to heavy rain, please avoid this location for the next 1 hour: Jln Boon Lay (Enterprise Rd to International Rd) [Issued 07:30 hours]",2025-09-07,-1001620473383,1233.0,Enterprise Rd,flash_flood_risk,Enterprise Rd,International Rd,,,1.3327484,103.7084845,629813.0,1.3278187,103.6878477,629711.0,2025-05-07T23:35:38+00:00,,,73.0,376.0
@@ -556,6 +551,9 @@ Due to heavy rain, please avoid this location for the next 1 hour: Eng Kong Pl (
 
 Due to heavy rain, please avoid this location for the next 1 hour: KPE(ECP) after Buangkok East Dr Exit [16:36 hours]",2025-09-07,-1001620473383,1177.0,Buangkok East Dr Exit,flash_flood_risk,Buangkok East Dr Exit,ecp,,,1.371346,103.907861,nan,1.2925115,103.8619746,39193.0,2025-04-20T08:40:03+00:00,,,342.0,136.0
 261,2025-09-07T06:01:26.271964+00:00,Flash flood subsided at Yishun Avenue 7 (near intersection of Yishun St 22). Issued 1655 hours.,2025-09-07,-1001620473383,1172.0,Yishun Avenue 7,flood_subsided,Yishun Avenue 7,Near Intersection Of Yishun St 22,,,1.366923,103.801292,nan,1.366923,103.801292,nan,2025-04-15T09:00:36+00:00,,,32.0,91.0
+282,2025-09-07T06:01:29.604749+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Yishun Avenue 7 [13:39 hours]",2025-09-07,-1001620473383,1148.0,Yishun Avenue 7,flash_flood_risk,Yishun Avenue 7,,,,,,nan,,,nan,2025-04-13T05:40:03+00:00,,,,
 284,2025-09-07T06:01:29.973055+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Jln Arif [18:35 hours]",2025-09-07,-1001620473383,1142.0,Jln Arif,flash_flood_risk,Jln Arif,,,,1.3674564,103.8839193,548832.0,,,nan,2025-04-05T10:40:40+00:00,,,154.0,
@@ -574,17 +572,17 @@ Due to heavy rain, please avoid this location for the next 1 hour: Lor Gambir
 Due to heavy rain, please avoid this location for the next 1 hour: Upp Paya Lebar Service Rd (Lim Teck Boo Rd to Rochdale Rd);
 Jln Lokam (near Upp Paya Lebar Rd);
 Thrift Dr (near Jln Usaha); [00:28 hours]",2025-09-07,-1001620473383,1129.0,Lim Teck Boo Rd,flash_flood_risk,Lim Teck Boo Rd,Rochdale Rd,,,1.3432694,103.8848743,536209.0,1.3433183,103.8835973,535823.0,2025-03-23T16:30:22+00:00,,,368.0,369.0
+281,2025-09-07T06:01:29.455913+00:00,"[Risk of Flash Floods]
+
+Due to heavy rain, please avoid this location for the next 1 hour: Junction of Yishun Ave 2 and Yishun Ave 5 [13:49 hours]",2025-09-07,-1001620473383,1149.0,Yishun Ave 2,flash_flood_risk,Yishun Ave 2,Yishun Ave 5,,,1.4346576,103.8346712,760224.0,1.4304225,103.8334205,760741.0,2025-04-13T05:50:30+00:00,,,394.0,395.0
 292,2025-09-07T06:01:31.351177+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: Junction of Toa Payoh Lor 1 and Toa Payoh Lor 2
  [00:23 hours]",2025-09-07,-1001620473383,1128.0,Toa Payoh Lor 1,flash_flood_risk,Toa Payoh Lor 1,Toa Payoh Lor 2,,,1.332829,103.847143,nan,1.332829,103.847143,nan,2025-03-23T16:25:41+00:00,,,370.0,370.0
-282,2025-09-07T06:01:29.604749+00:00,"[Risk of Flash Floods]
+294,2025-09-07T06:01:31.64662+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: Yishun Avenue 7 [13:39 hours]",2025-09-07,-1001620473383,1148.0,Yishun Avenue 7,flash_flood_risk,Yishun Avenue 7,,,,,,nan,,,nan,2025-04-13T05:40:03+00:00,,,,
-293,2025-09-07T06:01:31.494353+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Langsat Rd (Everitt Rd North to Lor 106 Changi);
-Lor 105 Changi; [00:20 hours]",2025-09-07,-1001620473383,1127.0,Everitt Rd North,flash_flood_risk,Everitt Rd North,Lor 106 Changi,,,1.315762,103.901565,nan,1.390577,103.987589,nan,2025-03-23T16:25:40+00:00,,,166.0,397.0
+Due to heavy rain, please avoid this location for the next 1 hour: Marine Parade Ctrl;
+Marine Parade Rd [00:15 hours]",2025-09-07,-1001620473383,1126.0,Marine Parade Ctrl,flash_flood_risk,Marine Parade Ctrl,,,,1.301396,103.905945,nan,,,nan,2025-03-23T16:20:17+00:00,,,167.0,
 295,2025-09-07T06:01:31.806335+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: East Coast Rd [00:12 hours]",2025-09-07,-1001620473383,1125.0,East Coast Rd,flash_flood_risk,East Coast Rd,,,,1.3114279,103.9205556,459045.0,,,nan,2025-03-23T16:15:39+00:00,,,168.0,
@@ -592,14 +590,13 @@ Due to heavy rain, please avoid this location for the next 1 hour: East Coast Rd
 283,2025-09-07T06:01:29.772021+00:00,"The heavy rain has eased. [Issued by NEA, 18:58 hours]",2025-09-07,-1001620473383,1146.0,,,,,,,,,nan,,,nan,2025-04-12T11:10:41+00:00,,,,
 268,2025-09-07T06:01:27.498751+00:00,Flash flood subsided at Yishun Ave 7. Issued 1430 hours.,2025-09-07,-1001620473383,1163.0,Yishun Ave 7,flood_subsided,Yishun Ave 7,,,,1.4413717,103.8398592,768924.0,,,nan,2025-04-13T06:45:37+00:00,,,52.0,
 285,2025-09-07T06:01:30.189228+00:00,"The heavy rain has eased. [Issued by NEA, 18:16 hours]",2025-09-07,-1001620473383,1138.0,,,,,,,,,nan,,,nan,2025-04-02T10:35:47+00:00,,,,
-286,2025-09-07T06:01:30.365061+00:00,"The heavy rain has eased. [Issued by NEA, 16:07 hours]",2025-09-07,-1001620473383,1135.0,,,,,,,,,nan,,,nan,2025-03-27T08:15:49+00:00,,,,
-294,2025-09-07T06:01:31.64662+00:00,"[Risk of Flash Floods]
+293,2025-09-07T06:01:31.494353+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: Marine Parade Ctrl;
-Marine Parade Rd [00:15 hours]",2025-09-07,-1001620473383,1126.0,Marine Parade Ctrl,flash_flood_risk,Marine Parade Ctrl,,,,1.301396,103.905945,nan,,,nan,2025-03-23T16:20:17+00:00,,,167.0,
-250,2025-09-07T06:01:24.518153+00:00,"[Risk of Flash Floods]
+Due to heavy rain, please avoid this location for the next 1 hour: Langsat Rd (Everitt Rd North to Lor 106 Changi);
+Lor 105 Changi; [00:20 hours]",2025-09-07,-1001620473383,1127.0,Everitt Rd North,flash_flood_risk,Everitt Rd North,Lor 106 Changi,,,1.315762,103.901565,nan,1.390577,103.987589,nan,2025-03-23T16:25:40+00:00,,,166.0,397.0
+305,2025-09-07T06:01:33.360476+00:00,"[Risk of Flash Floods]
 
-Due to heavy rain, please avoid this location for the next 1 hour: Orchard Rd (Paterson Rd to Mt Elizabeth) [17:13 hours]",2025-09-07,-1001620473383,1186.0,Paterson Rd,flash_flood_risk,Paterson Rd,Mt Elizabeth,,,1.3049751,103.8315677,238881.0,1.3041628,103.8353148,238862.0,2025-04-20T09:15:17+00:00,,,379.0,380.0
+Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [15:28 hours]",2025-09-07,-1001620473383,986.0,Punggol West Flyover,flash_flood_risk,Punggol West Flyover,punggol west flyover,,,1.400063,103.8959395,820221.0,1.400063,103.8959395,820221.0,2024-11-16T07:30:47+00:00,,,2.0,2.0
 249,2025-09-07T06:01:24.360606+00:00,"[FLASH FLOOD OCCURRED]  
 
 Flash flood at Bt Timah Rd (between Clementi Rd and Blackmore Dr). Please avoid the area. PUB officers have been deployed to render assistance. Issued 17:05 hours.",2025-09-07,-1001620473383,1187.0,Clementi Rd,flash_flood,Clementi Rd,Blackmore Dr,,,1.2961463,103.7695702,126840.0,1.335481,103.7833645,599987.0,2025-04-20T09:15:18+00:00,,,358.0,359.0
@@ -641,50 +638,16 @@ Due to heavy rain, please avoid this location for the next 1 hour: Junction of B
 247,2025-09-07T06:01:24.044056+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: KG Java Rd (Newton Circus to CTE) [17:15 hours]",2025-09-07,-1001620473383,1189.0,Newton Circus,flash_flood_risk,Newton Circus,CTE,,,1.312812,103.8390316,229495.0,1.2818208,103.8321045,160075.0,2025-04-20T09:20:30+00:00,,,392.0,393.0
-271,2025-09-07T06:01:27.928562+00:00,"[FLASH FLOOD OCCURRED]  
+242,2025-09-07T06:01:23.292945+00:00,"[FLASH FLOOD OCCURRED]
 
-Flash flood at KPE (Slip Rd to Buangkok East Drive). Please avoid the area. PUB officers have been deployed to render assistance. Issued 1405 hours.",2025-09-07,-1001620473383,1159.0,Slip Rd,flash_flood,Slip Rd,Buangkok East Drive,,,1.371346,103.907861,nan,1.371346,103.907861,nan,2025-04-13T06:15:54+00:00,,,342.0,342.0
+Flash flood at Junction of Stevens Road and Balmoral Road. Please avoid the area. PUB officers have been deployed to render assistance. Issued 1720 hours.",2025-09-07,-1001620473383,1194.0,Stevens Road,flash_flood,Stevens Road,Balmoral Road,,,1.3166148,103.8258954,259500.0,1.3138798,103.8308999,257831.0,2025-04-20T09:35:08+00:00,,,377.0,378.0
 309,2025-09-07T06:01:34.047566+00:00,"🚨 Flash flood at the following location:
 
 • Enterprise Road [Issued 16:05 hours]
 
 Traffic is not passable. Please avoid the above area. PUB officers have been deployed to render assistance. #sgflood",2025-09-07,-1001620473383,140.0,Enterprise Road,flash_flood,Enterprise Road,,,,1.3327484,103.7084845,629813.0,,,nan,2022-03-07T08:11:23+00:00,,,73.0,
-22,2025-10-12T04:07:39+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",,-1003180643497,,tpe,flash_flood_risk,tpe,punggol west flyover,,,1.3650936,103.9550121,510126.0,1.400063,103.8959395,820221.0,,,,1.0,2.0
-23,2025-10-12T04:08:25+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",,-1003180643497,,tpe,flash_flood_risk,tpe,punggol west flyover,,,1.3650936,103.9550121,510126.0,1.400063,103.8959395,820221.0,,,,1.0,2.0
-24,2025-10-12T04:16:13+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",,-1003180643497,,tpe,flash_flood_risk,tpe,punggol west flyover,,,1.3650936,103.9550121,510126.0,1.400063,103.8959395,820221.0,,,,1.0,2.0
 26,2025-10-18T07:14:45+00:00,"[Risk of Flash Floods]
 
 Due to heavy rain, please avoid this location for the next 1 hour: KJE Slip Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,kje slip rd,flash_flood_risk,kje slip rd,"kje to woodlands rd, towards senja way",,,1.385923,103.7570677,671634.0,1.366923,103.801292,nan,,,,3.0,4.0
-43,2025-11-05T16:37:34+00:00,"[Risk of Flash Floods]
-[TEST DEPLOYMENT 4]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Serangoon Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,serangoon rd,flash_flood_risk,serangoon rd,"kje to woodlands rd, towards senja way",,,1.3184247,103.8606382,327804.0,1.366923,103.801292,nan,,,,9.0,4.0
-42,2025-11-05T16:37:27+00:00,"[Risk of Flash Floods]
-[TEST DEPLOYMENT 3]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Serangoon Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,serangoon rd,flash_flood_risk,serangoon rd,"kje to woodlands rd, towards senja way",,,1.3184247,103.8606382,327804.0,1.366923,103.801292,nan,,,,9.0,4.0
-41,2025-11-05T16:11:25+00:00,"[Risk of Flash Floods]
-[TEST DEPLOYMENT 2]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Serangoon Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,serangoon rd,flash_flood_risk,serangoon rd,"kje to woodlands rd, towards senja way",,,1.3184247,103.8606382,327804.0,1.366923,103.801292,nan,,,,9.0,4.0
-40,2025-11-05T16:11:20+00:00,"[Risk of Flash Floods]
-[TEST DEPLOYMENT 1]
-
-Due to heavy rain, please avoid this location for the next 1 hour: Serangoon Rd (KJE to Woodlands Rd, towards Senja Way) [15:38 hours]",,-1003180643497,,serangoon rd,flash_flood_risk,serangoon rd,"kje to woodlands rd, towards senja way",,,1.3184247,103.8606382,327804.0,1.366923,103.801292,nan,,,,9.0,4.0
-18,2025-10-12T03:58:02+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",,-1003180643497,,tpe,flash_flood_risk,tpe,punggol west flyover,,,1.3650936,103.9550121,510126.0,1.400063,103.8959395,820221.0,,,,1.0,2.0
-20,2025-10-12T04:06:11+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",,-1003180643497,,tpe,flash_flood_risk,tpe,punggol west flyover,,,1.3650936,103.9550121,510126.0,1.400063,103.8959395,820221.0,,,,1.0,2.0
-21,2025-10-12T04:06:53+00:00,"[Risk of Flash Floods]
-
-Due to heavy rain, please avoid this location for the next 1 hour: TPE (Punggol West Flyover) [09:28 hours]",,-1003180643497,,tpe,flash_flood_risk,tpe,punggol west flyover,,,1.3650936,103.9550121,510126.0,1.400063,103.8959395,820221.0,,,,1.0,2.0
 1343,2025-11-16T08:00:33+00:00,"Heavy rain expected over many areas of Singapore from 16:20 hours to 17:30 hours. [Issued by NEA, 15:50 hours]",,-1001620473383,,many areas of singapore,heavy_rain,many areas of singapore,,,,,,nan,,,nan,,2025-11-16T16:20:00+00:00,2025-11-16T17:30:00+00:00,,
 1344,2025-11-17T07:10:39+00:00,"Heavy rain expected over southern, western and central areas of Singapore from 15:15 hours to 16:15 hours. [Issued by NEA, 14:59 hours]",,-1001620473383,,"southern, western and central areas of singapore",heavy_rain,"southern, western and central areas of singapore",,,,1.306686,103.856401,208852.0,,,nan,,2025-11-17T15:15:00+00:00,2025-11-17T16:15:00+00:00,10.0,
