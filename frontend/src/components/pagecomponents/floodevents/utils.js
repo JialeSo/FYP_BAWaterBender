@@ -69,6 +69,15 @@ export function bounds_from_floods(fc) {
   return had ? b : null;
 }
 
+export function clear_selected_rings() {
+  const ids_selected = ["rings-selected-inner", "rings-selected-outer"];
+  const ids_page = ["rings-page-inner", "rings-page-outer"];
+  for (const id of [...ids_selected, ...ids_page]) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  }
+}
+
 export function build_flood_detail(p) {
   const origin = [to_num(p.origin_lng), to_num(p.origin_lat)];
   const start  = [to_num(p.start_lng),  to_num(p.start_lat)];
@@ -98,7 +107,7 @@ export function build_flood_detail(p) {
   return { points, lines, center };
 }
 
-export function popup_html(p = {}) {
+export function popup_html(p = {}, lookups = {}) {
   const safe = (x) => (x ?? "—");
   const coord = (lat, lng) => {
     const latNum = to_num(lat);
@@ -110,20 +119,47 @@ export function popup_html(p = {}) {
   };
   const typ = to_title_case((p.event || "").replace(/_/g, " ")) || "—";
   const road = p.parent_road || "—";
+  const location = p.location || p.cleaned_location || "—";
+
+  // Use pickName approach for planning area
+  const planning_by_id = lookups?.planning?.by_id || {};
+  const pa = p.start_planning_area ||
+             planning_by_id[p.start_pa_id]?.name ||
+             planning_by_id[p.origin_pa_id]?.name ||
+             planning_by_id[p.end_pa_id]?.name ||
+             "—";
+
+  // Use lookup for subzone
+  const subzone_by_id = lookups?.subzone?.by_id || {};
+  const sz_name = p.start_subzone ||
+                  p.subzone ||
+                  subzone_by_id[p.start_sz_id]?.name ||
+                  subzone_by_id[p.origin_sz_id]?.name ||
+                  "—";
+
   return `
-    <div>
-      <div class="text-xs uppercase opacity-70">Flood</div>
+    <div style="min-width: 220px;">
+      <div class="text-xs uppercase opacity-70 mb-1">Flood Event Details</div>
       <div><b>ID:</b> ${safe(p.id)}</div>
       <div><b>Date:</b> ${safe(p.event_date)}</div>
       <div><b>Type:</b> ${typ}</div>
+      <div><b>Location:</b> ${location}</div>
       <div><b>Road:</b> ${road}</div>
-      <div class="mt-1 text-xs opacity-70">
-        Start: ${coord(p.start_lat, p.start_lng)}
+      <div class="mt-2 pt-2 border-t border-gray-300">
+        <div class="text-xs opacity-70 mb-1"><b>Planning Area:</b> ${pa}</div>
+        <div class="text-xs opacity-70 mb-1"><b>Subzone:</b> ${sz_name}</div>
+      </div>
+      <div class="mt-2 pt-2 border-t border-gray-300">
+        <div class="text-xs opacity-70">
+          <b>Origin:</b> ${coord(p.origin_lat, p.origin_lng)}<br/>
+          <b>Start:</b> ${coord(p.start_lat, p.start_lng)}
+        </div>
       </div>
       <div class="mt-1 text-xs opacity-70">
-        Pred A: ${coord(p.end100_a_lat, p.end100_a_lng)}<br/>
-        Pred B: ${coord(p.end100_b_lat, p.end100_b_lng)}<br/>
-        End: ${coord(p.end_lat, p.end_lng)}
+        ${p.end_lat && p.end_lng && to_num(p.end_lat) !== 0 ?
+          `<b>End:</b> ${coord(p.end_lat, p.end_lng)}` :
+          `<b>Pred A:</b> ${coord(p.end100_a_lat, p.end100_a_lng)}<br/><b>Pred B:</b> ${coord(p.end100_b_lat, p.end100_b_lng)}`
+        }
       </div>
     </div>
   `;
