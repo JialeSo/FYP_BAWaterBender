@@ -762,7 +762,7 @@ export default function floodevents() {
   }, []);
 
   const applyARImpactPreset = useCallback((presetKey) => {
-    const preset = AR_IMPACT_WEIGHT_PRESETS[presetKey];
+    const preset = AR_IMPACT_PRESETS[presetKey];
     if (!preset || !preset.weights) return;
 
     setPendingWBetweenness(preset.weights.betweenness);
@@ -1325,10 +1325,41 @@ export default function floodevents() {
         },
       });
 
-      /* ensure roads draw above fills so they’re always visible */
+      /* focused amenity marker */
+      map.addSource("focused-amenity", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "focused-amenity",
+        type: "circle",
+        source: "focused-amenity",
+        paint: {
+          "circle-radius": 8,
+          "circle-color": "#f59e0b",
+          "circle-stroke-color": "#fff",
+          "circle-stroke-width": 2,
+        },
+        layout: { visibility: "none" },
+      });
+
+      /* focused road highlight */
+      map.addSource("focused-road", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "focused-road",
+        type: "line",
+        source: "focused-road",
+        paint: {
+          "line-color": "#f59e0b",
+          "line-width": 4,
+          "line-opacity": 0.8,
+        },
+        layout: { visibility: "none" },
+      });
+
+      /* ensure roads draw above fills so they're always visible */
       try {
         map.moveLayer("roads-nearby-outer", "amenities-nearby");
         map.moveLayer("roads-nearby-inner", "roads-nearby-outer");
+        map.moveLayer("focused-amenity");
+        map.moveLayer("focused-road");
       } catch {}
 
       if (bounds) map.fitBounds(bounds, { padding: 40, duration: 0 });
@@ -1576,30 +1607,7 @@ export default function floodevents() {
       else { outer_count++; impact_outer += w * outer_mult; }
     }
 
-    // Create bubble markers showing counts (not individual amenities)
-    const amenity_bubbles = [];
-    if (inner_count > 0) {
-      amenity_bubbles.push({
-        type: "Feature",
-        properties: { band: "inner", count: inner_count, label: `${inner_count} amenities` },
-        geometry: { type: "Point", coordinates: center },
-      });
-    }
-    if (outer_count > 0) {
-      // Place outer bubble slightly offset so both are visible
-      const offsetLng = center[0] + 0.0005;
-      amenity_bubbles.push({
-        type: "Feature",
-        properties: { band: "outer", count: outer_count, label: `${outer_count} amenities` },
-        geometry: { type: "Point", coordinates: [offsetLng, center[1]] },
-      });
-    }
-
-    try {
-      map.getSource("amenities-nearby")?.setData({ type: "FeatureCollection", features: amenity_bubbles });
-      map.setLayoutProperty("amenities-nearby", "visibility", amenity_bubbles.length > 0 ? "visible" : "none");
-      map.setLayoutProperty("amenities-nearby-labels", "visibility", amenity_bubbles.length > 0 ? "visible" : "none");
-    } catch {}
+    // Amenity bubbles removed - no longer displaying count markers on map
 
     /* roads near (inner/outer) — rendered & for panel */
     const roads_pack = roads_within_rings(road_fc, center, r_in, r_out);
@@ -1696,9 +1704,13 @@ export default function floodevents() {
         map.setLayoutProperty("rings-selected-outer-line", "visibility", "none");
         map.setLayoutProperty("roads-nearby-inner", "visibility", "none");
         map.setLayoutProperty("roads-nearby-outer", "visibility", "none");
+        map.setLayoutProperty("focused-amenity", "visibility", "none");
+        map.setLayoutProperty("focused-road", "visibility", "none");
         map.getSource("amenities-nearby")?.setData({ type: "FeatureCollection", features: [] });
         map.getSource("roads-nearby-inner")?.setData({ type: "FeatureCollection", features: [] });
         map.getSource("roads-nearby-outer")?.setData({ type: "FeatureCollection", features: [] });
+        map.getSource("focused-amenity")?.setData({ type: "FeatureCollection", features: [] });
+        map.getSource("focused-road")?.setData({ type: "FeatureCollection", features: [] });
       } catch {}
     }
     clear_selected_rings();
@@ -2300,67 +2312,79 @@ export default function floodevents() {
 
                     {/* (A) Top Section - Event Details Cards */}
 
-                    {/* Three Metric Cards - Tighter */}
-                    <div className="grid grid-cols-3 gap-1">
-                      {/* AR Impact Score */}
-                      <Card className="border border-primary/20 bg-primary/5">
-                        <CardHeader className="pb-0.5 pt-1.5 px-1.5">
-                          <CardDescription className="text-[8px] uppercase font-medium">AR Impact</CardDescription>
-                          <CardTitle className="text-base font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
-                        </CardHeader>
-                      </Card>
+                    {/* Three Metric Cards - Compact with Rankings */}
+                    {(() => {
+                      // Calculate rank based on AR Impact
+                      const rankIndex = sorted.findIndex(f => f.id === selected);
+                      const totalCount = sorted.length;
+                      const rankPercent = totalCount > 0 ? ((rankIndex + 1) / totalCount * 100).toFixed(1) : null;
 
-                      {/* Amenities Affected */}
-                      <Card className="border">
-                        <CardHeader className="pb-0.5 pt-1.5 px-1.5">
-                          <CardDescription className="text-[8px] uppercase font-medium">Amenities</CardDescription>
-                          <CardTitle className="text-base font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
-                        </CardHeader>
-                      </Card>
+                      return (
+                        <div className="grid grid-cols-3 gap-1">
+                          {/* AR Impact Score */}
+                          <Card className="border border-primary/20 bg-primary/5">
+                            <CardHeader className="pb-0 pt-1 px-1">
+                              <CardDescription className="text-[7px] uppercase font-medium">AR Impact</CardDescription>
+                              <CardTitle className="text-sm font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
+                              {rankPercent && <p className="text-[7px] text-muted-foreground mt-0.5">Top {rankPercent}%</p>}
+                            </CardHeader>
+                          </Card>
 
-                      {/* Roads Affected */}
-                      <Card className="border">
-                        <CardHeader className="pb-0.5 pt-1.5 px-1.5">
-                          <CardDescription className="text-[8px] uppercase font-medium">Roads</CardDescription>
-                          <CardTitle className="text-base font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
-                        </CardHeader>
-                      </Card>
-                    </div>
+                          {/* Amenities Affected */}
+                          <Card className="border">
+                            <CardHeader className="pb-0 pt-1 px-1">
+                              <CardDescription className="text-[7px] uppercase font-medium">Amenities</CardDescription>
+                              <CardTitle className="text-sm font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
+                              <p className="text-[7px] text-muted-foreground mt-0.5">Affected</p>
+                            </CardHeader>
+                          </Card>
 
-                    {/* Event Information Grid - Tighter */}
+                          {/* Roads Affected */}
+                          <Card className="border">
+                            <CardHeader className="pb-0 pt-1 px-1">
+                              <CardDescription className="text-[7px] uppercase font-medium">Roads</CardDescription>
+                              <CardTitle className="text-sm font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
+                              <p className="text-[7px] text-muted-foreground mt-0.5">Affected</p>
+                            </CardHeader>
+                          </Card>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Event Information Grid - Compact */}
                     <Card className="border">
-                      <CardHeader className="pb-0.5 pt-1.5 px-1.5">
-                        <CardTitle className="text-[10px] font-semibold">Event Information</CardTitle>
+                      <CardHeader className="pb-0 pt-1 px-1">
+                        <CardTitle className="text-[9px] font-semibold">Event Information</CardTitle>
                       </CardHeader>
-                      <CardContent className="px-1.5 pb-1.5">
-                        <div className="grid grid-cols-2 gap-1 text-xs">
+                      <CardContent className="px-1 pb-1 pt-1">
+                        <div className="grid grid-cols-2 gap-0.5 text-xs">
                           <div>
-                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Event ID</div>
-                            <div className="font-mono text-[10px]">{selected_props?.id ?? 'N/A'}</div>
+                            <div className="text-[7px] text-muted-foreground mb-0.5 uppercase">ID</div>
+                            <div className="font-mono text-[9px]">{selected_props?.id ?? 'N/A'}</div>
                           </div>
                           <div>
-                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Event Type</div>
-                            <div className="text-[10px]">{to_title_case(selected_props?.event ?? 'Unknown')}</div>
+                            <div className="text-[7px] text-muted-foreground mb-0.5 uppercase">Type</div>
+                            <div className="text-[9px]">{to_title_case(selected_props?.event ?? 'Unknown')}</div>
                           </div>
                           <div>
-                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Date</div>
-                            <div className="text-[10px]">{selected_props?.event_date ?? 'N/A'}</div>
+                            <div className="text-[7px] text-muted-foreground mb-0.5 uppercase">Date</div>
+                            <div className="text-[9px]">{selected_props?.event_date ?? 'N/A'}</div>
                           </div>
                           <div>
-                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Planning Area</div>
-                            <div className="text-[10px]">{selected_props?.start_planning_area ?? 'N/A'}</div>
+                            <div className="text-[7px] text-muted-foreground mb-0.5 uppercase">Area</div>
+                            <div className="text-[9px] truncate">{selected_props?.start_planning_area ?? 'N/A'}</div>
                           </div>
                           <div className="col-span-2">
-                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Location</div>
-                            <div className="text-[10px] truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
+                            <div className="text-[7px] text-muted-foreground mb-0.5 uppercase">Location</div>
+                            <div className="text-[9px] truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
                           </div>
                           <div className="col-span-2">
-                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Main Road</div>
-                            <div className="text-[10px] truncate" title={selected_props?.parent_road}>{selected_props?.parent_road ?? 'N/A'}</div>
+                            <div className="text-[7px] text-muted-foreground mb-0.5 uppercase">Main Road</div>
+                            <div className="text-[9px] truncate" title={selected_props?.parent_road}>{selected_props?.parent_road ?? 'N/A'}</div>
                           </div>
                           <div className="col-span-2">
-                            <div className="text-[8px] text-muted-foreground mb-0.5 uppercase">Coordinates</div>
-                            <div className="font-mono text-[9px]">
+                            <div className="text-[7px] text-muted-foreground mb-0.5 uppercase">Coordinates</div>
+                            <div className="font-mono text-[8px]">
                               {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
                             </div>
                           </div>
@@ -2457,6 +2481,16 @@ export default function floodevents() {
                                           onClick={() => {
                                             const map = map_ref.current;
                                             if (!map) return;
+
+                                            // Show marker for focused amenity
+                                            const feature = {
+                                              type: "Feature",
+                                              geometry: { type: "Point", coordinates: [amenity.lng, amenity.lat] },
+                                              properties: { name: amenityName }
+                                            };
+                                            map.getSource("focused-amenity")?.setData({ type: "FeatureCollection", features: [feature] });
+                                            map.setLayoutProperty("focused-amenity", "visibility", "visible");
+
                                             map.flyTo({ center: [amenity.lng, amenity.lat], zoom: 17, essential: true });
                                           }}
                                           className="h-6 px-1.5 text-[9px] hover:bg-primary/10 ml-1 shrink-0"
@@ -2548,6 +2582,15 @@ export default function floodevents() {
                                             const map = map_ref.current;
                                             if (!map || !road.geometry) return;
                                             try {
+                                              // Show highlight for focused road
+                                              const feature = {
+                                                type: "Feature",
+                                                geometry: road.geometry,
+                                                properties: { name: roadName }
+                                              };
+                                              map.getSource("focused-road")?.setData({ type: "FeatureCollection", features: [feature] });
+                                              map.setLayoutProperty("focused-road", "visibility", "visible");
+
                                               const bb = turf.bbox({ type: "Feature", geometry: road.geometry, properties: {} });
                                               map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: 60, duration: 500 });
                                             } catch {}
