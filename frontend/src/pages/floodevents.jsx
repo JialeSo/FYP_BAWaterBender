@@ -1940,8 +1940,14 @@ export default function floodevents() {
           type: "FeatureCollection",
           features: roads_pack.outer.map(r => ({ type: "Feature", properties: { band: "outer", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
         });
-        map.setLayoutProperty("roads-nearby-inner", roads_pack.inner.length ? "visible" : "none");
-        map.setLayoutProperty("roads-nearby-outer", roads_pack.outer.length ? "visible" : "none");
+
+        // Check if layers exist before setting visibility
+        if (map.getLayer("roads-nearby-inner")) {
+          map.setLayoutProperty("roads-nearby-inner", "visibility", roads_pack.inner.length ? "visible" : "none");
+        }
+        if (map.getLayer("roads-nearby-outer")) {
+          map.setLayoutProperty("roads-nearby-outer", "visibility", roads_pack.outer.length ? "visible" : "none");
+        }
       } catch (e) {
         console.warn("Error setting nearby roads:", e);
       }
