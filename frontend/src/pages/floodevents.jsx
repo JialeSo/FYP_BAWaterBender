@@ -73,43 +73,6 @@ const createMetricFilterState = () => ({
   impactTotal: { min: "", max: "" },
 });
 
-const METRIC_SUMMARY_ROWS = [
-  {
-    metric: "Roads Affected",
-    meaning: "Total number of roads within the inner and outer distance rings from each flood location.",
-    insight: "Higher values indicate more road infrastructure at risk. Roads in inner ring are weighted more heavily. Contributes to AR Impact via roads score.",
-  },
-  {
-    metric: "Amenities Affected",
-    meaning: "Total number of amenities (hospitals, schools, etc.) within the inner and outer distance rings from each flood location.",
-    insight: "Higher values indicate more critical facilities at risk. Each amenity category has a different weight (e.g., emergency services weighted highest).",
-  },
-  {
-    metric: "Betweenness Norm",
-    meaning: "Normalized betweenness centrality of the affected road (0-1 scale). Measures how often the road lies on shortest paths between other roads.",
-    insight: "Higher values indicate roads critical for network connectivity. Roads with high betweenness are key transit routes whose flooding disrupts many journeys.",
-  },
-  {
-    metric: "Closeness Norm",
-    meaning: "Normalized closeness centrality of the affected road (0-1 scale). Measures how central the road is to the entire network.",
-    insight: "Higher values indicate roads with good access to all other roads. Flooding these roads affects reachability across the entire network.",
-  },
-  {
-    metric: "AR Impact",
-    meaning: "Amenity-Road Impact score combining 4 weighted components: betweenness, closeness, amenity exposure, and roads affected.",
-    insight: "Final risk score (formula: AR = w_b × betweenness + w_c × closeness + w_a × amenity_score + w_r × roads_score). Use presets or adjust weights to prioritize different factors.",
-  },
-];
-
-
-
-const RANKING_METRICS = [
-  { key: "ar_impact", label: "AR Impact", precision: 3 },
-  { key: "impact_total", label: "Impact Total", precision: 2 },
-  { key: "ring_total", label: "Total Amenities", precision: 0 },
-  { key: "centrality", label: "Centrality", precision: 3 },
-];
-
 function MultiSelectFilter({ id, label, options = [], values = [], onChange, placeholder = "All" }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -1261,36 +1224,7 @@ export default function floodevents() {
     return sorted.slice(start, start + page_size);
   }, [sorted, page_safe]);
 
-  // Create filtered GeoJSON for map
-  const filtered_fc = useMemo(() => {
-    if (!floods_fc?.features) return { type: "FeatureCollection", features: [] };
-    const filtered_ids = new Set(filtered.map(r => String(r.id)));
-    const filtered_features = floods_fc.features.filter(f => {
-      const id = String(f.properties?.id ?? f.id ?? "");
-      return filtered_ids.has(id);
-    });
-    return { type: "FeatureCollection", features: filtered_features };
-  }, [floods_fc, filtered]);
-
   const bounds = useMemo(() => bounds_from_floods(floods_fc), [floods_fc]);
-
-  // Update map when filters change
-  useEffect(() => {
-    const map = map_ref.current;
-    if (!map) return;
-
-    // Check if style is loaded before accessing sources
-    if (!map.isStyleLoaded || !map.isStyleLoaded()) return;
-
-    const source = map.getSource("floods");
-    if (!source) return;
-
-    try {
-      source.setData(filtered_fc);
-    } catch (error) {
-      console.error("Error updating map floods source:", error);
-    }
-  }, [filtered_fc]);
 
   /* ===== map init ===== */
   useEffect(() => {
@@ -1309,50 +1243,26 @@ export default function floodevents() {
     (async () => {
       await await_style(map);
 
+      // Floods source - will only show selected flood
       map.addSource("floods", {
         type: "geojson",
-        data: floods_fc,
-        cluster: true,
-        clusterMaxZoom: 14,
-        clusterRadius: 40,
+        data: { type: "FeatureCollection", features: [] },
         promoteId: "id",
       });
 
-      map.addLayer({
-        id: "flood-clusters",
-        type: "circle",
-        source: "floods",
-        filter: ["has", "point_count"],
-        paint: {
-          "circle-color": ["step", ["get", "point_count"], "#93c5fd", 10, "#60a5fa", 30, "#3b82f6"],
-          "circle-radius": ["step", ["get", "point_count"], 14, 10, 20, 30, 26],
-          "circle-stroke-color": "#0b1220",
-          "circle-stroke-width": 1.2,
-          "circle-opacity": 0.95,
-        },
-      });
-      map.addLayer({
-        id: "flood-cluster-count",
-        type: "symbol",
-        source: "floods",
-        filter: ["has", "point_count"],
-        layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 12, "text-allow-overlap": true },
-        paint: { "text-color": "#0b122a", "text-halo-color": "#ffffff", "text-halo-width": 1.0 },
-      });
-
+      // Single flood marker (only shows when a flood is selected)
       map.addLayer({
         id: "flood-points",
         type: "circle",
         source: "floods",
-        filter: ["!", ["has", "point_count"]],
         paint: {
-          "circle-radius": 5,
-          "circle-color": "#60a5fa",
+          "circle-radius": 8,
+          "circle-color": "#3b82f6",
           "circle-stroke-color": "#0b1220",
-          "circle-stroke-width": 1.25,
+          "circle-stroke-width": 2,
           "circle-opacity": 0.95,
         },
-        layout: { visibility: "visible" },
+        layout: { visibility: "none" },
       });
 
       map.addSource("flood-selected-points", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -1545,90 +1455,25 @@ export default function floodevents() {
 
       if (bounds) map.fitBounds(bounds, { padding: 40, duration: 0 });
 
-      map.on("mousemove", "flood-points", (e) => {
-        const f = e?.features?.[0];
-        if (!f) return;
-        const p = f.properties || {};
-        show_popup(e.lngLat, popup_html(p));
-      });
-      map.on("mouseleave", "flood-points", () => hide_popup());
-
+      // Show popup on hover for selected flood marker
       map.on("mousemove", "flood-selected-points", (e) => {
         const p = selected_props || {};
         show_popup(e.lngLat, popup_html(p));
       });
       map.on("mouseleave", "flood-selected-points", () => hide_popup());
 
-      map.on("click", "flood-points", (e) => {
-        e.preventDefault?.();
-        const f = e?.features?.[0];
-        const id = f?.properties?.id ?? f?.id;
-        if (id != null) {
-          const idStr = String(id);
-          console.log("Flood marker clicked, ID:", idStr);
-          // Use callback form like table row click to ensure proper sequencing
-          set_selected(prev => {
-            const next = String(prev) === String(idStr) ? null : idStr;
-            console.log("Setting selected from", prev, "to", next);
-            if (next) {
-              console.log("Calling focus_select for", next);
-              focus_select(next);
-            } else {
-              console.log("Calling clear_selection");
-              clear_selection();
-            }
-            return next;
-          });
-        }
-      });
-
-      map.on("click", "flood-clusters", (e) => {
-        // Defensive check - ensure style is loaded
-        if (!map.isStyleLoaded || !map.isStyleLoaded()) return;
-
-        const features = map.queryRenderedFeatures(e.point, { layers: ["flood-clusters"] });
-        const cluster_id = features[0]?.properties?.cluster_id;
-        const point_count = features[0]?.properties?.point_count;
-        const source = map.getSource("floods");
-        if (!source || cluster_id == null) return;
-
-        // If cluster has only one point, select it instead of zooming
-        if (point_count === 1) {
-          source.getClusterLeaves(cluster_id, 1, 0, (err, leaves) => {
-            if (err || !leaves?.[0]) return;
-            const id = leaves[0]?.properties?.id ?? leaves[0]?.id;
-            if (id != null) {
-              const idStr = String(id);
-              // Use callback form like table row click
-              set_selected(prev => {
-                const next = String(prev) === String(idStr) ? null : idStr;
-                if (next) focus_select(next); else clear_selection();
-                return next;
-              });
-            }
-          });
-        } else {
-          // Zoom into cluster
-          source.getClusterExpansionZoom(cluster_id, (err, zoom) => {
-            if (err) return;
-            map.easeTo({ center: e.lngLat, zoom });
-          });
-        }
-      });
-
+      // General click handler - clear selection if clicking on empty space
       map.on("click", (e) => {
         const bbox = [[e.point.x - 5, e.point.y - 5],[e.point.x + 5, e.point.y + 5]];
         const hit = map.queryRenderedFeatures(bbox, {
           layers: [
-            "flood-clusters","flood-cluster-count","flood-points","flood-selected-points",
-            "flood-selected-labels","amenities-nearby","amenities-nearby-labels",
+            "flood-selected-points","flood-selected-labels",
+            "amenities-nearby","amenities-nearby-labels",
             "rings-page-inner-fill","rings-page-outer-fill","rings-selected-inner-fill","rings-selected-outer-fill",
             "roads-nearby-inner","roads-nearby-outer"
           ],
         });
-        console.log("General click handler, hit layers:", hit?.length || 0);
         if (!hit || hit.length === 0) {
-          console.log("No layers hit, clearing selection");
           clear_selection();
         }
       });
@@ -1758,7 +1603,6 @@ export default function floodevents() {
 
   /* ===== selection ===== */
   function focus_select(id_str) {
-    console.log("focus_select called with ID:", id_str);
     // Note: set_selected is called by the caller (table row or map click handler)
     // We don't call it here to avoid redundant state updates
 
@@ -1782,20 +1626,21 @@ export default function floodevents() {
       return;
     }
 
-    console.log("Setting selected_props for ID:", id_str);
     set_selected_props({ ...p });
 
     // Check if map is fully loaded and style is ready for visualization
     const mapReady = map.isStyleLoaded && map.isStyleLoaded();
 
+    // Update floods source to show only the selected flood marker
     if (mapReady) {
       try {
-        // Keep all flood points visible so users can click other markers
-        // Only hide clusters when a flood is selected
-        map.setLayoutProperty("flood-clusters", "visibility", "none");
-        map.setLayoutProperty("flood-cluster-count", "visibility", "none");
+        map.getSource("floods")?.setData({
+          type: "FeatureCollection",
+          features: [feat]
+        });
+        map.setLayoutProperty("flood-points", "visibility", "visible");
       } catch (e) {
-        console.warn("Error setting cluster visibility:", e);
+        console.warn("Error showing selected flood:", e);
       }
     }
 
@@ -1996,7 +1841,6 @@ export default function floodevents() {
       centrality: { bnorm, cnorm },
       scores: { amenity_score: +amenity_score.toFixed(3), roads_score: +roads_score.toFixed(3), roads_impact: +roads_impact.toFixed(2), ar_impact: +ar_impact.toFixed(3) },
     };
-    console.log("Setting selected_stats:", stats);
     set_selected_stats(stats);
 
     if (mapReady) {
@@ -2022,9 +1866,9 @@ export default function floodevents() {
     const map = map_ref.current;
     if (map) {
       try {
-        map.setFilter("flood-points", ["all", ["!", ["has", "point_count"]]]);
-        map.setLayoutProperty("flood-clusters", "visibility", "visible");
-        map.setLayoutProperty("flood-cluster-count", "visibility", "visible");
+        // Hide the flood marker when no flood is selected
+        map.getSource("floods")?.setData({ type: "FeatureCollection", features: [] });
+        map.setLayoutProperty("flood-points", "visibility", "none");
         map.setLayoutProperty("flood-selected-points", "visibility", "none");
         map.setLayoutProperty("flood-selected-lines-casing", "visibility", "none");
         map.setLayoutProperty("flood-selected-lines", "visibility", "none");
@@ -2660,6 +2504,20 @@ export default function floodevents() {
               </div>
             </>
           )}
+
+          {/* Prompt to select a flood when nothing is selected */}
+          {!selected && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="text-center p-6 rounded-xl border-2 border-dashed border-border bg-card shadow-lg max-w-md">
+                <MapPin className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">No Flood Event Selected</h3>
+                <p className="text-sm text-muted-foreground">
+                  Select a flood event from the table below to visualize it on the map
+                </p>
+              </div>
+            </div>
+          )}
+
           <div ref={container_ref} className="h-full w-full min-h-[36rem]" />
         </div>
 
@@ -3469,38 +3327,6 @@ export default function floodevents() {
             >
               Next
             </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-border bg-card shadow-sm">
-        <div className="px-6 py-5 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Metric Reference</h2>
-            <p className="text-sm text-muted-foreground">
-              Quick definitions to help interpret the amenity and centrality metrics that drive the flood index.
-            </p>
-          </div>
-
-          <div className="overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2">Metric</th>
-                  <th className="px-4 py-2">What it represents</th>
-                  <th className="px-4 py-2">How to interpret it</th>
-                </tr>
-              </thead>
-              <tbody>
-                {METRIC_SUMMARY_ROWS.map((row) => (
-                  <tr key={row.metric} className="border-t">
-                    <td className="px-4 py-3 font-medium">{row.metric}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.meaning}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.insight}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       </section>
