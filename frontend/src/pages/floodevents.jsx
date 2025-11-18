@@ -856,9 +856,18 @@ export default function floodevents() {
         const d = a._distm;
         const band = d <= r_in ? "inner" : "outer";
         const enabled = cat_enabled[a.category] ?? true;
-        const w = enabled ? (+cat_weights[a.category] || 0.0) : 0.0;
-        if (band === "inner") { inner++; impact_inner += w * inner_mult; }
-        else { outer++; impact_outer += w * outer_mult; }
+
+        // Only count and add impact if category is enabled
+        if (enabled) {
+          const w = +cat_weights[a.category] || 0.0;
+          if (band === "inner") {
+            inner++;
+            impact_inner += w * inner_mult;
+          } else {
+            outer++;
+            impact_outer += w * outer_mult;
+          }
+        }
       }
 
       // Only include counts from enabled bands
@@ -1597,12 +1606,14 @@ export default function floodevents() {
     return () => window.removeEventListener("keydown", on_key);
   }, []);
 
-  useEffect(() => {
-    if (!floods_fc?.features?.length) return;
-    const ids = floods_fc.features.map(ft => String(ft.properties?.id ?? ft.id ?? ""));
-    const target = ids[0];
-    if (target) focus_select(target);
-  }, [floods_fc, stats_by_flood_distance]);
+  // Removed: Auto-select first flood on load
+  // User should manually click on a flood event to select it
+  // useEffect(() => {
+  //   if (!floods_fc?.features?.length) return;
+  //   const ids = floods_fc.features.map(ft => String(ft.properties?.id ?? ft.id ?? ""));
+  //   const target = ids[0];
+  //   if (target) focus_select(target);
+  // }, [floods_fc, stats_by_flood_distance]);
 
  
   useEffect(() => {
@@ -1715,7 +1726,8 @@ export default function floodevents() {
     set_selected_props({ ...p });
 
     try {
-      map.setFilter("flood-points", ["all", ["!", ["has", "point_count"]], ["==", ["to-string", ["get", "id"]], String(id_str)]]);
+      // Keep all flood points visible so users can click other markers
+      // Only hide clusters when a flood is selected
       map.setLayoutProperty("flood-clusters", "visibility", "none");
       map.setLayoutProperty("flood-cluster-count", "visibility", "none");
     } catch {}
