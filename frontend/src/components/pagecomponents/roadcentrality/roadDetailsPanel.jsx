@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { X, Download, Search } from "lucide-react";
 import { format_number, to_title_case } from "./shared";
@@ -274,16 +274,24 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
           </div>
         </div>
 
-        {/* Amenities and Flood Events Accordions */}
-        <Accordion type="multiple" className="space-y-2">
-          {/* Amenities Section */}
-          <AccordionItem value="amenities" className="border rounded-lg bg-background">
-            <AccordionTrigger className="px-3 py-2 hover:no-underline">
-              <span className="text-sm font-semibold">
-                Amenities ({filteredAmenities.length})
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-3 pb-2">
+        {/* Amenities and Flood Events Tabs */}
+        <Card className="border">
+          <CardHeader className="pb-1 pt-2 px-2">
+            <CardTitle className="text-sm font-semibold">Nearby Infrastructure</CardTitle>
+          </CardHeader>
+          <Tabs defaultValue="amenities" className="w-full">
+            <div className="border-b px-2 pt-0">
+              <TabsList className="w-full grid grid-cols-2 h-8">
+                <TabsTrigger value="amenities" className="text-[10px]">
+                  Amenities ({filteredAmenities.length})
+                </TabsTrigger>
+                <TabsTrigger value="floods" className="text-[10px]">
+                  Flood Events ({filteredFloods.length})
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="amenities" className="px-2 py-2 mt-0">
               <div className="relative mb-2">
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                 <Input
@@ -328,17 +336,9 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
                   {amenitySearch ? "No amenities match your search" : "No amenities nearby"}
                 </p>
               )}
-            </AccordionContent>
-          </AccordionItem>
+            </TabsContent>
 
-          {/* Flood Events Section */}
-          <AccordionItem value="floods" className="border rounded-lg bg-background">
-            <AccordionTrigger className="px-3 py-2 hover:no-underline">
-              <span className="text-sm font-semibold">
-                Flood Events ({filteredFloods.length})
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-3 pb-2">
+            <TabsContent value="floods" className="px-2 py-2 mt-0">
               <div className="relative mb-2">
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                 <Input
@@ -386,9 +386,9 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
                   {floodSearch ? "No flood events match your search" : "No flood events recorded"}
                 </p>
               )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+            </TabsContent>
+          </Tabs>
+        </Card>
       </CardContent>
     </Card>
   );
