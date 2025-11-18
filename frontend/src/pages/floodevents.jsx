@@ -564,115 +564,126 @@ export default function floodevents() {
     return out;
   };
 
-  const stats_by_flood_distance = useMemo(() => {
-    const out = new Map();
-    const floods = floods_fc?.features || [];
-    if (!floods.length) return out;
+  // Deferred calculation to avoid blocking navigation
+  const [stats_by_flood_distance, set_stats_by_flood_distance] = useState(new Map());
 
-    const r_in = Math.max(0, Math.min(r_inner, r_outer));
-    const r_out = Math.max(r_in, r_outer);
+  useEffect(() => {
+    // Defer expensive calculation to avoid blocking page navigation
+    const timer = setTimeout(() => {
+      const out = new Map();
+      const floods = floods_fc?.features || [];
+      if (!floods.length) {
+        set_stats_by_flood_distance(out);
+        return;
+      }
 
-    for (const f of floods) {
-      const p = f.properties || {};
-      const id = String(p.id ?? f.id ?? "");
-      const lng = to_num(p.start_lng), lat = to_num(p.start_lat);
-      if (Number.isNaN(lng) || Number.isNaN(lat)) continue;
+      const r_in = Math.max(0, Math.min(r_inner, r_outer));
+      const r_out = Math.max(r_in, r_outer);
 
-      let inner = 0, outer = 0;
-      let impact_inner = 0, impact_outer = 0;
-      const near = amenity_list.length ? query_amenities(lng, lat, r_out) : [];
+      for (const f of floods) {
+        const p = f.properties || {};
+        const id = String(p.id ?? f.id ?? "");
+        const lng = to_num(p.start_lng), lat = to_num(p.start_lat);
+        if (Number.isNaN(lng) || Number.isNaN(lat)) continue;
 
-      for (const a of near) {
-        const d = a._distm;
-        const band = d <= r_in ? "inner" : "outer";
-        const enabled = cat_enabled[a.category] ?? true;
+        let inner = 0, outer = 0;
+        let impact_inner = 0, impact_outer = 0;
+        const near = amenity_list.length ? query_amenities(lng, lat, r_out) : [];
 
-        // Only count and add impact if category is enabled
-        if (enabled) {
-          const w = +cat_weights[a.category] || 0.0;
-          if (band === "inner") {
-            inner++;
-            impact_inner += w * inner_mult;
-          } else {
-            outer++;
-            impact_outer += w * outer_mult;
+        for (const a of near) {
+          const d = a._distm;
+          const band = d <= r_in ? "inner" : "outer";
+          const enabled = cat_enabled[a.category] ?? true;
+
+          // Only count and add impact if category is enabled
+          if (enabled) {
+            const w = +cat_weights[a.category] || 0.0;
+            if (band === "inner") {
+              inner++;
+              impact_inner += w * inner_mult;
+            } else {
+              outer++;
+              impact_outer += w * outer_mult;
+            }
           }
         }
-      }
 
-      // Only include counts from enabled bands
-      const activeInner = inner_enabled ? inner : 0;
-      const activeOuter = outer_enabled ? outer : 0;
-      const counts = { inner: activeInner, outer: activeOuter, total: activeInner + activeOuter };
-      const impact_total = impact_inner + impact_outer;
+        // Only include counts from enabled bands
+        const activeInner = inner_enabled ? inner : 0;
+        const activeOuter = outer_enabled ? outer : 0;
+        const counts = { inner: activeInner, outer: activeOuter, total: activeInner + activeOuter };
+        const impact_total = impact_inner + impact_outer;
 
-      // Calculate roads affected within distance rings
-      const roads_near = roads_within_rings(road_fc, [lng, lat], r_in, r_out);
-      const activeInnerRoads = inner_enabled ? roads_near.inner.length : 0;
-      const activeOuterRoads = outer_enabled ? roads_near.outer.length : 0;
-      const roads_counts = {
-        inner: activeInnerRoads,
-        outer: activeOuterRoads,
-        total: activeInnerRoads + activeOuterRoads
-      };
+        // Calculate roads affected within distance rings
+        const roads_near = roads_within_rings(road_fc, [lng, lat], r_in, r_out);
+        const activeInnerRoads = inner_enabled ? roads_near.inner.length : 0;
+        const activeOuterRoads = outer_enabled ? roads_near.outer.length : 0;
+        const roads_counts = {
+          inner: activeInnerRoads,
+          outer: activeOuterRoads,
+          total: activeInnerRoads + activeOuterRoads
+        };
 
-      // Calculate centrality using all affected roads (origin, real end, or predicted endpoints)
-      let bnorm = 0, cnorm = 0;
-      const getAffectedRoadIds = (props) => {
-        const ids = [];
-        const origin_id = props.origin_rn_id ?? props.start_rn_id;
-        if (origin_id != null) ids.push(String(origin_id));
+        // Calculate centrality using all affected roads (origin, real end, or predicted endpoints)
+        let bnorm = 0, cnorm = 0;
+        const getAffectedRoadIds = (props) => {
+          const ids = [];
+          const origin_id = props.origin_rn_id ?? props.start_rn_id;
+          if (origin_id != null) ids.push(String(origin_id));
 
-        const hasRealEnd = props.end_rn_id != null &&
-                           props.end_lat != null && props.end_lng != null &&
-                           to_num(props.end_lat) !== 0 && to_num(props.end_lng) !== 0;
+          const hasRealEnd = props.end_rn_id != null &&
+                             props.end_lat != null && props.end_lng != null &&
+                             to_num(props.end_lat) !== 0 && to_num(props.end_lng) !== 0;
 
-        if (hasRealEnd) {
-          ids.push(String(props.end_rn_id));
-        } else {
-          if (props.end100_a_rn_id != null) ids.push(String(props.end100_a_rn_id));
-          if (props.end100_b_rn_id != null) ids.push(String(props.end100_b_rn_id));
+          if (hasRealEnd) {
+            ids.push(String(props.end_rn_id));
+          } else {
+            if (props.end100_a_rn_id != null) ids.push(String(props.end100_a_rn_id));
+            if (props.end100_b_rn_id != null) ids.push(String(props.end100_b_rn_id));
+          }
+          return ids;
+        };
+
+        const affected_road_ids = getAffectedRoadIds(p);
+        let bmax = -Infinity, cmax = -Infinity;
+
+        for (const rid of affected_road_ids) {
+          const rlist = roads_by_id.get(rid) || [];
+          for (const r of rlist) {
+            const rp = r.properties || {};
+            const b = +((rp.betweenness_norm ?? rp.betweenness ?? rp.BETWEENNESS_NORM ?? rp.BETWEENNESS) || NaN);
+            const c = +((rp.closeness_norm   ?? rp.closeness   ?? rp.CLOSENESS_NORM   ?? rp.CLOSENESS)   || NaN);
+            if (Number.isFinite(b)) bmax = Math.max(bmax, b);
+            if (Number.isFinite(c)) cmax = Math.max(cmax, c);
+          }
         }
-        return ids;
-      };
 
-      const affected_road_ids = getAffectedRoadIds(p);
-      let bmax = -Infinity, cmax = -Infinity;
+        if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
+        if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
 
-      for (const rid of affected_road_ids) {
-        const rlist = roads_by_id.get(rid) || [];
-        for (const r of rlist) {
-          const rp = r.properties || {};
-          const b = +((rp.betweenness_norm ?? rp.betweenness ?? rp.BETWEENNESS_NORM ?? rp.BETWEENNESS) || NaN);
-          const c = +((rp.closeness_norm   ?? rp.closeness   ?? rp.CLOSENESS_NORM   ?? rp.CLOSENESS)   || NaN);
-          if (Number.isFinite(b)) bmax = Math.max(bmax, b);
-          if (Number.isFinite(c)) cmax = Math.max(cmax, c);
-        }
+        const amenity_score = 1 - Math.exp(-(impact_total) / 10.0);
+
+        // Calculate roads score with band weighting
+        const inner_weight_mult = inner_enabled ? inner_mult : 0;
+        const outer_weight_mult = outer_enabled ? outer_mult : 0;
+        const roads_impact = (roads_counts.inner * inner_weight_mult) + (roads_counts.outer * outer_weight_mult);
+        const roads_score = 1 - Math.exp(-(roads_impact) / 10.0);
+
+        const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score) + (w_roads * roads_score);
+
+        out.set(id, {
+          center: [lng, lat],
+          counts,
+          roads_counts,
+          impact: { inner: impact_inner, outer: impact_outer, total: impact_total },
+          centrality: { bnorm, cnorm },
+          scores: { amenity_score, roads_score, roads_impact, ar_impact },
+        });
       }
+      set_stats_by_flood_distance(out);
+    }, 0);
 
-      if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
-      if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
-
-      const amenity_score = 1 - Math.exp(-(impact_total) / 10.0);
-
-      // Calculate roads score with band weighting
-      const inner_weight_mult = inner_enabled ? inner_mult : 0;
-      const outer_weight_mult = outer_enabled ? outer_mult : 0;
-      const roads_impact = (roads_counts.inner * inner_weight_mult) + (roads_counts.outer * outer_weight_mult);
-      const roads_score = 1 - Math.exp(-(roads_impact) / 10.0);
-
-      const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score) + (w_roads * roads_score);
-
-      out.set(id, {
-        center: [lng, lat],
-        counts,
-        roads_counts,
-        impact: { inner: impact_inner, outer: impact_outer, total: impact_total },
-        centrality: { bnorm, cnorm },
-        scores: { amenity_score, roads_score, roads_impact, ar_impact },
-      });
-    }
-    return out;
+    return () => clearTimeout(timer);
   }, [floods_fc, amenity_list, road_fc, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, inner_enabled, outer_enabled, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity, w_roads]);
 
   /* rows & filters */
