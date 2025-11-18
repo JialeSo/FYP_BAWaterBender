@@ -1565,10 +1565,18 @@ export default function floodevents() {
         const id = f?.properties?.id ?? f?.id;
         if (id != null) {
           const idStr = String(id);
+          console.log("Flood marker clicked, ID:", idStr);
           // Use callback form like table row click to ensure proper sequencing
           set_selected(prev => {
             const next = String(prev) === String(idStr) ? null : idStr;
-            if (next) focus_select(next); else clear_selection();
+            console.log("Setting selected from", prev, "to", next);
+            if (next) {
+              console.log("Calling focus_select for", next);
+              focus_select(next);
+            } else {
+              console.log("Calling clear_selection");
+              clear_selection();
+            }
             return next;
           });
         }
@@ -1745,20 +1753,31 @@ export default function floodevents() {
 
   /* ===== selection ===== */
   function focus_select(id_str) {
+    console.log("focus_select called with ID:", id_str);
     // Note: set_selected is called by the caller (table row or map click handler)
     // We don't call it here to avoid redundant state updates
 
     const feat = (floods_fc?.features || []).find((ft) => String(ft.properties?.id ?? ft.id) === String(id_str));
-    if (!feat) return;
+    if (!feat) {
+      console.warn("No feature found for ID:", id_str);
+      return;
+    }
     const p = feat.properties || {};
 
     // Get center from start coordinates instead of build_flood_detail (removed to reduce lag)
     const center = [to_num(p.start_lng), to_num(p.start_lat)];
-    if (Number.isNaN(center[0]) || Number.isNaN(center[1])) return;
+    if (Number.isNaN(center[0]) || Number.isNaN(center[1])) {
+      console.warn("Invalid center coordinates for ID:", id_str);
+      return;
+    }
 
     const map = map_ref.current;
-    if (!map || !center) return;
+    if (!map || !center) {
+      console.warn("Map not ready or no center");
+      return;
+    }
 
+    console.log("Setting selected_props for ID:", id_str);
     set_selected_props({ ...p });
 
     // Check if map is fully loaded and style is ready for visualization
@@ -1958,14 +1977,16 @@ export default function floodevents() {
     const activeInnerRoads = inner_enabled ? roads_pack.inner.length : 0;
     const activeOuterRoads = outer_enabled ? roads_pack.outer.length : 0;
 
-    set_selected_stats({
+    const stats = {
       center,
       counts: { inner: activeInnerAmenities, outer: activeOuterAmenities, total: activeInnerAmenities + activeOuterAmenities },
       roads_counts: { inner: activeInnerRoads, outer: activeOuterRoads, total: activeInnerRoads + activeOuterRoads },
       impact: { inner: +impact_inner.toFixed(2), outer: +impact_outer.toFixed(2), total: +impact_total.toFixed(2) },
       centrality: { bnorm, cnorm },
       scores: { amenity_score: +amenity_score.toFixed(3), roads_score: +roads_score.toFixed(3), roads_impact: +roads_impact.toFixed(2), ar_impact: +ar_impact.toFixed(3) },
-    });
+    };
+    console.log("Setting selected_stats:", stats);
+    set_selected_stats(stats);
 
     if (mapReady) {
       const rin = Math.max(0, Math.min(r_inner, r_outer));
@@ -2046,8 +2067,16 @@ export default function floodevents() {
     { key: "event_date", label: "Event Date", type: "string" },
     { key: "event", label: "Event Type", type: "string", render: (v)=>v?.replace("_"," ") },
     { key: "planning_area", label: "Planning Area", type: "string" },
-    { key: "location", label: "Location", type: "string" },
-    { key: "parent_road", label: "Road", type: "string" },
+    { key: "location", label: "Location", type: "string", render: (v, row) => {
+      const name = v || "Unnamed";
+      const roadId = row._props?.start_rn_id || row._props?.origin_rn_id;
+      return roadId ? `${name} (ID: ${roadId})` : name;
+    }},
+    { key: "parent_road", label: "Road", type: "string", render: (v, row) => {
+      const name = v || "Unnamed";
+      const roadId = row._props?.start_rn_id || row._props?.origin_rn_id;
+      return roadId ? `${name} (ID: ${roadId})` : name;
+    }},
 
     // Primary metrics (shown by default)
     { key: "roads_total", label: "Roads Affected", type: "number" },
@@ -3353,25 +3382,42 @@ export default function floodevents() {
                 return (
                   <tr
                     key={r.id}
-                    onClick={() => set_selected(prev => {
-                      const next = String(prev) === String(r.id) ? null : r.id;
-                      if (next) focus_select(next); else clear_selection();
-                      return next;
-                    })}
+                    onClick={() => {
+                      set_selected(prev => {
+                        const next = String(prev) === String(r.id) ? null : r.id;
+                        if (next) {
+                          focus_select(next);
+                          // Scroll to top to show the map
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        } else {
+                          clear_selection();
+                        }
+                        return next;
+                      });
+                    }}
                     className={`border-t cursor-pointer hover:bg-muted/60 transition-colors ${active ? "bg-primary/10 border-l-4 border-l-primary" : ""}`}
                   >
                     {columns.filter(c=>visible_cols[c.key]).map((c)=>(
                       <td key={c.key} className="px-4 py-2">
-                        {c.render ? c.render(r[c.key]) : (r[c.key] ?? "N/A")}
+                        {c.render ? c.render(r[c.key], r) : (r[c.key] ?? "N/A")}
                       </td>
                     ))}
                     <td className="px-4 py-2">
                       <button
-                        onClick={(e)=>{ e.stopPropagation(); set_selected(prev => {
-                          const next = String(prev) === String(r.id) ? null : r.id;
-                          if (next) focus_select(next); else clear_selection();
-                          return next;
-                        }); }}
+                        onClick={(e)=>{
+                          e.stopPropagation();
+                          set_selected(prev => {
+                            const next = String(prev) === String(r.id) ? null : r.id;
+                            if (next) {
+                              focus_select(next);
+                              // Scroll to top to show the map
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            } else {
+                              clear_selection();
+                            }
+                            return next;
+                          });
+                        }}
                         className="rounded-lg border px-2 py-1 text-xs hover:bg-muted"
                       >
                         {active ? "hide" : "view on map"}
