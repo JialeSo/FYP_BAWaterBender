@@ -1,14 +1,8 @@
-# pip install spacy dateparser
 import re
 from datetime import datetime
 from typing import Optional, Literal, Dict, Any
-import spacy
 
 EventType = Literal["flash_flood", "heavy_rain", "flash_flood_risk", "flood_subsided"]
-
-# tokenizer only (no ML components)
-nlp = spacy.blank("en")
-
 
 def _parse_location_direction(location_str: str) -> Dict[str, Optional[str]]:
     """
@@ -60,13 +54,12 @@ def _parse_location_direction(location_str: str) -> Dict[str, Optional[str]]:
 
 def parse_alert(text: str, alert_time: datetime) -> Dict[str, Any]:
     """
-    Rule-based parser. Uses spaCy tokenization for robust span picking,
-    plus a tiny time parser anchored to `alert_time`'s date.
+    Rule-based parser using simple string operations (no spaCy dependency).
+    Anchors time parsing to `alert_time`'s date.
     """
-    doc = nlp(text)
     low = text.lower()
 
-    out = {
+    out: Dict[str, Any] = {
         "start_loc": None,
         "end_loc": None,
         "start": None,
@@ -74,28 +67,34 @@ def parse_alert(text: str, alert_time: datetime) -> Dict[str, Any]:
         "event": None,
     }
 
-    location_raw = None
+    location_raw: Optional[str] = None
 
-    # --- 1) classify event by stable cues
+    # --- 1) classify event by stable cues and extract location text ---
     if low.startswith("[risk of flash floods]"):
         out["event"] = "flash_flood_risk"
-        # location is between ":" and "[" (token-aware)
-        location_raw = _span_between_tokens(doc, ":", "[")
+        # Location is usually after the last ":" and before the next "[" (time)
+        colon_idx = text.rfind(":")
+        if colon_idx != -1:
+            bracket_idx = text.find("[", colon_idx + 1)
+            if bracket_idx == -1:
+                location_raw = text[colon_idx + 1 :].strip()
+            else:
+                location_raw = text[colon_idx + 1 : bracket_idx].strip()
 
     elif low.startswith("[flash flood occurred]"):
         out["event"] = "flash_flood"
         # "Flash flood at <LOC>."
-        location_raw = _span_after_until(doc, "at", ".")
+        location_raw = _text_after_before(text, "at", ".")
 
     elif "subsided at" in low:
         out["event"] = "flood_subsided"
         # "subsided at <LOC>."
-        location_raw = _span_after_until(doc, "subsided", ".", after_word="at")
+        location_raw = _text_after_before(text, "subsided at", ".")
 
     elif "heavy rain expected" in low:
         out["event"] = "heavy_rain"
         # "over <LOC> from ..."
-        location_raw = _span_between_keywords(doc, "over", "from")
+        location_raw = _text_after_before(text, "over", "from")
         # "from HH:MM hours to HH:MM hours"
         start_txt = _text_after_before(text, "from", "hours")
         end_txt = _text_after_before(
