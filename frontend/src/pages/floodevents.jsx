@@ -2313,7 +2313,7 @@ export default function floodevents() {
           <AccordionTrigger className="px-4 py-3 hover:no-underline">
             <div className="flex items-center gap-2">
               <span className="text-base font-semibold">Table Filters</span>
-              {hasUnappliedTableFilterChanges && (
+              {hasUnappliedFilterChanges && (
                 <span className="px-2 py-1 rounded-md text-xs font-bold text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-300">
                   • Unapplied Changes
                 </span>
@@ -2464,7 +2464,7 @@ export default function floodevents() {
               <Button
                 size="sm"
                 onClick={applyTableFilters}
-                disabled={!hasUnappliedTableFilterChanges}
+                disabled={!hasUnappliedFilterChanges}
               >
                 Apply Filters
               </Button>

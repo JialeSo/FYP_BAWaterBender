@@ -213,7 +213,40 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
 
   // Calculate color thresholds based on max value
   const colorThresholds = useMemo(() => {
-    return calculateColorThresholds(data, colorMetric);
+    const thresholds = calculateColorThresholds(data, colorMetric);
+
+    // Debug: Log thresholds and sample data
+    if (data?.features?.length) {
+      const sampleValues = data.features
+        .slice(0, 10)
+        .map(f => f.properties?.[colorMetric])
+        .filter(v => v != null);
+
+      console.log(`[CentralityMap] Thresholds for ${colorMetric}:`, {
+        b1: thresholds.b1,
+        b2: thresholds.b2,
+        b3: thresholds.b3,
+        b4: thresholds.b4,
+        max: thresholds.max,
+        sampleValues: sampleValues,
+        totalFeatures: data.features.length
+      });
+
+      // Show which bucket each sample falls into
+      sampleValues.forEach((val, idx) => {
+        let bucket = 0;
+        if (val <= 0) bucket = 0;
+        else if (val > 0 && val <= thresholds.b1) bucket = 1;
+        else if (val > thresholds.b1 && val <= thresholds.b2) bucket = 2;
+        else if (val > thresholds.b2 && val <= thresholds.b3) bucket = 3;
+        else if (val > thresholds.b3 && val <= thresholds.b4) bucket = 4;
+        else bucket = 5;
+
+        console.log(`[CentralityMap] Sample ${idx}: value=${val.toFixed(4)} → Bucket ${bucket}`);
+      });
+    }
+
+    return thresholds;
   }, [data, colorMetric]);
 
   // Check if data has valid scores
@@ -713,7 +746,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  {format_number(colorThresholds.b4, 2)} - {format_number(colorThresholds.max, 2)}
+                  &gt; {format_number(colorThresholds.b4, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -737,7 +770,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#bfdbfe" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  &gt; 0 - {format_number(colorThresholds.b1, 2)}
+                  0 - {format_number(colorThresholds.b1, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
