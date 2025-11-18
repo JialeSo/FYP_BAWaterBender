@@ -1554,6 +1554,7 @@ export default function floodevents() {
       map.on("mouseleave", "flood-selected-points", () => hide_popup());
 
       map.on("click", "flood-points", (e) => {
+        e.preventDefault?.();
         const f = e?.features?.[0];
         const id = f?.properties?.id ?? f?.id;
         if (id != null) {
@@ -1562,15 +1563,32 @@ export default function floodevents() {
           focus_select(idStr);
         }
       });
+
       map.on("click", "flood-clusters", (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: ["flood-clusters"] });
         const cluster_id = features[0]?.properties?.cluster_id;
+        const point_count = features[0]?.properties?.point_count;
         const source = map.getSource("floods");
         if (!source || cluster_id == null) return;
-        source.getClusterExpansionZoom(cluster_id, (err, zoom) => {
-          if (err) return;
-          map.easeTo({ center: e.lngLat, zoom });
-        });
+
+        // If cluster has only one point, select it instead of zooming
+        if (point_count === 1) {
+          source.getClusterLeaves(cluster_id, 1, 0, (err, leaves) => {
+            if (err || !leaves?.[0]) return;
+            const id = leaves[0]?.properties?.id ?? leaves[0]?.id;
+            if (id != null) {
+              const idStr = String(id);
+              set_selected(idStr);
+              focus_select(idStr);
+            }
+          });
+        } else {
+          // Zoom into cluster
+          source.getClusterExpansionZoom(cluster_id, (err, zoom) => {
+            if (err) return;
+            map.easeTo({ center: e.lngLat, zoom });
+          });
+        }
       });
 
       map.on("click", (e) => {
