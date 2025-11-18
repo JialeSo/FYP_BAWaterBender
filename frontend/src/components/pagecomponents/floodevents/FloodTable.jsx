@@ -74,12 +74,12 @@ export default function FloodTable({
     { key: "planning_area", label: "Planning Area", type: "string" },
     { key: "location", label: "Location", type: "string", render: (v, row) => {
       const name = v || "Unnamed";
-      const roadId = row._props?.start_rn_id || row._props?.origin_rn_id;
+      const roadId = row._props?.origin_rn_id || row._props?.start_rn_id;
       return roadId ? `${name} (ID: ${roadId})` : name;
     }},
     { key: "parent_road", label: "Road", type: "string", render: (v, row) => {
       const name = v || "Unnamed";
-      const roadId = row._props?.start_rn_id || row._props?.origin_rn_id;
+      const roadId = row._props?.origin_rn_id || row._props?.start_rn_id;
       return roadId ? `${name} (ID: ${roadId})` : name;
     }},
 

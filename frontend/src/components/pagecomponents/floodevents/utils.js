@@ -118,7 +118,8 @@ export function popup_html(p = {}, lookups = {}) {
     return "—";
   };
   const typ = to_title_case((p.event || "").replace(/_/g, " ")) || "—";
-  const road = p.parent_road || "—";
+  const roadId = p.origin_rn_id || p.start_rn_id || null;
+  const road = p.parent_road ? (roadId ? `${p.parent_road} (ID: ${roadId})` : p.parent_road) : "—";
   const location = p.location || p.cleaned_location || "—";
 
   // Use pickName approach for planning area
