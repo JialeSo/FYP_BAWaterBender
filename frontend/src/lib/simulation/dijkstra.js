@@ -3,24 +3,36 @@
  * Dijkstra's algorithm implementation for multi-source shortest path
  */
 
-import { MinPQ } from './graphUtils';
+import { MinPQ, snapAmenitiesToNodes } from './graphUtils';
 
 /**
  * Multi-source Dijkstra's algorithm
  * @param {Object} graph - { nodes: Map, adj: Map }
- * @param {Array} sourceNodeIds - Array of source node IDs (e.g., hospital locations)
+ * @param {Array|Map} amenityNodeMapOrIds - Either a Map of node_id -> amenity_id or an Array of source node IDs
  * @param {Function} onProgress - Optional progress callback
  * @param {Function} edgeFilter - Optional edge filter function
- * @returns {Object} - { dist: Map (node_id => travel_time), visited: number }
+ * @returns {Object} - { dist: Map (node_id => travel_time), nearestAmenity: Map (node_id => amenity_id), visited: number }
  */
-export function multiSourceDijkstra({ nodes, adj }, sourceNodeIds, onProgress, edgeFilter) {
+export function multiSourceDijkstra({ nodes, adj }, amenityNodeMapOrIds, onProgress, edgeFilter) {
   const dist = new Map();
+  const nearestAmenity = new Map(); // Track which amenity each node is closest to
   const pq = new MinPQ();
 
-  // Initialize with all source nodes
-  for (const s of sourceNodeIds) {
-    dist.set(s, 0);
-    pq.push(0, s);
+  // Initialize with all source nodes - support both Map and Array inputs
+  if (amenityNodeMapOrIds instanceof Map) {
+    // Map of node_id -> amenity_id
+    for (const [nodeId, amenityId] of amenityNodeMapOrIds.entries()) {
+      dist.set(nodeId, 0);
+      nearestAmenity.set(nodeId, amenityId);
+      pq.push(0, nodeId);
+    }
+  } else {
+    // Array of node IDs
+    for (const s of amenityNodeMapOrIds) {
+      dist.set(s, 0);
+      nearestAmenity.set(s, s); // Use node ID as amenity ID if not provided
+      pq.push(0, s);
+    }
   }
 
   let visited = 0;
@@ -40,19 +52,20 @@ export function multiSourceDijkstra({ nodes, adj }, sourceNodeIds, onProgress, e
       const nd = d + e.w;
       if (nd < (dist.get(e.to) ?? Infinity)) {
         dist.set(e.to, nd);
+        nearestAmenity.set(e.to, nearestAmenity.get(u)); // Propagate amenity info
         pq.push(nd, e.to);
       }
     }
   }
 
   onProgress?.(visited);
-  return { dist, visited };
+  return { dist, nearestAmenity, visited };
 }
 
 /**
  * Compute per-planning-area statistics from Dijkstra results
  * @param {Object} params - Configuration object
- * @returns {Object} - { paStats, amenitiesCount, nodesCount, nodeDist, affectedNodes, unreachableNodes }
+ * @returns {Object} - { paStats, amenitiesCount, nodesCount, nodeDist, nodeNearestAmenity, affectedNodes, unreachableNodes }
  */
 export function computePerPAStats({
   graph,
@@ -61,7 +74,6 @@ export function computePerPAStats({
   edgeFilter,
   selectedAmenityType = "moh_hospitals",
   excludedAmenities = new Set(),
-  snapAmenitiesToNodes // function imported from graphUtils
 }) {
   const { nodes, adj } = graph;
 
@@ -71,9 +83,14 @@ export function computePerPAStats({
     throw new Error(`No amenities found for type: ${selectedAmenityType}`);
   }
 
+  // Create map of node_id -> amenity_id for all amenity locations
+  const amenityNodeMap = new Map();
+  for (const amenity of amenities) {
+    amenityNodeMap.set(amenity.node_id, amenity.amenity_id);
+  }
+
   // Run Dijkstra from all amenity nodes
-  const amenityNodeIds = amenities.map(a => a.node_id);
-  const { dist } = multiSourceDijkstra({ nodes, adj }, amenityNodeIds, onProgress, edgeFilter);
+  const { dist, nearestAmenity } = multiSourceDijkstra({ nodes, adj }, amenityNodeMap, onProgress, edgeFilter);
 
   // Aggregate stats by planning area
   const byPA = new Map();
@@ -127,6 +144,7 @@ export function computePerPAStats({
     amenitiesCount: amenities.length,
     nodesCount: nodes.size,
     nodeDist: dist,
+    nodeNearestAmenity: nearestAmenity,
     affectedNodesCount,
     unreachableNodesCount,
   };

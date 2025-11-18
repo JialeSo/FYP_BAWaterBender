@@ -21,248 +21,56 @@ import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCi
 import { SimulationMapContainer } from "@/components/pagecomponents/simulation/SimulationMapContainer";
 import { SimulationLegend } from "@/components/pagecomponents/simulation/SimulationLegend";
 import { MetricSelector } from "@/components/pagecomponents/simulation/MetricSelector";
+import {
+  MinPQ,
+  buildGraph,
+  dist2,
+  snapAmenitiesToNodes,
+} from "@/lib/simulation/graphUtils";
+import {
+  multiSourceDijkstra,
+  computePerPAStats,
+  calculateNodeLevelChanges,
+} from "@/lib/simulation/dijkstra";
+import {
+  fmtTime,
+  fmtM,
+  capitalizeWords,
+  getColorForValue,
+  getColorForTravelTime,
+  getColorForUnreachable,
+  calculatePADeltas,
+  downloadCSV,
+} from "@/lib/simulation/metrics";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
 
 /* ============================== helpers ============================== */
+// toInt and toNum are local helpers still used in this file
 const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
 const toNum = (v) => { const n = +v; return Number.isFinite(n) ? n : null; };
-const fmtM = (s) => (Number.isFinite(s) ? (s / 60).toFixed(1) + "m" : "—");
-const fmtTime = (s) => {
-  if (!Number.isFinite(s)) return "—";
-  const minutes = (s / 60).toFixed(1);
-  const seconds = Math.round(s);
-  return `${minutes}m (${seconds}s)`;
-};
-const dist2 = (a, b) => { if (!a || !b) return Number.POSITIVE_INFINITY; const dx=a[0]-b[0], dy=a[1]-b[1]; return dx*dx+dy*dy; };
-const capitalizeWords = (str) => str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-
-/* ========================= priority queue ======================= */
-class MinPQ {
-  constructor() { this.a = []; }
-  _swap(i, j) { [this.a[i], this.a[j]] = [this.a[j], this.a[i]]; }
-  _up(i) { while (i) { const p=(i-1)>>1; if (this.a[p].k<=this.a[i].k) break; this._swap(i,p); i=p; } }
-  _down(i) {
-    const n=this.a.length;
-    for(;;){ let l=i*2+1,r=l+1,m=i;
-      if(l<n && this.a[l].k<this.a[m].k) m=l;
-      if(r<n && this.a[r].k<this.a[m].k) m=r;
-      if(m===i) break; this._swap(i,m); i=m;
-    }
-  }
-  push(k,v){ this.a.push({k,v}); this._up(this.a.length-1); }
-  pop(){ if(!this.a.length) return null; const t=this.a[0]; const b=this.a.pop(); if(this.a.length){ this.a[0]=b; this._down(0); } return t; }
-  size(){ return this.a.length; }
-}
+// Other helpers (fmtM, fmtTime, dist2, capitalizeWords) are now imported from @/lib/simulation/metrics and @/lib/simulation/graphUtils
+// MinPQ class is now imported from @/lib/simulation/graphUtils
 
 /* ==================== graph builder ================= */
-function buildGraph(road_fc) {
-  const nodes = new Map();
-  const adj = new Map();
-  const edges = [];
-
-  const nodeMetaFromEdge = (p, which, coords) => {
-    const coord = which === "u" ? coords[0] : coords[coords.length - 1];
-    return {
-      coord,
-      paId: toInt(p.PA_ID ?? p.pa_id),
-      paName: p.PLN_AREA_N ?? p.pln_area_n ?? null,
-    };
-  };
-
-  for (const f of road_fc?.features || []) {
-    const p = f.properties || {};
-    const u = toInt(p.u), v = toInt(p.v);
-    const w = toNum(p.travel_time);
-    const rn_id = toInt(p.RN_ID ?? p.rn_id);
-    const coords = Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates : [];
-    if (u == null || v == null || !Number.isFinite(w) || !coords.length) continue;
-
-    if (!nodes.has(u)) nodes.set(u, { id: u, ...nodeMetaFromEdge(p, "u", coords) });
-    if (!nodes.has(v)) nodes.set(v, { id: v, ...nodeMetaFromEdge(p, "v", coords) });
-
-    if (!adj.has(u)) adj.set(u, []);
-    const e1 = { from: u, to: v, w, rn_id, coords, feature: f };
-    adj.get(u).push(e1); edges.push(e1);
-
-    const oneway = String(p.oneway ?? "true").toLowerCase() === "true";
-    if (!oneway) {
-      if (!adj.has(v)) adj.set(v, []);
-      const e2 = { from: v, to: u, w, rn_id, coords: [...coords].reverse(), feature: f };
-      adj.get(v).push(e2); edges.push(e2);
-    }
-  }
-  return { nodes, adj, edges };
-}
+// buildGraph function is now imported from @/lib/simulation/graphUtils
 
 /* ================== snap amenities to nodes ============== */
-function snapAmenitiesToNodes(amenity_fc, nodes, selectedTypes = ["moh_hospitals"], excludedAmenities = new Set()) {
-  const amenities = [];
-  const nodeArr = Array.from(nodes.values());
-
-  for (const f of amenity_fc?.features || []) {
-    const p = f.properties || {};
-    const amenityType = String(p.amenity_type || "").trim();
-    const amenityId = p.amenity_id ?? p.id;
-
-    // Filter by selected types
-    if (!selectedTypes.includes(amenityType)) continue;
-
-    // Filter out excluded amenities
-    if (amenityId && excludedAmenities.has(amenityId)) continue;
-
-    const pt = f.geometry?.coordinates;
-    if (!pt || !Number.isFinite(+pt[0]) || !Number.isFinite(+pt[1])) continue;
-
-    let best = null;
-    for (const n of nodeArr) {
-      const d2 = dist2(pt, n.coord);
-      if (best == null || d2 < best.d2) best = { nodeId: n.id, d2, node: n };
-    }
-
-    if (best) {
-      amenities.push({
-        amenity_id: amenityId ?? String(amenities.length),
-        amenity_name: p.amenity_name ?? amenityType,
-        amenity_type: amenityType,
-        node_id: best.nodeId,
-        pt,
-      });
-    }
-  }
-  return amenities;
-}
+// snapAmenitiesToNodes function is now imported from @/lib/simulation/graphUtils
 
 /* ======================== dijkstra ======================= */
-function multiSourceDijkstra({ nodes, adj }, amenityNodeMap, onProgress, edgeFilter) {
-  const dist = new Map();
-  const nearestAmenity = new Map(); // Track which amenity each node is closest to
-  const pq = new MinPQ();
-
-  // amenityNodeMap is Map of node_id -> amenity_id
-  for (const [nodeId, amenityId] of amenityNodeMap.entries()) {
-    dist.set(nodeId, 0);
-    nearestAmenity.set(nodeId, amenityId);
-    pq.push(0, nodeId);
-  }
-
-  let visited = 0;
-  while (pq.size()) {
-    const { k: d, v: u } = pq.pop();
-    if (d !== dist.get(u)) continue;
-    visited++; if (visited % 5000 === 0) onProgress?.(visited);
-
-    const edges = adj.get(u);
-    if (!edges) continue;
-    for (const e of edges) {
-      if (edgeFilter && !edgeFilter(e)) continue;
-      const nd = d + e.w;
-      if (nd < (dist.get(e.to) ?? Infinity)) {
-        dist.set(e.to, nd);
-        nearestAmenity.set(e.to, nearestAmenity.get(u)); // Propagate amenity info
-        pq.push(nd, e.to);
-      }
-    }
-  }
-  onProgress?.(visited);
-  return { dist, nearestAmenity, visited };
-}
+// multiSourceDijkstra function is now imported from @/lib/simulation/dijkstra
 
 /* ==================== compute per-PA stats ============= */
-function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter, selectedAmenityType = "moh_hospitals", excludedAmenities = new Set() }) {
-  const { nodes, adj } = graph;
-  const amenities = snapAmenitiesToNodes(amenity_fc_enriched, nodes, [selectedAmenityType], excludedAmenities);
-  if (!amenities.length) throw new Error(`No amenities found for type: ${selectedAmenityType}`);
-
-  // Create map of node_id -> amenity_id for all amenity locations
-  const amenityNodeMap = new Map();
-  for (const amenity of amenities) {
-    amenityNodeMap.set(amenity.node_id, amenity.amenity_id);
-  }
-
-  const { dist, nearestAmenity } = multiSourceDijkstra({ nodes, adj }, amenityNodeMap, onProgress, edgeFilter);
-
-  const byPA = new Map();
-  for (const n of nodes.values()) {
-    const paId = n.paId ?? -1;
-    const paName = n.paName || "(unknown)";
-    const t = dist.get(n.id) ?? Infinity;
-
-    if (!byPA.has(paId)) {
-      byPA.set(paId, {
-        pa_id: paId,
-        pa_name: paName,
-        nodes: 0,
-        sum_s: 0,
-        min_s: Infinity,
-        max_s: -Infinity,
-        unreachable: 0,
-      });
-    }
-
-    const agg = byPA.get(paId);
-    agg.nodes++;
-    if (Number.isFinite(t)) {
-      agg.sum_s += t;
-      agg.min_s = Math.min(agg.min_s, t);
-      agg.max_s = Math.max(agg.max_s, t);
-    } else {
-      agg.unreachable++;
-    }
-  }
-
-  const paStats = Array.from(byPA.values()).map(a => ({
-    pa_id: a.pa_id,
-    pa_name: a.pa_name,
-    nodes: a.nodes,
-    avg_s: a.nodes - a.unreachable > 0 ? a.sum_s / (a.nodes - a.unreachable) : null,
-    min_s: Number.isFinite(a.min_s) ? a.min_s : null,
-    max_s: Number.isFinite(a.max_s) ? a.max_s : null,
-    unreachable: a.unreachable,
-  }));
-
-  return { paStats, amenitiesCount: amenities.length, nodesCount: nodes.size, nodeDist: dist, nodeNearestAmenity: nearestAmenity };
-}
+// computePerPAStats function is now imported from @/lib/simulation/dijkstra
+// Note: The library version now supports nearestAmenity tracking via Map input
 
 /* ============================= Color scale ============================ */
-function getColorForValue(value, maxValue, isBaseline = false) {
-  if (!Number.isFinite(value) || value <= 0) return "#d1d5db";
-
-  if (isBaseline) {
-    // Baseline: green (low time) to blue (high time)
-    const ratio = Math.min(1, value / maxValue);
-    if (ratio < 0.25) return "#86efac"; // green
-    if (ratio < 0.5) return "#60a5fa"; // blue-400
-    if (ratio < 0.75) return "#3b82f6"; // blue-500
-    return "#1d4ed8"; // blue-700
-  } else {
-    // Delta: green (low increase) to red (high increase)
-    const ratio = Math.min(1, value / maxValue);
-    if (ratio < 0.25) return "#86efac";
-    if (ratio < 0.5) return "#fde047";
-    if (ratio < 0.75) return "#fb923c";
-    return "#ef4444";
-  }
-}
+// Color functions (getColorForValue, getColorForTravelTime, getColorForUnreachable) are now imported from @/lib/simulation/metrics
 
 /* ============================= CSV ============================ */
-function toCSV(arr) {
-  if (!arr?.length) return "";
-  const headers = Object.keys(arr[0]);
-  const esc = (v) => (v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replaceAll('"','""')}"` : String(v));
-  const lines = [headers.join(",")];
-  for (const obj of arr) lines.push(headers.map(h => esc(obj[h])).join(","));
-  return lines.join("\n");
-}
-
-function downloadCSV(name, rows) {
-  const csv = toCSV(rows);
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
-  URL.revokeObjectURL(url);
-}
+// CSV functions (toCSV, downloadCSV) are now imported from @/lib/simulation/metrics
 
 /* =============================== Page ================================= */
 export default function Simulation() {
