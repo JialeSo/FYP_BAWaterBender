@@ -10,4 +10,5 @@ networkx
 osmnx
 scipy
 pointpats
+spacy
 
