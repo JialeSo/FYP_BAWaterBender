@@ -646,18 +646,119 @@ export default function floodevents() {
   const [w_amenity, set_w_amenity] = useState(0.2);
   const [w_roads, set_w_roads] = useState(0.2);
 
+  // Pending states for configuration (not applied until user clicks Apply Changes)
+  const [pendingCatWeights, setPendingCatWeights] = useState(() => ({ ...cat_weights }));
+  const [pendingCatEnabled, setPendingCatEnabled] = useState(() => ({ ...cat_enabled }));
+  const [pendingInnerMult, setPendingInnerMult] = useState(2);
+  const [pendingOuterMult, setPendingOuterMult] = useState(1);
+  const [pendingInnerEnabled, setPendingInnerEnabled] = useState(true);
+  const [pendingOuterEnabled, setPendingOuterEnabled] = useState(true);
+  const [pendingWBetweenness, setPendingWBetweenness] = useState(0.3);
+  const [pendingWCloseness, setPendingWCloseness] = useState(0.3);
+  const [pendingWAmenity, setPendingWAmenity] = useState(0.2);
+  const [pendingWRoads, setPendingWRoads] = useState(0.2);
+
+  // Check if there are unapplied configuration changes
+  const hasUnappliedConfigChanges = useMemo(() => {
+    // Check category weights
+    const catWeightChanges = Object.keys({ ...cat_weights, ...pendingCatWeights }).some(
+      key => Math.abs((cat_weights[key] || 0) - (pendingCatWeights[key] || 0)) > 0.001
+    );
+
+    // Check category enabled
+    const catEnabledChanges = Object.keys({ ...cat_enabled, ...pendingCatEnabled }).some(
+      key => (cat_enabled[key] ?? true) !== (pendingCatEnabled[key] ?? true)
+    );
+
+    // Check band weights
+    const bandChanges =
+      Math.abs(inner_mult - pendingInnerMult) > 0.001 ||
+      Math.abs(outer_mult - pendingOuterMult) > 0.001 ||
+      inner_enabled !== pendingInnerEnabled ||
+      outer_enabled !== pendingOuterEnabled;
+
+    // Check AR Impact weights
+    const arWeightChanges =
+      Math.abs(w_betweenness - pendingWBetweenness) > 0.001 ||
+      Math.abs(w_closeness - pendingWCloseness) > 0.001 ||
+      Math.abs(w_amenity - pendingWAmenity) > 0.001 ||
+      Math.abs(w_roads - pendingWRoads) > 0.001;
+
+    return catWeightChanges || catEnabledChanges || bandChanges || arWeightChanges;
+  }, [
+    cat_weights, pendingCatWeights,
+    cat_enabled, pendingCatEnabled,
+    inner_mult, pendingInnerMult,
+    outer_mult, pendingOuterMult,
+    inner_enabled, pendingInnerEnabled,
+    outer_enabled, pendingOuterEnabled,
+    w_betweenness, pendingWBetweenness,
+    w_closeness, pendingWCloseness,
+    w_amenity, pendingWAmenity,
+    w_roads, pendingWRoads,
+  ]);
+
+  // Apply pending configuration changes
+  const applyConfigChanges = useCallback(() => {
+    setCatWeights({ ...pendingCatWeights });
+    setCatEnabled({ ...pendingCatEnabled });
+    set_inner_mult(pendingInnerMult);
+    set_outer_mult(pendingOuterMult);
+    set_inner_enabled(pendingInnerEnabled);
+    set_outer_enabled(pendingOuterEnabled);
+    set_w_betweenness(pendingWBetweenness);
+    set_w_closeness(pendingWCloseness);
+    set_w_amenity(pendingWAmenity);
+    set_w_roads(pendingWRoads);
+  }, [
+    pendingCatWeights, pendingCatEnabled,
+    pendingInnerMult, pendingOuterMult,
+    pendingInnerEnabled, pendingOuterEnabled,
+    pendingWBetweenness, pendingWCloseness,
+    pendingWAmenity, pendingWRoads,
+  ]);
+
+  // Reset pending configuration changes to current active values
+  const resetConfigChanges = useCallback(() => {
+    setPendingCatWeights({ ...cat_weights });
+    setPendingCatEnabled({ ...cat_enabled });
+    setPendingInnerMult(inner_mult);
+    setPendingOuterMult(outer_mult);
+    setPendingInnerEnabled(inner_enabled);
+    setPendingOuterEnabled(outer_enabled);
+    setPendingWBetweenness(w_betweenness);
+    setPendingWCloseness(w_closeness);
+    setPendingWAmenity(w_amenity);
+    setPendingWRoads(w_roads);
+  }, [
+    cat_weights, cat_enabled,
+    inner_mult, outer_mult,
+    inner_enabled, outer_enabled,
+    w_betweenness, w_closeness,
+    w_amenity, w_roads,
+  ]);
+
   const applyAmenityPreset = useCallback((presetKey) => {
     const preset = AMENITY_WEIGHT_PRESETS[presetKey];
     if (!preset || !preset.weights) return;
 
-    setCatWeights((prev) => {
+    setPendingCatWeights((prev) => {
       const updated = { ...prev };
       Object.keys(preset.weights).forEach(key => {
         updated[key] = preset.weights[key];
       });
-      console.log("Applied amenity preset:", presetKey, updated);
       return updated;
     });
+  }, []);
+
+  const applyARImpactPreset = useCallback((presetKey) => {
+    const preset = AR_IMPACT_WEIGHT_PRESETS[presetKey];
+    if (!preset || !preset.weights) return;
+
+    setPendingWBetweenness(preset.weights.betweenness);
+    setPendingWCloseness(preset.weights.closeness);
+    setPendingWAmenity(preset.weights.amenity);
+    setPendingWRoads(preset.weights.roads);
   }, []);
 
   /* roads index by rn_id for centrality */
@@ -1676,9 +1777,23 @@ export default function floodevents() {
 
         {/* Flood Events Configuration - Unified Parent Accordion */}
         <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="flood-config" className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <AccordionItem
+            value="flood-config"
+            className={`overflow-hidden rounded-xl border shadow-sm ${
+              hasUnappliedConfigChanges
+                ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-300 dark:border-orange-700'
+                : 'bg-card'
+            }`}
+          >
             <AccordionTrigger className="px-6 py-4 text-lg font-bold">
-              Flood Events Configuration
+              <div className="flex items-center gap-2 w-full">
+                <span>Flood Events Configuration</span>
+                {hasUnappliedConfigChanges && (
+                  <span className="px-2 py-1 rounded-md text-xs font-bold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700">
+                    • Unapplied Changes
+                  </span>
+                )}
+              </div>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6 pt-4">
               {/* Nested accordions for each subsection */}
@@ -1718,8 +1833,8 @@ export default function floodevents() {
                         {/* Category grid */}
                         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                           {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => {
-                            const enabled = cat_enabled[name] ?? true;
-                            const weight = cat_weights[name] ?? 1;
+                            const enabled = pendingCatEnabled[name] ?? true;
+                            const weight = pendingCatWeights[name] ?? 1;
                             return (
                               <div key={name} className="space-y-2 rounded-lg border bg-muted/30 p-3">
                                 <div className="flex items-center justify-between">
@@ -1731,7 +1846,7 @@ export default function floodevents() {
                                       id={`amenity-${name}`}
                                       checked={enabled}
                                       onCheckedChange={(checked) =>
-                                        setCatEnabled((prev) => ({ ...prev, [name]: !!checked }))
+                                        setPendingCatEnabled((prev) => ({ ...prev, [name]: !!checked }))
                                       }
                                     />
                                     <Label htmlFor={`amenity-${name}`} className="text-xs cursor-pointer">
@@ -1743,7 +1858,7 @@ export default function floodevents() {
                                     value={weight}
                                     onValueChange={(numVal) => {
                                       if (numVal !== undefined) {
-                                        setCatWeights((prev) => ({ ...prev, [name]: numVal }));
+                                        setPendingCatWeights((prev) => ({ ...prev, [name]: numVal }));
                                       }
                                     }}
                                     min={1}
@@ -1808,18 +1923,18 @@ export default function floodevents() {
                               <div className="flex items-center gap-2">
                                 <Switch
                                   id="inner-band-toggle"
-                                  checked={inner_enabled}
-                                  onCheckedChange={set_inner_enabled}
+                                  checked={pendingInnerEnabled}
+                                  onCheckedChange={setPendingInnerEnabled}
                                 />
                                 <Label htmlFor="inner-band-toggle" className="text-xs cursor-pointer">
                                   enable
                                 </Label>
                               </div>
                               <NumberInput
-                                value={inner_mult}
+                                value={pendingInnerMult}
                                 onValueChange={(numVal) => {
                                   if (numVal !== undefined) {
-                                    set_inner_mult(numVal);
+                                    setPendingInnerMult(numVal);
                                   }
                                 }}
                                 min={1}
@@ -1827,12 +1942,12 @@ export default function floodevents() {
                                 stepper={1}
                                 decimalScale={0}
                                 fixedDecimalScale={false}
-                                disabled={!inner_enabled}
+                                disabled={!pendingInnerEnabled}
                                 hideSteppers={true}
                               />
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">
-                              Inner Band: {r_inner} m — Weight: {inner_enabled ? inner_mult : 0}
+                              Inner Band: {r_inner} m — Weight: {pendingInnerEnabled ? pendingInnerMult : 0}
                             </div>
                           </div>
 
@@ -1865,18 +1980,18 @@ export default function floodevents() {
                               <div className="flex items-center gap-2">
                                 <Switch
                                   id="outer-band-toggle"
-                                  checked={outer_enabled}
-                                  onCheckedChange={set_outer_enabled}
+                                  checked={pendingOuterEnabled}
+                                  onCheckedChange={setPendingOuterEnabled}
                                 />
                                 <Label htmlFor="outer-band-toggle" className="text-xs cursor-pointer">
                                   enable
                                 </Label>
                               </div>
                               <NumberInput
-                                value={outer_mult}
+                                value={pendingOuterMult}
                                 onValueChange={(numVal) => {
                                   if (numVal !== undefined) {
-                                    set_outer_mult(numVal);
+                                    setPendingOuterMult(numVal);
                                   }
                                 }}
                                 min={1}
@@ -1884,12 +1999,12 @@ export default function floodevents() {
                                 stepper={1}
                                 decimalScale={0}
                                 fixedDecimalScale={false}
-                                disabled={!outer_enabled}
+                                disabled={!pendingOuterEnabled}
                                 hideSteppers={true}
                               />
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">
-                              Outer Band: {r_outer} m — Weight: {outer_enabled ? outer_mult : 0}
+                              Outer Band: {r_outer} m — Weight: {pendingOuterEnabled ? pendingOuterMult : 0}
                             </div>
                           </div>
                         </div>
@@ -1898,15 +2013,15 @@ export default function floodevents() {
                   </AccordionContent>
                 </AccordionItem>
 
-                {/* AR Impact Configuration */}
+                {/* Amenity Road Impact Configuration */}
                 <AccordionItem value="ar-impact" className="overflow-hidden rounded-xl border bg-card shadow-sm">
                   <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-                    AR Impact Weights
+                    Amenity Road Impact Weights
                   </AccordionTrigger>
                   <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
                     <Card className="border bg-background/80 shadow-none">
                       <CardHeader>
-                        <CardTitle className="text-base">Weight Presets</CardTitle>
+                        <CardTitle className="text-base">Amenity Road Weight Presets</CardTitle>
                         <CardDescription>
                           Quick configurations for common scenarios. Fine-tune sliders after applying a preset.
                         </CardDescription>
@@ -1916,12 +2031,7 @@ export default function floodevents() {
                           {Object.entries(AR_IMPACT_PRESETS).map(([key, preset]) => (
                             <button
                               key={key}
-                              onClick={() => {
-                                set_w_betweenness(preset.weights.betweenness);
-                                set_w_closeness(preset.weights.closeness);
-                                set_w_amenity(preset.weights.amenity);
-                                set_w_roads(preset.weights.roads);
-                              }}
+                              onClick={() => applyARImpactPreset(key)}
                               className="rounded-lg border bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
                             >
                               <div className="font-semibold text-sm mb-1">{preset.name}</div>
@@ -1949,10 +2059,10 @@ export default function floodevents() {
                             <div className="flex items-center justify-between gap-2">
                               <Label className="text-sm">Betweenness Weight</Label>
                               <NumberInput
-                                value={w_betweenness * 100}
+                                value={pendingWBetweenness * 100}
                                 onValueChange={(numVal) => {
                                   if (numVal !== undefined) {
-                                    set_w_betweenness(clamp(numVal / 100, 0, 1));
+                                    setPendingWBetweenness(clamp(numVal / 100, 0, 1));
                                   }
                                 }}
                                 min={0}
@@ -1965,11 +2075,11 @@ export default function floodevents() {
                               />
                             </div>
                             <Slider
-                              value={[w_betweenness * 100]}
+                              value={[pendingWBetweenness * 100]}
                               min={0}
                               max={100}
                               step={5}
-                              onValueChange={(value) => set_w_betweenness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                              onValueChange={(value) => setPendingWBetweenness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
                             />
                             <p className="text-xs text-muted-foreground">
                               How often the affected road lies on shortest paths between other roads.
@@ -1980,10 +2090,10 @@ export default function floodevents() {
                             <div className="flex items-center justify-between gap-2">
                               <Label className="text-sm">Closeness Weight</Label>
                               <NumberInput
-                                value={w_closeness * 100}
+                                value={pendingWCloseness * 100}
                                 onValueChange={(numVal) => {
                                   if (numVal !== undefined) {
-                                    set_w_closeness(clamp(numVal / 100, 0, 1));
+                                    setPendingWCloseness(clamp(numVal / 100, 0, 1));
                                   }
                                 }}
                                 min={0}
@@ -1996,11 +2106,11 @@ export default function floodevents() {
                               />
                             </div>
                             <Slider
-                              value={[w_closeness * 100]}
+                              value={[pendingWCloseness * 100]}
                               min={0}
                               max={100}
                               step={5}
-                              onValueChange={(value) => set_w_closeness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                              onValueChange={(value) => setPendingWCloseness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
                             />
                             <p className="text-xs text-muted-foreground">
                               How quickly the affected road can reach all other roads in the network.
@@ -2011,10 +2121,10 @@ export default function floodevents() {
                             <div className="flex items-center justify-between gap-2">
                               <Label className="text-sm">Amenity Weight</Label>
                               <NumberInput
-                                value={w_amenity * 100}
+                                value={pendingWAmenity * 100}
                                 onValueChange={(numVal) => {
                                   if (numVal !== undefined) {
-                                    set_w_amenity(clamp(numVal / 100, 0, 1));
+                                    setPendingWAmenity(clamp(numVal / 100, 0, 1));
                                   }
                                 }}
                                 min={0}
@@ -2027,11 +2137,11 @@ export default function floodevents() {
                               />
                             </div>
                             <Slider
-                              value={[w_amenity * 100]}
+                              value={[pendingWAmenity * 100]}
                               min={0}
                               max={100}
                               step={5}
-                              onValueChange={(value) => set_w_amenity(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                              onValueChange={(value) => setPendingWAmenity(clamp((value?.[0] ?? 0) / 100, 0, 1))}
                             />
                             <p className="text-xs text-muted-foreground">
                               Density and type of amenities affected, weighted by category multipliers and ring weights.
@@ -2042,10 +2152,10 @@ export default function floodevents() {
                             <div className="flex items-center justify-between gap-2">
                               <Label className="text-sm">Roads Weight</Label>
                               <NumberInput
-                                value={w_roads * 100}
+                                value={pendingWRoads * 100}
                                 onValueChange={(numVal) => {
                                   if (numVal !== undefined) {
-                                    set_w_roads(clamp(numVal / 100, 0, 1));
+                                    setPendingWRoads(clamp(numVal / 100, 0, 1));
                                   }
                                 }}
                                 min={0}
@@ -2058,11 +2168,11 @@ export default function floodevents() {
                               />
                             </div>
                             <Slider
-                              value={[w_roads * 100]}
+                              value={[pendingWRoads * 100]}
                               min={0}
                               max={100}
                               step={5}
-                              onValueChange={(value) => set_w_roads(clamp((value?.[0] ?? 0) / 100, 0, 1))}
+                              onValueChange={(value) => setPendingWRoads(clamp((value?.[0] ?? 0) / 100, 0, 1))}
                             />
                             <p className="text-xs text-muted-foreground">
                               Number of roads affected within distance rings, weighted by band multipliers.
@@ -2070,13 +2180,13 @@ export default function floodevents() {
                           </div>
                         </div>
 
-                        {/* Dynamic Formula Display */}
+                        {/* Dynamic Formula Display - Shows pending values */}
                         <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed">
                           <div className="mb-2 font-semibold uppercase tracking-wide text-muted-foreground">
-                            Current Formula
+                            Pending Formula
                           </div>
                           <p className="font-mono text-xs mb-2">
-                            AR Impact = ({w_betweenness.toFixed(2)} × Betweenness) + ({w_closeness.toFixed(2)} × Closeness) + ({w_amenity.toFixed(2)} × Amenity Score) + ({w_roads.toFixed(2)} × Roads Score)
+                            AR Impact = ({pendingWBetweenness.toFixed(2)} × Betweenness) + ({pendingWCloseness.toFixed(2)} × Closeness) + ({pendingWAmenity.toFixed(2)} × Amenity Score) + ({pendingWRoads.toFixed(2)} × Roads Score)
                           </p>
                           <ul className="mt-2 list-disc space-y-1 pl-4">
                             <li>
@@ -2095,6 +2205,25 @@ export default function floodevents() {
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
+
+              {/* Apply Changes and Reset Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={resetConfigChanges}
+                  disabled={!hasUnappliedConfigChanges}
+                  className="text-sm"
+                >
+                  Reset
+                </Button>
+                <Button
+                  onClick={applyConfigChanges}
+                  disabled={!hasUnappliedConfigChanges}
+                  className="text-sm bg-primary hover:bg-primary/90"
+                >
+                  Apply Changes
+                </Button>
+              </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
