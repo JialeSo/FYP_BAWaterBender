@@ -21,7 +21,7 @@ import {
   get_flood_type,
   get_planning_area,
   get_subzone,
-  findFeaturesWithinRadius,
+  findFeaturesInBands,
 } from "./shared";
 import { FloodEventsMap } from "./floodEventsMap";
 import { FloodDetailsPanel } from "./floodDetailsPanel";
@@ -390,6 +390,40 @@ export default function FloodEvents() {
     }
   }, []);
 
+  // Handle focusing on a specific feature (road or amenity) on the map
+  const handleFocusFeature = useCallback(({ item, type }) => {
+    if (!mapInstance) return;
+
+    try {
+      // Extract coordinates based on type
+      let coords = null;
+      if (type === 'road') {
+        // For LineStrings, use the first coordinate or centroid
+        const geometry = item.geometry;
+        if (geometry?.type === 'LineString' && geometry.coordinates?.length > 0) {
+          coords = geometry.coordinates[0]; // First point
+        }
+      } else if (type === 'amenity') {
+        // For Points, use the coordinates directly
+        const geometry = item.geometry;
+        if (geometry?.type === 'Point' && geometry.coordinates) {
+          coords = geometry.coordinates;
+        }
+      }
+
+      if (!coords || coords.length < 2) return;
+
+      // Pan to the feature
+      mapInstance.flyTo({
+        center: coords,
+        zoom: 16,
+        duration: 1000,
+      });
+    } catch (error) {
+      console.error('Error focusing on feature:', error);
+    }
+  }, [mapInstance]);
+
   // Get selected flood details
   const selectedFlood = useMemo(() => {
     if (!selectedFloodId) return null;
@@ -400,50 +434,64 @@ export default function FloodEvents() {
     });
   }, [selectedFloodId, sorted]);
 
-  // Get nearby roads for selected flood (within 500m) - optimized with shared utility
-  const nearbyRoads = useMemo(() => {
-    if (!selectedFlood || !roadFC) return [];
+  // Define distance bands for infrastructure analysis
+  const DISTANCE_BANDS = useMemo(() => [
+    { min: 0, max: 250, label: 'inner' },
+    { min: 250, max: 500, label: 'outer' },
+  ], []);
+
+  // Get nearby roads for selected flood (in bands) - optimized with shared utility
+  const nearbyRoadsByBand = useMemo(() => {
+    if (!selectedFlood || !roadFC) return {};
     const floodLat = selectedFlood.properties?.origin_lat || selectedFlood.properties?.latitude;
     const floodLng = selectedFlood.properties?.origin_lng || selectedFlood.properties?.longitude;
-    if (!floodLat || !floodLng) return [];
+    if (!floodLat || !floodLng) return {};
 
-    const roads = findFeaturesWithinRadius(
+    const roadsByBand = findFeaturesInBands(
       roadFC.features || [],
       floodLat,
       floodLng,
-      500, // 500m radius
+      DISTANCE_BANDS,
       (road) => road.geometry?.coordinates?.[0] // Extract first coordinate from LineString
     );
 
-    // Add name property for display
-    return roads.map(road => ({
-      ...road,
-      name: road.properties?.name || "Unnamed Road",
-    }));
-  }, [selectedFlood, roadFC]);
+    // Add name property for display in each band
+    const result = {};
+    for (const [band, roads] of Object.entries(roadsByBand)) {
+      result[band] = roads.map(road => ({
+        ...road,
+        name: road.properties?.name || "Unnamed Road",
+      }));
+    }
+    return result;
+  }, [selectedFlood, roadFC, DISTANCE_BANDS]);
 
-  // Get nearby amenities for selected flood (within 500m) - optimized with shared utility
-  const nearbyAmenities = useMemo(() => {
-    if (!selectedFlood || !amenityFC) return [];
+  // Get nearby amenities for selected flood (in bands) - optimized with shared utility
+  const nearbyAmenitiesByBand = useMemo(() => {
+    if (!selectedFlood || !amenityFC) return {};
     const floodLat = selectedFlood.properties?.origin_lat || selectedFlood.properties?.latitude;
     const floodLng = selectedFlood.properties?.origin_lng || selectedFlood.properties?.longitude;
-    if (!floodLat || !floodLng) return [];
+    if (!floodLat || !floodLng) return {};
 
-    const amenities = findFeaturesWithinRadius(
+    const amenitiesByBand = findFeaturesInBands(
       amenityFC.features || [],
       floodLat,
       floodLng,
-      500, // 500m radius
+      DISTANCE_BANDS,
       (amenity) => amenity.geometry?.coordinates // Extract coordinates from Point
     );
 
-    // Add name and category properties for display
-    return amenities.map(amenity => ({
-      ...amenity,
-      name: amenity.properties?.amenity_name || amenity.properties?.name || "Unnamed Amenity",
-      category: amenity.properties?.amenity_category || amenity.properties?.category || "Unknown",
-    }));
-  }, [selectedFlood, amenityFC]);
+    // Add name and category properties for display in each band
+    const result = {};
+    for (const [band, amenities] of Object.entries(amenitiesByBand)) {
+      result[band] = amenities.map(amenity => ({
+        ...amenity,
+        name: amenity.properties?.amenity_name || amenity.properties?.name || "Unnamed Amenity",
+        category: amenity.properties?.amenity_category || amenity.properties?.category || "Unknown",
+      }));
+    }
+    return result;
+  }, [selectedFlood, amenityFC, DISTANCE_BANDS]);
 
   /* ===== ui ===== */
   return (
@@ -794,9 +842,9 @@ export default function FloodEvents() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 gap-5">
-        {/* Map */}
+      {/* Main Content - Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-5">
+        {/* Left Column - Map */}
         <div className="w-full">
           <FloodEventsMap
             data={mapData}
@@ -808,28 +856,29 @@ export default function FloodEvents() {
           />
         </div>
 
-        {/* Details Panel */}
-        <div ref={detailsPanelRef}>
+        {/* Right Column - Details Panel */}
+        <div ref={detailsPanelRef} className="lg:h-[600px]">
           <FloodDetailsPanel
             flood={selectedFlood}
             onClose={() => setSelectedFloodId(null)}
-            nearbyRoads={nearbyRoads}
-            nearbyAmenities={nearbyAmenities}
+            nearbyRoadsByBand={nearbyRoadsByBand}
+            nearbyAmenitiesByBand={nearbyAmenitiesByBand}
+            onFocusFeature={handleFocusFeature}
             vizMode={vizMode}
             onVizModeChange={setVizMode}
             colorMetric={colorMetric}
             onColorMetricChange={setColorMetric}
           />
         </div>
+      </div>
 
-        {/* List Panel */}
-        <div>
-          <FloodListPanel
-            floods={sorted}
-            selectedFloodId={selectedFloodId}
-            onSelectFlood={handleFloodSelect}
-          />
-        </div>
+      {/* List Panel - Below Map and Details */}
+      <div>
+        <FloodListPanel
+          floods={sorted}
+          selectedFloodId={selectedFloodId}
+          onSelectFlood={handleFloodSelect}
+        />
       </div>
     </div>
   );

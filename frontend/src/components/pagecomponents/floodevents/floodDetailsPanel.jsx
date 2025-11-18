@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { X, Search, MapPin, Calendar, AlertTriangle, Settings2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { X, MapPin, Calendar, AlertTriangle, Settings2, Target, Search } from "lucide-react";
 import { format_date, to_title_case, SEVERITY_LEVELS } from "./shared";
 
 // Visualization modes
@@ -28,66 +29,25 @@ const COLOR_METRICS = [
 export function FloodDetailsPanel({
   flood,
   onClose,
-  nearbyRoads = [],
-  nearbyAmenities = [],
-  onViewOnMap = null,
+  nearbyRoadsByBand = {},
+  nearbyAmenitiesByBand = {},
+  onFocusFeature = null,
   // Map visualization controls
   vizMode = "markers",
   onVizModeChange = null,
   colorMetric = "type",
   onColorMetricChange = null,
 }) {
-  // Search state - MUST be called before any conditional returns
+  // Search state for filtering within tabs
   const [roadSearch, setRoadSearch] = useState("");
   const [amenitySearch, setAmenitySearch] = useState("");
-  const [selectedRoadIdx, setSelectedRoadIdx] = useState(null);
-  const [selectedAmenityIdx, setSelectedAmenityIdx] = useState(null);
 
   const p = flood?.properties ?? {};
 
-  // Handle clicking on a road/amenity item - notify parent to show on map
-  const handleRoadClick = (item, idx) => {
-    setSelectedRoadIdx(idx);
-    setSelectedAmenityIdx(null);
-    if (onViewOnMap) {
-      onViewOnMap({ item, type: 'road' });
-    }
-  };
-
-  const handleAmenityClick = (item, idx) => {
-    setSelectedAmenityIdx(idx);
-    setSelectedRoadIdx(null);
-    if (onViewOnMap) {
-      onViewOnMap({ item, type: 'amenity' });
-    }
-  };
-
-  // Filtered roads based on search
-  const filteredRoads = useMemo(() => {
-    if (!roadSearch.trim()) return nearbyRoads;
-    const search = roadSearch.toLowerCase();
-    return nearbyRoads.filter(item =>
-      item.name?.toLowerCase().includes(search) ||
-      item.properties?.name?.toLowerCase().includes(search) ||
-      item.properties?.RN_ID?.toString().includes(search)
-    );
-  }, [nearbyRoads, roadSearch]);
-
-  // Filtered amenities based on search
-  const filteredAmenities = useMemo(() => {
-    if (!amenitySearch.trim()) return nearbyAmenities;
-    const search = amenitySearch.toLowerCase();
-    return nearbyAmenities.filter(item =>
-      item.name?.toLowerCase().includes(search) ||
-      item.category?.toLowerCase().includes(search) ||
-      item.properties?.amenity_name?.toLowerCase().includes(search)
-    );
-  }, [nearbyAmenities, amenitySearch]);
-
-  // Show prompt if no flood selected - MUST come after all hooks
+  // Show prompt if no flood selected
   if (!flood) {
     return (
-      <Card className="mb-4 border-2 border-dashed">
+      <Card className="border-2 border-dashed h-full">
         <CardHeader>
           <CardTitle className="text-lg">Flood Event Details</CardTitle>
           <CardDescription>
@@ -121,259 +81,368 @@ export function FloodDetailsPanel({
   const lat = p.origin_lat || p.latitude || p.lat;
   const lng = p.origin_lng || p.longitude || p.lng;
 
+  // Flatten roads from all bands into single list
+  const allRoads = useMemo(() => {
+    const roads = [];
+    if (nearbyRoadsByBand.inner) {
+      roads.push(...nearbyRoadsByBand.inner);
+    }
+    if (nearbyRoadsByBand.outer) {
+      roads.push(...nearbyRoadsByBand.outer);
+    }
+    return roads;
+  }, [nearbyRoadsByBand]);
+
+  // Flatten amenities from all bands into single list
+  const allAmenities = useMemo(() => {
+    const amenities = [];
+    if (nearbyAmenitiesByBand.inner) {
+      amenities.push(...nearbyAmenitiesByBand.inner);
+    }
+    if (nearbyAmenitiesByBand.outer) {
+      amenities.push(...nearbyAmenitiesByBand.outer);
+    }
+    return amenities;
+  }, [nearbyAmenitiesByBand]);
+
+  // Filtered roads based on search
+  const filteredRoads = useMemo(() => {
+    if (!roadSearch.trim()) return allRoads;
+    const search = roadSearch.toLowerCase();
+    return allRoads.filter(item =>
+      item.name?.toLowerCase().includes(search) ||
+      item.properties?.name?.toLowerCase().includes(search) ||
+      item.properties?.RN_ID?.toString().includes(search) ||
+      item._band?.toLowerCase().includes(search)
+    );
+  }, [allRoads, roadSearch]);
+
+  // Filtered amenities based on search
+  const filteredAmenities = useMemo(() => {
+    if (!amenitySearch.trim()) return allAmenities;
+    const search = amenitySearch.toLowerCase();
+    return allAmenities.filter(item =>
+      item.name?.toLowerCase().includes(search) ||
+      item.category?.toLowerCase().includes(search) ||
+      item.properties?.amenity_name?.toLowerCase().includes(search) ||
+      item._band?.toLowerCase().includes(search)
+    );
+  }, [allAmenities, amenitySearch]);
+
+  // Calculate AR Impact Score (simplified for now - can be enhanced later)
+  const arImpactScore = useMemo(() => {
+    // Simple calculation: severity weight * (roads + amenities affected)
+    const severityWeight = SEVERITY_LEVELS[severity?.toLowerCase()]?.value || 1;
+    const totalAffected = allRoads.length + allAmenities.length;
+    return (severityWeight * totalAffected).toFixed(0);
+  }, [severity, allRoads, allAmenities]);
+
   return (
-    <Card className="mb-3 border-2 border-primary">
-      <CardHeader className="pb-2 pt-3 px-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-              {to_title_case(floodType)}
-            </CardTitle>
-            <CardDescription className="mt-0.5 text-xs">
-              {format_date(date)} · {planningArea}
-            </CardDescription>
+    <div className="h-full flex flex-col space-y-3">
+      {/* Header with close button */}
+      <Card className="border-2 border-primary">
+        <CardHeader className="pb-2 pt-3 px-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                {to_title_case(floodType)}
+              </CardTitle>
+              <CardDescription className="mt-0.5 text-xs">
+                {format_date(date)} · {planningArea}
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Close flood details">
+              <X className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0" aria-label="Close flood details">
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </CardHeader>
+        </CardHeader>
+      </Card>
 
-      <CardContent className="space-y-3 px-4 pb-3">
-        {/* Event Details Section */}
-        <div className="rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-background p-3">
-          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Event Details</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Date */}
-            <div className="space-y-1">
-              <div className="text-[9px] font-medium text-muted-foreground uppercase flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                Date
-              </div>
-              <div className="text-sm font-medium">{format_date(date)}</div>
-            </div>
+      {/* Scrollable content area */}
+      <ScrollArea className="flex-1">
+        <div className="space-y-3 pr-3">
+          {/* (A) Top Section - Flood Event Details */}
 
-            {/* Severity */}
-            <div className="space-y-1">
-              <div className="text-[9px] font-medium text-muted-foreground uppercase">Severity</div>
-              <div className="text-sm font-bold" style={{ color: severityColor }}>
-                {to_title_case(severity)}
-              </div>
-            </div>
+          {/* AR Impact Score, Amenities Affected, Roads Affected - 3 cards in a row */}
+          <div className="grid grid-cols-3 gap-2">
+            <Card className="border-2">
+              <CardHeader className="pb-2 pt-3 px-3">
+                <CardDescription className="text-[9px] uppercase font-medium">AR Impact Score</CardDescription>
+                <CardTitle className="text-2xl font-bold text-primary">{arImpactScore}</CardTitle>
+              </CardHeader>
+            </Card>
 
-            {/* Location */}
-            <div className="space-y-1 col-span-2">
-              <div className="text-[9px] font-medium text-muted-foreground uppercase flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                Location
-              </div>
-              <div className="text-sm">{location}</div>
-            </div>
+            <Card className="border-2">
+              <CardHeader className="pb-2 pt-3 px-3">
+                <CardDescription className="text-[9px] uppercase font-medium">Amenities Affected</CardDescription>
+                <CardTitle className="text-2xl font-bold text-orange-600">{allAmenities.length}</CardTitle>
+              </CardHeader>
+            </Card>
 
-            {/* Planning Area */}
-            <div className="space-y-1">
-              <div className="text-[9px] font-medium text-muted-foreground uppercase">Planning Area</div>
-              <div className="text-sm">{planningArea}</div>
-            </div>
-
-            {/* Subzone */}
-            <div className="space-y-1">
-              <div className="text-[9px] font-medium text-muted-foreground uppercase">Subzone</div>
-              <div className="text-sm">{subzone}</div>
-            </div>
-
-            {/* Coordinates */}
-            {lat && lng && (
-              <div className="space-y-1 col-span-2">
-                <div className="text-[9px] font-medium text-muted-foreground uppercase">Coordinates</div>
-                <div className="text-xs font-mono">{Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}</div>
-              </div>
-            )}
-
-            {/* Description */}
-            {description && (
-              <div className="space-y-1 col-span-2">
-                <div className="text-[9px] font-medium text-muted-foreground uppercase">Description</div>
-                <div className="text-xs">{description}</div>
-              </div>
-            )}
+            <Card className="border-2">
+              <CardHeader className="pb-2 pt-3 px-3">
+                <CardDescription className="text-[9px] uppercase font-medium">Roads Affected</CardDescription>
+                <CardTitle className="text-2xl font-bold text-blue-600">{allRoads.length}</CardTitle>
+              </CardHeader>
+            </Card>
           </div>
-        </div>
 
-        {/* Map Settings and Nearby Infrastructure Accordions */}
-        <Accordion type="multiple" defaultValue={["map-settings"]} className="space-y-2">
-          {/* Map Settings Section */}
-          <AccordionItem value="map-settings" className="border rounded-lg bg-background">
-            <AccordionTrigger className="px-3 py-2 hover:no-underline">
-              <span className="text-sm font-semibold flex items-center gap-2">
-                <Settings2 className="h-4 w-4" />
-                Map Settings
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-3 pb-3 space-y-3">
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Visualization Mode</Label>
-                  <Select value={vizMode} onValueChange={onVizModeChange}>
-                    <SelectTrigger className="w-full h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VIZ_MODES.map((mode) => (
-                        <SelectItem key={mode.value} value={mode.value}>
-                          {mode.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          {/* Event Information Grid */}
+          <Card className="border-2">
+            <CardHeader className="pb-2 pt-3 px-3">
+              <CardTitle className="text-sm font-semibold">Event Information</CardTitle>
+            </CardHeader>
+            <CardContent className="px-3 pb-3">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Date */}
+                <div className="space-y-1">
+                  <div className="text-[9px] font-medium text-muted-foreground uppercase flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Date
+                  </div>
+                  <div className="text-sm font-medium">{format_date(date)}</div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Color By</Label>
-                  <Select value={colorMetric} onValueChange={onColorMetricChange}>
-                    <SelectTrigger className="w-full h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COLOR_METRICS.map((metric) => (
-                        <SelectItem key={metric.value} value={metric.value}>
-                          {metric.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                {/* Severity */}
+                <div className="space-y-1">
+                  <div className="text-[9px] font-medium text-muted-foreground uppercase">Severity</div>
+                  <div className="text-sm font-bold" style={{ color: severityColor }}>
+                    {to_title_case(severity)}
+                  </div>
                 </div>
+
+                {/* Location */}
+                <div className="space-y-1 col-span-2">
+                  <div className="text-[9px] font-medium text-muted-foreground uppercase flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    Location
+                  </div>
+                  <div className="text-sm">{location}</div>
+                </div>
+
+                {/* Planning Area */}
+                <div className="space-y-1">
+                  <div className="text-[9px] font-medium text-muted-foreground uppercase">Planning Area</div>
+                  <div className="text-sm">{planningArea}</div>
+                </div>
+
+                {/* Subzone */}
+                <div className="space-y-1">
+                  <div className="text-[9px] font-medium text-muted-foreground uppercase">Subzone</div>
+                  <div className="text-sm">{subzone}</div>
+                </div>
+
+                {/* Coordinates */}
+                {lat && lng && (
+                  <div className="space-y-1 col-span-2">
+                    <div className="text-[9px] font-medium text-muted-foreground uppercase">Coordinates</div>
+                    <div className="text-xs font-mono">{Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}</div>
+                  </div>
+                )}
+
+                {/* Description */}
+                {description && (
+                  <div className="space-y-1 col-span-2">
+                    <div className="text-[9px] font-medium text-muted-foreground uppercase">Description</div>
+                    <div className="text-xs">{description}</div>
+                  </div>
+                )}
               </div>
-            </AccordionContent>
-          </AccordionItem>
+            </CardContent>
+          </Card>
 
-          {/* Nearby Roads Section */}
-          <AccordionItem value="roads" className="border rounded-lg bg-background">
-            <AccordionTrigger className="px-3 py-2 hover:no-underline">
-              <span className="text-sm font-semibold">
-                Nearby Roads ({filteredRoads.length})
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-3 pb-2">
-              <div className="relative mb-2">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                <Input
-                  placeholder="Search roads..."
-                  value={roadSearch}
-                  onChange={(e) => setRoadSearch(e.target.value)}
-                  className="pl-7 h-8 text-xs"
-                />
+          {/* Map Settings - Optional Accordion */}
+          <Accordion type="single" collapsible className="border rounded-lg">
+            <AccordionItem value="map-settings" className="border-none">
+              <AccordionTrigger className="px-3 py-2 hover:no-underline">
+                <span className="text-sm font-semibold flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  Map Settings
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="px-3 pb-3 space-y-3">
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Visualization Mode</Label>
+                    <Select value={vizMode} onValueChange={onVizModeChange}>
+                      <SelectTrigger className="w-full h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VIZ_MODES.map((mode) => (
+                          <SelectItem key={mode.value} value={mode.value}>
+                            {mode.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Color By</Label>
+                    <Select value={colorMetric} onValueChange={onColorMetricChange}>
+                      <SelectTrigger className="w-full h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COLOR_METRICS.map((metric) => (
+                          <SelectItem key={metric.value} value={metric.value}>
+                            {metric.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          {/* (B) Bottom Section - Tabs */}
+          <Card className="border-2">
+            <Tabs defaultValue="roads" className="w-full">
+              <div className="border-b px-3 pt-3">
+                <TabsList className="w-full grid grid-cols-2">
+                  <TabsTrigger value="roads">
+                    Affected Roads ({allRoads.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="amenities">
+                    Affected Amenities ({allAmenities.length})
+                  </TabsTrigger>
+                </TabsList>
               </div>
 
-              {filteredRoads.length > 0 ? (
-                <ScrollArea className="h-64">
-                  <div className="space-y-1 pr-3">
-                    {filteredRoads.map((item, idx) => {
-                      const roadName = item.name || item.properties?.name || "Unnamed Road";
-                      const roadId = item.properties?.RN_ID || item.id || "";
-                      const distance = item._distm || item.distance;
+              {/* Affected Roads Tab */}
+              <TabsContent value="roads" className="px-3 pb-3 space-y-2 mt-3">
+                {/* Search bar */}
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input
+                    placeholder="Search roads..."
+                    value={roadSearch}
+                    onChange={(e) => setRoadSearch(e.target.value)}
+                    className="pl-7 h-8 text-xs"
+                  />
+                </div>
 
-                      return (
-                        <div
-                          key={idx}
-                          className={`flex items-center justify-between text-xs rounded px-2 py-2 bg-muted/30 hover:bg-muted transition-colors ${
-                            selectedRoadIdx === idx ? 'border-2 border-primary bg-primary/10' : 'border border-transparent'
-                          }`}
-                        >
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-medium text-foreground">{roadName}</span>
-                            <span className="text-[10px] text-muted-foreground">ID: {roadId}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {distance && (
-                              <span className="text-[10px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
-                            )}
+                {filteredRoads.length > 0 ? (
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-1 pr-3">
+                      {filteredRoads.map((road, idx) => {
+                        const roadName = road.name || road.properties?.name || "Unnamed Road";
+                        const roadId = road.properties?.RN_ID || road.id || "";
+                        const distance = road._distm;
+                        const band = road._band || "unknown";
+
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between text-xs rounded px-2 py-2 bg-muted/30 hover:bg-muted transition-colors border border-transparent"
+                          >
+                            <div className="flex flex-col gap-0.5 flex-1">
+                              <span className="font-medium text-foreground">{roadName}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground">ID: {roadId}</span>
+                                {distance && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
+                                )}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                  band === 'inner'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                }`}>
+                                  {band}
+                                </span>
+                              </div>
+                            </div>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleRoadClick(item, idx)}
-                              className="h-6 px-2 text-[10px] hover:bg-primary/10"
+                              onClick={() => onFocusFeature && onFocusFeature({ item: road, type: 'road' })}
+                              className="h-7 px-2 text-[10px] hover:bg-primary/10 ml-2"
                             >
-                              View on Map
+                              <Target className="h-3 w-3 mr-1" />
+                              Focus
                             </Button>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  {roadSearch ? "No roads match your search" : "No nearby roads"}
-                </p>
-              )}
-            </AccordionContent>
-          </AccordionItem>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    {roadSearch ? "No roads match your search" : "No affected roads"}
+                  </p>
+                )}
+              </TabsContent>
 
-          {/* Nearby Amenities Section */}
-          <AccordionItem value="amenities" className="border rounded-lg bg-background">
-            <AccordionTrigger className="px-3 py-2 hover:no-underline">
-              <span className="text-sm font-semibold">
-                Nearby Amenities ({filteredAmenities.length})
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-3 pb-2">
-              <div className="relative mb-2">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                <Input
-                  placeholder="Search amenities..."
-                  value={amenitySearch}
-                  onChange={(e) => setAmenitySearch(e.target.value)}
-                  className="pl-7 h-8 text-xs"
-                />
-              </div>
+              {/* Affected Amenities Tab */}
+              <TabsContent value="amenities" className="px-3 pb-3 space-y-2 mt-3">
+                {/* Search bar */}
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input
+                    placeholder="Search amenities..."
+                    value={amenitySearch}
+                    onChange={(e) => setAmenitySearch(e.target.value)}
+                    className="pl-7 h-8 text-xs"
+                  />
+                </div>
 
-              {filteredAmenities.length > 0 ? (
-                <ScrollArea className="h-64">
-                  <div className="space-y-1 pr-3">
-                    {filteredAmenities.map((item, idx) => {
-                      const amenityName = item.name || item.properties?.amenity_name || "Unnamed Amenity";
-                      const category = item.category || item.properties?.amenity_category || "";
-                      const distance = item._distm || item.distance;
+                {filteredAmenities.length > 0 ? (
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-1 pr-3">
+                      {filteredAmenities.map((amenity, idx) => {
+                        const amenityName = amenity.name || amenity.properties?.amenity_name || "Unnamed Amenity";
+                        const category = amenity.category || amenity.properties?.amenity_category || "Unknown";
+                        const distance = amenity._distm;
+                        const band = amenity._band || "unknown";
 
-                      return (
-                        <div
-                          key={idx}
-                          className={`flex items-center justify-between text-xs rounded px-2 py-2 bg-muted/30 hover:bg-muted transition-colors ${
-                            selectedAmenityIdx === idx ? 'border-2 border-primary bg-primary/10' : 'border border-transparent'
-                          }`}
-                        >
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-medium text-foreground">{amenityName}</span>
-                            <span className="text-[10px] text-muted-foreground">{to_title_case(category)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {distance && (
-                              <span className="text-[10px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
-                            )}
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between text-xs rounded px-2 py-2 bg-muted/30 hover:bg-muted transition-colors border border-transparent"
+                          >
+                            <div className="flex flex-col gap-0.5 flex-1">
+                              <span className="font-medium text-foreground">{amenityName}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground">{to_title_case(category)}</span>
+                                {distance && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
+                                )}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                  band === 'inner'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                }`}>
+                                  {band}
+                                </span>
+                              </div>
+                            </div>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleAmenityClick(item, idx)}
-                              className="h-6 px-2 text-[10px] hover:bg-primary/10"
+                              onClick={() => onFocusFeature && onFocusFeature({ item: amenity, type: 'amenity' })}
+                              className="h-7 px-2 text-[10px] hover:bg-primary/10 ml-2"
                             >
-                              View on Map
+                              <Target className="h-3 w-3 mr-1" />
+                              Focus
                             </Button>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  {amenitySearch ? "No amenities match your search" : "No nearby amenities"}
-                </p>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </CardContent>
-    </Card>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    {amenitySearch ? "No amenities match your search" : "No affected amenities"}
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
+          </Card>
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

@@ -230,3 +230,47 @@ export function findFeaturesWithinRadius(features, centerLat, centerLng, radiusM
     .filter(Boolean)
     .sort((a, b) => a._distm - b._distm);
 }
+
+/**
+ * Find features within multiple distance bands
+ * @param {Array} features - Array of GeoJSON features
+ * @param {number} centerLat - Center latitude
+ * @param {number} centerLng - Center longitude
+ * @param {Array} bands - Array of band definitions [{ min: 0, max: 250, label: 'inner' }, ...]
+ * @param {Function} coordsExtractor - Function to extract coordinates from feature
+ * @returns {Object} Object with band labels as keys, each containing array of features with _distm and _band properties
+ */
+export function findFeaturesInBands(features, centerLat, centerLng, bands, coordsExtractor) {
+  if (!features || !centerLat || !centerLng || !bands || bands.length === 0) {
+    return {};
+  }
+
+  // Calculate distances for all features once
+  const featuresWithDistance = features
+    .map(feature => {
+      const coords = coordsExtractor(feature);
+      if (!coords || coords.length < 2) return null;
+
+      const [lng, lat] = coords;
+      const distance = calculateHaversineDistance(centerLat, centerLng, lat, lng);
+
+      return {
+        ...feature,
+        _distm: distance,
+      };
+    })
+    .filter(Boolean);
+
+  // Group features by band
+  const result = {};
+  for (const band of bands) {
+    const bandFeatures = featuresWithDistance
+      .filter(f => f._distm >= band.min && f._distm < band.max)
+      .map(f => ({ ...f, _band: band.label }))
+      .sort((a, b) => a._distm - b._distm);
+
+    result[band.label] = bandFeatures;
+  }
+
+  return result;
+}
