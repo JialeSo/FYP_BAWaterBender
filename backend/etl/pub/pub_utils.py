@@ -4,6 +4,38 @@ from typing import Optional, Literal, Dict, Any
 
 EventType = Literal["flash_flood", "heavy_rain", "flash_flood_risk", "flood_subsided"]
 
+
+def _normalize_location_or_none(location_str: Optional[str]) -> Optional[str]:
+    """
+    Clean a location string and drop obviously invalid ones
+    (pure time, URLs, or no alphabetic characters).
+    """
+    if not location_str or not isinstance(location_str, str):
+        return None
+
+    cleaned = clean_location_string(location_str)
+    if not cleaned:
+        return None
+
+    low = cleaned.lower()
+
+    # Drop URLs / Telegram handles / channel names
+    if any(x in low for x in ("http://", "https://", "t.me", "telegram", "pubfloodalerts")):
+        return None
+
+    # Must contain at least one alphabetic character
+    if not any(c.isalpha() for c in low):
+        return None
+
+    # Drop pure time expressions like "45 hours" or "14:05 hours"
+    if "hours" in low or "hour" in low:
+        core = re.sub(r"(hours?|h)\b", "", low)
+        core = re.sub(r"[0-9:\\s]", "", core)
+        if not core.strip():
+            return None
+
+    return cleaned
+
 def _parse_location_direction(location_str: str) -> Dict[str, Optional[str]]:
     """
     Parse location string to extract start and end locations from directional phrases.
@@ -12,7 +44,11 @@ def _parse_location_direction(location_str: str) -> Dict[str, Optional[str]]:
     - "Jurong Town Hall Road (towards PIE) before Jurong East Street 11"
       -> start_loc: "jurong town hall road", end_loc: "pie"
     - "TPE (Punggol West Flyover)"
-      -> start_loc: "tpe", end_loc: "punggol west flyover"
+      -> start_loc: "punggol west flyover", end_loc: None  (expressway name ignored)
+    - "King's Road (from Prince Road to Lutheran Road)"
+      -> start_loc: "king's road", end_loc: "prince road to lutheran road"
+    - "Kings Rd (between Prince Rd and Lutheran Rd)"
+      -> start_loc: "prince rd", end_loc: "lutheran rd"
     - "northern, western and central areas of Singapore"
       -> start_loc: "northern, western and central areas", end_loc: None
     """
@@ -22,34 +58,100 @@ def _parse_location_direction(location_str: str) -> Dict[str, Optional[str]]:
     # Clean the location string first
     location_str = location_str.strip()
 
+    # Pattern 0: "Junction of X and Y" - extract both roads at intersection
+    junction_match = re.search(
+        r"^junction\s+of\s+(.+?)\s+and\s+(.+?)$", location_str, re.IGNORECASE
+    )
+    if junction_match:
+        return {
+            "start_loc": _normalize_location_or_none(junction_match.group(1)),
+            "end_loc": _normalize_location_or_none(junction_match.group(2)),
+        }
+
     # Pattern 1: "Location (towards Destination)"
     towards_match = re.search(
         r"^([^(]+)\s*\(towards\s+([^)]+)\)", location_str, re.IGNORECASE
     )
     if towards_match:
         return {
-            "start_loc": clean_location_string(towards_match.group(1)),
-            "end_loc": clean_location_string(towards_match.group(2)),
+            "start_loc": _normalize_location_or_none(towards_match.group(1)),
+            "end_loc": _normalize_location_or_none(towards_match.group(2)),
         }
 
-    # Pattern 2: "Location (Description)" - treat description as end_loc
+    # Pattern 2: "Location (from X to Y)" or "Location (X to Y)" - extract cross streets
+    # The flood is between the two cross streets, not at the main road itself
+    from_to_match = re.search(
+        r"^([^(]+)\s*\((?:from\s+)?(.+?)\s+to\s+(.+?)\)", location_str, re.IGNORECASE
+    )
+    if from_to_match:
+        # X is start_loc, Y is end_loc (the cross streets define the segment)
+        return {
+            "start_loc": _normalize_location_or_none(from_to_match.group(2)),
+            "end_loc": _normalize_location_or_none(from_to_match.group(3)),
+        }
+
+    # Pattern 2b: "Location (between X and Y)" - X is start, Y is end
+    between_match = re.search(
+        r"^([^(]+)\s*\(between\s+(.+?)\s+and\s+(.+?)\)", location_str, re.IGNORECASE
+    )
+    if between_match:
+        # For "between X and Y", X is start_loc and Y is end_loc
+        return {
+            "start_loc": _normalize_location_or_none(between_match.group(2)),
+            "end_loc": _normalize_location_or_none(between_match.group(3)),
+        }
+
+    # Pattern 2c: "Expressway (direction) at/after Specific Location" - extract location after "at"/"after"
+    # Example: "ECP (towards Changi Airport) at Tanah Merah Coast Road Entrance"
+    # Example: "ECP (towards Changi Airport) after Bayshore Rd Exit"
+    expressway_at_after_match = re.search(
+        r"^(TPE|PIE|CTE|KPE|ECP|AYE|SLE|BKE)\s*\([^)]+\)\s+(at|after)\s+(.+)",
+        location_str,
+        re.IGNORECASE
+    )
+    if expressway_at_after_match:
+        # Use the location after "at"/"after" as start_loc, ignore expressway and direction
+        return {
+            "start_loc": _normalize_location_or_none(expressway_at_after_match.group(3)),
+            "end_loc": None,
+        }
+
+    # Pattern 3: "Expressway/Road (Specific Location)" - use specific location as start_loc
+    # Common expressways: TPE, PIE, CTE, KPE, ECP, AYE, SLE, BKE
+    expressway_match = re.search(
+        r"^(TPE|PIE|CTE|KPE|ECP|AYE|SLE|BKE)\s*\(([^)]+)\)",
+        location_str,
+        re.IGNORECASE
+    )
+    if expressway_match:
+        # Use the specific location in parentheses as start_loc
+        # The expressway name becomes the parent road (handled separately)
+        return {
+            "start_loc": _normalize_location_or_none(expressway_match.group(2)),
+            "end_loc": None,
+        }
+
+    # Pattern 4: "Location (Description)" - treat description as end_loc
     paren_match = re.search(r"^([^(]+)\s*\(([^)]+)\)", location_str)
     if paren_match:
         return {
-            "start_loc": clean_location_string(paren_match.group(1)),
-            "end_loc": clean_location_string(paren_match.group(2)),
+            "start_loc": _normalize_location_or_none(paren_match.group(1)),
+            "end_loc": _normalize_location_or_none(paren_match.group(2)),
         }
 
-    # Pattern 3: "Location before Another Location"
+    # Pattern 5: "Location before Another Location"
     before_match = re.search(r"^(.+?)\s+before\s+(.+)$", location_str, re.IGNORECASE)
     if before_match:
         return {
-            "start_loc": clean_location_string(before_match.group(1)),
-            "end_loc": clean_location_string(before_match.group(2)),
+            "start_loc": _normalize_location_or_none(before_match.group(1)),
+            "end_loc": _normalize_location_or_none(before_match.group(2)),
         }
 
-    # Pattern 4: No directional info - single location goes to start_loc
-    return {"start_loc": clean_location_string(location_str), "end_loc": None}
+    # Pattern 6: No directional info - single location goes to start_loc
+    return {
+        "start_loc": _normalize_location_or_none(location_str),
+        "end_loc": None,
+    }
 
 
 def parse_alert(text: str, alert_time: datetime) -> Dict[str, Any]:
@@ -76,14 +178,18 @@ def parse_alert(text: str, alert_time: datetime) -> Dict[str, Any]:
         # Prefer bullet-style location if present
         location_raw = _extract_bullet_location(text)
         if not location_raw:
-            # Fallback: after last ":" and before next "[" (time)
-            colon_idx = text.rfind(":")
-            if colon_idx != -1:
-                bracket_idx = text.find("[", colon_idx + 1)
-                if bracket_idx == -1:
-                    location_raw = text[colon_idx + 1 :].strip()
+            # Fallback: find the colon after "location" keyword, not the colon in time stamps
+            # Look for "location for the next X hour:" pattern
+            location_kw_match = re.search(r"location[^:]*:\s*", text, re.IGNORECASE)
+            if location_kw_match:
+                start_idx = location_kw_match.end()
+                # Find the opening bracket of the time marker
+                # Handles both "[14:03 hours]" and "[Issued 13:12 hours]"
+                bracket_match = re.search(r"\s*\[(Issued\s+)?[\d:]+\s*hours?\]", text[start_idx:], re.IGNORECASE)
+                if bracket_match:
+                    location_raw = text[start_idx : start_idx + bracket_match.start()].strip()
                 else:
-                    location_raw = text[colon_idx + 1 : bracket_idx].strip()
+                    location_raw = text[start_idx:].strip()
 
     elif "[flash flood occurred]" in low:
         out["event"] = "flash_flood"
@@ -241,7 +347,9 @@ def _text_after_before(
     b = low.find(before.lower(), a_end)
     if b == -1:
         return None
-    return s[a_end:b].strip(" :,[]()")
+    # Only strip whitespace and common separators, but preserve parentheses
+    # as they may contain important directional info like "(from X to Y)"
+    return s[a_end:b].strip(" :,[]")
 
 
 # ---------------- time parsing (anchored to alert date) ----------------
@@ -285,7 +393,7 @@ def clean_location_string(location_str: str) -> str:
         location_str: Raw location string
 
     Returns:
-        Cleaned location string in lowercase without ", Singapore" suffix
+        Cleaned location string with title case normalization and without ", Singapore" suffix
     """
     if not location_str or not isinstance(location_str, str):
         return ""
@@ -293,14 +401,33 @@ def clean_location_string(location_str: str) -> str:
     # Strip whitespace
     cleaned = location_str.strip()
 
+    # Handle multi-line locations (e.g., "Marine Parade Ctrl;\nMarine Parade Rd")
+    # Take the first line as the primary/more specific location
+    if '\n' in cleaned or '\r' in cleaned:
+        # Split by newlines and filter out empty lines
+        lines = [line.strip() for line in cleaned.replace('\r\n', '\n').replace('\r', '\n').split('\n') if line.strip()]
+        if len(lines) > 0:
+            # Use only the first line (the primary/more specific location)
+            cleaned = lines[0]
+        # Remove any trailing semicolons
+        cleaned = cleaned.rstrip(';').strip()
+
     # Remove ", Singapore" suffix (case insensitive)
     if cleaned.lower().endswith(", singapore"):
         cleaned = cleaned[:-11]  # Remove ", singapore"
     elif cleaned.lower().endswith(",singapore"):
         cleaned = cleaned[:-10]  # Remove ",singapore"
 
-    # Convert to lowercase
-    cleaned = cleaned.lower()
+    # Apply title case normalization for consistent capitalization
+    # This handles inconsistent casing in raw alert text
+    cleaned = cleaned.title()
+
+    # Fix expressway/highway codes to be uppercase
+    # Common Singapore expressways: TPE, PIE, CTE, KPE, ECP, AYE, SLE, BKE
+    expressway_codes = ['Tpe', 'Pie', 'Cte', 'Kpe', 'Ecp', 'Aye', 'Sle', 'Bke']
+    for code in expressway_codes:
+        if code in cleaned:
+            cleaned = cleaned.replace(code, code.upper())
 
     # Strip any remaining whitespace
     return cleaned.strip()

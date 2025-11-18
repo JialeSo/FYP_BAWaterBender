@@ -199,14 +199,68 @@ def process_floods_data(
     # Remove duplicates from road matching (sjoin_nearest can create duplicates)
     start_nn = start_nn.drop_duplicates(subset=['id'], keep='first')
 
+    # ========================================================================
+    # COMPUTE ORIGIN POINT PA/SZ IDs (RN ID is same as start_rn_id)
+    # ========================================================================
+    print("Computing PA/SZ IDs for origin (snapped) points...")
+
+    # Create GeoDataFrame from ORIGIN coordinates (snapped points on roads)
+    origin_rows = start_nn[start_nn['origin_lat'].notna() & start_nn['origin_lng'].notna()].copy()
+    if len(origin_rows) > 0:
+        origin_geometry = [Point(xy) for xy in zip(origin_rows['origin_lng'], origin_rows['origin_lat'])]
+        origin_gdf = gpd.GeoDataFrame(
+            origin_rows[['id', 'origin_lat', 'origin_lng', 'start_rn_id']],
+            geometry=origin_geometry,
+            crs="EPSG:4326"
+        )
+
+        # Spatial join with Planning Areas
+        print("  Joining origin points with planning areas...")
+        origin_gdf = gpd.sjoin(
+            origin_gdf, planning_gdf[['PA_ID', 'geometry']],
+            how='left', predicate='within'
+        )
+        origin_gdf = origin_gdf.rename(columns={'PA_ID': 'origin_pa_id'})
+        if 'index_right' in origin_gdf.columns:
+            origin_gdf = origin_gdf.drop(columns=['index_right'])
+
+        # Spatial join with Subzones
+        print("  Joining origin points with subzones...")
+        origin_gdf = gpd.sjoin(
+            origin_gdf, subzone_gdf[['SZ_ID', 'geometry']],
+            how='left', predicate='within'
+        )
+        origin_gdf = origin_gdf.rename(columns={'SZ_ID': 'origin_sz_id'})
+        if 'index_right' in origin_gdf.columns:
+            origin_gdf = origin_gdf.drop(columns=['index_right'])
+
+        # Remove duplicates
+        origin_gdf = origin_gdf.drop_duplicates(subset=['id'], keep='first')
+
+        # Origin road ID is the same as start_rn_id (origin is snapped to that road)
+        origin_gdf['origin_rn_id'] = origin_gdf['start_rn_id']
+
+        # Merge origin IDs back to start_nn
+        origin_ids_df = pd.DataFrame(origin_gdf.drop(columns='geometry'))
+        origin_ids_df = origin_ids_df[['id', 'origin_pa_id', 'origin_sz_id', 'origin_rn_id']]
+
+        start_nn = start_nn.merge(origin_ids_df, on='id', how='left')
+    else:
+        # No origin points, add empty columns
+        start_nn['origin_pa_id'] = 0
+        start_nn['origin_sz_id'] = 0
+        start_nn['origin_rn_id'] = 0
+
     # Merge START results
     start_df = pd.DataFrame(start_gdf.drop(columns='geometry'))
     start_df = start_df.merge(
         start_nn[['id', 'start_rn_id', 'origin_lat', 'origin_lng',
+                  'origin_pa_id', 'origin_sz_id', 'origin_rn_id',
                   'end100_a_lat', 'end100_a_lng', 'end100_b_lat', 'end100_b_lng']],
         on='id', how='left'
     )
-    start_df = start_df[['id', 'start_pa_id', 'start_sz_id', 'start_rn_id', 'origin_lat', 'origin_lng',
+    start_df = start_df[['id', 'start_pa_id', 'start_sz_id', 'start_rn_id',
+                         'origin_lat', 'origin_lng', 'origin_pa_id', 'origin_sz_id', 'origin_rn_id',
                          'end100_a_lat', 'end100_a_lng', 'end100_b_lat', 'end100_b_lng']]
 
     # ========================================================================
@@ -302,7 +356,11 @@ def process_floods_data(
         df['end_rn_id'] = 0
 
     # Convert ID columns to integers
-    id_columns = ['start_pa_id', 'start_sz_id', 'start_rn_id', 'end_pa_id', 'end_sz_id', 'end_rn_id']
+    id_columns = [
+        'start_pa_id', 'start_sz_id', 'start_rn_id',
+        'origin_pa_id', 'origin_sz_id', 'origin_rn_id',
+        'end_pa_id', 'end_sz_id', 'end_rn_id'
+    ]
     for col in id_columns:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
@@ -312,7 +370,8 @@ def process_floods_data(
         'id', 'text', 'event_date', 'location', 'event',
         'start_loc', 'end_loc', 'parent_road', 'cleaned_location',
         'start_lat', 'start_lng', 'start_postal_code',
-        'start_pa_id', 'start_sz_id', 'start_rn_id', 'origin_lat', 'origin_lng',
+        'start_pa_id', 'start_sz_id', 'start_rn_id',
+        'origin_lat', 'origin_lng', 'origin_pa_id', 'origin_sz_id', 'origin_rn_id',
         'end100_a_lat', 'end100_a_lng', 'end100_b_lat', 'end100_b_lng',
         'end_lat', 'end_lng', 'end_postal_code',
         'end_pa_id', 'end_sz_id', 'end_rn_id',
