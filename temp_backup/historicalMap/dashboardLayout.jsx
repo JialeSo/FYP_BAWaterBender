@@ -381,6 +381,18 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     setPlanningSelectionInitialized(true);
   }, [planningOptions, planningSelectionInitialized]);
 
+  useEffect(() => {
+    if (!planningSelectionInitialized) return;
+    if (!planningOptions.length) return;
+
+    // If selection becomes empty (e.g. via filters or weird state),
+    // force it back to "all planning areas"
+    if (selectedPlanningAreas.length === 0) {
+      setSelectedPlanningAreas(planningOptions);
+    }
+  }, [selectedPlanningAreas, planningOptions, planningSelectionInitialized]);
+
+
   /* ---------- lookups + insights precompute ---------- */
   const floodLookups = useMemo(
     () => buildLookups(planningData, subzoneData, roadData),

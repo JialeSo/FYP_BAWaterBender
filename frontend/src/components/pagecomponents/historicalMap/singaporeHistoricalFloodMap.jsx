@@ -1047,9 +1047,10 @@ const legendValueMap = useMemo(() => {
     // When 0 or multiple PAs selected, stay at planning area level
     const showDetailLayers = hasPASelection && selectedPlanningAreas.length === 1 && (!isAllPASelected || selectedSubzonesList.length > 0);
 
-    const paFilterExpr = !hasPASelection
-      ? filterNone
-      : (isAllPASelected ? filterAll : matchFilter("PLN_AREA_N", paFilterValues));
+    const paFilterExpr =
+    !hasPASelection || isAllPASelected
+      ? filterAll                    // no selection OR all selected → show all PAs
+      : matchFilter("PLN_AREA_N", paFilterValues); // subset → filter
 
     const subzoneFilterExpr = selectedSubzonesList.length
       ? matchFilter("SUBZONE_N", selectedSubzones)
