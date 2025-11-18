@@ -588,12 +588,9 @@ export default function floodevents() {
   });
 
   const [cat_weights, setCatWeights] = useState(() => {
-    const out = { ...default_weight_by_category };
-    for (const c of Object.values(category_lookup?.by_id || {})) {
-      const name = String(c.amenity_category || "").trim();
-      if (!(name in out)) out[name] = 1;
-    }
-    return out;
+    // Start with default preset instead of default_weight_by_category
+    const defaultPreset = AMENITY_WEIGHT_PRESETS.default;
+    return { ...defaultPreset.weights };
   });
 
    /* amenities flat list */
@@ -641,22 +638,38 @@ export default function floodevents() {
   const [outer_mult, set_outer_mult] = useState(1);
   const [inner_enabled, set_inner_enabled] = useState(true);
   const [outer_enabled, set_outer_enabled] = useState(true);
-  const [w_betweenness, set_w_betweenness] = useState(0.3);
-  const [w_closeness, set_w_closeness] = useState(0.3);
-  const [w_amenity, set_w_amenity] = useState(0.2);
-  const [w_roads, set_w_roads] = useState(0.2);
+
+  // Start with balanced preset for AR Impact
+  const balancedPreset = AR_IMPACT_PRESETS.balanced;
+  const [w_betweenness, set_w_betweenness] = useState(balancedPreset.weights.betweenness);
+  const [w_closeness, set_w_closeness] = useState(balancedPreset.weights.closeness);
+  const [w_amenity, set_w_amenity] = useState(balancedPreset.weights.amenity);
+  const [w_roads, set_w_roads] = useState(balancedPreset.weights.roads);
 
   // Pending states for configuration (not applied until user clicks Apply Changes)
-  const [pendingCatWeights, setPendingCatWeights] = useState(() => ({ ...cat_weights }));
-  const [pendingCatEnabled, setPendingCatEnabled] = useState(() => ({ ...cat_enabled }));
+  // Initialize with the same presets
+  const defaultPresetWeights = AMENITY_WEIGHT_PRESETS.default.weights;
+  const [pendingCatWeights, setPendingCatWeights] = useState(() => ({ ...defaultPresetWeights }));
+  const [pendingCatEnabled, setPendingCatEnabled] = useState(() => {
+    const out = {};
+    for (const c of Object.values(category_lookup?.by_id || {})) {
+      const name = String(c.amenity_category || "").trim();
+      out[name] = true;
+    }
+    // Also enable default categories
+    Object.keys(default_weight_by_category).forEach((name) => {
+      if (!(name in out)) out[name] = true;
+    });
+    return out;
+  });
   const [pendingInnerMult, setPendingInnerMult] = useState(2);
   const [pendingOuterMult, setPendingOuterMult] = useState(1);
   const [pendingInnerEnabled, setPendingInnerEnabled] = useState(true);
   const [pendingOuterEnabled, setPendingOuterEnabled] = useState(true);
-  const [pendingWBetweenness, setPendingWBetweenness] = useState(0.3);
-  const [pendingWCloseness, setPendingWCloseness] = useState(0.3);
-  const [pendingWAmenity, setPendingWAmenity] = useState(0.2);
-  const [pendingWRoads, setPendingWRoads] = useState(0.2);
+  const [pendingWBetweenness, setPendingWBetweenness] = useState(balancedPreset.weights.betweenness);
+  const [pendingWCloseness, setPendingWCloseness] = useState(balancedPreset.weights.closeness);
+  const [pendingWAmenity, setPendingWAmenity] = useState(balancedPreset.weights.amenity);
+  const [pendingWRoads, setPendingWRoads] = useState(balancedPreset.weights.roads);
 
   // Check if there are unapplied configuration changes
   const hasUnappliedConfigChanges = useMemo(() => {
@@ -827,15 +840,20 @@ export default function floodevents() {
         else { outer++; impact_outer += w * outer_mult; }
       }
 
-      const counts = { inner, outer, total: inner + outer };
+      // Only include counts from enabled bands
+      const activeInner = inner_enabled ? inner : 0;
+      const activeOuter = outer_enabled ? outer : 0;
+      const counts = { inner: activeInner, outer: activeOuter, total: activeInner + activeOuter };
       const impact_total = impact_inner + impact_outer;
 
       // Calculate roads affected within distance rings
       const roads_near = roads_within_rings(road_fc, [lng, lat], r_in, r_out);
+      const activeInnerRoads = inner_enabled ? roads_near.inner.length : 0;
+      const activeOuterRoads = outer_enabled ? roads_near.outer.length : 0;
       const roads_counts = {
-        inner: roads_near.inner.length,
-        outer: roads_near.outer.length,
-        total: roads_near.inner.length + roads_near.outer.length
+        inner: activeInnerRoads,
+        outer: activeOuterRoads,
+        total: activeInnerRoads + activeOuterRoads
       };
 
       let bnorm = 0, cnorm = 0;
@@ -1630,10 +1648,16 @@ export default function floodevents() {
     // AR Impact with all 4 components
     const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score) + (w_roads * roads_score);
 
+    // Only include counts from enabled bands
+    const activeInnerAmenities = inner_enabled ? inner_count : 0;
+    const activeOuterAmenities = outer_enabled ? outer_count : 0;
+    const activeInnerRoads = inner_enabled ? roads_pack.inner.length : 0;
+    const activeOuterRoads = outer_enabled ? roads_pack.outer.length : 0;
+
     set_selected_stats({
       center,
-      counts: { inner: inner_count, outer: outer_count, total: inner_count + outer_count },
-      roads_counts: { inner: roads_pack.inner.length, outer: roads_pack.outer.length, total: roads_pack.inner.length + roads_pack.outer.length },
+      counts: { inner: activeInnerAmenities, outer: activeOuterAmenities, total: activeInnerAmenities + activeOuterAmenities },
+      roads_counts: { inner: activeInnerRoads, outer: activeOuterRoads, total: activeInnerRoads + activeOuterRoads },
       impact: { inner: +impact_inner.toFixed(2), outer: +impact_outer.toFixed(2), total: +impact_total.toFixed(2) },
       centrality: { bnorm, cnorm },
       scores: { amenity_score: +amenity_score.toFixed(3), roads_score: +roads_score.toFixed(3), roads_impact: +roads_impact.toFixed(2), ar_impact: +ar_impact.toFixed(3) },
@@ -2368,11 +2392,15 @@ export default function floodevents() {
                             const center = selected_stats.center;
                             if (!center) return <p className="text-xs text-muted-foreground py-6 text-center">No location data</p>;
 
-                            // Query amenities in both rings
-                            const innerAmenities = query_amenities(center.lng, center.lat, r_inner).map(a => ({ ...a, band: 'inner' }));
-                            const outerAmenities = query_amenities(center.lng, center.lat, r_outer)
-                              .filter(a => a._distm > r_inner)
-                              .map(a => ({ ...a, band: 'outer' }));
+                            // Query amenities in both rings, only if bands are enabled
+                            const innerAmenities = inner_enabled
+                              ? query_amenities(center.lng, center.lat, r_inner).map(a => ({ ...a, band: 'inner' }))
+                              : [];
+                            const outerAmenities = outer_enabled
+                              ? query_amenities(center.lng, center.lat, r_outer)
+                                  .filter(a => a._distm > r_inner)
+                                  .map(a => ({ ...a, band: 'outer' }))
+                              : [];
                             const allAmenities = [...innerAmenities, ...outerAmenities];
 
                             return allAmenities.length > 0 ? (
@@ -2431,10 +2459,14 @@ export default function floodevents() {
                         {/* Affected Roads Tab - Second */}
                         <TabsContent value="roads" className="px-2 pb-2 space-y-1 mt-2">
                           {(() => {
-                            // Flatten roads from both bands
+                            // Flatten roads from both bands, only if bands are enabled
                             const allRoads = [];
-                            (roads_nearby_state.inner || []).forEach(r => allRoads.push({ ...r, band: 'inner' }));
-                            (roads_nearby_state.outer || []).forEach(r => allRoads.push({ ...r, band: 'outer' }));
+                            if (inner_enabled) {
+                              (roads_nearby_state.inner || []).forEach(r => allRoads.push({ ...r, band: 'inner' }));
+                            }
+                            if (outer_enabled) {
+                              (roads_nearby_state.outer || []).forEach(r => allRoads.push({ ...r, band: 'outer' }));
+                            }
 
                             return allRoads.length > 0 ? (
                               <ScrollArea className="h-[200px]">
