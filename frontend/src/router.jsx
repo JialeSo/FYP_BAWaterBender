@@ -7,7 +7,7 @@ import FloodEvents from "./pages/floodevents"
 import SingaporeHistoricalFloodMap from "./pages/historicalFloodMap"
 import RoadCentrality from "./pages/roadcentrality"
 import Simulation from "./pages/simulation"
-import UploadData from "./pages/uploadPage"
+import UploadData from "./pages/uploadpage"
 
 export default function AppRouter() {
   return (
