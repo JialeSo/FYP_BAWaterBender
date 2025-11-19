@@ -17,12 +17,12 @@ export default function AppRouter() {
 
       {/* pages */}
       <Route path="/home" element={<Home />} />
-      <Route path="/dashboard-map" element={<DashboardMap />} />
-      <Route path="/flood-events" element={<FloodEvents />} />
-      <Route path="/historical-flood-map" element={<SingaporeHistoricalFloodMap />} />
-      <Route path="/road-centrality" element={<RoadCentrality />} />
+      <Route path="/dashboardMap" element={<DashboardMap />} />
+      <Route path="/floodEvents" element={<FloodEvents />} />
+      <Route path="/historicalFloodMap" element={<SingaporeHistoricalFloodMap />} />
+      <Route path="/roadCentrality" element={<RoadCentrality />} />
       <Route path="/simulation" element={<Simulation />} />
-      <Route path="/uploaddata" element={<UploadData />} />
+      <Route path="/uploadData" element={<UploadData />} />
       {/* 404 fallback */}
       <Route path="*" element={<div className="p-6">404 not found</div>} />
     </Routes>

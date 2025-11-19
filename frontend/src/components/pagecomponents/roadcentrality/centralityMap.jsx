@@ -839,7 +839,7 @@ export function CentralityMap({
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#bfdbfe" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  0 - {format_number(colorThresholds.b1, 2)}
+                  0+  - {format_number(colorThresholds.b1, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">

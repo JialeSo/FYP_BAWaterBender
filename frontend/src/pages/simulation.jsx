@@ -933,7 +933,7 @@ export default function Simulation() {
 
       {/* Content */}
       <div ref={contentRef} className="flex-1 overflow-y-auto bg-background">
-        <div className="max-w-7xl mx-auto p-6 pb-24">{/* pb-24 for footer space */}
+        <div className="p-6 pb-24">{/* pb-24 for footer space */}
         {/* Step 1: Define Flood Input */}
         {step === 1 && (
           <div className="max-w-3xl mx-auto space-y-6">
