@@ -870,7 +870,20 @@ export default function Centrality() {
     setSelectedMarker(marker);
   }, []);
 
-  
+  // Handle ESC key to deselect road
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape" && selectedRoadId) {
+        setSelectedRoadId(null);
+        setSelectedMarker(null);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [selectedRoadId]);
+
+
   // Calculate SLA tier for a road based on percentile
   const getSLATier = useCallback((importance) => {
     if (!useSLAMapping) return null;
@@ -1681,7 +1694,7 @@ export default function Centrality() {
       {/* Two-column layout: Map (left 2 cols) and Details Panel (right 1 col) */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Left: Map */}
-        <div className="lg:col-span-2" ref={mapSectionRef}>
+        <div className="lg:col-span-2 h-[600px]" ref={mapSectionRef}>
           <CentralityMap
             data={mapData}
             selectedRoadId={selectedRoadId}
@@ -1695,7 +1708,7 @@ export default function Centrality() {
         </div>
 
         {/* Right: Road Details Panel */}
-        <div className="lg:col-span-1" ref={detailsPanelRef}>
+        <div className="lg:col-span-1 h-[600px]" ref={detailsPanelRef}>
           <RoadDetailsPanel
             road={selectedRoad}
             onClose={() => setSelectedRoadId(null)}

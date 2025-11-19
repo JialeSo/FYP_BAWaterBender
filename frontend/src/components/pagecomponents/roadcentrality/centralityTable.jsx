@@ -130,6 +130,9 @@ export function CentralityTable({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={exportCsv}>
+            Export CSV
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">

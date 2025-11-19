@@ -161,14 +161,14 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
   // Show prompt if no road selected - MUST come after all hooks
   if (!road) {
     return (
-      <Card className="mb-4 border-2 border-dashed">
+      <Card className="mb-4 border-2 border-dashed h-full flex flex-col">
         <CardHeader>
           <CardTitle className="text-lg">Road Details</CardTitle>
           <CardDescription>
             Click on a row in the table below or hover over a road on the map to view details
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <div className="flex items-center justify-center py-8 text-center">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">No road selected</p>
@@ -181,7 +181,7 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
   }
 
   return (
-    <Card className="mb-3 border-2 border-primary">
+    <Card className="mb-3 border-2 border-primary h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-start justify-between">
           <div>
@@ -196,7 +196,7 @@ export function RoadDetailsPanel({ road, onClose, amenityCounts, floodCounts, to
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3 px-4 pb-3">
+      <CardContent className="space-y-3 px-4 pb-3 flex-1 overflow-y-auto">
         {/* Unified KPI Section */}
         <div className="rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-background p-3">
           <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Key Performance Indicators</h3>
