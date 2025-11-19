@@ -961,8 +961,9 @@ const legendValueMap = useMemo(() => {
       const handleBackgroundClick = (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: [PA_FILL, SZ_FILL] });
         if (features && features.length) return;
-        // Reset to all planning areas and zoom out to default view
+        // Reset to all planning areas and clear subzone selection
         onPlanningAreaToggle?.(null);
+        onSubzoneSelect?.(null);
         map.easeTo({ center: default_center, zoom: default_zoom, duration: 600 });
         try { paPopupRef.current?.remove(); } catch {}
         try { szPopupRef.current?.remove(); } catch {}
