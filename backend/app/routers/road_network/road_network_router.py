@@ -76,19 +76,13 @@ async def get_all_road_network_data(
     # offset: int = Query(0, ge=0),
 ):
     try:
-        end = offset + limit - 1
-        logger.info(f"Fetching road_network rows range {offset}-{end}")
-
-        query = db.table("road_network").select("*").range(offset, end)
-        result = query.execute()
-
+        result = db.table("road_network_geojson").select("*").execute()
         if result.data:
             return {"data": result.data, "count": len(result.data)}
         else:
             return {"data": [], "count": 0}
-
     except Exception as e:
-        logger.error(f"❌ Error fetching road_network data: {e}")
+        logger.error(f"❌ Error fetching road network data: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 # get road network data as GeoJSON
