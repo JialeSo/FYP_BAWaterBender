@@ -1,10 +1,8 @@
 import logging
-import asyncio
-import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from .routers.router import api_router  # Changed back to relative import
+from .routers.router import api_router 
 from dotenv import load_dotenv
 from config.config import is_development
 
@@ -50,18 +48,12 @@ async def root():
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    # Start up Telegram listener module
-    try:
-        from etl.pub.weather_alerts import weather_alerts as weather_alerts_listener
+    # Setup logging
+    from common.logger import setup_logger
 
-        logger.info("✅ Credentials retrieved, starting Telegram listener...")
+    setup_logger()
 
-        # Only start monitoring after credentials are retrieved
-        asyncio.create_task(weather_alerts_listener.start_live_monitoring())
-        logger.info("✅ Telegram listener started as async task.")
-
-    except Exception as e:
-        logger.error("❌ Failed to start Telegram listener: %s", e)
+    logger.info("✅ Application started successfully")
 
 
 if __name__ == "__main__":

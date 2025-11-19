@@ -17,8 +17,7 @@ export default function AppRouter() {
 
       {/* pages */}
       <Route path="/home" element={<Home />} />
-      <Route path="/dashboard-map" element={<DashboardMap />} />
-      <Route path="/flood-events" element={<FloodEvents />} />
+      <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/historical-flood-map" element={<SingaporeHistoricalFloodMap />} />
       <Route path="/road-centrality" element={<RoadCentrality />} />
       <Route path="/simulation" element={<Simulation />} />

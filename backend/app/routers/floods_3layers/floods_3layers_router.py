@@ -1,13 +1,15 @@
 from datetime import datetime
 import logging
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, UploadFile, File
 from common.db import db
+import csv
+import io
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/floods-3layers", tags=["floods-3layers"])
+router = APIRouter(prefix="/flood-3layers", tags=["flood-3layers"])
 
 # helper functions 
 def validate_date(date_str):
@@ -115,7 +117,7 @@ def to_geojson(data):
 @router.get("/")
 async def get_all_flood_data():     
     try:
-        result = db.table("floods_3layers").select("*").execute()
+        result = db.table("flood_3layers").select("*").execute()
         
         return handle_response(result)
         
@@ -131,7 +133,7 @@ async def get_floods_by_planning_area(planning_area: str):
         filter_query = f"start_planning_area.eq.{planning_area},end_planning_area.eq.{planning_area}"
 
         # Query floods by planning area
-        result = db.table("floods_3layers").select("*").or_(filter_query).execute()
+        result = db.table("flood_3layers").select("*").or_(filter_query).execute()
         
         if not result.data:
             raise HTTPException(
@@ -155,7 +157,7 @@ async def get_floods_by_subzone(subzone: str):
         filter_query = f"start_subzone.eq.{subzone},end_subzone.eq.{subzone}"
         
         # Query floods by subzone
-        result = db.table("floods_3layers").select("*").or_(filter_query).execute()
+        result = db.table("flood_3layers").select("*").or_(filter_query).execute()
         
         if not result.data:
             raise HTTPException(
@@ -188,15 +190,15 @@ async def get_floods_in_time_period(start: str = None, end: str = None):
                 raise HTTPException(status_code=400, detail="Start date cannot be after end date.")
             # else return data between start and end date (inclusive)
             else: 
-                result = db.table("floods_3layers").select("*").gte("event_date", start).lte("event_date", end).execute()
+                result = db.table("flood_3layers").select("*").gte("event_date", start).lte("event_date", end).execute()
         
         # scenario 2: if end date not filled, return all data after start date
         elif start and not end: 
-            result = db.table("floods_3layers").select("*").gte("event_date", start).execute()
+            result = db.table("flood_3layers").select("*").gte("event_date", start).execute()
 
         # scenario 3: if start date not filled, return all data before end date
         elif end and not start: 
-            result = db.table("floods_3layers").select("*").lte("event_date", end).execute()
+            result = db.table("flood_3layers").select("*").lte("event_date", end).execute()
 
         # scenario 4: if neither start nor end date filled, raise error
         else:
@@ -220,7 +222,7 @@ async def get_floods_by_postal_code(postal_code: str):
 
     try:
         filter_query = f"start_postal_code.eq.{postal_code},end_postal_code.eq.{postal_code}"
-        result = db.table("floods_3layers").select("*").or_(filter_query).execute()
+        result = db.table("flood_3layers").select("*").or_(filter_query).execute()
 
         if not result.data:
             raise HTTPException(
@@ -241,7 +243,7 @@ async def get_floods_by_street_name(street_name: str):
     street_name = clean_string(street_name)
     try:
         filter_query = f"start_street_name.eq.{street_name},end_street_name.eq.{street_name}"
-        result = db.table("floods_3layers").select("*").or_(filter_query).execute()
+        result = db.table("flood_3layers").select("*").or_(filter_query).execute()
 
         if not result.data:
             raise HTTPException(
@@ -261,7 +263,7 @@ async def get_floods_by_street_name(street_name: str):
 @router.get("/geojson/")
 async def get_floods_geojson():     
     try:
-        result = db.table("floods_3layers").select("*").execute()
+        result = db.table("flood_3layers").select("*").execute()
         
         if not result.data:
             raise HTTPException(
@@ -275,3 +277,119 @@ async def get_floods_geojson():
     except Exception as e:
         logger.error(f"❌ Error fetching floods_3layers geojson data: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+######################
+### POST ROUTES ######
+######################
+
+@router.post("/upload")
+async def upload_flood_csv(file: UploadFile = File(...)):
+    """
+    Upload a CSV from the frontend, validate columns, run the floods ETL pipeline,
+    replace flood_3layers_test table contents with the new dataset.
+    On failure, attempt to restore the previous backup.
+    """
+    logger.info(f"Received upload: {file.filename}")
+
+    # Read file
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    # Validate CSV headers
+    try:
+        reader = csv.DictReader(io.StringIO(text))
+        headers = reader.fieldnames or []
+    except Exception as e:
+        logger.error(f"Failed to parse CSV: {e}")
+        raise HTTPException(status_code=400, detail="Invalid CSV file")
+
+    required_columns = [
+        "start_lat", "start_lng", "end_lat", "end_lng",
+        "event_date", "location", "event",
+        "parent_road", "start_postal_code", "end_postal_code",
+        "start_planning_area", "start_subzone", "start_street_name",
+        "end_planning_area", "end_subzone", "end_street_name"
+    ]
+
+    missing = [c for c in required_columns if c not in headers]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV missing required columns: {', '.join(missing)}"
+        )
+
+    # Backup existing table
+    try:
+        existing = db.table("flood_3layers_test").select("*").execute()
+        backup = existing.data or []
+        logger.info(f"Backed up {len(backup)} existing records from flood_3layers_test")
+    except Exception as e:
+        logger.error(f"Failed to back up existing flood_3layers_test data: {e}")
+        backup = []
+
+    # Run pipeline to get new dataset (lazy import to avoid heavy ETL deps at app startup)
+    try:
+        try:
+            from etl.floods.run_floods_pipeline import execute_floods_pipeline
+        except Exception as import_err:
+            logger.error(f"Floods ETL pipeline not available: {import_err}")
+            raise HTTPException(
+                status_code=500,
+                detail="Floods ETL pipeline is not available in this deployment.",
+            )
+
+        new_data = await execute_floods_pipeline(table_name="flood_3layers_test")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Pipeline execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Pipeline failed: {str(e)}")
+
+    # If pipeline did not return data, try to read directly from the table
+    if not new_data:
+        try:
+            res = db.table("flood_3layers_test").select("*").execute()
+            new_data = res.data or []
+            logger.info(f"Fetched {len(new_data)} records from flood_3layers_test after pipeline run")
+        except Exception as e:
+            logger.error(f"Failed to fetch new data after pipeline run: {e}")
+            raise HTTPException(status_code=500, detail="Failed to obtain new dataset after pipeline run")
+
+    # Replace table contents with new_data, with contingency to restore backup on failure
+    try:
+        # wipe table
+        db.table("flood_3layers_test").delete().execute()
+        logger.info("Cleared flood_3layers_test table")
+
+        # insert new data (if any)
+        if new_data:
+            db.table("flood_3layers_test").insert(new_data).execute()
+            logger.info(f"Inserted {len(new_data)} new records into flood_3layers_test")
+
+        return {
+            "status": "success",
+            "message": "Floods data uploaded and flood_3layers_test table updated successfully",
+            "count": len(new_data)
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to replace flood_3layers_test table: {e}. Attempting to restore backup.")
+        # Attempt restore
+        try:
+            db.table("flood_3layers_test").delete().execute()
+            if backup:
+                db.table("flood_3layers_test").insert(backup).execute()
+                logger.info(f"Restored {len(backup)} backup records to flood_3layers_test")
+            else:
+                logger.info("No backup data to restore")
+        except Exception as restore_err:
+            logger.critical(f"Failed to restore backup after failed upload: {restore_err}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Upload failed and backup restore also failed: {str(restore_err)}"
+            )
+
+        raise HTTPException(status_code=500, detail=f"Upload failed; backup restored. Error: {str(e)}")

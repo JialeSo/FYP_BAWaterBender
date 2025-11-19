@@ -139,6 +139,191 @@ class WeatherAlertsController:
             ),
         }
 
+    async def fetch_and_process_recent_alerts(self, hours: int = 24) -> Dict[str, Any]:
+        """
+        Fetch weather alerts from the last N hours and process them.
+        Uses the singleton WeatherAlerts instance to avoid session locking.
+
+        Args:
+            hours: Number of hours to look back (default: 24)
+
+        Returns:
+            Dict containing processing result and statistics
+        """
+        from etl.pub.weather_alerts import weather_alerts
+
+        try:
+            logger.info(
+                f"🔄 Starting cron job: "
+                f"Fetching weather alerts from last {hours} hours"
+            )
+
+            # Use singleton instance to avoid session file locking
+            messages = await weather_alerts.extract_and_save_recent_messages(
+                hours=hours
+            )
+
+            logger.info(
+                f"✅ Cron job completed: " f"Fetched and saved {len(messages)} messages"
+            )
+
+            return {
+                "status": "success",
+                "message": (
+                    f"Successfully fetched and processed {len(messages)} "
+                    f"messages from last {hours} hours"
+                ),
+                "messages_processed": len(messages),
+                "hours": hours,
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Cron job failed: {e}")
+            raise
+
+    async def backfill_historical_alerts(self, limit: int = 100) -> Dict[str, Any]:
+        """
+        Extract historical messages from Telegram and load them into Supabase.
+        Uses the singleton WeatherAlerts instance to avoid session locking.
+
+        Args:
+            limit: Number of messages to fetch (default: 100)
+
+        Returns:
+            Dict containing processing result and statistics
+        """
+        from etl.pub.weather_alerts import weather_alerts
+        from etl.pub.weather_alerts_pipeline import WeatherAlertsPipeline
+
+        try:
+            logger.info(
+                f"🔄 Starting backfill: " f"Extracting {limit} historical messages"
+            )
+
+            # Connect and authorize if needed
+            if not weather_alerts.client.is_connected():
+                await weather_alerts.client.connect()
+
+            if not await weather_alerts.client.is_user_authorized():
+                if weather_alerts.phone:
+                    await weather_alerts.client.start(phone=weather_alerts.phone)
+                else:
+                    logger.error("Phone number not provided for authorization")
+                    return {
+                        "status": "error",
+                        "message": "Phone number not provided",
+                        "messages_processed": 0,
+                    }
+
+            # Extract messages
+            messages = []
+            async for message in weather_alerts.client.iter_messages(
+                weather_alerts.channel_username, limit=limit
+            ):
+                if message.text:
+                    message_data = {
+                        "id": message.id,
+                        "text": message.text,
+                        "created_at": message.date.isoformat(),
+                        "sender_id": message.sender_id,
+                    }
+                    messages.append(message_data)
+
+            logger.info(f"📥 Extracted {len(messages)} messages from Telegram")
+
+            # Process all messages through the pipeline
+            if messages:
+                logger.info("🔄 Processing messages through pipeline...")
+                config = {
+                    "continue_on_error": True,
+                    "weather_processing": {},
+                    "location_geocoding": {},
+                    "database_write": {},
+                }
+                pipeline = WeatherAlertsPipeline(
+                    config=config, db_table="PUB_weather_alerts"
+                )
+                await pipeline.process_weather_alerts(messages)
+                logger.info(
+                    f"✅ Successfully processed and saved " f"{len(messages)} messages"
+                )
+            else:
+                logger.info("ℹ️  No messages found")
+
+            logger.info(
+                f"✅ Backfill completed: " f"Processed {len(messages)} messages"
+            )
+
+            return {
+                "status": "success",
+                "message": (
+                    f"Successfully backfilled {len(messages)} " f"historical messages"
+                ),
+                "messages_processed": len(messages),
+                "limit": limit,
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Backfill failed: {e}")
+            raise
+
+    async def extract_existing_messages(self, batch_size: int = 1000) -> Dict[str, Any]:
+        """
+        Extract ALL existing messages from Telegram channel and save to JSON.
+        Uses the singleton WeatherAlerts instance to avoid session locking.
+
+        This method queries the total message count first, then extracts
+        all messages in batches to avoid memory issues and rate limits.
+
+        Args:
+            batch_size: Number of messages per batch for progress logging
+                       (default: 1000)
+
+        Returns:
+            Dict containing processing result and statistics including:
+            - total_messages: Approximate total count based on last message ID
+            - extracted_messages: Actual number of messages extracted
+            - batches_processed: Number of batches processed
+        """
+        from etl.pub.weather_alerts import weather_alerts
+
+        try:
+            logger.info("🔄 Starting extraction: Fetching ALL messages")
+
+            # Use the new extract_all_messages method that handles batching
+            result = await weather_alerts.extract_all_messages(batch_size=batch_size)
+
+            if "error" in result:
+                logger.error(f"❌ Extraction failed: {result['error']}")
+                return {
+                    "status": "error",
+                    "message": result["error"],
+                    "total_messages": 0,
+                    "extracted_messages": 0,
+                    "batches_processed": 0,
+                }
+
+            logger.info(
+                f"✅ Extraction completed: {result['extracted_messages']} "
+                f"messages extracted in {result['batches_processed']} batches"
+            )
+
+            return {
+                "status": "success",
+                "message": (
+                    f"Successfully extracted {result['extracted_messages']} "
+                    f"messages in {result['batches_processed']} batches"
+                ),
+                "total_messages": result["total_messages"],
+                "extracted_messages": result["extracted_messages"],
+                "batches_processed": result["batches_processed"],
+                "batch_size": result["batch_size"],
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Extraction failed: {e}")
+            raise
+
 
 # Singleton instance of WeatherAlertsController
 weather_alerts_controller = WeatherAlertsController()

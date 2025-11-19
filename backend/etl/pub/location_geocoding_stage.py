@@ -146,7 +146,7 @@ class LocationGeocodingStage(PipelineStage):
         Get existing geocode from database or create new one.
 
         Args:
-            location_name: Raw location name
+            location_name: Raw location name (from parser, already cleaned/lowercase)
 
         Returns:
             Geocode ID (foreign key) or None if geocoding failed
@@ -154,27 +154,43 @@ class LocationGeocodingStage(PipelineStage):
         if not location_name:
             return None
 
-        # Clean the location string
-        cleaned_location = clean_location_string(location_name)
+        # The location_name coming from the parser is already cleaned (lowercase)
+        # We use it as the normalized key for lookups
+        normalized_key = location_name.strip().lower()
 
-        if not cleaned_location:
+        if not normalized_key:
             return None
 
         try:
-            # Check if location already exists in database
-            existing_geocode = self._lookup_existing_geocode(cleaned_location)
+            # Check if location already exists in database using normalized key
+            existing_geocode = self._lookup_existing_geocode(normalized_key)
 
             if existing_geocode:
-                logger.debug(f"Found existing geocode for '{cleaned_location}'")
+                logger.debug(f"Found existing geocode for '{normalized_key}'")
                 return existing_geocode["id"]
 
             # If not found, geocode using LocationIQ
-            lat, lng, postal_code = await self._geocode_location(location_name)
+            # Pass the original (cleaned) location name to LocationIQ
+            lat, lng, postal_code, display_name = await self._geocode_location(location_name)
 
             if lat is not None and lng is not None:
-                # Create new geocode entry
+                # Use display name from LocationIQ if available (preserves proper casing)
+                # Otherwise use the parser's cleaned location
+                final_display_name = display_name if display_name else location_name
+
+                # Before inserting, check if the display name already exists (case-insensitive)
+                # This prevents duplicate key errors when display name differs only in case
+                existing_by_display = self._lookup_existing_geocode(final_display_name)
+                if existing_by_display:
+                    logger.debug(
+                        f"Display name '{final_display_name}' already exists, "
+                        f"reusing ID {existing_by_display['id']}"
+                    )
+                    return existing_by_display["id"]
+
+                # Create new geocode entry with display name
                 geocode_data = {
-                    "location_name": cleaned_location,
+                    "location_name": final_display_name,  # Proper casing from LocationIQ
                     "latitude": lat,
                     "longitude": lng,
                     "postal_code": postal_code,
@@ -184,12 +200,12 @@ class LocationGeocodingStage(PipelineStage):
                 if response.data and len(response.data) > 0:
                     geocode_id = response.data[0]["id"]
                     logger.info(
-                        f"Created new geocode entry for '{cleaned_location}' "
-                        f"with ID {geocode_id}"
+                        f"Created new geocode entry for '{final_display_name}' "
+                        f"(normalized: '{normalized_key}') with ID {geocode_id}"
                     )
                     return geocode_id
                 else:
-                    logger.error(f"Failed to insert geocode for '{cleaned_location}'")
+                    logger.error(f"Failed to insert geocode for '{final_display_name}'")
                     return None
             else:
                 logger.warning(f"Could not geocode location: '{location_name}'")
@@ -199,33 +215,77 @@ class LocationGeocodingStage(PipelineStage):
             logger.error(f"Error processing geocode for '{location_name}': {e}")
             return None
 
-    def _lookup_existing_geocode(self, cleaned_location: str) -> Optional[Dict]:
+    def _lookup_existing_geocode(self, normalized_location: str) -> Optional[Dict]:
         """
-        Look up existing geocode in database.
+        Look up existing geocode in database using case-insensitive match.
 
         Args:
-            cleaned_location: Cleaned location name
+            normalized_location: Normalized location name (lowercase)
 
         Returns:
             Geocode record dict or None if not found
         """
         try:
-            response = db.select(
-                self.geocodes_table, columns="*", location_name=cleaned_location
+            from common.db import DatabaseConnection
+            db_conn = DatabaseConnection()
+            client = db_conn._get_connection()
+
+            # Use RPC call to Postgres for efficient case-insensitive lookup
+            # PostgREST doesn't have a direct case-insensitive equals, so we use custom query
+            try:
+                # Try using text search with case-insensitive pattern
+                response = (
+                    client.table(self.geocodes_table)
+                    .select("*")
+                    .textSearch("location_name", f"'{normalized_location}'", config="simple")
+                    .limit(1)
+                    .execute()
+                )
+
+                if response.data and len(response.data) > 0:
+                    return response.data[0]
+            except:
+                # Fallback if textSearch doesn't work
+                pass
+
+            # Fallback: Try exact match first (for already-lowercase entries)
+            response = (
+                client.table(self.geocodes_table)
+                .select("*")
+                .eq("location_name", normalized_location)
+                .limit(1)
+                .execute()
             )
 
             if response.data and len(response.data) > 0:
                 return response.data[0]
-            else:
-                return None
+
+            # Last resort: Check if ANY case variant exists
+            # Use ILIKE with the exact string (no wildcards = exact match, case-insensitive)
+            response = (
+                client.table(self.geocodes_table)
+                .select("*")
+                .or_(f"location_name.ilike.{normalized_location}")
+                .limit(1)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                logger.debug(
+                    f"Found case-variant: '{response.data[0]['location_name']}' "
+                    f"for '{normalized_location}'"
+                )
+                return response.data[0]
+
+            return None
 
         except Exception as e:
-            logger.error(f"Error looking up geocode for '{cleaned_location}': {e}")
+            logger.error(f"Error looking up geocode for '{normalized_location}': {e}")
             return None
 
     async def _geocode_location(
         self, location_name: str
-    ) -> tuple[Optional[float], Optional[float], Optional[str]]:
+    ) -> tuple[Optional[float], Optional[float], Optional[str], Optional[str]]:
         """
         Geocode a location using LocationIQ API.
 
@@ -233,10 +293,11 @@ class LocationGeocodingStage(PipelineStage):
             location_name: Location name to geocode
 
         Returns:
-            Tuple of (latitude, longitude, postal_code) or (None, None, None)
+            Tuple of (latitude, longitude, postal_code, display_name) or (None, None, None, None)
+            display_name preserves the proper casing from LocationIQ
         """
         if not location_name:
-            return None, None, None
+            return None, None, None, None
 
         try:
             # Add Singapore to improve geocoding accuracy
@@ -265,28 +326,35 @@ class LocationGeocodingStage(PipelineStage):
                     if "address" in result:
                         postal_code = result["address"].get("postcode")
 
+                    # Extract display name (preserves proper casing from LocationIQ)
+                    display_name = result.get("display_name")
+                    # Extract just the first part before comma (the location name)
+                    if display_name:
+                        display_name = display_name.split(",")[0].strip()
+
                     logger.debug(
                         f"Geocoded '{location_name}' to "
-                        f"({lat}, {lng}) with postal code {postal_code}"
+                        f"({lat}, {lng}) with postal code {postal_code}, "
+                        f"display name: '{display_name}'"
                     )
 
                     # Add delay between requests
                     time.sleep(self.sleep_between_requests)
 
-                    return lat, lng, postal_code
+                    return lat, lng, postal_code, display_name
                 else:
                     logger.warning(f"No geocoding results for '{location_name}'")
-                    return None, None, None
+                    return None, None, None, None
             elif response.status_code == 404:
                 logger.warning(f"Location not found: '{location_name}'")
-                return None, None, None
+                return None, None, None, None
             else:
                 logger.error(
                     f"LocationIQ API error for '{location_name}': "
                     f"HTTP {response.status_code}"
                 )
-                return None, None, None
+                return None, None, None, None
 
         except Exception as e:
             logger.error(f"Error geocoding '{location_name}': {e}")
-            return None, None, None
+            return None, None, None, None

@@ -104,8 +104,12 @@ class WeatherAlertsDatabaseWriteStage(DatabaseWriteStage):
 
         for record in records:
             try:
-                # Try to write individual record
-                response = db.insert(table=self.table_name, data=[record])
+                # Try to write individual record with upsert on primary key "id"
+                response = db.upsert(
+                    table=self.table_name,
+                    data=[record],
+                    on_conflict="id",
+                )
                 if response.data and len(response.data) > 0:
                     successful_records.append(record)
                     logger.debug(
