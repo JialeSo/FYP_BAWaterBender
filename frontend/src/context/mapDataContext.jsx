@@ -1,255 +1,11 @@
-// // src/context/MapDataContext.jsx
-// import { createContext, useContext, useEffect, useMemo, useState } from "react";
-// import proj4 from "proj4";
-
-// const API_BASE = (import.meta.env.VITE_BACKEND_URL || "https://fyp-ba-water-bender-six.vercel.app").trim();
-
-// /* =========================
-//    projection helpers
-// ========================= */
-// const EPSG3414 =
-//   "+proj=tmerc +lat_0=1.3666666666666667 +lon_0=103.83333333333333 +k=1 +x_0=28001.642 +y_0=38744.572 +ellps=WGS84 +units=m +no_defs";
-// const num = (v) => (typeof v === "string" ? Number(v) : v);
-// const isLikelyLonLat = (x, y) => x >= -180 && x <= 180 && y >= -90 && y <= 90;
-// const isLikelySVY21 = (x, y) => x > 1000 && y > 1000 && (x > 10000 || y > 10000);
-// const toWgs84 = (pt) => proj4(EPSG3414, proj4.WGS84, [num(pt[0]), num(pt[1])]);
-
-// const reprojectGeometryIfNeeded = (geometry) => {
-//   if (!geometry?.coordinates) return geometry;
-//   const convert = (coord) => {
-//     const x = num(coord[0]);
-//     const y = num(coord[1]);
-//     if (!Number.isFinite(x) || !Number.isFinite(y)) return coord;
-//     if (isLikelyLonLat(x, y)) return [x, y];
-//     if (isLikelySVY21(x, y)) return toWgs84([x, y]);
-//     return [x, y];
-//   };
-//   const walk = (coords) =>
-//     typeof coords[0] === "number" ? convert(coords) : coords.map(walk);
-//   return { ...geometry, coordinates: walk(geometry.coordinates) };
-// };
-
-// /* =========================
-//    WKB → GeoJSON parser
-// ========================= */
-// function hexToBytes(hex) {
-//   const len = hex.length / 2;
-//   const out = new Uint8Array(len);
-//   for (let i = 0; i < len; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
-//   return out;
-// }
-// function readFloat64(view, offset, little) {
-//   return view.getFloat64(offset, little);
-// }
-// function readUint32(view, offset, little) {
-//   return view.getUint32(offset, little);
-// }
-// function parseWkbGeometry(view, offset = 0) {
-//   const byteOrder = view.getUint8(offset);
-//   const little = byteOrder === 1;
-//   let off = offset + 1;
-//   let typeWithFlags = readUint32(view, off, little);
-//   off += 4;
-
-//   const EWKB_SRID = 0x20000000;
-//   const geomType = typeWithFlags & 0xff;
-//   if (typeWithFlags & EWKB_SRID) off += 4; // skip SRID
-
-//   if (geomType === 2) {
-//     const n = readUint32(view, off, little);
-//     off += 4;
-//     const coords = new Array(n);
-//     for (let i = 0; i < n; i++) {
-//       const x = readFloat64(view, off, little);
-//       off += 8;
-//       const y = readFloat64(view, off, little);
-//       off += 8;
-//       coords[i] = [x, y];
-//     }
-//     return [{ type: "LineString", coordinates: coords }, off];
-//   }
-
-//   if (geomType === 5) {
-//     const m = readUint32(view, off, little);
-//     off += 4;
-//     const lines = [];
-//     for (let i = 0; i < m; i++) {
-//       const [subGeom, newOff] = parseWkbGeometry(view, off);
-//       off = newOff;
-//       if (subGeom?.type === "LineString") lines.push(subGeom.coordinates);
-//     }
-//     return [{ type: "MultiLineString", coordinates: lines }, off];
-//   }
-
-//   throw new Error(`Unsupported WKB geometry type: ${geomType}`);
-// }
-// function parseWkbHexToGeometry(hex) {
-//   const clean = hex.trim().toLowerCase().replace(/^0x/, "");
-//   const bytes = hexToBytes(clean);
-//   const view = new DataView(bytes.buffer);
-//   const [geom] = parseWkbGeometry(view, 0);
-//   return geom;
-// }
-
-// /* =========================
-//    point feature helpers
-// ========================= */
-// function makePointFeature(lon, lat, props = {}, id) {
-//   const x = num(lon);
-//   const y = num(lat);
-//   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-//   return {
-//     type: "Feature",
-//     id,
-//     geometry: { type: "Point", coordinates: [x, y] },
-//     properties: props,
-//   };
-// }
-
-// /* =========================
-//    row → feature
-// ========================= */
-// function toFeature(row, opts = {}) {
-//   if (!row) return null;
-
-//   // 1️⃣ if it’s already a GeoJSON feature
-//   if (row.type === "Feature") {
-//     return { ...row, geometry: reprojectGeometryIfNeeded(row.geometry) };
-//   }
-
-//   // 2️⃣ if it has a geom field (WKB)
-//   if (row.geom) {
-//     let geometry = typeof row.geom === "string" ? parseWkbHexToGeometry(row.geom) : row.geom;
-//     geometry = reprojectGeometryIfNeeded(geometry);
-//     const { geom, ...propsRaw } = row;
-//     return {
-//       type: "Feature",
-//       geometry,
-//       properties: propsRaw,
-//       id: propsRaw[opts.idProp] ?? propsRaw.id,
-//     };
-//   }
-
-//   // 3️⃣ if it has lat/lon (for amenities / floods)
-//   if (row.lat && row.lon) {
-//     return makePointFeature(row.lon, row.lat, row, row[opts.idProp] ?? row.id);
-//   }
-//   if (row.start_lat && row.start_lng) {
-//     return makePointFeature(row.start_lng, row.start_lat, row, row[opts.idProp] ?? row.id);
-//   }
-
-//   return null;
-// }
-
-// /* =========================
-//    array → featurecollection
-// ========================= */
-// function asFeatureCollection(input, opts) {
-//   const rows = Array.isArray(input) ? input : input?.data;
-//   if (rows) {
-//     const features = rows.map((r) => toFeature(r, opts)).filter(Boolean);
-//     return { type: "FeatureCollection", features };
-//   }
-//   return { type: "FeatureCollection", features: [] };
-// }
-
-// /* =========================
-//    context
-// ========================= */
-// const MapDataContext = createContext(null);
-
-// export function MapDataProvider({ children }) {
-//   const [planningRaw, setPlanningRaw] = useState(null);
-//   const [subzoneRaw, setSubzoneRaw] = useState(null);
-//   const [roadRaw, setRoadRaw] = useState(null);
-//   const [floodsRaw, setFloodsRaw] = useState(null);
-//   const [amenityRaw, setAmenityRaw] = useState(null);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState("");
-
-//   useEffect(() => {
-//     let cancelled = false;
-//     async function fetchJson(url) {
-//       const res = await fetch(url, { headers: { accept: "application/json" } });
-//       if (!res.ok) throw new Error(`${url} → ${res.status}`);
-//       return res.json();
-//     }
-
-//     (async () => {
-//       setLoading(true);
-//       setError("");
-//       try {
-//         const [planning, subzone, road, floods, amenity] = await Promise.all([
-//           fetchJson(`${API_BASE}/api/planning-area/`),
-//           fetchJson(`${API_BASE}/api/subzone/`),
-//           fetchJson(`${API_BASE}/api/road-network/`),
-//           fetchJson(`${API_BASE}/api/floods-3layers/`),
-//           fetchJson(`${API_BASE}/api/amenity-3layers/`),
-//         ]);
-//         if (cancelled) return;
-//         setPlanningRaw(planning);
-//         setSubzoneRaw(subzone);
-//         setRoadRaw(road);
-//         setFloodsRaw(floods);
-//         setAmenityRaw(amenity);
-//       } catch (e) {
-//         console.error(e);
-//         if (!cancelled)
-//           setError(e instanceof Error ? e.message : "Failed to load map datasets");
-//       } finally {
-//         if (!cancelled) setLoading(false);
-//       }
-//     })();
-
-//     return () => { cancelled = true; };
-//   }, []);
-
-//   const planningFC = useMemo(
-//     () => asFeatureCollection(planningRaw, { idProp: "PA_ID" }),
-//     [planningRaw]
-//   );
-//   const subzoneFC = useMemo(
-//     () => asFeatureCollection(subzoneRaw, { idProp: "SZ_ID" }),
-//     [subzoneRaw]
-//   );
-//   const roadFC = useMemo(
-//     () => asFeatureCollection(roadRaw, { idProp: "FEATURE_ID" }),
-//     [roadRaw]
-//   );
-//   const floodsFC = useMemo(
-//     () => asFeatureCollection(floodsRaw, { idProp: "id" }),
-//     [floodsRaw]
-//   );
-//   const amenityFC = useMemo(
-//     () => asFeatureCollection(amenityRaw, { idProp: "amentity_id" }),
-//     [amenityRaw]
-//   );
-
-//   const value = {
-//     planningFC,
-//     subzoneFC,
-//     roadFC,
-//     floodsFC,
-//     amenityFC,
-//     loading,
-//     error,
-//   };
-
-//   return <MapDataContext.Provider value={value}>{children}</MapDataContext.Provider>;
-// }
-
-// export function useMapData() {
-//   const ctx = useContext(MapDataContext);
-//   if (!ctx) throw new Error("useMapData must be used inside MapDataProvider");
-//   return ctx;
-// }
-
-
-
-// for local dev
 // src/context/MapDataContext.jsx
+"use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+
+/* ========= backend config ========= */
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "https://fyp-ba-water-bender-six.vercel.app").trim();
+const BACKEND_TOKEN = (import.meta.env.VITE_BACKEND_TOKEN || "").trim();
 
 /* ========= tiny csv parser ========= */
 function parse_csv(text = "") {
@@ -293,15 +49,27 @@ const nz = (v) => (v === "" || v === undefined || v === null ? null : v);
 const null_if_zero = (v) => { const n = to_int(v); return n === null ? null : (n === 0 ? null : n); };
 const slug = (s) => String(s || "").toLowerCase().trim();
 
-/* ========= date parser ========= */
-function parse_event_date(dmy) {
-  if (!dmy) return null;
-  const m = String(dmy).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+/* ========= date parser (supports dd/mm/yyyy and yyyy-mm-dd) ========= */
+function parse_event_date(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return s;
+
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (!m) return null;
-  const d = m[1].padStart(2, "0");
-  const mo = m[2].padStart(2, "0");
-  const y = m[3];
-  return `${y}-${mo}-${d}`;
+  const dd = m[1].padStart(2, "0");
+  const mm = m[2].padStart(2, "0");
+  const yyyy = m[3];
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/* ========= geometry helper (strip crs) ========= */
+function strip_crs(geom) {
+  if (!geom || typeof geom !== "object") return geom;
+  const { crs, ...rest } = geom;
+  return rest;
 }
 
 /* ========= csv → featurecollection ========= */
@@ -320,7 +88,7 @@ function amenities_csv_to_fc(csv_text) {
         ...rec,
         amenity_id: nz(rec.amenity_id) ?? String(id),
         amenity_category_id: null_if_zero(rec.amenity_category_id),
-        amenity_category: nz(rec.amenity_category),   // may be blank; will be resolved later
+        amenity_category: nz(rec.amenity_category),
         amenity_type: nz(rec.amenity_type),
         amenity_name: nz(rec.amenity_name ?? rec.name ?? rec.poi_name ?? rec.display_name),
         pa_id: null_if_zero(rec.pa_id),
@@ -368,11 +136,249 @@ function floods_csv_to_fc(csv_text) {
   return { type: "FeatureCollection", features };
 }
 
-/* ========= base helpers ========= */
+/* ========= generic featurecollection helper ========= */
 function as_feature_collection(data) {
   if (!data) return { type: "FeatureCollection", features: [] };
   if ((data.type || "") === "FeatureCollection") return data;
   return { type: "FeatureCollection", features: Array.isArray(data) ? data : [] };
+}
+
+/* ========= planning-area API → featurecollection ========= */
+function planning_api_to_fc(json) {
+  const rows = json?.data ?? json ?? [];
+  const features = (Array.isArray(rows) ? rows : []).map((row, idx) => {
+    const geom_raw = row.geom || row.geometry || row.GEOM;
+    if (!geom_raw || !geom_raw.type || !geom_raw.coordinates) return null;
+    const geom = strip_crs(geom_raw);
+
+    const { geom: _g, geometry: _g2, GEOM: _g3, ...props } = row;
+    const pa_id = to_int(props.pa_id ?? props.PA_ID ?? idx);
+
+    return {
+      type: "Feature",
+      id: pa_id,
+      geometry: geom,
+      properties: {
+        ...props,
+        pa_id,
+        pln_area_n: props.pln_area_n ?? props.PLN_AREA_N ?? null,
+      },
+    };
+  }).filter(Boolean);
+
+  return { type: "FeatureCollection", features };
+}
+
+/* ========= subzone API → featurecollection ========= */
+function subzone_api_to_fc(json) {
+  const rows = json?.data ?? json ?? [];
+  const features = (Array.isArray(rows) ? rows : []).map((row, idx) => {
+    const geom_raw = row.geom || row.geometry || row.GEOM;
+    if (!geom_raw || !geom_raw.type || !geom_raw.coordinates) return null;
+    const geom = strip_crs(geom_raw);
+
+    const { geom: _g, geometry: _g2, GEOM: _g3, ...props } = row;
+    const sz_id = to_int(props.sz_id ?? props.SZ_ID ?? idx);
+
+    return {
+      type: "Feature",
+      id: sz_id,
+      geometry: geom,
+      properties: {
+        ...props,
+        sz_id,
+        pa_id: to_int(props.pa_id ?? props.PA_ID ?? null),
+        subzone_n: props.subzone_n ?? props.SUBZONE_N ?? null,
+        pln_area_n: props.pln_area_n ?? props.PLN_AREA_N ?? null,
+      },
+    };
+  }).filter(Boolean);
+
+  return { type: "FeatureCollection", features };
+}
+
+/* ========= floods API → featurecollection ========= */
+function floods_api_to_fc(json) {
+  const rows = json?.data ?? json ?? [];
+  const features = (Array.isArray(rows) ? rows : []).map((rec, idx) => {
+    const id = nz(rec.id) ?? idx;
+
+    let geom = rec.geom || rec.geometry || rec.GEOM;
+    if (geom && geom.type && geom.coordinates) {
+      geom = strip_crs(geom);
+    } else {
+      let lat = to_num(rec.start_lat);
+      let lon = to_num(rec.start_lng);
+      if (lat == null || lon == null) { lat = to_num(rec.end_lat); lon = to_num(rec.end_lng); }
+      if (lat == null || lon == null) return null;
+      geom = { type: "Point", coordinates: [lon, lat] };
+    }
+
+    return {
+      type: "Feature",
+      id,
+      geometry: geom,
+      properties: {
+        ...rec,
+        id,
+        start_pa_id: null_if_zero(rec.start_pa_id),
+        start_sz_id: null_if_zero(rec.start_sz_id),
+        start_rn_id: null_if_zero(rec.start_rn_id),
+        end_pa_id: null_if_zero(rec.end_pa_id),
+        end_sz_id: null_if_zero(rec.end_sz_id),
+        end_rn_id: null_if_zero(rec.end_rn_id),
+        origin_pa_id: null_if_zero(rec.origin_pa_id),
+        origin_sz_id: null_if_zero(rec.origin_sz_id),
+        origin_rn_id: null_if_zero(rec.origin_rn_id),
+        event: nz(rec.event),
+        event_date_iso: parse_event_date(rec.event_date),
+        start_lat: to_num(rec.start_lat),
+        start_lng: to_num(rec.start_lng),
+        origin_lat: to_num(rec.origin_lat),
+        origin_lng: to_num(rec.origin_lng),
+        end_lat: to_num(rec.end_lat),
+        end_lng: to_num(rec.end_lng),
+        end100_a_lat: to_num(rec.end100_a_lat),
+        end100_a_lng: to_num(rec.end100_a_lng),
+        end100_b_lat: to_num(rec.end100_b_lat),
+        end100_b_lng: to_num(rec.end100_b_lng),
+      },
+    };
+  }).filter(Boolean);
+
+  return { type: "FeatureCollection", features };
+}
+
+/* ========= amenities API → featurecollection ========= */
+function amenities_api_to_fc(json) {
+  const rows = json?.data ?? json ?? [];
+  const features = (Array.isArray(rows) ? rows : []).map((rec, idx) => {
+    const lat = to_num(rec.lat);
+    const lon = to_num(rec.lon);
+    if (lat == null || lon == null) return null;
+    const id = nz(rec.amenity_id ?? rec.id) ?? idx;
+
+    return {
+      type: "Feature",
+      id,
+      geometry: { type: "Point", coordinates: [lon, lat] },
+      properties: {
+        ...rec,
+        amenity_id: nz(rec.amenity_id ?? rec.id) ?? String(id),
+        amenity_category_id: null_if_zero(rec.amenity_category_id),
+        amenity_category: nz(rec.amenity_category),
+        amenity_type: nz(rec.amenity_type),
+        amenity_name: nz(rec.amenity_name ?? rec.name ?? rec.poi_name ?? rec.display_name),
+        pa_id: null_if_zero(rec.pa_id),
+        sz_id: null_if_zero(rec.sz_id),
+        rn_id: null_if_zero(rec.rn_id),
+        postalcode: nz(rec.postalcode ?? rec.postal_code),
+      },
+    };
+  }).filter(Boolean);
+  return { type: "FeatureCollection", features };
+}
+
+/* ========= road API → featurecollection ========= */
+function road_api_to_fc(json) {
+  const rows = json?.data ?? json ?? [];
+  const features = (Array.isArray(rows) ? rows : []).map((row, idx) => {
+    const geom_raw = row.geom || row.geometry || row.GEOM;
+    if (!geom_raw || !geom_raw.type || !geom_raw.coordinates) return null;
+    const geom = strip_crs(geom_raw);
+
+    const { geom: _g, geometry: _g2, GEOM: _g3, ...props } = row;
+    const rn_id = to_int(props.rn_id ?? props.RN_ID ?? idx);
+
+    return {
+      type: "Feature",
+      id: rn_id,
+      geometry: geom,
+      properties: {
+        ...props,
+        rn_id,
+        name: props.name ?? props.RD_NAME ?? null,
+        sz_id: to_int(props.sz_id ?? props.SZ_ID ?? null),
+        pa_id: to_int(props.pa_id ?? props.PA_ID ?? null),
+        subzone_n: props.subzone_n ?? props.SUBZONE_N ?? null,
+        pln_area_n: props.pln_area_n ?? props.PLN_AREA_N ?? null,
+      },
+    };
+  }).filter(Boolean);
+
+  return { type: "FeatureCollection", features };
+}
+
+/* ========= amenity category lookups ========= */
+function build_category_lookup(csv_text) {
+  const { records } = parse_csv(csv_text);
+  return build_category_lookup_from_records(records);
+}
+
+function build_category_lookup_from_records(records) {
+  const by_id = Object.create(null);
+  const by_name = Object.create(null);
+  const table = [];
+  for (const r of records) {
+    const id = to_int(r.amenity_category_id);
+    const name = String(r.amenity_category || "").trim();
+    if (id == null || !name) continue;
+    const row = {
+      id,
+      amenity_category: name,
+      slug: slug(name),
+      amenity_priority: r.amenity_priority != null ? to_int(r.amenity_priority) : null,
+      amenity_weight: r.amenity_weight != null ? to_num(r.amenity_weight) : null,
+      importance_score: r.importance_score != null ? to_num(r.importance_score) : null,
+    };
+    by_id[id] = row;
+    by_name[row.slug] = row;
+    table.push(row);
+  }
+  table.sort((a, b) => a.id - b.id);
+  return { by_id, by_name, table };
+}
+
+function build_category_lookup_from_api(json) {
+  const rows = json?.data ?? json ?? [];
+  return build_category_lookup_from_records(rows);
+}
+
+/* ========= scenario builder (shared for csv + api) ========= */
+function build_scenarios_from_records(records) {
+  const byScenario = new Map();
+
+  for (const row of records) {
+    const scenario = row.flood_scenario?.trim();
+    const rn_id = to_int(row.RN_ID ?? row.rn_id);
+    const name = (row.RD_NAME ?? row.rd_name ?? "").trim() || `Road ${rn_id}`;
+    const pa_name = (row.PLN_AREA_N ?? row.pln_area_n ?? "").trim() || null;
+
+    if (!scenario || rn_id == null) continue;
+
+    if (!byScenario.has(scenario)) {
+      byScenario.set(scenario, []);
+    }
+    byScenario.get(scenario).push({ rn_id, name, pa_name });
+  }
+
+  const scenarios = Array.from(byScenario.entries()).map(([name, roads]) => {
+    let description = `${roads.length} roads affected in this scenario.`;
+
+    if (name === "PUB_100RP_highest60mins") {
+      description = "PUB's 1 in 100 year return period (based on Code of Practice for drainage design) for the highest 60 minute rainfall";
+    } else if (name === "Historical_highest60mins") {
+      description = "Historical extreme for the highest 60 minute rainfall";
+    } else if (name === "V3_future_highest60mins") {
+      description = "Future projected highest 60 minute rainfall";
+    } else if (name.includes("Historical")) {
+      description = `Simulates ${name.replace(/_/g, " ")} flood scenario affecting ${roads.length} roads across major arterial routes.`;
+    }
+
+    return { name, roads, description };
+  });
+
+  return scenarios;
 }
 
 /* ========= lookup builders ========= */
@@ -409,25 +415,6 @@ function build_road_lookup(road_fc) {
     by_id[rn_id] = { id: rn_id, name: nz(f.properties?.name), props: f.properties };
   }
   return { by_id };
-}
-
-/* ========= amenity category lookup ========= */
-function build_category_lookup(csv_text) {
-  const { records } = parse_csv(csv_text);
-  const by_id = Object.create(null);
-  const by_name = Object.create(null);
-  const table = [];
-  for (const r of records) {
-    const id = to_int(r.amenity_category_id);
-    const name = String(r.amenity_category || "").trim();
-    if (id == null || !name) continue;
-    const row = { id, amenity_category: name, slug: slug(name) };
-    by_id[id] = row;
-    by_name[row.slug] = row;
-    table.push(row);
-  }
-  table.sort((a, b) => a.id - b.id);
-  return { by_id, by_name, table };
 }
 
 /* ========= enrich floods (origin-centric) ========= */
@@ -534,65 +521,186 @@ function MapDataProvider({ children }) {
   const [loading, set_loading] = useState(true);
   const [error, set_error] = useState("");
 
-  /* ========= load all local assets ========= */
+  async function auth_fetch_json(path) {
+    const headers = { accept: "application/json" };
+    if (BACKEND_TOKEN) headers["authorization"] = `Bearer ${BACKEND_TOKEN}`;
+    const res = await fetch(`${BACKEND_URL}${path}`, { headers });
+    return res;
+  }
+
+  /* ========= helper: load planning area ========= */
+  async function load_planning_area() {
+    try {
+      const res = await auth_fetch_json("/api/planning-area/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ planning-area from api");
+        return planning_api_to_fc(json);
+      } else {
+        console.warn("planning-area api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("planning-area api error", e);
+    }
+
+    console.log("ℹ️ falling back to local planning_area.geojson");
+    const local = await fetch("/map/planning_area.geojson").then(r => r.json());
+    return as_feature_collection(local);
+  }
+
+  /* ========= helper: load subzone ========= */
+  async function load_subzone() {
+    try {
+      const res = await auth_fetch_json("/api/subzone/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ subzone from api");
+        return subzone_api_to_fc(json);
+      } else {
+        console.warn("subzone api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("subzone api error", e);
+    }
+
+    console.log("ℹ️ falling back to local subzone_area.geojson");
+    const local = await fetch("/map/subzone_area.geojson").then(r => r.json());
+    return as_feature_collection(local);
+  }
+
+  /* ========= helper: load road network ========= */
+  async function load_road() {
+    // try {
+    //   const res = await auth_fetch_json("/api/road-network/");
+    //   if (res.ok) {
+    //     const json = await res.json();
+    //     console.log("✅ road-network from api");
+    //     return road_api_to_fc(json);
+    //   } else {
+    //     console.warn("road-network api failed with status", res.status);
+    //   }
+    // } catch (e) {
+    //   console.warn("road-network api error", e);
+    // }
+
+    // console.log("ℹ️ falling back to local road_network.geojson");
+    const local = await fetch("/map/road_network.geojson").then(r => r.json());
+    return as_feature_collection(local);
+  }
+
+  /* ========= helper: load floods ========= */
+  async function load_floods() {
+    try {
+      const res = await auth_fetch_json("/api/flood-3layers/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ floods from api");
+        return floods_api_to_fc(json);
+      } else {
+        console.warn("flood-3layers api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("flood-3layers api error", e);
+    }
+
+    console.log("ℹ️ falling back to local floods_3layers_new.csv");
+    const csv = await fetch("/map/floods_3layers_new.csv").then(r => r.text());
+    return floods_csv_to_fc(csv);
+  }
+
+  /* ========= helper: load amenities ========= */
+  async function load_amenities() {
+    try {
+      const res = await auth_fetch_json("/api/amenity-3layers/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ amenities from api");
+        return amenities_api_to_fc(json);
+      } else {
+        console.warn("amenity-3layers api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("amenity-3layers api error", e);
+    }
+
+    console.log("ℹ️ falling back to local amenity_3layers.csv");
+    const csv = await fetch("/map/amenity_3layers.csv").then(r => r.text());
+    return amenities_csv_to_fc(csv);
+  }
+
+  /* ========= helper: load amenity categories ========= */
+  async function load_amenity_categories() {
+    try {
+      const res = await auth_fetch_json("/api/amenity-cat-lookup/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ amenity categories from api");
+        return build_category_lookup_from_api(json);
+      } else {
+        console.warn("amenity-cat-lookup api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("amenity-cat-lookup api error", e);
+    }
+
+    console.log("ℹ️ falling back to local amenity_category_lookup_rows.csv");
+    const csvText = await fetch("/map/amenity_category_lookup_rows.csv").then(r => r.text());
+    return build_category_lookup(csvText);
+  }
+
+  /* ========= helper: load flood scenarios ========= */
+  async function load_scenarios() {
+    try {
+      const res = await auth_fetch_json("/api/road-network-flood-scenarios/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ flood scenarios from api");
+        const rows = json?.data ?? json ?? [];
+        return build_scenarios_from_records(rows);
+      } else {
+        console.warn("road-network-flood-scenarios api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("road-network-flood-scenarios api error", e);
+    }
+
+    console.log("ℹ️ falling back to local road_network_flood_scenarios.csv");
+    const csvText = await fetch("/map/road_network_flood_scenarios.csv").then(r => r.text());
+    const { records } = parse_csv(csvText);
+    return build_scenarios_from_records(records);
+  }
+
+  /* ========= load all assets ========= */
   useEffect(() => {
     (async () => {
       try {
         set_loading(true);
+
         const [
-          planning, subzone, road,
-          floods_csv, amenity_csv,
-          category_csv, scenarios_csv
+          planning_fc,
+          subzone_fc,
+          road_fc,
+          floods_fc,
+          amenity_fc,
+          category_lookup_val,
+          scenarios_val
         ] = await Promise.all([
-          fetch("/map/planning_area.geojson").then(r => r.json()),
-          fetch("/map/subzone_area.geojson").then(r => r.json()),
-          fetch("/map/road_network.geojson").then(r => r.json()),
-          fetch("/map/floods_3layers_new.csv").then(r => r.text()),
-          fetch("/map/amenity_3layers.csv").then(r => r.text()),
-          fetch("/map/amenity_category_lookup_rows.csv").then(r => r.text()),
-          fetch("/map/road_network_flood_scenarios.csv").then(r => r.text()),
+          load_planning_area(),
+          load_subzone(),
+          load_road(),
+          load_floods(),
+          load_amenities(),
+          load_amenity_categories(),
+          load_scenarios(),
         ]);
 
-        set_planning_raw(as_feature_collection(planning));
-        set_subzone_raw(as_feature_collection(subzone));
-        set_road_raw(as_feature_collection(road));
-        set_floods_raw(floods_csv_to_fc(floods_csv));
-        set_amenity_raw(amenities_csv_to_fc(amenity_csv));
-        set_category_lookup(build_category_lookup(category_csv));
-
-        // Parse flood scenarios
-        const { records } = parse_csv(scenarios_csv);
-        const byScenario = new Map();
-        for (const row of records) {
-          const scenario = row.flood_scenario?.trim();
-          const rn_id = to_int(row.RN_ID);
-          const name = row.RD_NAME?.trim() || `Road ${rn_id}`;
-          const pa_name = row.PLN_AREA_N?.trim();
-
-          if (!scenario || rn_id == null) continue;
-
-          if (!byScenario.has(scenario)) {
-            byScenario.set(scenario, []);
-          }
-          byScenario.get(scenario).push({ rn_id, name, pa_name });
-        }
-
-        const scenarios = Array.from(byScenario.entries()).map(([name, roads]) => {
-          let description = `${roads.length} roads affected in this scenario.`;
-
-          if (name === "PUB_100RP_highest60mins") {
-            description = "PUB's 1 in 100 year return period (based on Code of Practice for drainage design) for the highest 60 minute rainfall";
-          } else if (name === "Historical_highest60mins") {
-            description = "Historical extreme for the highest 60 minute rainfall";
-          } else if (name === "V3_future_highest60mins") {
-            description = "Future projected highest 60 minute rainfall";
-          } else if (name.includes("Historical")) {
-            description = `Simulates ${name.replace(/_/g, " ")} flood scenario affecting ${roads.length} roads across major arterial routes.`;
-          }
-
-          return { name, roads, description };
-        });
-        set_flood_scenarios(scenarios);
+        set_planning_raw(planning_fc);
+        set_subzone_raw(as_feature_collection(subzone_fc));
+        set_road_raw(as_feature_collection(road_fc));
+        set_floods_raw(floods_fc);
+        set_amenity_raw(amenity_fc);
+        set_category_lookup(category_lookup_val);
+        set_flood_scenarios(scenarios_val);
 
       } catch (e) {
         console.error(e);
@@ -616,7 +724,7 @@ function MapDataProvider({ children }) {
     [floods_fc_raw, lookups]
   );
 
-  /* ========= enrich amenities (names + category) ========= */
+  /* ========= enrich amenities ========= */
   const amenity_fc_enriched = useMemo(
     () => enrich_amenities(amenity_fc_raw || { type: "FeatureCollection", features: [] }, lookups, category_lookup),
     [amenity_fc_raw, lookups, category_lookup]
@@ -674,25 +782,39 @@ function MapDataProvider({ children }) {
     floods_fc_enriched, amenity_fc_enriched, flood_scenarios
   ]);
 
-  /* ========= context value ========= */
   const value = {
     planning_fc_raw,
     subzone_fc_raw,
     road_fc_enriched,
     floods_fc_enriched,
     amenity_fc_raw,
-    amenity_fc_enriched,   // ⬅️ expose enriched amenities
+    amenity_fc_enriched,
     category_lookup,
-    flood_scenarios,       // ⬅️ expose flood scenarios
+    flood_scenarios,
     lookups,
     loading,
     error,
   };
 
-  return <MapDataContext.Provider value={value}>{children}</MapDataContext.Provider>;
+  return (
+    <MapDataContext.Provider value={value}>
+      {loading && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="rounded-lg border bg-card px-6 py-4 shadow-lg text-center space-y-2">
+            <p className="text-sm font-medium">
+              Loading map data…
+            </p>
+            <p className="text-xs text-muted-foreground">
+              This view is consuming data from the API. Please wait and avoid interacting with the page.
+            </p>
+          </div>
+        </div>
+      )}
+      {children}
+    </MapDataContext.Provider>
+  );
 }
 
-/* ========= hook ========= */
 function useMapData() {
   const ctx = useContext(MapDataContext);
   if (!ctx) throw new Error("useMapData must be used inside MapDataProvider");

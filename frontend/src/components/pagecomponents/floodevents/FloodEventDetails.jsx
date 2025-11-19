@@ -152,7 +152,7 @@ export function FloodEventDetails({
           </div>
 
           {/* Event info */}
-          <Card className="rounded-2xl border border-border/70 bg-background/80">
+          <Card className="rounded-2xl border border-border/70 bg-background/80 p-0">
             <div className="px-4 py-3 space-y-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold">
@@ -227,7 +227,7 @@ export function FloodEventDetails({
           </Card>
 
           {/* Affected infra */}
-          <Card className="rounded-2xl border border-border/70 bg-background/80">
+          <Card className="rounded-2xl border border-border/70 bg-background/80 p-0">
             <div className="px-4 py-3 space-y-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold">
@@ -241,7 +241,7 @@ export function FloodEventDetails({
                 className="w-full"
               >
                 <div className="border border-border/70 rounded-full p-0.5 mb-2 bg-muted/40">
-                  <TabsList className="w-full grid grid-cols-2 h-8 bg-transparent mb-10 p-0">
+                  <TabsList className="w-full grid grid-cols-2 h-8 bg-transparent p-0">
                     <TabsTrigger
                       value="amenities"
                       className="text-xs rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm"
