@@ -72,8 +72,8 @@ def to_geojson(rows: List[Dict]) -> Dict[str, Any]:
 # get all road network data (paginated to avoid Supabase timeouts)
 @router.get("/")
 async def get_all_road_network_data(
-    limit: int = Query(5000, ge=1, le=50000),
-    offset: int = Query(0, ge=0),
+    # limit: int = Query(5000, ge=1, le=50000),
+    # offset: int = Query(0, ge=0),
 ):
     try:
         end = offset + limit - 1
