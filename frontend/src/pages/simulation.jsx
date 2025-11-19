@@ -884,7 +884,18 @@ export default function Simulation() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [amenity_fc_enriched, selectedAmenityType]);
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="rounded-lg border bg-card p-6 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-sm font-medium">Loading data...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
