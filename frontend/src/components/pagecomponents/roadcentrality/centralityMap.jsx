@@ -243,10 +243,18 @@ const createWidthExpression = (metric, data) => {
   return 3; // Default uniform width
 };
 
-export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, selectedMarker = null, maxValues = null }) {
+export function CentralityMap({
+  data,
+  selectedRoadId,
+  onMapLoad,
+  onRoadClick,
+  selectedMarker = null,
+  maxValues = null,
+  colorMetric = "importance",
+  onColorMetricChange
+}) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
-  const [colorMetric, setColorMetric] = useState("importance");
   const [thicknessMetric, setThicknessMetric] = useState("none");
   const markerRef = useRef(null);
 
@@ -764,7 +772,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
         <div className="rounded-xl bg-card/95 backdrop-blur-sm border p-3 shadow-lg space-y-2">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Color Metric</Label>
-            <Select value={colorMetric} onValueChange={setColorMetric}>
+            <Select value={colorMetric} onValueChange={onColorMetricChange}>
               <SelectTrigger className="w-[160px] h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>

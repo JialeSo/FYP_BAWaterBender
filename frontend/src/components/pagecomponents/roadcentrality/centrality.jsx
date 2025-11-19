@@ -68,6 +68,9 @@ export default function Centrality() {
 
   const [isCalculating, setIsCalculating] = useState(false);
 
+  // Track selected color metric for map
+  const [colorMetric, setColorMetric] = useState("importance");
+
   /* ===== counts ===== */
   const amenityCounts = useMemo(() => {
     const m = Object.create(null);
@@ -832,9 +835,18 @@ export default function Centrality() {
   }, [scored]);
 
   const mapData = useMemo(() => {
+    // Filter out roads with 0 or no data for the current color metric
+    const filteredFeatures = filteredSorted.filter(road => {
+      const value = road.properties?.[colorMetric];
+      // Keep roads that have a non-zero, non-null, non-undefined value for the current metric
+      return value !== null && value !== undefined && !isNaN(value) && value > 0;
+    });
+
+    console.log(`[Centrality] Filtered mapData for metric ${colorMetric}: ${filteredFeatures.length} roads (from ${filteredSorted.length} total)`);
+
     // Always create a new object to ensure React detects changes
-    return { type: "FeatureCollection", features: [...filteredSorted] };
-  }, [filteredSorted]);
+    return { type: "FeatureCollection", features: [...filteredFeatures] };
+  }, [filteredSorted, colorMetric]);
 
    // Selected road state
   const [selectedRoadId, setSelectedRoadId] = useState(null);
@@ -1677,6 +1689,8 @@ export default function Centrality() {
             onRoadClick={handleRoadSelect}
             selectedMarker={selectedMarker}
             maxValues={maxValues}
+            colorMetric={colorMetric}
+            onColorMetricChange={setColorMetric}
           />
         </div>
 
