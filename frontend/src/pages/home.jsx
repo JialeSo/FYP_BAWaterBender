@@ -141,27 +141,28 @@ function HeroSection() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.05 }}
+        className="group"
       >
-        <Card className="relative border-border bg-card/80 shadow-xl">
+        <Card className="relative border-border bg-gradient-to-br from-card/90 to-primary/5 shadow-xl transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
-              <CardTitle className="text-sm font-semibold">
+              <CardTitle className="text-sm font-semibold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
                 singapore flood overview
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 planning areas · events · amenities · roads
               </p>
             </div>
-            <Badge variant="outline" className="text-[10px] uppercase tracking-[0.16em]">
+            <Badge variant="outline" className="text-[10px] uppercase tracking-[0.16em] animate-pulse">
               interactive in app
             </Badge>
           </CardHeader>
           <CardContent className="overflow-hidden rounded-2xl border border-border bg-background/40 p-0">
             <div className="relative h-72 md:h-80">
-              <MapboxHeroMap className="h-full w-full" />
+              <MapboxHeroMap className="h-full w-full transition-transform duration-700 group-hover:scale-105" />
 
               {/* simple overlay label */}
-              <div className="absolute left-3 top-3 rounded-xl border border-border bg-background/90 px-3 py-2 text-[11px] shadow backdrop-blur">
+              <div className="absolute left-3 top-3 rounded-xl border border-border bg-background/95 px-3 py-2 text-[11px] shadow-lg backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-xl">
                 <div className="font-semibold">floods and amenities</div>
                 <p className="mt-1 text-[10px] text-muted-foreground">
                   hover, click and filter across planning areas, events
@@ -202,14 +203,16 @@ function HistoricalSection() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        whileHover={{ scale: 1.02 }}
+        className="group"
       >
-        <Card className="border-border bg-card/80 shadow-lg">
+        <Card className="border-border bg-gradient-to-br from-card/80 to-blue-500/5 shadow-lg transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10">
           <CardContent className="relative overflow-hidden rounded-2xl border border-border bg-background/40 p-0">
             <div className="relative h-72 md:h-80">
-              {/* fake basemap */}
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,#1d4ed8_0,#020617_40%),radial-gradient(circle_at_80%_70%,#22c55e_0,#020617_45%)] opacity-80" />
-              {/* singapore shape-ish blob */}
-              <div className="absolute left-1/2 top-1/2 h-60 w-72 -translate-x-1/2 -translate-y-1/2 rounded-[40%] bg-sky-200/20 backdrop-blur-sm" />
+              {/* fake basemap with enhanced gradients */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,#1d4ed8_0,#020617_40%),radial-gradient(circle_at_80%_70%,#22c55e_0,#020617_45%)] opacity-80 transition-opacity duration-500 group-hover:opacity-90" />
+              {/* singapore shape-ish blob with glow */}
+              <div className="absolute left-1/2 top-1/2 h-60 w-72 -translate-x-1/2 -translate-y-1/2 rounded-[40%] bg-sky-200/20 backdrop-blur-sm shadow-[0_0_40px_rgba(56,189,248,0.15)] transition-shadow duration-500 group-hover:shadow-[0_0_60px_rgba(56,189,248,0.25)]" />
 
               {/* choropleth cells */}
               <div className="absolute left-1/2 top-1/2 grid h-52 w-64 -translate-x-1/2 -translate-y-1/2 grid-cols-6 grid-rows-4 gap-[2px]">
@@ -331,17 +334,18 @@ function EventsSection() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.05 }}
-        className="order-1 lg:order-2"
+        whileHover={{ scale: 1.02 }}
+        className="order-1 lg:order-2 group"
       >
-        <Card className="border-border bg-card/80 shadow-lg">
+        <Card className="border-border bg-gradient-to-br from-card/80 to-emerald-500/5 shadow-lg transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/10">
           <CardContent className="relative overflow-hidden rounded-2xl border border-border bg-background/40 p-0">
             <div className="relative h-72 md:h-80">
-              {/* light basemap */}
-              <div className="absolute inset-0 bg-slate-100" />
+              {/* light basemap with enhanced gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-emerald-50/30 transition-all duration-500 group-hover:from-slate-100 group-hover:to-emerald-50/50" />
               {/* ring roads */}
               <div className="absolute inset-0">
-                <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-400/70 bg-emerald-400/6" />
-                <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-sky-400/70 bg-sky-400/5" />
+                <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-400/70 bg-emerald-400/6 shadow-[0_0_30px_rgba(52,211,153,0.1)] transition-shadow duration-500 group-hover:shadow-[0_0_45px_rgba(52,211,153,0.2)]" />
+                <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-sky-400/70 bg-sky-400/5 shadow-[0_0_40px_rgba(56,189,248,0.08)] transition-shadow duration-500 group-hover:shadow-[0_0_55px_rgba(56,189,248,0.15)]" />
                 {/* simple road lines */}
                 <div className="absolute left-[18%] top-[35%] h-[2px] w-[64%] bg-emerald-500/70" />
                 <div className="absolute left-[32%] top-[48%] h-[2px] w-[48%] bg-sky-500/60" />
@@ -370,7 +374,7 @@ function EventsSection() {
               </div>
 
               {/* right metric popup */}
-              <div className="absolute right-4 top-10 w-52 rounded-2xl bg-slate-950/95 p-3 text-[11px] text-slate-50 shadow-xl">
+              <div className="absolute right-4 top-10 w-52 rounded-2xl bg-slate-950/95 p-3 text-[11px] text-slate-50 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-2xl">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
                     flood event details
@@ -407,22 +411,31 @@ function CentralitySection() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        whileHover={{ scale: 1.02 }}
+        className="group"
       >
-        <Card className="border-border bg-card/80 shadow-lg">
+        <Card className="border-border bg-gradient-to-br from-card/80 to-blue-600/5 shadow-lg transition-all duration-300 hover:shadow-2xl hover:shadow-blue-600/10">
           <CardContent className="relative overflow-hidden rounded-2xl border border-border bg-background/40 p-0">
             <div className="relative h-72 md:h-80">
-              {/* pale basemap */}
-              <div className="absolute inset-0 bg-slate-100" />
+              {/* pale basemap with gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50/40 transition-all duration-500 group-hover:from-slate-100 group-hover:to-blue-50/60" />
 
               {/* road network */}
               <div className="absolute inset-6">
-                <svg viewBox="0 0 400 220" className="h-full w-full">
+                <svg viewBox="0 0 400 220" className="h-full w-full transition-opacity duration-500 group-hover:opacity-100 opacity-95">
                   <defs>
                     <linearGradient id="roadImportance" x1="0%" y1="0%" x2="100%" y2="0%">
                       <stop offset="0%" stopColor="#0f172a" />
                       <stop offset="50%" stopColor="#2563eb" />
                       <stop offset="100%" stopColor="#38bdf8" />
                     </linearGradient>
+                    <filter id="roadGlow">
+                      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                      <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
                   </defs>
                   {/* base roads */}
                   <g stroke="#cbd5f5" strokeWidth="1.2" strokeOpacity="0.7">
@@ -434,11 +447,11 @@ function CentralitySection() {
                     <path d="M330 20 L330 200" />
                   </g>
                   {/* highlighted routes */}
-                  <g stroke="url(#roadImportance)" strokeLinecap="round">
-                    <path d="M30 110 L210 110" strokeWidth="4" />
-                    <path d="M210 110 L370 110" strokeWidth="6" />
-                    <path d="M210 40 L210 110" strokeWidth="3.5" />
-                    <path d="M210 110 L210 190" strokeWidth="2.8" />
+                  <g stroke="url(#roadImportance)" strokeLinecap="round" filter="url(#roadGlow)">
+                    <path d="M30 110 L210 110" strokeWidth="4" className="transition-all" />
+                    <path d="M210 110 L370 110" strokeWidth="6" className="transition-all" />
+                    <path d="M210 40 L210 110" strokeWidth="3.5" className="transition-all" />
+                    <path d="M210 110 L210 190" strokeWidth="2.8" className="transition-all" />
                   </g>
                 </svg>
               </div>
@@ -453,7 +466,7 @@ function CentralitySection() {
               </div>
 
               {/* control popup */}
-              <div className="absolute right-4 top-4 w-52 rounded-xl bg-slate-950/95 p-3 text-[11px] text-slate-100 shadow-xl">
+              <div className="absolute right-4 top-4 w-52 rounded-xl bg-slate-950/95 p-3 text-[11px] text-slate-100 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-2xl">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
                     road details
@@ -548,12 +561,14 @@ function SimulationSection() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.05 }}
+        whileHover={{ scale: 1.02 }}
+        className="group"
       >
-        <Card className="border-border bg-card/80 shadow-lg">
+        <Card className="border-border bg-gradient-to-br from-card/80 to-rose-500/5 shadow-lg transition-all duration-300 hover:shadow-2xl hover:shadow-rose-500/10">
           <CardContent className="relative overflow-hidden rounded-2xl border border-border bg-background/40 p-0">
             <div className="relative h-72 md:h-80">
-              {/* basemap */}
-              <div className="absolute inset-0 bg-slate-100" />
+              {/* basemap with gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-rose-50/30 transition-all duration-500 group-hover:from-slate-100 group-hover:to-rose-50/50" />
               {/* planning area outlines */}
               <div className="absolute inset-6">
                 <svg viewBox="0 0 400 220" className="h-full w-full">
@@ -564,10 +579,12 @@ function SimulationSection() {
                     <rect x="70" y="120" width="110" height="70" />
                     <rect x="200" y="130" width="140" height="60" />
                   </g>
-                  {/* flooded area highlight */}
-                  <rect x="130" y="40" width="120" height="70" fill="#ef4444" fillOpacity="0.35" />
+                  {/* flooded area highlight with animation */}
+                  <rect x="130" y="40" width="120" height="70" fill="#ef4444" fillOpacity="0.35" className="transition-all duration-500 group-hover:fill-opacity-45">
+                    <animate attributeName="fill-opacity" values="0.35;0.42;0.35" dur="3s" repeatCount="indefinite" />
+                  </rect>
                   {/* moderate area */}
-                  <rect x="70" y="120" width="110" height="70" fill="#22c55e" fillOpacity="0.35" />
+                  <rect x="70" y="120" width="110" height="70" fill="#22c55e" fillOpacity="0.35" className="transition-all duration-500 group-hover:fill-opacity-45" />
                   {/* points as flooded roads */}
                   <g fill="#0f172a">
                     <circle cx="190" cy="120" r="4" />
@@ -591,7 +608,7 @@ function SimulationSection() {
               </div>
 
               {/* popup */}
-              <div className="absolute left-4 top-6 w-60 rounded-xl bg-slate-950/95 p-3 text-[11px] text-slate-50 shadow-xl">
+              <div className="absolute left-4 top-6 w-60 rounded-xl bg-slate-950/95 p-3 text-[11px] text-slate-50 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-2xl">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
                     simulation summary
@@ -616,7 +633,12 @@ function SimulationSection() {
 
 function ClosingSection() {
   return (
-    <section className="rounded-2xl border border-border bg-card/80 p-6 md:p-8">
+    <motion.section
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="rounded-2xl border border-border bg-gradient-to-br from-card/80 to-primary/5 p-6 md:p-8 shadow-lg transition-all duration-300 hover:shadow-xl hover:shadow-primary/10"
+    >
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
           <h3 className="font-[montserrat] text-xl font-bold">
@@ -638,7 +660,7 @@ function ClosingSection() {
           </span>
         </div>
       </div>
-    </section>
+    </motion.section>
   )
 }
 
