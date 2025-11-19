@@ -27,126 +27,53 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, } from "@/components/ui/collapsible";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronsUpDown, MapPin, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronsUpDown, MapPin, Search, X } from "lucide-react";
 import { NumberInput } from "@/components/numberInput";
 import { FloodEventsLearnDialog } from "./floodEventsLearnDialog";
+import {
+  default_weight_by_category,
+  AMENITY_WEIGHT_PRESETS,
+  AR_IMPACT_PRESETS,
+  createMetricFilterState,
+} from "@/components/pagecomponents/floodevents/constants";
+
+import {
+  popup_html,
+  clear_selected_rings,
+  roads_within_rings,
+  bounds_from_floods,
+  await_style,
+  normalize01,
+  meters_to_deg,
+  to_num,
+  to_title_case,
+  format_option_label,
+  date_in_range,
+  dist_m,
+  clamp,
+  fmt,
+} from "@/components/pagecomponents/floodevents/utils";
+import FloodEventDetails from "@/components/pagecomponents/floodevents/FloodEventDetails";
+import FloodConfigurationPanel from "@/components/pagecomponents/floodevents/FloodConfigurationPanel";
+import FloodTable from "@/components/pagecomponents/floodevents/FloodTable";
+import FloodMap from "@/components/pagecomponents/floodevents/FloodMap";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
 const page_size = 20;
 
 /* ===== utils ===== */
-const to_num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : NaN; };
-const fmt = (v, d = 6) => (Number.isFinite(+v) ? (+v).toFixed(d) : "N/A");
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const to_title_case = (value) => {
-  if (value == null) return "";
-  return String(value)
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
+// Utilities now imported from @/components/pagecomponents/floodevents/utils
+function normalizeCat(name) {
+  return String(name)
     .trim()
-    .split(" ")
-    .map((word) => {
-      if (!word) return "";
-      const upper = word.toUpperCase();
-      if (word === upper && /^[A-Z0-9]+$/.test(word)) return upper;
-      const lower = word.toLowerCase();
-      if (lower.length <= 2) return lower.toUpperCase();
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
-    })
-    .join(" ");
-};
-const format_option_label = (value, fallback) => {
-  if (!value || value === "all") return fallback || "All";
-  return to_title_case(value);
-};
-const date_in_range = (dt, from, to) => { if (!dt) return true; if (from && dt < from) return false; if (to && dt > to) return false; return true; };
-const dist_m = (lng1, lat1, lng2, lat2) => turf.distance([lng1, lat1], [lng2, lat2], { units: "kilometers" }) * 1000;
+    .toLowerCase()
+    .replace(/\s+/g, "_"); 
+}
 
-const createMetricFilterState = () => ({
-  inner: { min: "", max: "" },
-  total: { min: "", max: "" },
-  centrality: { min: "", max: "" },
-  impactInner: { min: "", max: "" },
-  impactOuter: { min: "", max: "" },
-  impactTotal: { min: "", max: "" },
-});
+const norm = (s) =>
+  String(s).trim().toLowerCase().replace(/\s+/g, "_");
 
-const METRIC_FILTER_CONFIG = [
-  {
-    key: "inner",
-    label: "Amenity Inner Count",
-    description: "Total amenities captured within the inner catchment radius.",
-    step: 1,
-  },
-  {
-    key: "total",
-    label: "Total Amenity Count",
-    description: "Combined amenities from both the inner and outer catchments.",
-    step: 1,
-  },
-  {
-    key: "centrality",
-    label: "Road Centrality Index",
-    description: "Blended centrality score based on configurable betweenness and closeness weights.",
-    step: 0.01,
-  },
-  {
-    key: "impactInner",
-    label: "Impact (Inner)",
-    description: "Weighted amenity impact contributed by the inner catchment.",
-    step: 1,
-  },
-  {
-    key: "impactOuter",
-    label: "Impact (Outer)",
-    description: "Weighted amenity impact contributed by the outer catchment.",
-    step: 1,
-  },
-  {
-    key: "impactTotal",
-    label: "Impact (Total)",
-    description: "Total weighted amenity impact used in the index calculation.",
-    step: 1,
-  },
-];
-
-const METRIC_SUMMARY_ROWS = [
-  {
-    metric: "Roads Affected",
-    meaning: "Total number of roads within the inner and outer distance rings from each flood location.",
-    insight: "Higher values indicate more road infrastructure at risk. Roads in inner ring are weighted more heavily. Contributes to AR Impact via roads score.",
-  },
-  {
-    metric: "Amenities Affected",
-    meaning: "Total number of amenities (hospitals, schools, etc.) within the inner and outer distance rings from each flood location.",
-    insight: "Higher values indicate more critical facilities at risk. Each amenity category has a different weight (e.g., emergency services weighted highest).",
-  },
-  {
-    metric: "Betweenness Norm",
-    meaning: "Normalized betweenness centrality of the affected road (0-1 scale). Measures how often the road lies on shortest paths between other roads.",
-    insight: "Higher values indicate roads critical for network connectivity. Roads with high betweenness are key transit routes whose flooding disrupts many journeys.",
-  },
-  {
-    metric: "Closeness Norm",
-    meaning: "Normalized closeness centrality of the affected road (0-1 scale). Measures how central the road is to the entire network.",
-    insight: "Higher values indicate roads with good access to all other roads. Flooding these roads affects reachability across the entire network.",
-  },
-  {
-    metric: "AR Impact",
-    meaning: "Amenity-Road Impact score combining 4 weighted components: betweenness, closeness, amenity exposure, and roads affected.",
-    insight: "Final risk score (formula: AR = w_b × betweenness + w_c × closeness + w_a × amenity_score + w_r × roads_score). Use presets or adjust weights to prioritize different factors.",
-  },
-];
-
-
-
-const RANKING_METRICS = [
-  { key: "ar_impact", label: "AR Impact", precision: 3 },
-  { key: "impact_total", label: "Impact Total", precision: 2 },
-  { key: "ring_total", label: "Total Amenities", precision: 0 },
-  { key: "centrality", label: "Centrality", precision: 3 },
-];
 
 function MultiSelectFilter({ id, label, options = [], values = [], onChange, placeholder = "All" }) {
   const [open, setOpen] = useState(false);
@@ -290,259 +217,6 @@ function MultiSelectFilter({ id, label, options = [], values = [], onChange, pla
   );
 }
 
-function await_style(map) {
-  return new Promise((resolve) => {
-    if (map.isStyleLoaded && map.isStyleLoaded()) return resolve();
-    const on_load = () => { map.off("load", on_load); resolve(); };
-    map.on("load", on_load);
-  });
-}
-
-function bounds_from_floods(fc) {
-  const b = new mapboxgl.LngLatBounds();
-  let had = false;
-  for (const f of fc?.features || []) {
-    const p = f.properties || {};
-    const lng = to_num(p.start_lng);
-    const lat = to_num(p.start_lat);
-    if (!Number.isNaN(lng) && !Number.isNaN(lat)) { b.extend([lng, lat]); had = true; }
-  }
-  return had ? b : null;
-}
-
-function build_flood_detail(p) {
-  const origin = [to_num(p.origin_lng), to_num(p.origin_lat)];
-  const start  = [to_num(p.start_lng),  to_num(p.start_lat)];
-  const pred_a = [to_num(p.end100_a_lng), to_num(p.end100_a_lat)];
-  const pred_b = [to_num(p.end100_b_lng), to_num(p.end100_b_lat)];
-  const end    = [to_num(p.end_lng),    to_num(p.end_lat)];
-  const has = (xy) => !Number.isNaN(xy?.[0]) && !Number.isNaN(xy?.[1]) && Math.abs(xy[0]) <= 180 && Math.abs(xy[1]) <= 90;
-
-  const points = [];
-  if (has(origin)) points.push({ role: "origin", coord: origin });
-  if (has(start))  points.push({ role: "start",  coord: start });
-  if (has(pred_a)) points.push({ role: "pred_a", coord: pred_a });
-  if (has(pred_b)) points.push({ role: "pred_b", coord: pred_b });
-  if (has(end))    points.push({ role: "end",    coord: end });
-
-  const seg = (a, b, role) => (has(a) && has(b) ? [{ role, a, b }] : []);
-  const lines = [
-    ...seg(origin, start, "origin_to_start"),
-    ...seg(start, pred_a, "start_to_pred_a"),
-    ...seg(start, pred_b, "start_to_pred_b"),
-    ...seg(pred_a, end,  "pred_a_to_end"),
-    ...seg(pred_b, end,  "pred_b_to_end"),
-    ...(!has(end) && has(pred_a) && has(pred_b) ? seg(pred_a, pred_b, "pred_a_to_pred_b") : []),
-  ];
-
-  const center = has(start) ? start : (has(origin) ? origin : points[0]?.coord);
-  return { points, lines, center };
-}
-
-function popup_html(p = {}) {
-  const safe = (x) => (x ?? "—");
-  const coord = (lat, lng) => {
-    const latNum = to_num(lat);
-    const lngNum = to_num(lng);
-    if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
-      return `${latNum.toFixed(5)}, ${lngNum.toFixed(5)}`;
-    }
-    return "—";
-  };
-  const typ = to_title_case((p.event || "").replace(/_/g, " ")) || "—";
-  const road = p.parent_road || "—";
-  return `
-    <div>
-      <div class="text-xs uppercase opacity-70">Flood</div>
-      <div><b>ID:</b> ${safe(p.id)}</div>
-      <div><b>Date:</b> ${safe(p.event_date)}</div>
-      <div><b>Type:</b> ${typ}</div>
-      <div><b>Road:</b> ${road}</div>
-      <div class="mt-1 text-xs opacity-70">
-        Start: ${coord(p.start_lat, p.start_lng)}
-      </div>
-      <div class="mt-1 text-xs opacity-70">
-        Pred A: ${coord(p.end100_a_lat, p.end100_a_lng)}<br/>
-        Pred B: ${coord(p.end100_b_lat, p.end100_b_lng)}<br/>
-        End: ${coord(p.end_lat, p.end_lng)}
-      </div>
-    </div>
-  `;
-}
-
-
-/* ===== weights & scoring ===== */
-const default_weight_by_category = {
-  community_spaces: 1,
-  education_institutions: 3.464,
-  emergency_services: 5,
-  essential_services: 2,
-  government_services: 3.162,
-  healthcare_facilities: 4,
-  others: 1,
-  residential: 3.162,
-  retail_services: 1,
-  tourism: 1,
-  transport_services: 3.742,
-};
-
-const AMENITY_WEIGHT_PRESETS = {
-  default: {
-    name: "Default",
-    description: "Custom weighted priorities",
-    weights: {
-      community_spaces: 1,
-      education_institutions: 3.464,
-      emergency_services: 5,
-      essential_services: 2,
-      government_services: 3.162,
-      healthcare_facilities: 4,
-      others: 1,
-      residential: 3.162,
-      retail_services: 1,
-      tourism: 1,
-      transport_services: 3.742,
-    },
-  },
-  balanced: {
-    name: "Balanced",
-    description: "All categories weighted equally",
-    weights: {
-      community_spaces: 1,
-      education_institutions: 1,
-      emergency_services: 1,
-      essential_services: 1,
-      government_services: 1,
-      healthcare_facilities: 1,
-      others: 1,
-      residential: 1,
-      retail_services: 1,
-      tourism: 1,
-      transport_services: 1,
-    },
-  },
-  emergency: {
-    name: "Emergency Focused",
-    description: "Prioritize emergency and healthcare services",
-    weights: {
-      community_spaces: 1,
-      education_institutions: 2,
-      emergency_services: 10,
-      essential_services: 4,
-      government_services: 2,
-      healthcare_facilities: 8,
-      others: 1,
-      residential: 1,
-      retail_services: 1,
-      tourism: 1,
-      transport_services: 4,
-    },
-  },
-};
-
-const AR_IMPACT_PRESETS = {
-  centrality_focused: {
-    name: "Centrality Focused",
-    description: "Prioritizes road network importance",
-    weights: { betweenness: 0.35, closeness: 0.35, amenity: 0.15, roads: 0.15 },
-  },
-  balanced: {
-    name: "Balanced",
-    description: "Equal weighting across all factors",
-    weights: { betweenness: 0.25, closeness: 0.25, amenity: 0.25, roads: 0.25 },
-  },
-  amenity_focused: {
-    name: "Amenity Focused",
-    description: "Emphasizes facility exposure",
-    weights: { betweenness: 0.15, closeness: 0.15, amenity: 0.5, roads: 0.2 },
-  },
-  roads_focused: {
-    name: "Roads Focused",
-    description: "Prioritizes affected road count",
-    weights: { betweenness: 0.15, closeness: 0.15, amenity: 0.2, roads: 0.5 },
-  },
-};
-
-function normalize01(val, min, max) {
-  if (!Number.isFinite(val) || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) return 0;
-  return (val - min) / (max - min);
-}
-
-/* ===== roads distance helper (dynamic pad; supports multilinestring) ===== */
-function meters_to_deg(lat, meters) {
-  const deg_lat = meters / 111320;
-  const deg_lng = meters / (111320 * Math.cos(lat * Math.PI / 180) || 1);
-  return { deg_lat, deg_lng };
-}
-
-
-function clear_selected_rings() {
-  const map = map_ref.current;
-  try {
-    map.setLayoutProperty("rings-selected-inner-fill", "visibility", "none");
-    map.setLayoutProperty("rings-selected-outer-fill", "visibility", "none");
-    map.setLayoutProperty("rings-selected-inner-line", "visibility", "none");
-    map.setLayoutProperty("rings-selected-outer-line", "visibility", "none");
-    map.getSource("rings-selected-inner")?.setData({ type:"FeatureCollection", features: [] });
-    map.getSource("rings-selected-outer")?.setData({ type:"FeatureCollection", features: [] });
-  } catch {}
-}
-
-
-function roads_within_rings(road_fc, center, r_in, r_out) {
-  if (!road_fc?.features?.length || !center) return { inner: [], outer: [] };
-
-  const [lng0, lat0] = center;
-  const { deg_lat, deg_lng } = meters_to_deg(lat0, Math.max(r_out, 50));
-  const minx = lng0 - deg_lng, maxx = lng0 + deg_lng;
-  const miny = lat0 - deg_lat, maxy = lat0 + deg_lat;
-
-  const pt = turf.point(center);
-  const inner = [], outer = [];
-
-  for (const rf of road_fc.features) {
-    if (!rf?.geometry) continue;
-
-    const bb = turf.bbox(rf);
-    if (bb[0] > maxx || bb[2] < minx || bb[1] > maxy || bb[3] < miny) continue;
-
-    let d;
-    try {
-      d = turf.pointToLineDistance(pt, rf, { units: "meters" });
-    } catch {
-      const ls = [];
-      if (rf.geometry.type === "MultiLineString") {
-        for (const coords of rf.geometry.coordinates || []) {
-          ls.push({ type: "Feature", geometry: { type: "LineString", coordinates: coords }, properties: {} });
-        }
-      } else if (rf.geometry.type === "LineString") {
-        ls.push(rf);
-      }
-      d = Math.min(
-        ...ls.map(f => turf.pointToLineDistance(pt, f, { units: "meters" })).filter(Number.isFinite)
-      );
-    }
-
-    if (!Number.isFinite(d) || d > r_out) continue;
-
-    const band = d <= r_in ? "inner" : "outer";
-    const rp = rf.properties || {};
-    const name = rp.name || rp.road_name || rp.ROAD_NAME || "(unnamed)";
-    const rn_id = rp.rn_id ?? rp.RN_ID ?? null;
-
-    const item = {
-      band, d: Math.round(d), name, rn_id,
-      geometry: rf.geometry,
-      props: { ...rp },
-    };
-    (band === "inner" ? inner : outer).push(item);
-  }
-
-  inner.sort((a, b) => a.d - b.d);
-  outer.sort((a, b) => a.d - b.d);
-  return { inner, outer };
-}
-
 /* ===== main component ===== */
 export default function floodevents() {
   const {
@@ -551,6 +225,7 @@ export default function floodevents() {
     road_fc_enriched: road_fc,
     category_lookup,
     lookups,
+    loading,
   } = useMapData();
 
   const [isCalculating, setIsCalculating] = useState(false);
@@ -567,6 +242,28 @@ export default function floodevents() {
   const [to_str, set_to_str] = useState("");
   const [pa_filter, set_pa_filter] = useState([]);
   const [metric_filters, set_metric_filters] = useState(createMetricFilterState);
+
+  // Pending filter states (for "Apply Filters" pattern)
+  const [pending_q, set_pending_q] = useState("");
+  const [pending_event_types_filter, set_pending_event_types_filter] = useState([]);
+  const [pending_from_str, set_pending_from_str] = useState("");
+  const [pending_to_str, set_pending_to_str] = useState("");
+  const [pending_pa_filter, set_pending_pa_filter] = useState([]);
+
+  // Slider filter states (active and pending)
+  const [roads_total_min, set_roads_total_min] = useState("");
+  const [roads_total_max, set_roads_total_max] = useState("");
+  const [ring_total_min, set_ring_total_min] = useState("");
+  const [ring_total_max, set_ring_total_max] = useState("");
+  const [ar_impact_min, set_ar_impact_min] = useState("");
+  const [ar_impact_max, set_ar_impact_max] = useState("");
+
+  const [pending_roads_total_min, set_pending_roads_total_min] = useState("");
+  const [pending_roads_total_max, set_pending_roads_total_max] = useState("");
+  const [pending_ring_total_min, set_pending_ring_total_min] = useState("");
+  const [pending_ring_total_max, set_pending_ring_total_max] = useState("");
+  const [pending_ar_impact_min, set_pending_ar_impact_min] = useState("");
+  const [pending_ar_impact_max, set_pending_ar_impact_max] = useState("");
   const from_date = useMemo(() => (from_str ? new Date(from_str) : null), [from_str]);
   const to_date = useMemo(() => (to_str ? new Date(to_str) : null), [to_str]);
   const [selected, set_selected] = useState(null);
@@ -575,8 +272,15 @@ export default function floodevents() {
   const [panel_tab, set_panel_tab] = useState("amenities"); // "amenities" | "roads"
   const [ring_filter, set_ring_filter] = useState("all");
   const [show_page_rings, set_show_page_rings] = useState(false);
-  const [sort_key, set_sort_key] = useState("dt_desc");
+  const [sort_col, set_sort_col] = useState("dt");
+  const [sort_asc, set_sort_asc] = useState(false); // dt_desc means descending
   const [page, set_page] = useState(1);
+  const [amenity_search_term, set_amenity_search_term] = useState("");
+  const [road_search_term, set_road_search_term] = useState("");
+  const [amenity_sort, set_amenity_sort] = useState("all"); // "all", "inner", "outer"
+  const [road_sort, set_road_sort] = useState("all"); // "all", "inner", "outer"
+  const [focused_amenity, set_focused_amenity] = useState(null);
+  const [focused_road, set_focused_road] = useState(null);
   const [visible_cols, set_visible_cols] = useState({
     id: true, event_date: true, event: true, planning_area: true, location: true, parent_road: true,
     roads_total: true, ring_total: true, betweenness_norm: true, closeness_norm: true, ar_impact: true,
@@ -587,36 +291,43 @@ export default function floodevents() {
     start_postal_code: false, start_lat: false, start_lng: false,
   });
 
+
+
   const [cat_weights, setCatWeights] = useState(() => {
-    const out = { ...default_weight_by_category };
-    for (const c of Object.values(category_lookup?.by_id || {})) {
-      const name = String(c.amenity_category || "").trim();
-      if (!(name in out)) out[name] = 1;
-    }
+    const defaultPreset = AMENITY_WEIGHT_PRESETS.default;
+    const out = {};
+    Object.entries(defaultPreset.weights).forEach(([key, val]) => {
+      out[normalizeCat(key)] = val;
+    });
     return out;
   });
 
-   /* amenities flat list */
-  const amenity_list = useMemo(() => {
-    const feats = amenity_fc?.features || [];
-    const arr = [];
-    for (const f of feats) {
-      const p = f?.properties || {};
-      const c = f?.geometry?.coordinates || [];
-      const lng = +c[0], lat = +c[1];
-      if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-      const catname =
-        p.amenity_category_name ||
-        category_lookup?.by_id?.[p.amenity_category_id || 0]?.amenity_category ||
-        "others";
-      arr.push({
-        id: p.amenity_id ?? f.id ?? `${Math.random()}`,
-        lng, lat,
-        name: p.amenity_name ?? p.name ?? p.poi_name ?? p.display_name ?? p.place_name ?? "(unnamed)",
-        category: catname,
-      });
-    }
-    return arr;
+   /* amenities flat list - deferred to avoid blocking navigation */
+  const [amenity_list, set_amenity_list] = useState([]);
+  useEffect(() => {
+    // Defer amenity processing to avoid blocking page navigation
+    const timer = setTimeout(() => {
+      const feats = amenity_fc?.features || [];
+      const arr = [];
+      for (const f of feats) {
+        const p = f?.properties || {};
+        const c = f?.geometry?.coordinates || [];
+        const lng = +c[0], lat = +c[1];
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+        const catname =
+          p.amenity_category_name ||
+          category_lookup?.by_id?.[p.amenity_category_id || 0]?.amenity_category ||
+          "others";
+        arr.push({
+          id: p.amenity_id ?? f.id ?? `${Math.random()}`,
+          lng, lat,
+          name: p.amenity_name ?? p.name ?? p.poi_name ?? p.display_name ?? p.place_name ?? "(unnamed)",
+          category: catname,
+        });
+      }
+      set_amenity_list(arr);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [amenity_fc, category_lookup]);
   const categories = useMemo(() => {
     const items = Object.values(category_lookup?.by_id || {});
@@ -626,39 +337,247 @@ export default function floodevents() {
 
   const [cat_enabled, setCatEnabled] = useState(() => {
     const out = {};
-    for (const c of Object.values(category_lookup?.by_id || {})) {
-      const name = String(c.amenity_category || "").trim();
-      out[name] = true;
-    }
-    // Also enable default categories
+    // start purely from default_weight_by_category
     Object.keys(default_weight_by_category).forEach((name) => {
-      if (!(name in out)) out[name] = true;
+      out[name] = true;
     });
     return out;
   });
+
 
   const [inner_mult, set_inner_mult] = useState(2);
   const [outer_mult, set_outer_mult] = useState(1);
   const [inner_enabled, set_inner_enabled] = useState(true);
   const [outer_enabled, set_outer_enabled] = useState(true);
-  const [w_betweenness, set_w_betweenness] = useState(0.3);
-  const [w_closeness, set_w_closeness] = useState(0.3);
-  const [w_amenity, set_w_amenity] = useState(0.2);
-  const [w_roads, set_w_roads] = useState(0.2);
+
+  // Start with balanced preset for AR Impact
+  const balancedPreset = AR_IMPACT_PRESETS.balanced;
+  const [w_betweenness, set_w_betweenness] = useState(balancedPreset.weights.betweenness);
+  const [w_closeness, set_w_closeness] = useState(balancedPreset.weights.closeness);
+  const [w_amenity, set_w_amenity] = useState(balancedPreset.weights.amenity);
+  const [w_roads, set_w_roads] = useState(balancedPreset.weights.roads);
+
+  // Pending states for configuration (not applied until user clicks Apply Changes)
+  // Initialize with the same presets
+  const defaultPresetWeights = AMENITY_WEIGHT_PRESETS.default.weights;
+  const [pendingCatWeights, setPendingCatWeights] = useState(() => ({ ...defaultPresetWeights }));
+
+  const [pendingCatEnabled, setPendingCatEnabled] = useState(() => {
+    const out = {};
+    Object.keys(default_weight_by_category).forEach((name) => {
+      out[name] = true;
+    });
+    return out;
+  });
+
+
+  // helper: normalized + raw lookup for amenity categories
+  const getAmenityKey = (category) => {
+    const raw = String(category ?? "").trim();
+    const normKey = normalizeCat(raw);
+    return { raw, normKey };
+  };
+
+  const isAmenityCategoryEnabled = (category) => {
+    const { raw, normKey } = getAmenityKey(category);
+    if (typeof cat_enabled[normKey] === "boolean") return cat_enabled[normKey];
+    if (typeof cat_enabled[raw] === "boolean") return cat_enabled[raw];
+    return true; // default on
+  };
+
+  const getAmenityWeight = (category) => {
+    const { raw, normKey } = getAmenityKey(category);
+    if (typeof cat_weights[normKey] === "number") return cat_weights[normKey];
+    if (typeof cat_weights[raw] === "number") return cat_weights[raw];
+    return 0;
+  };
+
+  useEffect(() => {
+  if (!category_lookup?.by_id) return;
+
+  // merge new categories into active state (keep user toggles)
+  setCatEnabled((prev) => {
+    const next = { ...prev };
+    for (const c of Object.values(category_lookup.by_id)) {
+      const key = normalizeCat(c.amenity_category);
+      if (!(key in next)) next[key] = true;
+    }
+    return next;
+  });
+
+  // same for pending state
+  setPendingCatEnabled(prev => {
+    const next = { ...prev };
+    for (const c of Object.values(category_lookup.by_id)) {
+      const norm = normalizeCat(c.amenity_category);
+      if (!(norm in next)) next[norm] = true;
+    }
+    return next;
+  });
+  }, [category_lookup]);
+  
+
+  
+
+  // Pending state for ring radii
+  const [pendingRInner, setPendingRInner] = useState(200);
+  const [pendingROuter, setPendingROuter] = useState(500);
+
+  const [pendingInnerMult, setPendingInnerMult] = useState(2);
+  const [pendingOuterMult, setPendingOuterMult] = useState(1);
+  const [pendingInnerEnabled, setPendingInnerEnabled] = useState(true);
+  const [pendingOuterEnabled, setPendingOuterEnabled] = useState(true);
+  const [pendingWBetweenness, setPendingWBetweenness] = useState(balancedPreset.weights.betweenness);
+  const [pendingWCloseness, setPendingWCloseness] = useState(balancedPreset.weights.closeness);
+  const [pendingWAmenity, setPendingWAmenity] = useState(balancedPreset.weights.amenity);
+  const [pendingWRoads, setPendingWRoads] = useState(balancedPreset.weights.roads);
+
+  // Check if there are unapplied configuration changes
+  const hasUnappliedConfigChanges = useMemo(() => {
+    // Check category weights
+    const catWeightChanges = Object.keys({ ...cat_weights, ...pendingCatWeights }).some(
+      key => Math.abs((cat_weights[key] || 0) - (pendingCatWeights[key] || 0)) > 0.001
+    );
+
+    // Check category enabled
+    const catEnabledChanges = Object.keys({ ...cat_enabled, ...pendingCatEnabled }).some(
+      key => (cat_enabled[key] ?? true) !== (pendingCatEnabled[key] ?? true)
+    );
+
+    // Check ring radii
+    const radiusChanges =
+      Math.abs(r_inner - pendingRInner) > 0.001 ||
+      Math.abs(r_outer - pendingROuter) > 0.001;
+
+    // Check band weights
+    const bandChanges =
+      Math.abs(inner_mult - pendingInnerMult) > 0.001 ||
+      Math.abs(outer_mult - pendingOuterMult) > 0.001 ||
+      inner_enabled !== pendingInnerEnabled ||
+      outer_enabled !== pendingOuterEnabled;
+
+    // Check AR Impact weights
+    const arWeightChanges =
+      Math.abs(w_betweenness - pendingWBetweenness) > 0.001 ||
+      Math.abs(w_closeness - pendingWCloseness) > 0.001 ||
+      Math.abs(w_amenity - pendingWAmenity) > 0.001 ||
+      Math.abs(w_roads - pendingWRoads) > 0.001;
+
+    return catWeightChanges || catEnabledChanges || radiusChanges || bandChanges || arWeightChanges;
+  }, [
+    cat_weights, pendingCatWeights,
+    cat_enabled, pendingCatEnabled,
+    r_inner, pendingRInner,
+    r_outer, pendingROuter,
+    inner_mult, pendingInnerMult,
+    outer_mult, pendingOuterMult,
+    inner_enabled, pendingInnerEnabled,
+    outer_enabled, pendingOuterEnabled,
+    w_betweenness, pendingWBetweenness,
+    w_closeness, pendingWCloseness,
+    w_amenity, pendingWAmenity,
+    w_roads, pendingWRoads,
+  ]);
+
+  // Apply pending configuration changes
+  const applyConfigChanges = useCallback(() => {
+    setCatWeights({ ...pendingCatWeights });
+    setCatEnabled({ ...pendingCatEnabled });
+    set_r_inner(pendingRInner);
+    set_r_outer(pendingROuter);
+    set_inner_mult(pendingInnerMult);
+    set_outer_mult(pendingOuterMult);
+    set_inner_enabled(pendingInnerEnabled);
+    set_outer_enabled(pendingOuterEnabled);
+    set_w_betweenness(pendingWBetweenness);
+    set_w_closeness(pendingWCloseness);
+    set_w_amenity(pendingWAmenity);
+    set_w_roads(pendingWRoads);
+  }, [
+    pendingCatWeights, pendingCatEnabled,
+    pendingRInner, pendingROuter,
+    pendingInnerMult, pendingOuterMult,
+    pendingInnerEnabled, pendingOuterEnabled,
+    pendingWBetweenness, pendingWCloseness,
+    pendingWAmenity, pendingWRoads,
+  ]);
+
+  // Reset pending configuration changes to current active values
+  const resetConfigChanges = useCallback(() => {
+    setPendingCatWeights({ ...cat_weights });
+    setPendingCatEnabled({ ...cat_enabled });
+    setPendingRInner(r_inner);
+    setPendingROuter(r_outer);
+    setPendingInnerMult(inner_mult);
+    setPendingOuterMult(outer_mult);
+    setPendingInnerEnabled(inner_enabled);
+    setPendingOuterEnabled(outer_enabled);
+    setPendingWBetweenness(w_betweenness);
+    setPendingWCloseness(w_closeness);
+    setPendingWAmenity(w_amenity);
+    setPendingWRoads(w_roads);
+  }, [
+    cat_weights, cat_enabled,
+    r_inner, r_outer,
+    inner_mult, outer_mult,
+    inner_enabled, outer_enabled,
+    w_betweenness, w_closeness,
+    w_amenity, w_roads,
+  ]);
 
   const applyAmenityPreset = useCallback((presetKey) => {
     const preset = AMENITY_WEIGHT_PRESETS[presetKey];
+    if (!preset) return;
+
+    const normalized = {};
+    Object.entries(preset.weights).forEach(([key, val]) => {
+      normalized[norm(key)] = val;
+    });
+
+    setPendingCatWeights(normalized);
+
+    const enabled = {};
+    Object.keys(normalized).forEach(k => enabled[k] = true);
+    setPendingCatEnabled(enabled);
+
+  }, []);
+
+
+
+
+  const applyARImpactPreset = useCallback((presetKey) => {
+    const preset = AR_IMPACT_PRESETS[presetKey];
     if (!preset || !preset.weights) return;
 
-    setCatWeights((prev) => {
-      const updated = { ...prev };
-      Object.keys(preset.weights).forEach(key => {
-        updated[key] = preset.weights[key];
-      });
-      console.log("Applied amenity preset:", presetKey, updated);
-      return updated;
-    });
+    setPendingWBetweenness(preset.weights.betweenness);
+    setPendingWCloseness(preset.weights.closeness);
+    setPendingWAmenity(preset.weights.amenity);
+    setPendingWRoads(preset.weights.roads);
   }, []);
+
+  // Check if an amenity weight preset is currently active
+  const isAmenityWeightPresetActive = useCallback((presetKey) => {
+    const preset = AMENITY_WEIGHT_PRESETS[presetKey];
+    if (!preset || !preset.weights) return false;
+
+    // Check if all weights match the preset
+    return Object.keys(preset.weights).every(key =>
+      Math.abs((pendingCatWeights[key] || 0) - preset.weights[key]) < 0.01
+    );
+  }, [pendingCatWeights]);
+
+  // Check if an AR Impact preset is currently active
+  const isARImpactPresetActive = useCallback((presetKey) => {
+    const preset = AR_IMPACT_PRESETS[presetKey];
+    if (!preset || !preset.weights) return false;
+
+    return (
+      Math.abs(pendingWBetweenness - preset.weights.betweenness) < 0.01 &&
+      Math.abs(pendingWCloseness - preset.weights.closeness) < 0.01 &&
+      Math.abs(pendingWAmenity - preset.weights.amenity) < 0.01 &&
+      Math.abs(pendingWRoads - preset.weights.roads) < 0.01
+    );
+  }, [pendingWBetweenness, pendingWCloseness, pendingWAmenity, pendingWRoads]);
 
   /* roads index by rn_id for centrality */
   const roads_by_id = useMemo(() => {
@@ -699,79 +618,126 @@ export default function floodevents() {
     return out;
   };
 
-  const stats_by_flood_distance = useMemo(() => {
-    const out = new Map();
-    const floods = floods_fc?.features || [];
-    if (!floods.length) return out;
+  // Deferred calculation to avoid blocking navigation
+  const [stats_by_flood_distance, set_stats_by_flood_distance] = useState(new Map());
 
-    const r_in = Math.max(0, Math.min(r_inner, r_outer));
-    const r_out = Math.max(r_in, r_outer);
-
-    for (const f of floods) {
-      const p = f.properties || {};
-      const id = String(p.id ?? f.id ?? "");
-      const lng = to_num(p.start_lng), lat = to_num(p.start_lat);
-      if (Number.isNaN(lng) || Number.isNaN(lat)) continue;
-
-      let inner = 0, outer = 0;
-      let impact_inner = 0, impact_outer = 0;
-      const near = amenity_list.length ? query_amenities(lng, lat, r_out) : [];
-
-      for (const a of near) {
-        const d = a._distm;
-        const band = d <= r_in ? "inner" : "outer";
-        const enabled = cat_enabled[a.category] ?? true;
-        const w = enabled ? (+cat_weights[a.category] || 0.0) : 0.0;
-        if (band === "inner") { inner++; impact_inner += w * inner_mult; }
-        else { outer++; impact_outer += w * outer_mult; }
+  useEffect(() => {
+    // Defer expensive calculation to avoid blocking page navigation
+    const timer = setTimeout(() => {
+      const out = new Map();
+      const floods = floods_fc?.features || [];
+      if (!floods.length) {
+        set_stats_by_flood_distance(out);
+        return;
       }
 
-      const counts = { inner, outer, total: inner + outer };
-      const impact_total = impact_inner + impact_outer;
+      const r_in = Math.max(0, Math.min(r_inner, r_outer));
+      const r_out = Math.max(r_in, r_outer);
 
-      // Calculate roads affected within distance rings
-      const roads_near = roads_within_rings(road_fc, [lng, lat], r_in, r_out);
-      const roads_counts = {
-        inner: roads_near.inner.length,
-        outer: roads_near.outer.length,
-        total: roads_near.inner.length + roads_near.outer.length
-      };
+      for (const f of floods) {
+        const p = f.properties || {};
+        const id = String(p.id ?? f.id ?? "");
+        const lng = to_num(p.start_lng), lat = to_num(p.start_lat);
+        if (Number.isNaN(lng) || Number.isNaN(lat)) continue;
 
-      let bnorm = 0, cnorm = 0;
-      if (p.start_rn_id != null) {
-        const rlist = roads_by_id.get(String(p.start_rn_id)) || [];
-        let bmax = -Infinity, cmax = -Infinity;
-        for (const r of rlist) {
-          const rp = r.properties || {};
-          const b = +((rp.betweenness_norm ?? rp.betweenness ?? rp.BETWEENNESS_NORM ?? rp.BETWEENNESS) || NaN);
-          const c = +((rp.closeness_norm   ?? rp.closeness   ?? rp.CLOSENESS_NORM   ?? rp.CLOSENESS)   || NaN);
-          if (Number.isFinite(b)) bmax = Math.max(bmax, b);
-          if (Number.isFinite(c)) cmax = Math.max(cmax, c);
+        let inner = 0, outer = 0;
+        let impact_inner = 0, impact_outer = 0;
+        const near = amenity_list.length ? query_amenities(lng, lat, r_out) : [];
+
+        for (const a of near) {
+          const d = a._distm;
+          const band = d <= r_in ? "inner" : "outer";
+
+          const enabled = isAmenityCategoryEnabled(a.category);
+          const w = getAmenityWeight(a.category);
+
+          if (!enabled) continue;
+
+          if (band === "inner") {
+            inner++;
+            impact_inner += w * inner_mult;
+          } else {
+            outer++;
+            impact_outer += w * outer_mult;
+          }
         }
+
+        // Only include counts from enabled bands
+        const activeInner = inner_enabled ? inner : 0;
+        const activeOuter = outer_enabled ? outer : 0;
+        const counts = { inner: activeInner, outer: activeOuter, total: activeInner + activeOuter };
+        const impact_total = impact_inner + impact_outer;
+
+        // Calculate roads affected within distance rings
+        const roads_near = roads_within_rings(road_fc, [lng, lat], r_in, r_out);
+        const activeInnerRoads = inner_enabled ? roads_near.inner.length : 0;
+        const activeOuterRoads = outer_enabled ? roads_near.outer.length : 0;
+        const roads_counts = {
+          inner: activeInnerRoads,
+          outer: activeOuterRoads,
+          total: activeInnerRoads + activeOuterRoads
+        };
+
+        // Calculate centrality using all affected roads (origin, real end, or predicted endpoints)
+        let bnorm = 0, cnorm = 0;
+        const getAffectedRoadIds = (props) => {
+          const ids = [];
+          const origin_id = props.origin_rn_id ?? props.start_rn_id;
+          if (origin_id != null) ids.push(String(origin_id));
+
+          const hasRealEnd = props.end_rn_id != null &&
+                             props.end_lat != null && props.end_lng != null &&
+                             to_num(props.end_lat) !== 0 && to_num(props.end_lng) !== 0;
+
+          if (hasRealEnd) {
+            ids.push(String(props.end_rn_id));
+          } else {
+            if (props.end100_a_rn_id != null) ids.push(String(props.end100_a_rn_id));
+            if (props.end100_b_rn_id != null) ids.push(String(props.end100_b_rn_id));
+          }
+          return ids;
+        };
+
+        const affected_road_ids = getAffectedRoadIds(p);
+        let bmax = -Infinity, cmax = -Infinity;
+
+        for (const rid of affected_road_ids) {
+          const rlist = roads_by_id.get(rid) || [];
+          for (const r of rlist) {
+            const rp = r.properties || {};
+            const b = +((rp.betweenness_norm ?? rp.betweenness ?? rp.BETWEENNESS_NORM ?? rp.BETWEENNESS) || NaN);
+            const c = +((rp.closeness_norm   ?? rp.closeness   ?? rp.CLOSENESS_NORM   ?? rp.CLOSENESS)   || NaN);
+            if (Number.isFinite(b)) bmax = Math.max(bmax, b);
+            if (Number.isFinite(c)) cmax = Math.max(cmax, c);
+          }
+        }
+
         if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
         if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
+
+        const amenity_score = 1 - Math.exp(-(impact_total) / 10.0);
+
+        // Calculate roads score with band weighting
+        const inner_weight_mult = inner_enabled ? inner_mult : 0;
+        const outer_weight_mult = outer_enabled ? outer_mult : 0;
+        const roads_impact = (roads_counts.inner * inner_weight_mult) + (roads_counts.outer * outer_weight_mult);
+        const roads_score = 1 - Math.exp(-(roads_impact) / 10.0);
+
+        const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score) + (w_roads * roads_score);
+
+        out.set(id, {
+          center: [lng, lat],
+          counts,
+          roads_counts,
+          impact: { inner: impact_inner, outer: impact_outer, total: impact_total },
+          centrality: { bnorm, cnorm },
+          scores: { amenity_score, roads_score, roads_impact, ar_impact },
+        });
       }
+      set_stats_by_flood_distance(out);
+    }, 0);
 
-      const amenity_score = 1 - Math.exp(-(impact_total) / 10.0);
-
-      // Calculate roads score with band weighting
-      const inner_weight_mult = inner_enabled ? inner_mult : 0;
-      const outer_weight_mult = outer_enabled ? outer_mult : 0;
-      const roads_impact = (roads_counts.inner * inner_weight_mult) + (roads_counts.outer * outer_weight_mult);
-      const roads_score = 1 - Math.exp(-(roads_impact) / 10.0);
-
-      const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score) + (w_roads * roads_score);
-
-      out.set(id, {
-        center: [lng, lat],
-        counts,
-        roads_counts,
-        impact: { inner: impact_inner, outer: impact_outer, total: impact_total },
-        centrality: { bnorm, cnorm },
-        scores: { amenity_score, roads_score, roads_impact, ar_impact },
-      });
-    }
-    return out;
+    return () => clearTimeout(timer);
   }, [floods_fc, amenity_list, road_fc, r_inner, r_outer, cat_weights, cat_enabled, inner_mult, outer_mult, inner_enabled, outer_enabled, roads_by_id, centrality_scale, w_betweenness, w_closeness, w_amenity, w_roads]);
 
   /* rows & filters */
@@ -843,6 +809,50 @@ export default function floodevents() {
 
     return arr;
   }, [floods_fc, stats_by_flood_distance, lookups]);
+
+  // Percentiles per event for AR impact, amenities and roads
+  const percentiles_by_id = useMemo(() => {
+    const map = new Map();
+    if (!rows.length) return map;
+
+    const arValues = rows
+      .map((r) => r.ar_impact)
+      .filter((v) => Number.isFinite(v));
+    const amenityValues = rows
+      .map((r) => r.ring_total)
+      .filter((v) => Number.isFinite(v));
+    const roadValues = rows
+      .map((r) => r.roads_total)
+      .filter((v) => Number.isFinite(v));
+
+    const sortAsc = (arr) => [...arr].sort((a, b) => a - b);
+
+    const sortedAr = sortAsc(arValues);
+    const sortedAmenity = sortAsc(amenityValues);
+    const sortedRoads = sortAsc(roadValues);
+
+    const getPercentile = (value, sorted) => {
+      if (!sorted.length || !Number.isFinite(value)) return null;
+
+      // position of this value among all values (inclusive)
+      let idx = 0;
+      while (idx < sorted.length && sorted[idx] <= value) idx += 1;
+
+      const denom = Math.max(sorted.length - 1, 1);
+      const pct = (idx - 1) / denom; // 0–1
+      return Math.max(0, Math.min(1, pct));
+    };
+
+    rows.forEach((r) => {
+      map.set(String(r.id), {
+        ar_impact: getPercentile(r.ar_impact, sortedAr),
+        amenities: getPercentile(r.ring_total, sortedAmenity),
+        roads: getPercentile(r.roads_total, sortedRoads),
+      });
+    });
+
+    return map;
+  }, [rows]);
 
   // Calculate bounds for metric sliders
   const metric_bounds = useMemo(() => {
@@ -950,6 +960,10 @@ export default function floodevents() {
       if (!passesRange(r.impact_inner, metric_filters.impactInner)) return false;
       if (!passesRange(r.impact_outer, metric_filters.impactOuter)) return false;
       if (!passesRange(r.impact_total, metric_filters.impactTotal)) return false;
+      // Check slider filters
+      if (!passesRange(r.roads_total, { min: roads_total_min, max: roads_total_max })) return false;
+      if (!passesRange(r.ring_total, { min: ring_total_min, max: ring_total_max })) return false;
+      if (!passesRange(r.ar_impact, { min: ar_impact_min, max: ar_impact_max })) return false;
       if (!needle) return true;
       const haystacks = [
         r.id,
@@ -959,7 +973,7 @@ export default function floodevents() {
       ];
       return haystacks.some((txt) => String(txt).toLowerCase().includes(needle));
     });
-  }, [rows, q, event_types_filter, from_date, to_date, pa_filter, metric_filters]);
+  }, [rows, q, event_types_filter, from_date, to_date, pa_filter, metric_filters, roads_total_min, roads_total_max, ring_total_min, ring_total_max, ar_impact_min, ar_impact_max]);
 
   const has_active_metric_filters = useMemo(() => {
     return Object.values(metric_filters).some((range) => {
@@ -968,6 +982,99 @@ export default function floodevents() {
       return minActive || maxActive;
     });
   }, [metric_filters]);
+
+  // Calculate max values for slider filters
+  const maxValues = useMemo(() => {
+    if (!rows.length) return { roads_total: 100, ring_total: 100, ar_impact: 10 };
+    return {
+      roads_total: Math.max(...rows.map(r => r.roads_total || 0)),
+      ring_total: Math.max(...rows.map(r => r.ring_total || 0)),
+      ar_impact: Math.max(...rows.map(r => r.ar_impact || 0)),
+    };
+  }, [rows]);
+
+  // Check if there are unapplied filter changes
+  const hasUnappliedFilterChanges = useMemo(() => {
+    return (
+      pending_q !== q ||
+      JSON.stringify(pending_event_types_filter.sort()) !== JSON.stringify(event_types_filter.sort()) ||
+      pending_from_str !== from_str ||
+      pending_to_str !== to_str ||
+      JSON.stringify(pending_pa_filter.sort()) !== JSON.stringify(pa_filter.sort()) ||
+      pending_roads_total_min !== roads_total_min ||
+      pending_roads_total_max !== roads_total_max ||
+      pending_ring_total_min !== ring_total_min ||
+      pending_ring_total_max !== ring_total_max ||
+      pending_ar_impact_min !== ar_impact_min ||
+      pending_ar_impact_max !== ar_impact_max
+    );
+  }, [
+    pending_q, q,
+    pending_event_types_filter, event_types_filter,
+    pending_from_str, from_str,
+    pending_to_str, to_str,
+    pending_pa_filter, pa_filter,
+    pending_roads_total_min, roads_total_min,
+    pending_roads_total_max, roads_total_max,
+    pending_ring_total_min, ring_total_min,
+    pending_ring_total_max, ring_total_max,
+    pending_ar_impact_min, ar_impact_min,
+    pending_ar_impact_max, ar_impact_max,
+  ]);
+
+  // Apply pending filters to active filters
+  const applyTableFilters = useCallback(() => {
+    set_q(pending_q);
+    set_event_types_filter(pending_event_types_filter);
+    set_from_str(pending_from_str);
+    set_to_str(pending_to_str);
+    set_pa_filter(pending_pa_filter);
+    set_roads_total_min(pending_roads_total_min);
+    set_roads_total_max(pending_roads_total_max);
+    set_ring_total_min(pending_ring_total_min);
+    set_ring_total_max(pending_ring_total_max);
+    set_ar_impact_min(pending_ar_impact_min);
+    set_ar_impact_max(pending_ar_impact_max);
+    set_page(1);
+    // Clear map selection when filters change
+    clear_selection();
+  }, [
+    pending_q, pending_event_types_filter, pending_from_str, pending_to_str, pending_pa_filter,
+    pending_roads_total_min, pending_roads_total_max,
+    pending_ring_total_min, pending_ring_total_max,
+    pending_ar_impact_min, pending_ar_impact_max,
+  ]);
+
+  // Clear all filters (both pending and active)
+  const clearAllTableFilters = useCallback(() => {
+    // Clear active filters
+    set_q("");
+    set_event_types_filter([]);
+    set_from_str("");
+    set_to_str("");
+    set_pa_filter([]);
+    set_roads_total_min("");
+    set_roads_total_max("");
+    set_ring_total_min("");
+    set_ring_total_max("");
+    set_ar_impact_min("");
+    set_ar_impact_max("");
+    // Clear pending filters
+    set_pending_q("");
+    set_pending_event_types_filter([]);
+    set_pending_from_str("");
+    set_pending_to_str("");
+    set_pending_pa_filter([]);
+    set_pending_roads_total_min("");
+    set_pending_roads_total_max("");
+    set_pending_ring_total_min("");
+    set_pending_ring_total_max("");
+    set_pending_ar_impact_min("");
+    set_pending_ar_impact_max("");
+    set_page(1);
+    // Clear map selection
+    clear_selection();
+  }, []);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -980,11 +1087,11 @@ export default function floodevents() {
         return sgn * ((va ?? 0) - (vb ?? 0));
       });
     };
-    if (sort_key === "dt_desc") by("dt", "desc");
-    else if (sort_key.endsWith("_asc"))  by(sort_key.slice(0, -4), "asc");
-    else if (sort_key.endsWith("_desc")) by(sort_key.slice(0, -5), "desc");
+    if (sort_col) {
+      by(sort_col, sort_asc ? "asc" : "desc");
+    }
     return arr;
-  }, [filtered, sort_key]);
+  }, [filtered, sort_col, sort_asc]);
 
   const total_pages = Math.max(1, Math.ceil(sorted.length / page_size));
   const page_safe = clamp(page, 1, total_pages);
@@ -1012,50 +1119,26 @@ export default function floodevents() {
     (async () => {
       await await_style(map);
 
+      // Floods source - will only show selected flood
       map.addSource("floods", {
         type: "geojson",
-        data: floods_fc,
-        cluster: true,
-        clusterMaxZoom: 14,
-        clusterRadius: 40,
+        data: { type: "FeatureCollection", features: [] },
         promoteId: "id",
       });
 
-      map.addLayer({
-        id: "flood-clusters",
-        type: "circle",
-        source: "floods",
-        filter: ["has", "point_count"],
-        paint: {
-          "circle-color": ["step", ["get", "point_count"], "#93c5fd", 10, "#60a5fa", 30, "#3b82f6"],
-          "circle-radius": ["step", ["get", "point_count"], 14, 10, 20, 30, 26],
-          "circle-stroke-color": "#0b1220",
-          "circle-stroke-width": 1.2,
-          "circle-opacity": 0.95,
-        },
-      });
-      map.addLayer({
-        id: "flood-cluster-count",
-        type: "symbol",
-        source: "floods",
-        filter: ["has", "point_count"],
-        layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 12, "text-allow-overlap": true },
-        paint: { "text-color": "#0b122a", "text-halo-color": "#ffffff", "text-halo-width": 1.0 },
-      });
-
+      // Single flood marker (only shows when a flood is selected)
       map.addLayer({
         id: "flood-points",
         type: "circle",
         source: "floods",
-        filter: ["!", ["has", "point_count"]],
         paint: {
-          "circle-radius": 5,
-          "circle-color": "#60a5fa",
+          "circle-radius": 8,
+          "circle-color": "#3b82f6",
           "circle-stroke-color": "#0b1220",
-          "circle-stroke-width": 1.25,
+          "circle-stroke-width": 2,
           "circle-opacity": 0.95,
         },
-        layout: { visibility: "visible" },
+        layout: { visibility: "none" },
       });
 
       map.addSource("flood-selected-points", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -1209,70 +1292,181 @@ export default function floodevents() {
         },
       });
 
-      /* ensure roads draw above fills so they’re always visible */
+      /* focused amenity marker */
+      map.addSource("focused-amenity", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "focused-amenity",
+        type: "circle",
+        source: "focused-amenity",
+        paint: {
+          "circle-radius": 8,
+          "circle-color": "#f59e0b",
+          "circle-stroke-color": "#fff",
+          "circle-stroke-width": 2,
+        },
+        layout: { visibility: "none" },
+      });
+
+      /* focused road highlight */
+      map.addSource("focused-road", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addLayer({
+        id: "focused-road",
+        type: "line",
+        source: "focused-road",
+        paint: {
+          "line-color": "#f59e0b",
+          "line-width": 4,
+          "line-opacity": 0.8,
+        },
+        layout: { visibility: "none" },
+      });
+
+      /* ensure roads draw above fills so they're always visible */
       try {
         map.moveLayer("roads-nearby-outer", "amenities-nearby");
         map.moveLayer("roads-nearby-inner", "roads-nearby-outer");
+        map.moveLayer("focused-amenity");
+        map.moveLayer("focused-road");
       } catch {}
 
       if (bounds) map.fitBounds(bounds, { padding: 40, duration: 0 });
 
+      // Show popup on hover for flood markers
+      map.on("mousemove", "flood-selected-points", (e) => {
+        const f = e?.features?.[0];
+        if (!f) return;
+        const p = f.properties || {};
+        show_popup(e.lngLat, popup_html(p, lookups));
+      });
+      map.on("mouseleave", "flood-selected-points", () => hide_popup());
+
+      // Show popup on hover for main flood point
       map.on("mousemove", "flood-points", (e) => {
         const f = e?.features?.[0];
         if (!f) return;
         const p = f.properties || {};
-        show_popup(e.lngLat, popup_html(p));
+        show_popup(e.lngLat, popup_html(p, lookups));
       });
       map.on("mouseleave", "flood-points", () => hide_popup());
-
-      map.on("mousemove", "flood-selected-points", (e) => {
-        const p = selected_props || {};
-        show_popup(e.lngLat, popup_html(p));
-      });
-      map.on("mouseleave", "flood-selected-points", () => hide_popup());
-
-      map.on("click", "flood-points", (e) => {
-        const f = e?.features?.[0];
-        const id = f?.properties?.id ?? f?.id;
-        if (id != null) focus_select(String(id));
-      });
-      map.on("click", "flood-clusters", (e) => {
-        const features = map.queryRenderedFeatures(e.point, { layers: ["flood-clusters"] });
-        const cluster_id = features[0]?.properties?.cluster_id;
-        const source = map.getSource("floods");
-        if (!source || cluster_id == null) return;
-        source.getClusterExpansionZoom(cluster_id, (err, zoom) => {
-          if (err) return;
-          map.easeTo({ center: e.lngLat, zoom });
-        });
-      });
-
-      map.on("click", (e) => {
-        const bbox = [[e.point.x - 2, e.point.y - 2],[e.point.x + 2, e.point.y + 2]];
-        const hit = map.queryRenderedFeatures(bbox, {
-          layers: [
-            "flood-clusters","flood-cluster-count","flood-points","flood-selected-points",
-            "flood-selected-labels","amenities-nearby","amenities-nearby-labels",
-            "rings-page-inner-fill","rings-page-outer-fill","roads-nearby-inner","roads-nearby-outer"
-          ],
-        });
-        if (!hit || hit.length === 0) clear_selection();
-      });
     })();
 
     try {
       const map = map_ref.current;
-      map.moveLayer("flood-selected-labels");
-      map.moveLayer("flood-selected-lines");
+      // Order layers from bottom to top (roads -> amenities -> markers)
       map.moveLayer("flood-selected-lines-casing");
-      map.moveLayer("amenities-nearby-labels");
-      map.moveLayer("amenities-nearby");
+      map.moveLayer("flood-selected-lines");
+      map.moveLayer("affected-road");
       map.moveLayer("roads-nearby-outer");
       map.moveLayer("roads-nearby-inner");
-      map.moveLayer("affected-road");
+      map.moveLayer("amenities-nearby");
+      map.moveLayer("amenities-nearby-labels");
+      map.moveLayer("focused-road");
+      map.moveLayer("focused-amenity");
+      // Markers on top
+      map.moveLayer("flood-points");
+      map.moveLayer("flood-selected-points");
+      map.moveLayer("flood-selected-labels");
     } catch {}
     return () => { try { map_ref.current?.remove(); } catch {} };
   }, [floods_fc, bounds]);
+
+  useEffect(() => {
+    const map = map_ref.current;
+    if (!map) return;
+
+    const src = map.getSource("focused-amenity");
+    if (!src) return;
+
+    if (!focused_amenity) {
+      // clear + hide layer
+      try {
+        src.setData({
+          type: "FeatureCollection",
+          features: [],
+        });
+        if (map.getLayer("focused-amenity")) {
+          map.setLayoutProperty("focused-amenity", "visibility", "none");
+        }
+      } catch (e) {
+        console.warn("error clearing focused amenity:", e);
+      }
+      return;
+    }
+
+    // build a point feature
+    const { lng, lat, ...props } = focused_amenity;
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+
+    const feature = {
+      type: "Feature",
+      properties: { ...props },
+      geometry: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
+    };
+
+    try {
+      src.setData({
+        type: "FeatureCollection",
+        features: [feature],
+      });
+      if (map.getLayer("focused-amenity")) {
+        map.setLayoutProperty("focused-amenity", "visibility", "visible");
+        // keep marker on top
+        map.moveLayer("focused-amenity");
+      }
+    } catch (e) {
+      console.warn("error setting focused amenity:", e);
+    }
+    }, [focused_amenity]);
+
+    useEffect(() => {
+    const map = map_ref.current;
+    if (!map) return;
+
+    const src = map.getSource("focused-road");
+    if (!src) return;
+
+    if (!focused_road || !focused_road.geometry) {
+      // clear + hide layer
+      try {
+        src.setData({
+          type: "FeatureCollection",
+          features: [],
+        });
+        if (map.getLayer("focused-road")) {
+          map.setLayoutProperty("focused-road", "visibility", "none");
+        }
+      } catch (e) {
+        console.warn("error clearing focused road:", e);
+      }
+      return;
+    }
+
+    const feature = {
+      type: "Feature",
+      properties: {
+        rn_id: focused_road.rn_id ?? focused_road.RN_ID ?? null,
+        name: focused_road.name || "",
+      },
+      geometry: focused_road.geometry,
+    };
+
+    try {
+      src.setData({
+        type: "FeatureCollection",
+        features: [feature],
+      });
+      if (map.getLayer("focused-road")) {
+        map.setLayoutProperty("focused-road", "visibility", "visible");
+        map.moveLayer("focused-road");
+      }
+    } catch (e) {
+      console.warn("error setting focused road:", e);
+    }
+  }, [focused_road]);
+
 
   useEffect(() => {
     const on_key = (e) => { if (e.key === "Escape") clear_selection(); };
@@ -1280,12 +1474,14 @@ export default function floodevents() {
     return () => window.removeEventListener("keydown", on_key);
   }, []);
 
-  useEffect(() => {
-    if (!floods_fc?.features?.length) return;
-    const ids = floods_fc.features.map(ft => String(ft.properties?.id ?? ft.id ?? ""));
-    const target = ids[0];
-    if (target) focus_select(target);
-  }, [floods_fc, stats_by_flood_distance]);
+  // Removed: Auto-select first flood on load
+  // User should manually click on a flood event to select it
+  // useEffect(() => {
+  //   if (!floods_fc?.features?.length) return;
+  //   const ids = floods_fc.features.map(ft => String(ft.properties?.id ?? ft.id ?? ""));
+  //   const target = ids[0];
+  //   if (target) focus_select(target);
+  // }, [floods_fc, stats_by_flood_distance]);
 
  
   useEffect(() => {
@@ -1380,54 +1576,320 @@ export default function floodevents() {
   }
   function hide_popup() { try { popup_ref.current?.remove(); } catch {} popup_ref.current = null; }
 
+  // sync focused amenity to map source + popup
+useEffect(() => {
+  const map = map_ref.current;
+  if (!map) return;
+
+  const empty = {
+    type: "FeatureCollection",
+    features: [],
+  };
+
+  if (!focused_amenity) {
+    try {
+      map.getSource("focused-amenity")?.setData(empty);
+      map.setLayoutProperty("focused-amenity", "visibility", "none");
+    } catch {}
+    return;
+  }
+
+  const { lng, lat } = focused_amenity;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+
+  const feat = {
+    type: "Feature",
+    properties: {
+      name: focused_amenity.name || "Amenity",
+      category: focused_amenity.category || "Unknown",
+      distm: focused_amenity._distm ?? null,
+    },
+    geometry: {
+      type: "Point",
+      coordinates: [lng, lat],
+    },
+  };
+
+  try {
+    map.getSource("focused-amenity")?.setData({
+      type: "FeatureCollection",
+      features: [feat],
+    });
+    map.setLayoutProperty("focused-amenity", "visibility", "visible");
+  } catch {}
+
+  // optional: show popup immediately on focus
+  const html = `
+    <div class="flood-popup">
+      <div class="flood-popup-title">
+        ${feat.properties.name || "Amenity"}
+      </div>
+      <div class="flood-popup-sub">
+        ${to_title_case(feat.properties.category || "Unknown")}
+      </div>
+      ${
+        feat.properties.distm != null
+          ? `<div class="flood-popup-pill">
+               ${feat.properties.distm.toFixed(0)} m from flood
+             </div>`
+          : ""
+      }
+    </div>
+  `;
+  show_popup([lng, lat], html);
+}, [focused_amenity]);
+
+// sync focused road to map source + popup
+useEffect(() => {
+  const map = map_ref.current;
+  if (!map) return;
+
+  const empty = {
+    type: "FeatureCollection",
+    features: [],
+  };
+
+  if (!focused_road || !focused_road.geometry) {
+    try {
+      map.getSource("focused-road")?.setData(empty);
+      map.setLayoutProperty("focused-road", "visibility", "none");
+    } catch {}
+    return;
+  }
+
+  const feat = {
+    type: "Feature",
+    properties: {
+      name: focused_road.name || "Road",
+      rn_id: focused_road.rn_id || focused_road.RN_ID || "",
+      distm: focused_road.d ?? focused_road._distm ?? null,
+    },
+    geometry: focused_road.geometry,
+  };
+
+  try {
+    map.getSource("focused-road")?.setData({
+      type: "FeatureCollection",
+      features: [feat],
+    });
+    map.setLayoutProperty("focused-road", "visibility", "visible");
+  } catch {}
+
+  // approximate a centre for the popup
+  try {
+    const center = turf.centerOfMass(feat);
+    const [lng, lat] = center.geometry.coordinates;
+
+    const html = `
+      <div class="flood-popup">
+        <div class="flood-popup-title">
+          ${feat.properties.name || "Road"}
+        </div>
+        <div class="flood-popup-sub">
+          Road ID: ${feat.properties.rn_id || "–"}
+        </div>
+        ${
+          feat.properties.distm != null
+            ? `<div class="flood-popup-pill">
+                 ${feat.properties.distm.toFixed(0)} m from flood
+               </div>`
+            : ""
+        }
+      </div>
+    `;
+    show_popup([lng, lat], html);
+  } catch {}
+}, [focused_road]);
+
+
+
   /* ===== selection ===== */
-  async function focus_select(id_str) {
-    set_selected(id_str);
+  function focus_select(id_str) {
+    // Note: set_selected is called by the caller (table row or map click handler)
+    // We don't call it here to avoid redundant state updates
 
     const feat = (floods_fc?.features || []).find((ft) => String(ft.properties?.id ?? ft.id) === String(id_str));
-    if (!feat) return;
+    if (!feat) {
+      console.warn("No feature found for ID:", id_str);
+      return;
+    }
     const p = feat.properties || {};
 
-    // Get center from start coordinates instead of build_flood_detail (removed to reduce lag)
-    const center = [to_num(p.start_lng), to_num(p.start_lat)];
-    if (Number.isNaN(center[0]) || Number.isNaN(center[1])) return;
+    // Use origin as center for rings (fallback to start if origin not available)
+    const origin_lng = to_num(p.origin_lng);
+    const origin_lat = to_num(p.origin_lat);
+    const start_lng = to_num(p.start_lng);
+    const start_lat = to_num(p.start_lat);
+
+    let center;
+    if (!Number.isNaN(origin_lng) && !Number.isNaN(origin_lat)) {
+      center = [origin_lng, origin_lat];
+    } else if (!Number.isNaN(start_lng) && !Number.isNaN(start_lat)) {
+      center = [start_lng, start_lat];
+    } else {
+      console.warn("No valid center coordinates for ID:", id_str);
+      return;
+    }
 
     const map = map_ref.current;
-    if (!map || !center) return;
+    if (!map || !center) {
+      console.warn("Map not ready or no center");
+      return;
+    }
 
     set_selected_props({ ...p });
 
-    try {
-      map.setFilter("flood-points", ["all", ["!", ["has", "point_count"]], ["==", ["to-string", ["get", "id"]], String(id_str)]]);
-      map.setLayoutProperty("flood-clusters", "visibility", "none");
-      map.setLayoutProperty("flood-cluster-count", "visibility", "none");
-    } catch {}
+    // Check if map is fully loaded and style is ready for visualization
+    const mapReady = map.isStyleLoaded && map.isStyleLoaded();
 
-    // REMOVED: Individual flood detail points and lines (causing lag)
-    // const point_features = detail.points.map(pt => ({ ... }));
-    // const line_features  = detail.lines.map(l => ({ ... }));
+    // Update floods source to show the origin marker (center of flood)
+    if (mapReady) {
+      try {
+        const originFeature = {
+          type: "Feature",
+          properties: { ...p },
+          geometry: { type: "Point", coordinates: center }
+        };
+        map.getSource("floods")?.setData({
+          type: "FeatureCollection",
+          features: [originFeature]
+        });
+        map.setLayoutProperty("flood-points", "visibility", "visible");
+      } catch (e) {
+        console.warn("Error showing selected flood:", e);
+      }
+    }
 
-    // Hide the flood detail layers
-    try {
-      map.getSource("flood-selected-points")?.setData({ type: "FeatureCollection", features: [] });
-      map.getSource("flood-selected-lines")?.setData({ type: "FeatureCollection", features: [] });
-      map.getSource("flood-selected-labels")?.setData({ type: "FeatureCollection", features: [] });
-      map.setLayoutProperty("flood-selected-points", "visibility", "none");
-      map.setLayoutProperty("flood-selected-lines-casing", "visibility", "none");
-      map.setLayoutProperty("flood-selected-lines", "visibility", "none");
-      map.setLayoutProperty("flood-selected-labels", "visibility", "none");
-    } catch {}
+    // Create markers for flood endpoints (origin is already shown as main marker)
+    const point_features = [];
+    const label_features = [];
 
-    /* start road highlight (original) */
-    const road_id = p.start_rn_id == null ? null : String(p.start_rn_id);
-    const road_feats = road_id ? (roads_by_id.get(road_id) || []) : [];
-    try {
-      map.getSource("affected-road")?.setData({
-        type: "FeatureCollection",
-        features: road_feats.map(r => ({ type: "Feature", properties: { rn_id: r.properties?.rn_id ?? r.properties?.RN_ID ?? null, name: r.properties?.name || "" }, geometry: r.geometry })),
-      });
-      map.setLayoutProperty("affected-road", "visibility", road_feats.length ? "visible" : "none");
-    } catch {}
+    // Helper to create marker
+    const createMarker = (lng, lat, role, label) => {
+      if (Number.isNaN(lng) || Number.isNaN(lat)) return null;
+      return {
+        type: "Feature",
+        properties: { role, label, ...p },
+        geometry: { type: "Point", coordinates: [lng, lat] }
+      };
+    };
+
+    // Check if real end exists
+    const end_lng = to_num(p.end_lng);
+    const end_lat = to_num(p.end_lat);
+    const hasRealEnd = !Number.isNaN(end_lng) && !Number.isNaN(end_lat) &&
+                       Math.abs(end_lng) > 0 && Math.abs(end_lat) > 0;
+
+    if (hasRealEnd) {
+      // Show real end as red marker
+      const endMarker = createMarker(end_lng, end_lat, "end", "End");
+      if (endMarker) {
+        point_features.push(endMarker);
+        label_features.push(endMarker);
+      }
+    } else {
+      // Show predicted endpoints as orange markers
+      const pred_a_lng = to_num(p.end100_a_lng);
+      const pred_a_lat = to_num(p.end100_a_lat);
+      const predAMarker = createMarker(pred_a_lng, pred_a_lat, "pred_a", "Pred A");
+      if (predAMarker) {
+        point_features.push(predAMarker);
+        label_features.push(predAMarker);
+      }
+
+      const pred_b_lng = to_num(p.end100_b_lng);
+      const pred_b_lat = to_num(p.end100_b_lat);
+      const predBMarker = createMarker(pred_b_lng, pred_b_lat, "pred_b", "Pred B");
+      if (predBMarker) {
+        point_features.push(predBMarker);
+        label_features.push(predBMarker);
+      }
+    }
+
+    // Update marker layers
+    if (mapReady) {
+      try {
+        map.getSource("flood-selected-points")?.setData({
+          type: "FeatureCollection",
+          features: point_features
+        });
+        map.getSource("flood-selected-labels")?.setData({
+          type: "FeatureCollection",
+          features: label_features
+        });
+        map.setLayoutProperty("flood-selected-points", "visibility", point_features.length ? "visible" : "none");
+        map.setLayoutProperty("flood-selected-labels", "visibility", label_features.length ? "visible" : "none");
+
+        // Hide lines (not used in simplified view)
+        map.getSource("flood-selected-lines")?.setData({ type: "FeatureCollection", features: [] });
+        map.setLayoutProperty("flood-selected-lines-casing", "visibility", "none");
+        map.setLayoutProperty("flood-selected-lines", "visibility", "none");
+      } catch (e) {
+        console.warn("Error setting flood markers:", e);
+      }
+    }
+
+    /* Affected roads highlight - includes origin, real end, or predicted endpoints */
+    // Helper function to get all affected road IDs for this flood event
+    const getAffectedRoadIds = (props) => {
+      const ids = [];
+
+      // 1. Always include origin road (start_rn_id or origin_rn_id)
+      const origin_id = props.origin_rn_id ?? props.start_rn_id;
+      if (origin_id != null) {
+        ids.push(String(origin_id));
+      }
+
+      // 2. Check if real end point exists (end coordinates and end_rn_id)
+      const hasRealEnd = props.end_rn_id != null &&
+                         props.end_lat != null && props.end_lng != null &&
+                         to_num(props.end_lat) !== 0 && to_num(props.end_lng) !== 0;
+
+      if (hasRealEnd) {
+        // Use real end road
+        ids.push(String(props.end_rn_id));
+      } else {
+        // 3. Fall back to predicted endpoints A and B
+        if (props.end100_a_rn_id != null) {
+          ids.push(String(props.end100_a_rn_id));
+        }
+        if (props.end100_b_rn_id != null) {
+          ids.push(String(props.end100_b_rn_id));
+        }
+      }
+
+      return ids;
+    };
+
+    const affected_road_ids = getAffectedRoadIds(p);
+    const affected_road_feats = [];
+
+    for (const rid of affected_road_ids) {
+      const rlist = roads_by_id.get(rid) || [];
+      for (const r of rlist) {
+        affected_road_feats.push({
+          type: "Feature",
+          properties: {
+            rn_id: r.properties?.rn_id ?? r.properties?.RN_ID ?? null,
+            name: r.properties?.name || "",
+            is_origin: rid === String(p.origin_rn_id ?? p.start_rn_id)
+          },
+          geometry: r.geometry
+        });
+      }
+    }
+
+    if (mapReady) {
+      try {
+        map.getSource("affected-road")?.setData({
+          type: "FeatureCollection",
+          features: affected_road_feats
+        });
+        map.setLayoutProperty("affected-road", "visibility", affected_road_feats.length ? "visible" : "none");
+      } catch (e) {
+        console.warn("Error setting affected roads:", e);
+      }
+    }
 
     /* rings for this selection */
     /* rings for this selection — independent of page rings */
@@ -1436,77 +1898,83 @@ export default function floodevents() {
     const inner = turf.circle(center, r_in,  { steps: 128, units: "meters" });
     const outer = turf.circle(center, r_out, { steps: 128, units: "meters" });
 
-    
-    try {
-      map.getSource("rings-selected-inner")?.setData(inner);
-      map.getSource("rings-selected-outer")?.setData(outer);
 
-      map.setLayoutProperty("rings-selected-inner-fill", "visibility", "visible");
-      map.setLayoutProperty("rings-selected-outer-fill", "visibility", "visible");
-      map.setLayoutProperty("rings-selected-inner-line", "visibility", "visible");
-      map.setLayoutProperty("rings-selected-outer-line", "visibility", "visible");
-    } catch {}
+    if (mapReady) {
+      try {
+        map.getSource("rings-selected-inner")?.setData(inner);
+        map.getSource("rings-selected-outer")?.setData(outer);
+
+        map.setLayoutProperty("rings-selected-inner-fill", "visibility", "visible");
+        map.setLayoutProperty("rings-selected-outer-fill", "visibility", "visible");
+        map.setLayoutProperty("rings-selected-inner-line", "visibility", "visible");
+        map.setLayoutProperty("rings-selected-outer-line", "visibility", "visible");
+      } catch (e) {
+        console.warn("Error setting rings:", e);
+      }
+    }
 
     /* amenities near */
     const near = query_amenities(center[0], center[1], r_out);
     let inner_count = 0, outer_count = 0, impact_inner = 0, impact_outer = 0;
 
-    // Count amenities by band
+    // Count amenities by band - only include enabled categories
     for (const a of near) {
       const band = a._distm <= r_in ? "inner" : "outer";
-      const enabled = cat_enabled[a.category] ?? true;
-      const w = enabled ? (+cat_weights[a.category] || 0) : 0;
-      if (band === "inner") { inner_count++; impact_inner += w * inner_mult; }
-      else { outer_count++; impact_outer += w * outer_mult; }
+
+      const enabled = isAmenityCategoryEnabled(a.category);
+      const w = getAmenityWeight(a.category);
+
+      if (!enabled) continue;
+
+      if (band === "inner") {
+        inner_count++;
+        impact_inner += w * inner_mult;
+      } else {
+        outer_count++;
+        impact_outer += w * outer_mult;
+      }
     }
 
-    // Create bubble markers showing counts (not individual amenities)
-    const amenity_bubbles = [];
-    if (inner_count > 0) {
-      amenity_bubbles.push({
-        type: "Feature",
-        properties: { band: "inner", count: inner_count, label: `${inner_count} amenities` },
-        geometry: { type: "Point", coordinates: center },
-      });
-    }
-    if (outer_count > 0) {
-      // Place outer bubble slightly offset so both are visible
-      const offsetLng = center[0] + 0.0005;
-      amenity_bubbles.push({
-        type: "Feature",
-        properties: { band: "outer", count: outer_count, label: `${outer_count} amenities` },
-        geometry: { type: "Point", coordinates: [offsetLng, center[1]] },
-      });
-    }
-
-    try {
-      map.getSource("amenities-nearby")?.setData({ type: "FeatureCollection", features: amenity_bubbles });
-      map.setLayoutProperty("amenities-nearby", "visibility", amenity_bubbles.length > 0 ? "visible" : "none");
-      map.setLayoutProperty("amenities-nearby-labels", "visibility", amenity_bubbles.length > 0 ? "visible" : "none");
-    } catch {}
+    // Amenity bubbles removed - no longer displaying count markers on map
 
     /* roads near (inner/outer) — rendered & for panel */
     const roads_pack = roads_within_rings(road_fc, center, r_in, r_out);
     set_roads_nearby_state(roads_pack);
 
-    try {
-      map.getSource("roads-nearby-inner")?.setData({
-        type: "FeatureCollection",
-        features: roads_pack.inner.map(r => ({ type: "Feature", properties: { band: "inner", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
-      });
-      map.getSource("roads-nearby-outer")?.setData({
-        type: "FeatureCollection",
-        features: roads_pack.outer.map(r => ({ type: "Feature", properties: { band: "outer", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
-      });
-      map.setLayoutProperty("roads-nearby-inner", roads_pack.inner.length ? "visible" : "none");
-      map.setLayoutProperty("roads-nearby-outer", roads_pack.outer.length ? "visible" : "none");
-    } catch {}
+    if (mapReady) {
+      try {
+        map.getSource("roads-nearby-inner")?.setData({
+          type: "FeatureCollection",
+          features: roads_pack.inner.map(r => ({ type: "Feature", properties: { band: "inner", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
+        });
+        map.getSource("roads-nearby-outer")?.setData({
+          type: "FeatureCollection",
+          features: roads_pack.outer.map(r => ({ type: "Feature", properties: { band: "outer", rn_id: r.rn_id, name: r.name, distm: r.d }, geometry: r.geometry }))
+        });
 
-    /* scores */
+        // Check if layers exist before setting visibility
+        if (map.getLayer("roads-nearby-inner")) {
+          map.setLayoutProperty("roads-nearby-inner", "visibility", roads_pack.inner.length ? "visible" : "none");
+        }
+        if (map.getLayer("roads-nearby-outer")) {
+          map.setLayoutProperty("roads-nearby-outer", "visibility", roads_pack.outer.length ? "visible" : "none");
+        }
+
+        // Ensure markers stay on top after updating roads
+        if (map.getLayer("flood-points")) map.moveLayer("flood-points");
+        if (map.getLayer("flood-selected-points")) map.moveLayer("flood-selected-points");
+        if (map.getLayer("flood-selected-labels")) map.moveLayer("flood-selected-labels");
+      } catch (e) {
+        console.warn("Error setting nearby roads:", e);
+      }
+    }
+
+    /* scores - calculate centrality using all affected roads */
     let bnorm = 0, cnorm = 0;
-    if (p.start_rn_id != null) {
-      const rlist = roads_by_id.get(String(p.start_rn_id)) || [];
-      let bmax = -Infinity, cmax = -Infinity;
+    let bmax = -Infinity, cmax = -Infinity;
+
+    for (const rid of affected_road_ids) {
+      const rlist = roads_by_id.get(rid) || [];
       for (const r of rlist) {
         const rp = r.properties || {};
         const b = +((rp.betweenness_norm ?? rp.betweenness ?? rp.BETWEENNESS_NORM ?? rp.BETWEENNESS) || NaN);
@@ -1514,9 +1982,10 @@ export default function floodevents() {
         if (Number.isFinite(b)) bmax = Math.max(bmax, b);
         if (Number.isFinite(c)) cmax = Math.max(cmax, c);
       }
-      if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
-      if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
     }
+
+    if (Number.isFinite(bmax)) bnorm = normalize01(bmax, centrality_scale.bmins, centrality_scale.bmaxs);
+    if (Number.isFinite(cmax)) cnorm = normalize01(cmax, centrality_scale.cmins, centrality_scale.cmaxs);
     const impact_total = impact_inner + impact_outer;
     const amenity_score = 1 - Math.exp(-impact_total / 10.0);
 
@@ -1529,21 +1998,56 @@ export default function floodevents() {
     // AR Impact with all 4 components
     const ar_impact = (w_betweenness * bnorm) + (w_closeness * cnorm) + (w_amenity * amenity_score) + (w_roads * roads_score);
 
-    set_selected_stats({
+    // Only include counts from enabled bands
+    const activeInnerAmenities = inner_enabled ? inner_count : 0;
+    const activeOuterAmenities = outer_enabled ? outer_count : 0;
+    const activeInnerRoads = inner_enabled ? roads_pack.inner.length : 0;
+    const activeOuterRoads = outer_enabled ? roads_pack.outer.length : 0;
+
+    const stats = {
       center,
-      counts: { inner: inner_count, outer: outer_count, total: inner_count + outer_count },
-      roads_counts: { inner: roads_pack.inner.length, outer: roads_pack.outer.length, total: roads_pack.inner.length + roads_pack.outer.length },
-      impact: { inner: +impact_inner.toFixed(2), outer: +impact_outer.toFixed(2), total: +impact_total.toFixed(2) },
+      counts: {
+        inner: activeInnerAmenities,
+        outer: activeOuterAmenities,
+        total: activeInnerAmenities + activeOuterAmenities,
+      },
+      roads_counts: {
+        inner: activeInnerRoads,
+        outer: activeOuterRoads,
+        total: activeInnerRoads + activeOuterRoads,
+      },
+      impact: {
+        inner: +impact_inner.toFixed(2),
+        outer: +impact_outer.toFixed(2),
+        total: +impact_total.toFixed(2),
+      },
       centrality: { bnorm, cnorm },
-      scores: { amenity_score: +amenity_score.toFixed(3), roads_score: +roads_score.toFixed(3), roads_impact: +roads_impact.toFixed(2), ar_impact: +ar_impact.toFixed(3) },
-    });
+      scores: {
+        amenity_score: +amenity_score.toFixed(3),
+        roads_score: +roads_score.toFixed(3),
+        roads_impact: +roads_impact.toFixed(2),
+        ar_impact: +ar_impact.toFixed(3),
+      },
+      // ✅ this is what FloodEventDetails reads for rank:
+      percentiles: percentiles_by_id.get(String(id_str)) || null,
+    };
 
-    const rin = Math.max(0, Math.min(r_inner, r_outer));
-    const rout = Math.max(rin, r_outer);
-    paint_selected_rings(center, rin, rout);
+    set_selected_stats(stats);
 
-    try { map.flyTo({ center, zoom: 15, essential: true }); } catch {}
+    if (mapReady) {
+      const rin = Math.max(0, Math.min(r_inner, r_outer));
+      const rout = Math.max(rin, r_outer);
+      paint_selected_rings(center, rin, rout);
+
+      try { map.flyTo({ center, zoom: 15, essential: true }); } catch (e) {
+        console.warn("Error flying to location:", e);
+      }
+    }
   }
+
+  useEffect(() => {
+    applyAmenityPreset("default");
+  }, []);
 
   function clear_selection() {
     set_selected(null);
@@ -1551,13 +2055,15 @@ export default function floodevents() {
     set_selected_stats(null);
     set_roads_nearby_state({ inner: [], outer: [] });
     set_ring_filter("all");
+    set_focused_amenity(null);
+    set_focused_road(null);
     hide_popup();
     const map = map_ref.current;
     if (map) {
       try {
-        map.setFilter("flood-points", ["all", ["!", ["has", "point_count"]]]);
-        map.setLayoutProperty("flood-clusters", "visibility", "visible");
-        map.setLayoutProperty("flood-cluster-count", "visibility", "visible");
+        // Hide the flood marker when no flood is selected
+        map.getSource("floods")?.setData({ type: "FeatureCollection", features: [] });
+        map.setLayoutProperty("flood-points", "visibility", "none");
         map.setLayoutProperty("flood-selected-points", "visibility", "none");
         map.setLayoutProperty("flood-selected-lines-casing", "visibility", "none");
         map.setLayoutProperty("flood-selected-lines", "visibility", "none");
@@ -1574,9 +2080,13 @@ export default function floodevents() {
         map.setLayoutProperty("rings-selected-outer-line", "visibility", "none");
         map.setLayoutProperty("roads-nearby-inner", "visibility", "none");
         map.setLayoutProperty("roads-nearby-outer", "visibility", "none");
+        map.setLayoutProperty("focused-amenity", "visibility", "none");
+        map.setLayoutProperty("focused-road", "visibility", "none");
         map.getSource("amenities-nearby")?.setData({ type: "FeatureCollection", features: [] });
         map.getSource("roads-nearby-inner")?.setData({ type: "FeatureCollection", features: [] });
         map.getSource("roads-nearby-outer")?.setData({ type: "FeatureCollection", features: [] });
+        map.getSource("focused-amenity")?.setData({ type: "FeatureCollection", features: [] });
+        map.getSource("focused-road")?.setData({ type: "FeatureCollection", features: [] });
       } catch {}
     }
     clear_selected_rings();
@@ -1607,8 +2117,16 @@ export default function floodevents() {
     { key: "event_date", label: "Event Date", type: "string" },
     { key: "event", label: "Event Type", type: "string", render: (v)=>v?.replace("_"," ") },
     { key: "planning_area", label: "Planning Area", type: "string" },
-    { key: "location", label: "Location", type: "string" },
-    { key: "parent_road", label: "Road", type: "string" },
+    { key: "location", label: "Location", type: "string", render: (v, row) => {
+      const name = v || "Unnamed";
+      const roadId = row._props?.start_rn_id || row._props?.origin_rn_id;
+      return roadId ? `${name} (ID: ${roadId})` : name;
+    }},
+    { key: "parent_road", label: "Road", type: "string", render: (v, row) => {
+      const name = v || "Unnamed";
+      const roadId = row._props?.start_rn_id || row._props?.origin_rn_id;
+      return roadId ? `${name} (ID: ${roadId})` : name;
+    }},
 
     // Primary metrics (shown by default)
     { key: "roads_total", label: "Roads Affected", type: "number" },
@@ -1633,32 +2151,17 @@ export default function floodevents() {
     { key: "start_lng", label: "Start Longitude", type: "number", optional: true },
   ];
 
-  const sort_icon = (key) => {
-    if (key === "dt") return sort_key === "dt_desc" ? "↓" : "↑";
-    if (sort_key === `${key}_asc`) return "↑";
-    if (sort_key === `${key}_desc`) return "↓";
-    return "↕";
-  };
-  const toggle_sort = (key) => {
-    if (key === "dt") {
-      set_sort_key(sort_key === "dt_desc" ? "dt_asc" : "dt_desc");
-      return;
-    }
-    if (sort_key === `${key}_asc`) set_sort_key(`${key}_desc`);
-    else if (sort_key === `${key}_desc`) set_sort_key(`${key}_asc`);
-    else set_sort_key(`${key}_asc`);
-  };
 
   /* ===== ui header with accordions ===== */
   return (
     <div className="mx-auto flex w-full flex-col gap-5 p-6 relative">
       {/* Loading overlay */}
-      {isCalculating && (
+      {(loading || isCalculating) && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="rounded-lg border bg-card p-6 shadow-lg">
             <div className="flex items-center gap-3">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <span className="text-sm font-medium">Recalculating...</span>
+              <span className="text-sm font-medium">{loading ? "Loading data..." : "Recalculating..."}</span>
             </div>
           </div>
         </div>
@@ -1674,942 +2177,141 @@ export default function floodevents() {
           </p>
         </div>
 
-        {/* Flood Events Configuration - Unified Parent Accordion */}
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="flood-config" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <AccordionTrigger className="px-6 py-4 text-lg font-bold">
-              Flood Events Configuration
-            </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6 pt-4">
-              {/* Nested accordions for each subsection */}
-              <Accordion type="multiple" className="space-y-4">
-
-                {/* Amenity Categories & Weights */}
-                <AccordionItem value="amenities" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                  <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-                    Amenity Categories & Weights
-                  </AccordionTrigger>
-                  <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
-                    <Card className="border bg-background/80 shadow-none">
-                      <CardHeader>
-                        <CardTitle className="text-base">Per-Category Toggles & Weights</CardTitle>
-                        <CardDescription>
-                          Enable/disable categories and set their weights (1-10). Disabled categories contribute 0 to the impact calculation.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {/* Amenity Weight Presets */}
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Weight Presets</Label>
-                          <div className="grid gap-2 sm:grid-cols-3">
-                            {Object.entries(AMENITY_WEIGHT_PRESETS).map(([key, preset]) => (
-                              <button
-                                key={key}
-                                onClick={() => applyAmenityPreset(key)}
-                                className="rounded-lg border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-                              >
-                                <div className="font-semibold text-sm mb-1">{preset.name}</div>
-                                <div className="text-xs text-muted-foreground">{preset.description}</div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Category grid */}
-                        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                          {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => {
-                            const enabled = cat_enabled[name] ?? true;
-                            const weight = cat_weights[name] ?? 1;
-                            return (
-                              <div key={name} className="space-y-2 rounded-lg border bg-muted/30 p-3">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium">{to_title_case(name)}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Switch
-                                      id={`amenity-${name}`}
-                                      checked={enabled}
-                                      onCheckedChange={(checked) =>
-                                        setCatEnabled((prev) => ({ ...prev, [name]: !!checked }))
-                                      }
-                                    />
-                                    <Label htmlFor={`amenity-${name}`} className="text-xs cursor-pointer">
-                                      enable
-                                    </Label>
-                                  </div>
-                                  <NumberInput
-                                    key={`${name}-${weight}`}
-                                    value={weight}
-                                    onValueChange={(numVal) => {
-                                      if (numVal !== undefined) {
-                                        setCatWeights((prev) => ({ ...prev, [name]: numVal }));
-                                      }
-                                    }}
-                                    min={1}
-                                    max={10}
-                                    stepper={1}
-                                    decimalScale={3}
-                                    fixedDecimalScale={false}
-                                    disabled={!enabled}
-                                    hideSteppers={true}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* Distance Rings & Band Weights */}
-                <AccordionItem value="rings" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                  <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-                    Distance Rings & Band Weights
-                  </AccordionTrigger>
-                  <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
-                    <Card className="border bg-background/80 shadow-none">
-                      <CardHeader>
-                        <CardTitle className="text-base">Band Toggles & Weights</CardTitle>
-                        <CardDescription>
-                          Enable/disable distance bands and set their weight multipliers (1-10). Disabled bands contribute 0 to the calculation.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                          {/* Inner Band */}
-                          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-sm">Inner Band</span>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="inner-radius" className="text-xs">Radius (meters)</Label>
-                              <NumberInput
-                                id="inner-radius"
-                                value={r_inner}
-                                onValueChange={(numVal) => {
-                                  if (numVal !== undefined) {
-                                    const next = clamp(numVal, 0, 5000);
-                                    set_r_inner(next);
-                                    if (next > r_outer) set_r_outer(next);
-                                  }
-                                }}
-                                min={0}
-                                max={5000}
-                                stepper={10}
-                                decimalScale={0}
-                                fixedDecimalScale={false}
-                                hideSteppers={true}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Switch
-                                  id="inner-band-toggle"
-                                  checked={inner_enabled}
-                                  onCheckedChange={set_inner_enabled}
-                                />
-                                <Label htmlFor="inner-band-toggle" className="text-xs cursor-pointer">
-                                  enable
-                                </Label>
-                              </div>
-                              <NumberInput
-                                value={inner_mult}
-                                onValueChange={(numVal) => {
-                                  if (numVal !== undefined) {
-                                    set_inner_mult(numVal);
-                                  }
-                                }}
-                                min={1}
-                                max={10}
-                                stepper={1}
-                                decimalScale={0}
-                                fixedDecimalScale={false}
-                                disabled={!inner_enabled}
-                                hideSteppers={true}
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              Inner Band: {r_inner} m — Weight: {inner_enabled ? inner_mult : 0}
-                            </div>
-                          </div>
-
-                          {/* Outer Band */}
-                          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-sm">Outer Band</span>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="outer-radius" className="text-xs">Radius (meters)</Label>
-                              <NumberInput
-                                id="outer-radius"
-                                value={r_outer}
-                                onValueChange={(numVal) => {
-                                  if (numVal !== undefined) {
-                                    const next = clamp(numVal, 0, 10000);
-                                    set_r_outer(next);
-                                    if (next < r_inner) set_r_inner(next);
-                                  }
-                                }}
-                                min={0}
-                                max={10000}
-                                stepper={10}
-                                decimalScale={0}
-                                fixedDecimalScale={false}
-                                hideSteppers={true}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Switch
-                                  id="outer-band-toggle"
-                                  checked={outer_enabled}
-                                  onCheckedChange={set_outer_enabled}
-                                />
-                                <Label htmlFor="outer-band-toggle" className="text-xs cursor-pointer">
-                                  enable
-                                </Label>
-                              </div>
-                              <NumberInput
-                                value={outer_mult}
-                                onValueChange={(numVal) => {
-                                  if (numVal !== undefined) {
-                                    set_outer_mult(numVal);
-                                  }
-                                }}
-                                min={1}
-                                max={10}
-                                stepper={1}
-                                decimalScale={0}
-                                fixedDecimalScale={false}
-                                disabled={!outer_enabled}
-                                hideSteppers={true}
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              Outer Band: {r_outer} m — Weight: {outer_enabled ? outer_mult : 0}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* AR Impact Configuration */}
-                <AccordionItem value="ar-impact" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                  <AccordionTrigger className="px-6 py-4 text-base font-semibold">
-                    AR Impact Weights
-                  </AccordionTrigger>
-                  <AccordionContent className="px-6 pb-6 pt-2 space-y-4">
-                    <Card className="border bg-background/80 shadow-none">
-                      <CardHeader>
-                        <CardTitle className="text-base">Weight Presets</CardTitle>
-                        <CardDescription>
-                          Quick configurations for common scenarios. Fine-tune sliders after applying a preset.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-                          {Object.entries(AR_IMPACT_PRESETS).map(([key, preset]) => (
-                            <button
-                              key={key}
-                              onClick={() => {
-                                set_w_betweenness(preset.weights.betweenness);
-                                set_w_closeness(preset.weights.closeness);
-                                set_w_amenity(preset.weights.amenity);
-                                set_w_roads(preset.weights.roads);
-                              }}
-                              className="rounded-lg border bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-                            >
-                              <div className="font-semibold text-sm mb-1">{preset.name}</div>
-                              <div className="text-xs text-muted-foreground">{preset.description}</div>
-                              <div className="mt-2 text-[10px] font-mono text-muted-foreground space-y-0.5">
-                                <div>B:{preset.weights.betweenness} C:{preset.weights.closeness}</div>
-                                <div>A:{preset.weights.amenity} R:{preset.weights.roads}</div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border bg-background/80 shadow-none">
-                      <CardHeader>
-                        <CardTitle className="text-base">Adjust Component Weights</CardTitle>
-                        <CardDescription>
-                          Control how betweenness, closeness, and amenity impact combine into the AR Impact score.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-sm">Betweenness Weight</Label>
-                              <NumberInput
-                                value={w_betweenness * 100}
-                                onValueChange={(numVal) => {
-                                  if (numVal !== undefined) {
-                                    set_w_betweenness(clamp(numVal / 100, 0, 1));
-                                  }
-                                }}
-                                min={0}
-                                max={100}
-                                stepper={5}
-                                decimalScale={0}
-                                fixedDecimalScale={false}
-                                hideSteppers={true}
-                                className="w-16"
-                              />
-                            </div>
-                            <Slider
-                              value={[w_betweenness * 100]}
-                              min={0}
-                              max={100}
-                              step={5}
-                              onValueChange={(value) => set_w_betweenness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              How often the affected road lies on shortest paths between other roads.
-                            </p>
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-sm">Closeness Weight</Label>
-                              <NumberInput
-                                value={w_closeness * 100}
-                                onValueChange={(numVal) => {
-                                  if (numVal !== undefined) {
-                                    set_w_closeness(clamp(numVal / 100, 0, 1));
-                                  }
-                                }}
-                                min={0}
-                                max={100}
-                                stepper={5}
-                                decimalScale={0}
-                                fixedDecimalScale={false}
-                                hideSteppers={true}
-                                className="w-16"
-                              />
-                            </div>
-                            <Slider
-                              value={[w_closeness * 100]}
-                              min={0}
-                              max={100}
-                              step={5}
-                              onValueChange={(value) => set_w_closeness(clamp((value?.[0] ?? 0) / 100, 0, 1))}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              How quickly the affected road can reach all other roads in the network.
-                            </p>
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-sm">Amenity Weight</Label>
-                              <NumberInput
-                                value={w_amenity * 100}
-                                onValueChange={(numVal) => {
-                                  if (numVal !== undefined) {
-                                    set_w_amenity(clamp(numVal / 100, 0, 1));
-                                  }
-                                }}
-                                min={0}
-                                max={100}
-                                stepper={5}
-                                decimalScale={0}
-                                fixedDecimalScale={false}
-                                hideSteppers={true}
-                                className="w-16"
-                              />
-                            </div>
-                            <Slider
-                              value={[w_amenity * 100]}
-                              min={0}
-                              max={100}
-                              step={5}
-                              onValueChange={(value) => set_w_amenity(clamp((value?.[0] ?? 0) / 100, 0, 1))}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Density and type of amenities affected, weighted by category multipliers and ring weights.
-                            </p>
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <Label className="text-sm">Roads Weight</Label>
-                              <NumberInput
-                                value={w_roads * 100}
-                                onValueChange={(numVal) => {
-                                  if (numVal !== undefined) {
-                                    set_w_roads(clamp(numVal / 100, 0, 1));
-                                  }
-                                }}
-                                min={0}
-                                max={100}
-                                stepper={5}
-                                decimalScale={0}
-                                fixedDecimalScale={false}
-                                hideSteppers={true}
-                                className="w-16"
-                              />
-                            </div>
-                            <Slider
-                              value={[w_roads * 100]}
-                              min={0}
-                              max={100}
-                              step={5}
-                              onValueChange={(value) => set_w_roads(clamp((value?.[0] ?? 0) / 100, 0, 1))}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Number of roads affected within distance rings, weighted by band multipliers.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Dynamic Formula Display */}
-                        <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed">
-                          <div className="mb-2 font-semibold uppercase tracking-wide text-muted-foreground">
-                            Current Formula
-                          </div>
-                          <p className="font-mono text-xs mb-2">
-                            AR Impact = ({w_betweenness.toFixed(2)} × Betweenness) + ({w_closeness.toFixed(2)} × Closeness) + ({w_amenity.toFixed(2)} × Amenity Score) + ({w_roads.toFixed(2)} × Roads Score)
-                          </p>
-                          <ul className="mt-2 list-disc space-y-1 pl-4">
-                            <li>
-                              Betweenness and Closeness are normalized centrality values (0-1) for the affected road.
-                            </li>
-                            <li>
-                              Amenity Score = 1 - exp(-impact_amenity / 10), where impact_amenity = {inner_enabled ? inner_mult : 0} × Σ(inner amenities × category weight) + {outer_enabled ? outer_mult : 0} × Σ(outer amenities × category weight).
-                            </li>
-                            <li>
-                              Roads Score = 1 - exp(-impact_roads / 10), where impact_roads = {inner_enabled ? inner_mult : 0} × (inner roads count) + {outer_enabled ? outer_mult : 0} × (outer roads count).
-                            </li>
-                          </ul>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        <FloodConfigurationPanel
+          pendingCatWeights={pendingCatWeights}
+          setPendingCatWeights={setPendingCatWeights}
+          pendingCatEnabled={pendingCatEnabled}
+          setPendingCatEnabled={setPendingCatEnabled}
+          cat_weights={cat_weights}
+          cat_enabled={cat_enabled}
+          pendingRInner={pendingRInner}
+          setPendingRInner={setPendingRInner}
+          pendingROuter={pendingROuter}
+          setPendingROuter={setPendingROuter}
+          pendingInnerMult={pendingInnerMult}
+          setPendingInnerMult={setPendingInnerMult}
+          pendingOuterMult={pendingOuterMult}
+          setPendingOuterMult={setPendingOuterMult}
+          pendingInnerEnabled={pendingInnerEnabled}
+          setPendingInnerEnabled={setPendingInnerEnabled}
+          pendingOuterEnabled={pendingOuterEnabled}
+          setPendingOuterEnabled={setPendingOuterEnabled}
+          r_inner={r_inner}
+          r_outer={r_outer}
+          inner_mult={inner_mult}
+          outer_mult={outer_mult}
+          inner_enabled={inner_enabled}
+          outer_enabled={outer_enabled}
+          pendingWBetweenness={pendingWBetweenness}
+          setPendingWBetweenness={setPendingWBetweenness}
+          pendingWCloseness={pendingWCloseness}
+          setPendingWCloseness={setPendingWCloseness}
+          pendingWAmenity={pendingWAmenity}
+          setPendingWAmenity={setPendingWAmenity}
+          pendingWRoads={pendingWRoads}
+          setPendingWRoads={setPendingWRoads}
+          w_betweenness={w_betweenness}
+          w_closeness={w_closeness}
+          w_amenity={w_amenity}
+          w_roads={w_roads}
+          applyConfigChanges={applyConfigChanges}
+          resetConfigChanges={resetConfigChanges}
+          applyAmenityPreset={applyAmenityPreset}
+          applyARImpactPreset={applyARImpactPreset}
+          isAmenityWeightPresetActive={isAmenityWeightPresetActive}
+          isARImpactPresetActive={isARImpactPresetActive}
+          categories={categories}
+          hasUnappliedConfigChanges={hasUnappliedConfigChanges}
+        />
       </header>
 
-      {/* Flood Display Panel - Selected Event Details */}
-      <section className="rounded-3xl border border-border bg-card shadow-sm">
-        <div className="px-6 py-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Flood Event Details</h2>
-              <p className="text-sm text-muted-foreground">
-                {selected ? 'Selected event details with AR Impact analysis' : 'Select a flood event from the table to view details'}
-              </p>
-            </div>
-            {selected && (
-              <Button variant="ghost" size="sm" onClick={() => {
-                set_selected(null);
-                set_selected_props(null);
-                set_selected_stats(null);
-              }}>
-                <X className="h-4 w-4 mr-1" />
-                Clear Selection
-              </Button>
-            )}
-          </div>
-
-          {selected && selected_stats ? (
-            <div className="grid gap-4 md:grid-cols-3">
-              {/* AR Impact Card */}
-              <Card className="border-2 border-primary/20 bg-primary/5">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-muted-foreground">AR Impact Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</div>
-                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                      <span>Betweenness:</span>
-                      <span className="font-mono">{(w_betweenness * (selected_stats.centrality?.bnorm ?? 0)).toFixed(3)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Closeness:</span>
-                      <span className="font-mono">{(w_closeness * (selected_stats.centrality?.cnorm ?? 0)).toFixed(3)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Amenity:</span>
-                      <span className="font-mono">{(w_amenity * (selected_stats.scores?.amenity_score ?? 0)).toFixed(3)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Roads:</span>
-                      <span className="font-mono">{(w_roads * (selected_stats.scores?.roads_score ?? 0)).toFixed(3)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Amenities Affected */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-muted-foreground">Amenities Affected</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{selected_stats.counts?.total ?? 0}</div>
-                  <div className="mt-2 space-y-1 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Inner ring ({r_inner}m):</span>
-                      <span className="font-semibold">{selected_stats.counts?.inner ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Outer ring ({r_outer}m):</span>
-                      <span className="font-semibold">{selected_stats.counts?.outer ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-t pt-1 mt-1">
-                      <span className="text-muted-foreground">Impact Total:</span>
-                      <span className="font-mono">{selected_stats.impact?.total?.toFixed(1) ?? 'N/A'}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Roads Affected */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-muted-foreground">Roads Affected</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{selected_stats.roads_counts?.total ?? 0}</div>
-                  <div className="mt-2 space-y-1 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Inner ring ({r_inner}m):</span>
-                      <span className="font-semibold">{selected_stats.roads_counts?.inner ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Outer ring ({r_outer}m):</span>
-                      <span className="font-semibold">{selected_stats.roads_counts?.outer ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-t pt-1 mt-1">
-                      <span className="text-muted-foreground">Main road:</span>
-                      <span className="text-xs truncate max-w-[120px]" title={selected_props?.parent_road}>
-                        {selected_props?.parent_road ?? 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Event Information */}
-              <Card className="md:col-span-3">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Event Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 text-sm">
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Event ID</div>
-                      <div className="font-mono">{selected_props?.id ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Event Type</div>
-                      <div>{to_title_case(selected_props?.event ?? 'Unknown')}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Date</div>
-                      <div>{selected_props?.event_date ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Location</div>
-                      <div className="truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Planning Area</div>
-                      <div>{selected_props?.start_planning_area ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Postal Code</div>
-                      <div className="font-mono">{selected_props?.start_postal_code ?? 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Coordinates</div>
-                      <div className="font-mono text-xs">
-                        {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <div className="border-2 border-dashed rounded-lg p-12 text-center">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">No flood event selected</p>
-                <p className="text-xs text-muted-foreground">Click on a row in the table below to view detailed AR Impact analysis</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 relative rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden">
-            {selected && (
-            <div className="flood-legend absolute left-3 top-3 z-10 rounded-xl p-3 text-xs shadow-lg">
-              <div className="mb-2 font-medium">legend</div>
-              <div className="flex items-center gap-2 mb-1"><span className="legend-swatch" style={{background:"#22c55e"}} /><span>origin / inner ring / inner roads</span></div>
-              <div className="flex items-center gap-2 mb-1"><span className="legend-swatch" style={{background:"#3b82f6"}} /><span>start</span></div>
-              <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#f59e0b"}} /><span>predicted a / b</span></div>
-              <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#ef4444"}} /><span>end</span></div>
-              <div className="flex items-center gap-2 mb-2"><span className="legend-swatch" style={{background:"#0ea5e9"}} /><span>outer ring / outer roads</span></div>
-            </div>
-          )}
-          <div ref={container_ref} className="h-full w-full min-h-[36rem]" />
-        </div>
+        <FloodMap
+          selected={selected}
+          selected_props={selected_props}
+          selected_stats={selected_stats}
+          panel_tab={panel_tab}
+          container_ref={container_ref}
+          to_num={to_num}
+        />
 
-          <div className="lg:col-span-1 rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-sm text-muted-foreground mb-1">
-                {panel_tab==="amenities" ? "nearby amenities (≤ outer meters)" : "nearby roads (≤ outer meters)"}
-              </div>
-              <div className="text-base font-semibold truncate">
-                {selected_props ? (selected_props.start_road || selected_props.parent_road || "—") : "—"}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {selected_props ? (selected_props.start_planning_area || "—") : "select a flood to view"}
-              </div>
-            </div>
-            <div className="shrink-0 flex items-center gap-1">
-              <button onClick={()=>set_panel_tab("amenities")} className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${panel_tab==="amenities"?"bg-muted":""}`}>amenities</button>
-              <button onClick={()=>set_panel_tab("roads")} className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${panel_tab==="roads"?"bg-muted":""}`}>roads</button>
-              <button onClick={()=>set_ring_filter("all")}   className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${ring_filter==="all"?"bg-muted":""}`}>all</button>
-              <button onClick={()=>set_ring_filter("inner")} className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${ring_filter==="inner"?"bg-muted":""}`}>≤{r_inner}m</button>
-              <button onClick={()=>set_ring_filter("outer")} className={`rounded-lg border px-2 py-1 text-xs hover:bg-muted ${ring_filter==="outer"?"bg-muted":""}`}>≤{r_outer}m</button>
-              <button onClick={()=>set_panel_open(v=>!v)} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                {panel_open ? "collapse" : "expand"}
-              </button>
-            </div>
-          </div>
-
-          {panel_open ? (
-            <div className="flex-1 overflow-y-auto p-3">
-              {selected_stats && (
-                <div className="mb-3 rounded-lg border p-3 text-xs bg-muted/40">
-                  <div className="font-medium mb-1">AR Impact (live)</div>
-                  <div>B:{w_betweenness.toFixed(2)} C:{w_closeness.toFixed(2)} A:{w_amenity.toFixed(2)}</div>
-                  <div className="mt-1">AR Impact = {selected_stats.scores?.ar_impact ?? "—"}</div>
-                </div>
-              )}
-
-              {selected_stats ? (
-                panel_tab === "amenities" ? (
-                  <AmenitiesPanel
-                    center={selected_stats.center}
-                    stats={selected_stats}
-                    amenity_list={amenity_list}
-                    ring_filter={ring_filter}
-                    r_inner={r_inner}
-                    r_outer={r_outer}
-                    on_center={(lng, lat) => map_ref.current?.flyTo({ center: [lng, lat], zoom: 17, essential: true })}
-                  />
-                ) : (
-                  <RoadsPanel
-                    center={selected_stats.center}
-                    roads_pack={roads_nearby_state}
-                    ring_filter={ring_filter}
-                    r_inner={r_inner}
-                    r_outer={r_outer}
-                    on_focus_rn={(geom) => {
-                      const map = map_ref.current;
-                      if (!map || !geom) return;
-                      try {
-                        const bb = turf.bbox({ type:"Feature", geometry: geom, properties:{} });
-                        map.fitBounds([[bb[0],bb[1]],[bb[2],bb[3]]], { padding: 60, duration: 500 });
-                      } catch {}
-                    }}
-                  />
-                )
-              ) : (
-                <div className="h-full grid place-items-center text-sm text-muted-foreground p-6">
-                  select a flood on the left to see details here.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-3 text-xs text-muted-foreground">panel collapsed</div>
-          )}
-        </div>
+        {/* Details Panel */}
+        <div className="lg:col-span-1 h-[36rem] rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
+          <FloodEventDetails
+            selected={selected}
+            selected_props={selected_props}
+            selected_stats={selected_stats}
+            panel_tab={panel_tab}
+            set_panel_tab={set_panel_tab}
+            amenity_search_term={amenity_search_term}
+            set_amenity_search_term={set_amenity_search_term}
+            road_search_term={road_search_term}
+            set_road_search_term={set_road_search_term}
+            inner_enabled={inner_enabled}
+            outer_enabled={outer_enabled}
+            r_inner={r_inner}
+            r_outer={r_outer}
+            query_amenities={query_amenities}
+            roads_nearby_state={roads_nearby_state}
+            map_ref={map_ref}
+            onClose={clear_selection}
+            focused_amenity={focused_amenity}
+            set_focused_amenity={set_focused_amenity}
+            focused_road={focused_road}
+            set_focused_road={set_focused_road}
+          />
       </div>
-      <section className="rounded-3xl border border-border bg-card shadow-sm">
-        <div className="px-6 py-5 space-y-6">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Filters</h2>
-              <p className="text-sm text-muted-foreground">
-                Use the ranges below to focus the flood list on amenity density, impact and road centrality.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" onClick={reset_metric_filters} disabled={!has_active_metric_filters}>
-                Clear metric ranges
-              </Button>
-            </div>
-          </div>
 
-          <div className="grid gap-4 md:grid-cols-12">
-            <div className="space-y-1.5 md:col-span-4">
-              <Label htmlFor="flood-search">Search</Label>
-              <Input
-                id="flood-search"
-                value={q}
-                onChange={(e) => {
-                  set_q(e.target.value);
-                  set_page(1);
-                }}
-                placeholder="Search by ID, location or road"
-              />
-            </div>
 
-            <div className="md:col-span-3">
-              <MultiSelectFilter
-                id="event-type"
-                label="Event Type"
-                options={event_type_options.filter(opt => opt !== "all")}
-                values={event_types_filter}
-                onChange={(selected) => {
-                  set_event_types_filter(selected);
-                  set_page(1);
-                }}
-                placeholder="All Event Types"
-              />
-            </div>
+      </div>
 
-            <div className="md:col-span-3">
-              <MultiSelectFilter
-                id="planning-area"
-                label="Planning Area"
-                options={pa_options}
-                values={pa_filter}
-                onChange={(next) => {
-                  set_pa_filter(next);
-                  set_page(1);
-                }}
-                placeholder="All Planning Areas"
-              />
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="from-date">From Date</Label>
-              <Input
-                id="from-date"
-                type="date"
-                value={from_str}
-                onChange={(e) => {
-                  set_from_str(e.target.value);
-                  set_page(1);
-                }}
-              />
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="to-date">To Date</Label>
-              <Input
-                id="to-date"
-                type="date"
-                value={to_str}
-                onChange={(e) => {
-                  set_to_str(e.target.value);
-                  set_page(1);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-            {METRIC_FILTER_CONFIG.map((metric) => {
-              const range = metric_filters[metric.key] || { min: "", max: "" };
-              const step = metric.step ?? 1;
-              const bounds = metric_bounds[metric.key] || { min: 0, max: 100 };
-
-              // Parse current filter values, default to bounds if empty
-              const parsedMin = range.min !== "" ? parseFloat(range.min) : bounds.min;
-              const parsedMax = range.max !== "" ? parseFloat(range.max) : bounds.max;
-              const sliderValue = [
-                Number.isFinite(parsedMin) ? parsedMin : bounds.min,
-                Number.isFinite(parsedMax) ? parsedMax : bounds.max
-              ];
-
-              return (
-                <div key={metric.key} className="space-y-2">
-                  <Label>{metric.label}</Label>
-                  <div className="space-y-3 pt-2">
-                    <Slider
-                      value={sliderValue}
-                      min={bounds.min}
-                      max={bounds.max}
-                      step={step}
-                      onValueChange={(value) => {
-                        if (value && value.length === 2) {
-                          // Only update if values changed from bounds (user is filtering)
-                          const isDefaultRange = value[0] === bounds.min && value[1] === bounds.max;
-                          set_metric_range(metric.key, "min", isDefaultRange ? "" : value[0].toString());
-                          set_metric_range(metric.key, "max", isDefaultRange ? "" : value[1].toString());
-                        }
-                      }}
-                      className="w-full"
-                    />
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{sliderValue[0].toFixed(step < 1 ? 2 : 0)}</span>
-                      <span>{sliderValue[1].toFixed(step < 1 ? 2 : 0)}</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{metric.description}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <Switch
-                id="show-page-rings"
-                checked={Boolean(show_page_rings)}
-                onCheckedChange={(checked) => set_show_page_rings(checked)}
-              />
-              <Label htmlFor="show-page-rings" className="text-sm text-muted-foreground">
-                Show rings for visible page
-              </Label>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-border bg-card shadow-sm">
-        <div className="overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                {columns.filter(c=>visible_cols[c.key]).map((c)=>{
-                  const k = c.key === "event_date" ? "dt" : c.key;
-                  return (
-                    <th key={c.key} className="px-4 py-3">
-                      <button onClick={()=>toggle_sort(k)} className="inline-flex items-center gap-1">
-                        <span>{c.label}</span>
-                        <span className="opacity-70">{sort_icon(k)}</span>
-                      </button>
-                    </th>
-                  );
-                })}
-                <th className="px-4 py-3">action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paged.map((r) => {
-                const active = String(selected ?? "") === String(r.id);
-                return (
-                  <tr
-                    key={r.id}
-                    onClick={() => set_selected(prev => {
-                      const next = String(prev) === String(r.id) ? null : r.id;
-                      if (next) focus_select(next); else clear_selection();
-                      return next;
-                    })}
-                    className={`cursor-pointer hover:bg-muted/60 ${active ? "bg-muted/80 font-medium" : ""}`}
-                  >
-                    {columns.filter(c=>visible_cols[c.key]).map((c)=>(
-                      <td key={c.key} className="px-4 py-2">
-                        {c.render ? c.render(r[c.key]) : (r[c.key] ?? "N/A")}
-                      </td>
-                    ))}
-                    <td className="px-4 py-2">
-                      <button
-                        onClick={(e)=>{ e.stopPropagation(); set_selected(prev => {
-                          const next = String(prev) === String(r.id) ? null : r.id;
-                          if (next) focus_select(next); else clear_selection();
-                          return next;
-                        }); }}
-                        className="rounded-lg border px-2 py-1 text-xs hover:bg-muted"
-                      >
-                        {active ? "hide" : "view on map"}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {paged.length === 0 && (
-                <tr>
-                  <td colSpan={columns.filter(c=>visible_cols[c.key]).length+1} className="px-4 py-6 text-center text-muted-foreground">
-                    no rows match your filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-col gap-3 border-t px-6 py-4 md:flex-row md:items-center md:justify-between">
-          <span className="text-sm text-muted-foreground">
-            Page {page_safe} of {total_pages}
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" onClick={reset_all_filters}>
-              Reset Filters
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => set_page((p) => clamp(p - 1, 1, total_pages))}
-              disabled={page_safe <= 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => set_page((p) => clamp(p + 1, 1, total_pages))}
-              disabled={page_safe >= total_pages}
-            >
-              Next
-            </Button>
-            <Button variant="secondary" onClick={export_csv}>
-              Export CSV
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-border bg-card shadow-sm">
-        <div className="px-6 py-5 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Metric Reference</h2>
-            <p className="text-sm text-muted-foreground">
-              Quick definitions to help interpret the amenity and centrality metrics that drive the flood index.
-            </p>
-          </div>
-
-          <div className="overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2">Metric</th>
-                  <th className="px-4 py-2">What it represents</th>
-                  <th className="px-4 py-2">How to interpret it</th>
-                </tr>
-              </thead>
-              <tbody>
-                {METRIC_SUMMARY_ROWS.map((row) => (
-                  <tr key={row.metric} className="border-t">
-                    <td className="px-4 py-3 font-medium">{row.metric}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.meaning}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.insight}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+      <FloodTable
+        paged={paged}
+        sorted={sorted}
+        filtered={filtered}
+        page_safe={page_safe}
+        total_pages={total_pages}
+        visible_cols={visible_cols}
+        set_page={set_page}
+        set_visible_cols={set_visible_cols}
+        export_csv={export_csv}
+        set_selected={set_selected}
+        focus_select={focus_select}
+        clear_selection={clear_selection}
+        selected={selected}
+        sort_col={sort_col}
+        sort_asc={sort_asc}
+        set_sort_col={set_sort_col}
+        set_sort_asc={set_sort_asc}
+        MultiSelectFilter={MultiSelectFilter}
+        pending_q={pending_q}
+        set_pending_q={set_pending_q}
+        event_type_options={event_type_options}
+        pending_event_types_filter={pending_event_types_filter}
+        set_pending_event_types_filter={set_pending_event_types_filter}
+        pa_options={pa_options}
+        pending_pa_filter={pending_pa_filter}
+        set_pending_pa_filter={set_pending_pa_filter}
+        pending_from_str={pending_from_str}
+        set_pending_from_str={set_pending_from_str}
+        pending_to_str={pending_to_str}
+        set_pending_to_str={set_pending_to_str}
+        pending_roads_total_min={pending_roads_total_min}
+        set_pending_roads_total_min={set_pending_roads_total_min}
+        pending_roads_total_max={pending_roads_total_max}
+        set_pending_roads_total_max={set_pending_roads_total_max}
+        pending_ring_total_min={pending_ring_total_min}
+        set_pending_ring_total_min={set_pending_ring_total_min}
+        pending_ring_total_max={pending_ring_total_max}
+        set_pending_ring_total_max={set_pending_ring_total_max}
+        pending_ar_impact_min={pending_ar_impact_min}
+        set_pending_ar_impact_min={set_pending_ar_impact_min}
+        pending_ar_impact_max={pending_ar_impact_max}
+        set_pending_ar_impact_max={set_pending_ar_impact_max}
+        applyTableFilters={applyTableFilters}
+        clearAllTableFilters={clearAllTableFilters}
+        hasUnappliedFilterChanges={hasUnappliedFilterChanges}
+      />
 
       <style>{`
         .mapboxgl-popup.popup-dark .mapboxgl-popup-content {
@@ -2643,226 +2345,32 @@ export default function floodevents() {
           display: inline-block; width: 12px; height: 12px; border-radius: 9999px;
           border: 1px solid rgba(0,0,0,.4);
         }
+
+        .flood-popup {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .flood-popup-title {
+          font-size: 0.9rem;
+          font-weight: 600;
+          text-transform: capitalize;
+        }
+        .flood-popup-sub {
+          font-size: 0.75rem;
+          opacity: 0.8;
+        }
+        .flood-popup-pill {
+          margin-top: 4px;
+          align-self: flex-start;
+          padding: 2px 8px;
+          border-radius: 9999px;
+          font-size: 0.7rem;
+          font-weight: 500;
+          background: rgba(59, 130, 246, 0.18);
+          border: 1px solid rgba(59, 130, 246, 0.5);
+        }
       `}</style>
-    </div>
-  );
-}
-
-/* ===== amenities panel (capitalized component) ===== */
-function AmenitiesPanel({ center, stats, amenity_list, ring_filter, r_inner, r_outer, on_center }) {
-  const [q, set_q] = useState("");
-  const [open_band, set_open_band] = useState({ inner: true, outer: true });
-  const [open_types, set_open_types] = useState({});
-  const [limit_per_type, set_limit_per_type] = useState(200);
-
-  const list = useMemo(() => {
-    if (!center || !stats) return [];
-    const pad = 0.009;
-    const arr = [];
-    for (const a of amenity_list) {
-      if (a.lng < center[0] - pad || a.lng > center[0] + pad || a.lat < center[1] - pad || a.lat > center[1] + pad) continue;
-      const d = turf.distance([center[0], center[1]], [a.lng, a.lat], { units: "kilometers" }) * 1000;
-      if (d <= Math.max(r_inner, r_outer)) {
-        arr.push({ ...a, distm: Math.round(d), band: d <= Math.max(0, Math.min(r_inner, r_outer)) ? "inner" : "outer" });
-      }
-    }
-    return arr;
-  }, [center, stats, amenity_list, r_inner, r_outer]);
-
-  const needle = q.trim().toLowerCase();
-  const filtered = list
-    .filter(r => (ring_filter === "all" || r.band === ring_filter))
-    .filter(r => !needle || (r.name || "").toLowerCase().includes(needle) || (r.category || "").toLowerCase().includes(needle));
-
-  const grouped = useMemo(() => {
-    const g = { inner: new Map(), outer: new Map() };
-    for (const r of filtered) {
-      const key = r.category || "others";
-      const bucket_map = g[r.band];
-      if (!bucket_map.has(key)) bucket_map.set(key, []);
-      bucket_map.get(key).push(r);
-    }
-    return g;
-  }, [filtered]);
-
-  const totals = useMemo(() => {
-    if (!stats) return { inner: 0, outer: 0, total: 0, types_inner: 0, types_outer: 0 };
-    const inner = stats.counts?.inner || 0;
-    const outer = stats.counts?.outer || 0;
-    return { inner, outer, total: inner + outer, types_inner: grouped.inner.size, types_outer: grouped.outer.size };
-  }, [stats, grouped]);
-
-  if (!center || !stats) return <div className="text-sm text-muted-foreground p-3">select a flood to compute nearby amenities.</div>;
-  if (totals.total === 0) return <div className="text-sm text-muted-foreground p-3">no amenities within ≤{r_outer} m.</div>;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <input value={q} onChange={(e)=>set_q(e.target.value)} placeholder="search name / category…" className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring" />
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          total: <b>{totals.total}</b> · AR Impact: <b>{stats.scores?.ar_impact ?? "—"}</b>
-        </span>
-      </div>
-
-      {(["inner","outer"]).filter(b => ring_filter==="all" || ring_filter===b).map((band)=>{
-        const m = grouped[band];
-        const is_open = open_band[band];
-        const count = band==="inner" ? totals.inner : totals.outer;
-        const label = band==="inner" ? `≤${r_inner} m` : `≤${r_outer} m`;
-        if (count===0) return null;
-        return (
-          <div key={band} className="rounded-2xl border">
-            <div className="flex items-center justify-between p-3">
-              <div className="space-y-0.5">
-                <div className="text-xs text-muted-foreground uppercase">{label}</div>
-                <div className="text-sm"><b>{count}</b> amenities</div>
-              </div>
-              <button onClick={()=>set_open_band((s)=>({ ...s, [band]: !s[band] }))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                {is_open ? "collapse" : "expand"}
-              </button>
-            </div>
-
-            {is_open && (
-              <div className="p-2 pt-0">
-                {[...m.keys()].sort((a,b)=>a.localeCompare(b)).map((bucket)=>{
-                  const items = m.get(bucket) || [];
-                  const tkey = `${band}::${bucket}`;
-                  const open = (open_types[tkey] ?? true);
-                  const show = open ? items.slice(0, limit_per_type) : [];
-                  const more = open && items.length > limit_per_type;
-
-                  return (
-                    <div key={bucket} className="mb-2 rounded-xl border">
-                      <div className="flex items-center justify-between p-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-xs capitalize">{bucket}</span>
-                          <span className="text-xs text-muted-foreground">· {items.length}</span>
-                        </div>
-                        <button onClick={()=>set_open_types((s)=>({ ...s, [tkey]: !(s[tkey] ?? true) }))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                          {open ? "hide" : "show"}
-                        </button>
-                      </div>
-
-                      {open && (
-                        <div className="max-h-64 overflow-auto divide-y">
-                          {show.map((a)=>(
-                            <div key={a.id} className="p-2 text-sm flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="font-medium truncate">{a.name || "(unnamed)"}</div>
-                                <div className="text-[11px] text-muted-foreground font-mono">{fmt(a.lat,5)}, {fmt(a.lng,5)} · {a.distm} m</div>
-                              </div>
-                              <div className="shrink-0">
-                                <button className="rounded-lg border px-2 py-1 text-xs hover:bg-muted" onClick={()=>on_center?.(a.lng, a.lat)}>focus</button>
-                              </div>
-                            </div>
-                          ))}
-                          {more && (
-                            <div className="p-2 text-center">
-                              <button onClick={()=>set_limit_per_type((n)=>clamp(n+200,0,5000))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                                show more…
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ===== roads panel (capitalized component) ===== */
-function RoadsPanel({ center, roads_pack, ring_filter, r_inner, r_outer, on_focus_rn }) {
-  const [q, set_q] = useState("");
-  const [open_band, set_open_band] = useState({ inner: true, outer: true });
-  const [limit, set_limit] = useState(300);
-
-  const list = useMemo(() => {
-    const rows = [];
-    for (const band of ["inner","outer"]) {
-      for (const r of roads_pack[band] || []) {
-        rows.push({ ...r, band });
-      }
-    }
-    return rows;
-  }, [roads_pack]);
-
-  const needle = q.trim().toLowerCase();
-  const filtered = list
-    .filter(r => (ring_filter === "all" || r.band === ring_filter))
-    .filter(r => !needle || (r.name || "").toLowerCase().includes(needle) || String(r.rn_id || "").includes(needle));
-
-  const grouped = useMemo(() => {
-    return {
-      inner: (filtered.filter(x=>x.band==="inner")),
-      outer: (filtered.filter(x=>x.band==="outer")),
-    };
-  }, [filtered]);
-
-  const totals = useMemo(() => ({
-    inner: roads_pack.inner?.length || 0,
-    outer: roads_pack.outer?.length || 0,
-    total: (roads_pack.inner?.length || 0) + (roads_pack.outer?.length || 0),
-  }), [roads_pack]);
-
-  if (!center) return <div className="text-sm text-muted-foreground p-3">select a flood to compute nearby roads.</div>;
-  if (totals.total === 0) return <div className="text-sm text-muted-foreground p-3">no roads within ≤{r_outer} m.</div>;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <input value={q} onChange={(e)=>set_q(e.target.value)} placeholder="search road name / rn id…" className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring" />
-        <span className="text-xs text-muted-foreground whitespace-nowrap">total: <b>{totals.total}</b></span>
-      </div>
-
-      {(["inner","outer"]).filter(b => ring_filter==="all" || ring_filter===b).map((band)=>{
-        const rows = grouped[band] || [];
-        if (!rows.length) return null;
-        const is_open = open_band[band];
-        const label = band==="inner" ? `≤${r_inner} m` : `≤${r_outer} m`;
-        return (
-          <div key={band} className="rounded-2xl border">
-            <div className="flex items-center justify-between p-3">
-              <div className="space-y-0.5">
-                <div className="text-xs text-muted-foreground uppercase">{label}</div>
-                <div className="text-sm"><b>{rows.length}</b> roads</div>
-              </div>
-              <button onClick={()=>set_open_band((s)=>({ ...s, [band]: !s[band] }))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                {is_open ? "collapse" : "expand"}
-              </button>
-            </div>
-
-            {is_open && ( 
-              <div className="max-h-64 overflow-auto divide-y">
-                {rows.slice(0, limit).map((r, i)=>(
-                  <div key={`${r.rn_id}-${i}-${r.d}`} className="p-2 text-sm flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{r.name}</div>
-                      <div className="text-[11px] text-muted-foreground font-mono">rn_id: {r.rn_id ?? "—"} · {r.d} m</div>
-                    </div>
-                    <div className="shrink-0">
-                      <button className="rounded-lg border px-2 py-1 text-xs hover:bg-muted" onClick={()=>on_focus_rn?.(r.geometry)}>focus</button>
-                    </div>
-                  </div>
-                ))}
-                {rows.length > limit && (
-                  <div className="p-2 text-center">
-                    <button onClick={()=>set_limit(n=>clamp(n+300,0,5000))} className="rounded-lg border px-2 py-1 text-xs hover:bg-muted">
-                      show more…
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }

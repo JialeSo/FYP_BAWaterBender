@@ -408,7 +408,7 @@ class WeatherAlerts:
     async def start_live_monitoring(self):
         """Monitor channel for new messages"""
         url = SERVER_URL or "http://localhost:8000"
-        WEBHOOK_URL = f"{url}/weather-alerts/webhook"
+        WEBHOOK_URL = f"{url}/api/weather-alerts/webhook"
 
         client = await self._get_client()
 

@@ -21,248 +21,56 @@ import { X, MapPin, Play, Download, ArrowLeft, ArrowRight, ChevronRight, AlertCi
 import { SimulationMapContainer } from "@/components/pagecomponents/simulation/SimulationMapContainer";
 import { SimulationLegend } from "@/components/pagecomponents/simulation/SimulationLegend";
 import { MetricSelector } from "@/components/pagecomponents/simulation/MetricSelector";
+import {
+  MinPQ,
+  buildGraph,
+  dist2,
+  snapAmenitiesToNodes,
+} from "@/lib/simulation/graphUtils";
+import {
+  multiSourceDijkstra,
+  computePerPAStats,
+  calculateNodeLevelChanges,
+} from "@/lib/simulation/dijkstra";
+import {
+  fmtTime,
+  fmtM,
+  capitalizeWords,
+  getColorForValue,
+  getColorForTravelTime,
+  getColorForUnreachable,
+  calculatePADeltas,
+  downloadCSV,
+} from "@/lib/simulation/metrics";
 
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim();
 const mapbox_style = "mapbox://styles/mapbox/light-v11";
 
 /* ============================== helpers ============================== */
+// toInt and toNum are local helpers still used in this file
 const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
 const toNum = (v) => { const n = +v; return Number.isFinite(n) ? n : null; };
-const fmtM = (s) => (Number.isFinite(s) ? (s / 60).toFixed(1) + "m" : "—");
-const fmtTime = (s) => {
-  if (!Number.isFinite(s)) return "—";
-  const minutes = (s / 60).toFixed(1);
-  const seconds = Math.round(s);
-  return `${minutes}m (${seconds}s)`;
-};
-const dist2 = (a, b) => { if (!a || !b) return Number.POSITIVE_INFINITY; const dx=a[0]-b[0], dy=a[1]-b[1]; return dx*dx+dy*dy; };
-const capitalizeWords = (str) => str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-
-/* ========================= priority queue ======================= */
-class MinPQ {
-  constructor() { this.a = []; }
-  _swap(i, j) { [this.a[i], this.a[j]] = [this.a[j], this.a[i]]; }
-  _up(i) { while (i) { const p=(i-1)>>1; if (this.a[p].k<=this.a[i].k) break; this._swap(i,p); i=p; } }
-  _down(i) {
-    const n=this.a.length;
-    for(;;){ let l=i*2+1,r=l+1,m=i;
-      if(l<n && this.a[l].k<this.a[m].k) m=l;
-      if(r<n && this.a[r].k<this.a[m].k) m=r;
-      if(m===i) break; this._swap(i,m); i=m;
-    }
-  }
-  push(k,v){ this.a.push({k,v}); this._up(this.a.length-1); }
-  pop(){ if(!this.a.length) return null; const t=this.a[0]; const b=this.a.pop(); if(this.a.length){ this.a[0]=b; this._down(0); } return t; }
-  size(){ return this.a.length; }
-}
+// Other helpers (fmtM, fmtTime, dist2, capitalizeWords) are now imported from @/lib/simulation/metrics and @/lib/simulation/graphUtils
+// MinPQ class is now imported from @/lib/simulation/graphUtils
 
 /* ==================== graph builder ================= */
-function buildGraph(road_fc) {
-  const nodes = new Map();
-  const adj = new Map();
-  const edges = [];
-
-  const nodeMetaFromEdge = (p, which, coords) => {
-    const coord = which === "u" ? coords[0] : coords[coords.length - 1];
-    return {
-      coord,
-      paId: toInt(p.PA_ID ?? p.pa_id),
-      paName: p.PLN_AREA_N ?? p.pln_area_n ?? null,
-    };
-  };
-
-  for (const f of road_fc?.features || []) {
-    const p = f.properties || {};
-    const u = toInt(p.u), v = toInt(p.v);
-    const w = toNum(p.travel_time);
-    const rn_id = toInt(p.RN_ID ?? p.rn_id);
-    const coords = Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates : [];
-    if (u == null || v == null || !Number.isFinite(w) || !coords.length) continue;
-
-    if (!nodes.has(u)) nodes.set(u, { id: u, ...nodeMetaFromEdge(p, "u", coords) });
-    if (!nodes.has(v)) nodes.set(v, { id: v, ...nodeMetaFromEdge(p, "v", coords) });
-
-    if (!adj.has(u)) adj.set(u, []);
-    const e1 = { from: u, to: v, w, rn_id, coords, feature: f };
-    adj.get(u).push(e1); edges.push(e1);
-
-    const oneway = String(p.oneway ?? "true").toLowerCase() === "true";
-    if (!oneway) {
-      if (!adj.has(v)) adj.set(v, []);
-      const e2 = { from: v, to: u, w, rn_id, coords: [...coords].reverse(), feature: f };
-      adj.get(v).push(e2); edges.push(e2);
-    }
-  }
-  return { nodes, adj, edges };
-}
+// buildGraph function is now imported from @/lib/simulation/graphUtils
 
 /* ================== snap amenities to nodes ============== */
-function snapAmenitiesToNodes(amenity_fc, nodes, selectedTypes = ["moh_hospitals"], excludedAmenities = new Set()) {
-  const amenities = [];
-  const nodeArr = Array.from(nodes.values());
-
-  for (const f of amenity_fc?.features || []) {
-    const p = f.properties || {};
-    const amenityType = String(p.amenity_type || "").trim();
-    const amenityId = p.amenity_id ?? p.id;
-
-    // Filter by selected types
-    if (!selectedTypes.includes(amenityType)) continue;
-
-    // Filter out excluded amenities
-    if (amenityId && excludedAmenities.has(amenityId)) continue;
-
-    const pt = f.geometry?.coordinates;
-    if (!pt || !Number.isFinite(+pt[0]) || !Number.isFinite(+pt[1])) continue;
-
-    let best = null;
-    for (const n of nodeArr) {
-      const d2 = dist2(pt, n.coord);
-      if (best == null || d2 < best.d2) best = { nodeId: n.id, d2, node: n };
-    }
-
-    if (best) {
-      amenities.push({
-        amenity_id: amenityId ?? String(amenities.length),
-        amenity_name: p.amenity_name ?? amenityType,
-        amenity_type: amenityType,
-        node_id: best.nodeId,
-        pt,
-      });
-    }
-  }
-  return amenities;
-}
+// snapAmenitiesToNodes function is now imported from @/lib/simulation/graphUtils
 
 /* ======================== dijkstra ======================= */
-function multiSourceDijkstra({ nodes, adj }, amenityNodeMap, onProgress, edgeFilter) {
-  const dist = new Map();
-  const nearestAmenity = new Map(); // Track which amenity each node is closest to
-  const pq = new MinPQ();
-
-  // amenityNodeMap is Map of node_id -> amenity_id
-  for (const [nodeId, amenityId] of amenityNodeMap.entries()) {
-    dist.set(nodeId, 0);
-    nearestAmenity.set(nodeId, amenityId);
-    pq.push(0, nodeId);
-  }
-
-  let visited = 0;
-  while (pq.size()) {
-    const { k: d, v: u } = pq.pop();
-    if (d !== dist.get(u)) continue;
-    visited++; if (visited % 5000 === 0) onProgress?.(visited);
-
-    const edges = adj.get(u);
-    if (!edges) continue;
-    for (const e of edges) {
-      if (edgeFilter && !edgeFilter(e)) continue;
-      const nd = d + e.w;
-      if (nd < (dist.get(e.to) ?? Infinity)) {
-        dist.set(e.to, nd);
-        nearestAmenity.set(e.to, nearestAmenity.get(u)); // Propagate amenity info
-        pq.push(nd, e.to);
-      }
-    }
-  }
-  onProgress?.(visited);
-  return { dist, nearestAmenity, visited };
-}
+// multiSourceDijkstra function is now imported from @/lib/simulation/dijkstra
 
 /* ==================== compute per-PA stats ============= */
-function computePerPAStats({ graph, amenity_fc_enriched, onProgress, edgeFilter, selectedAmenityType = "moh_hospitals", excludedAmenities = new Set() }) {
-  const { nodes, adj } = graph;
-  const amenities = snapAmenitiesToNodes(amenity_fc_enriched, nodes, [selectedAmenityType], excludedAmenities);
-  if (!amenities.length) throw new Error(`No amenities found for type: ${selectedAmenityType}`);
-
-  // Create map of node_id -> amenity_id for all amenity locations
-  const amenityNodeMap = new Map();
-  for (const amenity of amenities) {
-    amenityNodeMap.set(amenity.node_id, amenity.amenity_id);
-  }
-
-  const { dist, nearestAmenity } = multiSourceDijkstra({ nodes, adj }, amenityNodeMap, onProgress, edgeFilter);
-
-  const byPA = new Map();
-  for (const n of nodes.values()) {
-    const paId = n.paId ?? -1;
-    const paName = n.paName || "(unknown)";
-    const t = dist.get(n.id) ?? Infinity;
-
-    if (!byPA.has(paId)) {
-      byPA.set(paId, {
-        pa_id: paId,
-        pa_name: paName,
-        nodes: 0,
-        sum_s: 0,
-        min_s: Infinity,
-        max_s: -Infinity,
-        unreachable: 0,
-      });
-    }
-
-    const agg = byPA.get(paId);
-    agg.nodes++;
-    if (Number.isFinite(t)) {
-      agg.sum_s += t;
-      agg.min_s = Math.min(agg.min_s, t);
-      agg.max_s = Math.max(agg.max_s, t);
-    } else {
-      agg.unreachable++;
-    }
-  }
-
-  const paStats = Array.from(byPA.values()).map(a => ({
-    pa_id: a.pa_id,
-    pa_name: a.pa_name,
-    nodes: a.nodes,
-    avg_s: a.nodes - a.unreachable > 0 ? a.sum_s / (a.nodes - a.unreachable) : null,
-    min_s: Number.isFinite(a.min_s) ? a.min_s : null,
-    max_s: Number.isFinite(a.max_s) ? a.max_s : null,
-    unreachable: a.unreachable,
-  }));
-
-  return { paStats, amenitiesCount: amenities.length, nodesCount: nodes.size, nodeDist: dist, nodeNearestAmenity: nearestAmenity };
-}
+// computePerPAStats function is now imported from @/lib/simulation/dijkstra
+// Note: The library version now supports nearestAmenity tracking via Map input
 
 /* ============================= Color scale ============================ */
-function getColorForValue(value, maxValue, isBaseline = false) {
-  if (!Number.isFinite(value) || value <= 0) return "#d1d5db";
-
-  if (isBaseline) {
-    // Baseline: green (low time) to blue (high time)
-    const ratio = Math.min(1, value / maxValue);
-    if (ratio < 0.25) return "#86efac"; // green
-    if (ratio < 0.5) return "#60a5fa"; // blue-400
-    if (ratio < 0.75) return "#3b82f6"; // blue-500
-    return "#1d4ed8"; // blue-700
-  } else {
-    // Delta: green (low increase) to red (high increase)
-    const ratio = Math.min(1, value / maxValue);
-    if (ratio < 0.25) return "#86efac";
-    if (ratio < 0.5) return "#fde047";
-    if (ratio < 0.75) return "#fb923c";
-    return "#ef4444";
-  }
-}
+// Color functions (getColorForValue, getColorForTravelTime, getColorForUnreachable) are now imported from @/lib/simulation/metrics
 
 /* ============================= CSV ============================ */
-function toCSV(arr) {
-  if (!arr?.length) return "";
-  const headers = Object.keys(arr[0]);
-  const esc = (v) => (v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replaceAll('"','""')}"` : String(v));
-  const lines = [headers.join(",")];
-  for (const obj of arr) lines.push(headers.map(h => esc(obj[h])).join(","));
-  return lines.join("\n");
-}
-
-function downloadCSV(name, rows) {
-  const csv = toCSV(rows);
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
-  URL.revokeObjectURL(url);
-}
+// CSV functions (toCSV, downloadCSV) are now imported from @/lib/simulation/metrics
 
 /* =============================== Page ================================= */
 export default function Simulation() {
@@ -346,74 +154,85 @@ export default function Simulation() {
   const mapContainerRef = useRef(null);
 
   // Enrich paDeltas with road statistics
-  const enrichedPaDeltas = useMemo(() => {
+    const enrichedPaDeltas = useMemo(() => {
     if (!paDeltas.length || !graph?.edges || !graph?.nodes || !affectedRoads.length) return paDeltas;
 
     const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
     const paRoadStats = new Map();
 
-    // Calculate road stats for each PA
+    // calculate road stats for each PA
     for (const edge of graph.edges) {
       const nodeFrom = graph.nodes.get(edge.from);
       const nodeTo = graph.nodes.get(edge.to);
       const paId = nodeFrom?.paId || nodeTo?.paId;
 
-      if (paId != null && edge.rn_id != null) {
-        if (!paRoadStats.has(paId)) {
-          paRoadStats.set(paId, {
-            total_roads: new Set(),
-            unaffected_roads: new Set(),
-            affected_roads: new Set(),
-            blocked_roads: new Set(),
-            unreachable_roads: new Set(),
-            failed_target_roads: new Set(),
-          });
-        }
+      if (paId == null || edge.rn_id == null) continue;
 
-        const stats = paRoadStats.get(paId);
-        stats.total_roads.add(edge.rn_id);
+      if (!paRoadStats.has(paId)) {
+        paRoadStats.set(paId, {
+          total_roads: new Set(),
+          unaffected_roads: new Set(),
+          affected_roads: new Set(),
+          blocked_roads: new Set(),
+          unreachable_roads: new Set(),
+          failed_target_roads: new Set(),
+        });
+      }
 
-        const isBlocked = affectedRoadSet.has(edge.rn_id);
-        const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
-        const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
-        const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+      const stats = paRoadStats.get(paId);
+      stats.total_roads.add(edge.rn_id);
+
+      const isBlocked = affectedRoadSet.has(edge.rn_id);
+      const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
+      const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
+      const delta =
+        Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
           ? floodedDist - baselineDist
           : null;
 
-        // Check if road fails travel time target
-        if (Number.isFinite(floodedDist) && floodedDist > travelTime) {
-          stats.failed_target_roads.add(edge.rn_id);
-        }
+      // blocked = flooded road (do not treat as time-increase or failed target)
+      if (isBlocked) {
+        stats.blocked_roads.add(edge.rn_id);
+        continue;
+      }
 
-        if (isBlocked) {
-          stats.blocked_roads.add(edge.rn_id);
-        } else if (!Number.isFinite(floodedDist)) {
-          stats.unreachable_roads.add(edge.rn_id);
-        } else if (delta && delta > 0) {
-          stats.affected_roads.add(edge.rn_id);
-        } else {
-          stats.unaffected_roads.add(edge.rn_id);
-        }
+      // unreachable = no entry any more
+      if (!Number.isFinite(floodedDist)) {
+        stats.unreachable_roads.add(edge.rn_id);
+        continue;
+      }
+
+      // only non-blocked, reachable roads can “fail target”
+      if (floodedDist > travelTime) {
+        stats.failed_target_roads.add(edge.rn_id);
+      }
+
+      // affected / unaffected
+      if (delta && delta > 0) {
+        stats.affected_roads.add(edge.rn_id);
+      } else {
+        stats.unaffected_roads.add(edge.rn_id);
       }
     }
 
-    // Enrich paDeltas with road counts
-    return paDeltas.map(pa => {
+    // enrich paDeltas with road counts
+    return paDeltas.map((pa) => {
       const stats = paRoadStats.get(pa.pa_id);
-      if (stats) {
-        return {
-          ...pa,
-          total_roads: stats.total_roads.size,
-          unaffected_roads: stats.unaffected_roads.size,
-          affected_roads: stats.affected_roads.size,
-          blocked_roads: stats.blocked_roads.size,
-          unreachable_roads: stats.unreachable_roads.size,
-          failed_target_roads: stats.failed_target_roads.size,
-        };
-      }
-      return pa;
+      if (!stats) return pa;
+
+      return {
+        ...pa,
+        total_roads: stats.total_roads.size,
+        unaffected_roads: stats.unaffected_roads.size,
+        affected_roads: stats.affected_roads.size,
+        blocked_roads: stats.blocked_roads.size,
+        unreachable_roads: stats.unreachable_roads.size,
+        failed_target_roads: stats.failed_target_roads.size,
+      };
     });
   }, [paDeltas, graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist, travelTime]);
+
+
 
   // Handle PA table column sorting
   const handleSort = useCallback((column) => {
@@ -440,12 +259,12 @@ export default function Simulation() {
     if (!graph?.edges || !graph?.nodes || !affectedRoads.length || !amenity_fc_enriched) return [];
     if (!baselineNearestAmenity || !floodedNearestAmenity) return [];
 
-    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+    const affectedRoadSet = new Set(affectedRoads.map((r) => r.rn_id));
     const roadDataMap = new Map();
 
-    // Build amenity lookup
+    // amenity lookup
     const amenityById = new Map();
-    amenity_fc_enriched.features?.forEach(f => {
+    amenity_fc_enriched.features?.forEach((f) => {
       if (f.properties?.amenity_id) {
         amenityById.set(f.properties.amenity_id, f.properties);
       }
@@ -458,16 +277,13 @@ export default function Simulation() {
       const nodeTo = graph.nodes.get(edge.to);
 
       const paName = nodeFrom?.paName || nodeTo?.paName || "Unknown";
-      const paId   = nodeFrom?.paId ?? nodeTo?.paId ?? null;   // 👈 NEW
+      const paId = nodeFrom?.paId ?? nodeTo?.paId ?? null;
 
       const isBlocked = affectedRoadSet.has(edge.rn_id);
       const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
       const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
-      const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
-        ? floodedDist - baselineDist
-        : null;
 
-      // Get nearest amenities from baseline and flooded scenario
+      // nearest amenities
       let baselineAmenityName = "—";
       let floodedAmenityName = "—";
 
@@ -475,7 +291,8 @@ export default function Simulation() {
       if (baselineAmenityId) {
         const amenity = amenityById.get(baselineAmenityId);
         if (amenity) {
-          baselineAmenityName = amenity.amenity_name || amenity.name || amenity.amenity_type;
+          baselineAmenityName =
+            amenity.amenity_name || amenity.name || amenity.amenity_type;
         }
       }
 
@@ -483,34 +300,63 @@ export default function Simulation() {
       if (floodedAmenityId) {
         const amenity = amenityById.get(floodedAmenityId);
         if (amenity) {
-          floodedAmenityName = amenity.amenity_name || amenity.name || amenity.amenity_type;
+          floodedAmenityName =
+            amenity.amenity_name || amenity.name || amenity.amenity_type;
         }
       }
 
+      // core times with your semantics
+      let baselineTime = Number.isFinite(baselineDist) ? baselineDist : null;
+      let floodedTime = Number.isFinite(floodedDist) ? floodedDist : null;
+      let delta =
+        Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+          ? floodedDist - baselineDist
+          : null;
+
       let category = "Unaffected";
+
       if (isBlocked) {
+        // blocked = flooded road itself; do not show any time change
         category = "Blocked (Flooded)";
+        baselineTime = null;
+        floodedTime = null;
+        delta = null;
       } else if (!Number.isFinite(floodedDist)) {
+        // unreachable = no entry; also no time change
         category = "Unreachable";
+        floodedTime = null;
+        delta = null;
       } else if (delta && delta > 0) {
+        // only reachable, non-blocked roads with longer time are “affected”
         category = "Affected";
       }
+
+      const pctIncrease =
+        category === "Affected" &&
+        Number.isFinite(baselineTime) &&
+        baselineTime > 0 &&
+        Number.isFinite(delta)
+          ? (delta / baselineTime) * 100
+          : null;
+
+      const exceedsTarget =
+        (category === "Affected" || category === "Unaffected") &&
+        Number.isFinite(floodedTime) &&
+        floodedTime > travelTime;
 
       if (!roadDataMap.has(edge.rn_id)) {
         roadDataMap.set(edge.rn_id, {
           rn_id: edge.rn_id,
           name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
-          pa_id: paId,          // 👈 NEW
+          pa_id: paId,
           pa_name: paName,
-          baseline_time: baselineDist,
-          flooded_time: floodedDist,
+          baseline_time: baselineTime,
+          flooded_time: floodedTime,
           delta_time: delta,
-          pct_increase: Number.isFinite(baselineDist) && baselineDist > 0 && Number.isFinite(delta)
-            ? (delta / baselineDist) * 100
-            : null,
+          pct_increase: pctIncrease,
           category,
           is_blocked: isBlocked,
-          exceeds_target: Number.isFinite(floodedDist) && floodedDist > travelTime,
+          exceeds_target: exceedsTarget,
           baseline_amenity: baselineAmenityName,
           flooded_amenity: floodedAmenityName,
         });
@@ -529,6 +375,8 @@ export default function Simulation() {
     floodedNearestAmenity,
     travelTime,
   ]);
+
+
 
   // Sort enrichedPaDeltas based on current sort state
   const sortedPaDeltas = useMemo(() => {
@@ -1076,13 +924,24 @@ export default function Simulation() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [amenity_fc_enriched, selectedAmenityType]);
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="rounded-lg border bg-card p-6 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-sm font-medium">Loading data...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
-    <div className="flex flex-col h-[91vh] bg-background">
+    <div className="flex flex-col h-[92vh] bg-background">
       {/* Header with stepper */}
-      <div className="border-b shadow-sm flex-shrink-0">
+      <div className="border-b shadow-sm">
         <div className="px-6 py-2">
           <h1 className="text-2xl font-bold mb-2 text-center">Flood Impact Simulation</h1>
           <div className="flex items-center justify-center gap-1.5">
@@ -1125,7 +984,7 @@ export default function Simulation() {
 
       {/* Content */}
       <div ref={contentRef} className="flex-1 overflow-y-auto bg-background">
-        <div className="max-w-7xl mx-auto p-6 pb-24">{/* pb-24 for footer space */}
+        <div className="p-6 pb-24">{/* pb-24 for footer space */}
         {/* Step 1: Define Flood Input */}
         {step === 1 && (
           <div className="max-w-3xl mx-auto space-y-6">
@@ -2097,7 +1956,7 @@ export default function Simulation() {
       </div>
 
       {/* Sticky Footer with Navigation */}
-      <div className="border-t shadow-lg">
+      <div className="border-t shadow-lg sticky bottom-0 bg-background z-30">
         <div className="px-6 py-3 flex items-center justify-between">
           {step > 1 && (
             <Button variant="outline" onClick={() => setStep(step - 1)} disabled={busy}>

@@ -1,75 +1,106 @@
 import { Button } from "@/components/ui/button"
-import { Link } from "react-router-dom"
-import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuItem,
-  NavigationMenuLink,
-} from "@/components/ui/navigation-menu"
+import { Link, useLocation } from "react-router-dom"
+import { NavigationMenu, NavigationMenuList, NavigationMenuItem, NavigationMenuLink, } from "@/components/ui/navigation-menu"
+import { ArrowRight, Droplets, LineChart, ShieldCheck, Share2, MapPin, LocateFixed, Search } from "lucide-react"
 
 export default function Header() {
+  const { pathname } = useLocation();
+  const isActive = (path) => pathname === path;
+
   return (
     <header className="bg-background text-foreground border-b border-border">
-      <nav className="flex justify-center px-6 py-4">
-        <NavigationMenu>
-          <NavigationMenuList className="flex items-center gap-6">
-            {/* home */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/home">
-                  <Button variant="ghost" size="sm">Home</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+      <div className="flex items-center justify-between px-8 py-4">
 
-            {/* singapore historical flood map */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/historical-flood-map">
-                  <Button variant="ghost" size="sm">Singapore Historical Flood Map</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+        {/* BRAND */}
+        <Link to="/home" className="flex items-center gap-2 group">
+          <div className="flex items-center gap-2">
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-primary">
+              <Droplets className="h-5 w-5 text-primary-foreground" />
+            </div>
+          </div>
+          <span className="font-semibold text-lg tracking-tight group-hover:text-primary transition-colors">
+            WaterBender
+          </span>
+        </Link>
 
-            {/* flood events */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/flood-events">
-                  <Button variant="ghost" size="sm">Flood Events</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+        {/* NAVIGATION */}
+        <nav>
+          <NavigationMenu>
+            <NavigationMenuList className="flex items-center gap-6">
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
+                  <Link to="/historicalFloodMap">
+                    <Button
+                      variant={isActive("/historicalFloodMap") ? "secondary" : "ghost"}
+                      size="sm"
+                      className="transition-all hover:scale-105"
+                    >
+                      Singapore Historical Flood Map
+                    </Button>
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
 
-            {/* road centrality */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/road-centrality">
-                  <Button variant="ghost" size="sm">Road Centrality</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
+                  <Link to="/floodEvents">
+                    <Button
+                      variant={isActive("/floodEvents") ? "secondary" : "ghost"}
+                      size="sm"
+                      className="transition-all hover:scale-105"
+                    >
+                      Flood Events
+                    </Button>
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
 
-            {/* simulation */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/simulation">
-                  <Button variant="ghost" size="sm">Simulation</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
+                  <Link to="/roadCentrality">
+                    <Button
+                      variant={isActive("/roadCentrality") ? "secondary" : "ghost"}
+                      size="sm"
+                      className="transition-all hover:scale-105"
+                    >
+                      Road Centrality
+                    </Button>
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
 
-            {/* dashboard map */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link to="/uploaddata">
-                  <Button variant="ghost" size="sm">UploadData</Button>
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
+                  <Link to="/simulation">
+                    <Button
+                      variant={isActive("/simulation") ? "secondary" : "ghost"}
+                      size="sm"
+                      className="transition-all hover:scale-105"
+                    >
+                      Simulation
+                    </Button>
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
 
-          </NavigationMenuList>
-        </NavigationMenu>
-      </nav>
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
+                  <Link to="/uploadData">
+                    <Button
+                      variant={isActive("/uploadData") ? "secondary" : "ghost"}
+                      size="sm"
+                      className="transition-all hover:scale-105"
+                    >
+                      Upload Data
+                    </Button>
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+
+            </NavigationMenuList>
+          </NavigationMenu>
+        </nav>
+      </div>
     </header>
-  )
+  );
 }

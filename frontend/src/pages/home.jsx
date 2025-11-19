@@ -1,383 +1,750 @@
-import { useState, useEffect, useRef } from "react"
+import { useEffect, useRef } from "react"
+import { motion } from "framer-motion"
+import { Link } from "react-router-dom"
 import mapboxgl from "mapbox-gl"
 import "mapbox-gl/dist/mapbox-gl.css"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Input } from "@/components/ui/input"
-import { ArrowRight, Droplets, LineChart, ShieldCheck, Share2, MapPin, LocateFixed, Search } from "lucide-react"
-import { motion } from "framer-motion"
+import { Droplets, MapPin, Route, Timer, Layers, ArrowRight } from "lucide-react"
 
-/*
-  waterbenders — landing page (marketing-first)
-  - dark-mode first
-  - top nav: centered location search + "my location"
-  - hero: real mapbox dark basemap (singapore)
-  - sections: use-cases, features, how-it-works, gallery, credibility, cta, footer
-*/
+/* ============ mapbox backgrounds ============ */
 
-// mapbox hero (non-interactive for performance)
-function MapboxHeroMap({ className = "" }) {
+function baseStaticMap(container, center, zoom) {
+  mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN || "").trim()
+  if (typeof mapboxgl.setTelemetryEnabled === "function") {
+    mapboxgl.setTelemetryEnabled(false)
+  }
+
+  return new mapboxgl.Map({
+    container,
+    style: "mapbox://styles/mapbox/dark-v11",
+    center,
+    zoom,
+    interactive: false,
+    dragRotate: false,
+    pitchWithRotate: false,
+    attributionControl: false,
+  })
+}
+
+function HistoricalMapboxBackground({ className = "" }) {
   const ref = useRef(null)
 
   useEffect(() => {
     if (!ref.current) return
-    mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ""
-    const map = new mapboxgl.Map({
-      container: ref.current,
-      style: "mapbox://styles/mapbox/dark-v11",
-      center: [103.8198, 1.3521], // singapore
-      zoom: 10.6,
-      attributionControl: false,
-      dragRotate: false,
-      pitchWithRotate: false,
-      interactive: false,
-    })
+    const map = baseStaticMap(ref.current, [103.8198, 1.3521], 10.4)
     return () => map.remove()
   }, [])
 
   return <div ref={ref} className={className} />
 }
 
+function EventMapboxBackground({ className = "" }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!ref.current) return
+    const map = baseStaticMap(ref.current, [103.835, 1.433], 13)
+    return () => map.remove()
+  }, [])
+
+  return <div ref={ref} className={className} />
+}
+
+function RoadMapboxBackground({ className = "" }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!ref.current) return
+    const map = baseStaticMap(ref.current, [103.83, 1.34], 11.2)
+    return () => map.remove()
+  }, [])
+
+  return <div ref={ref} className={className} />
+}
+
+function SimulationMapboxBackground({ className = "" }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!ref.current) return
+    const map = baseStaticMap(ref.current, [103.86, 1.3], 12)
+    return () => map.remove()
+  }, [])
+
+  return <div ref={ref} className={className} />
+}
+
+/* ================= main page ================= */
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <SiteNav />
-      <HeroSection />
-      <UseCases />
-      <FeaturesGrid />
-      <HowItWorks />
-      <MiniGallery />
-      <Credibility />
-      <CtaSection />
-      <SiteFooter />
+      <main className="mx-auto flex max-w-7xl flex-col gap-16 px-4 py-10 lg:py-16">
+        <HeroSection />
+        <HistoricalSection />
+        <EventsSection />
+        <CentralitySection />
+        <SimulationSection />
+        <ClosingSection />
+      </main>
     </div>
   )
 }
 
-/* ---------------- top nav ---------------- */
-function SiteNav() {
-  const [query, setQuery] = useState("")
+/* ================= hero ================= */
 
-  function onSubmit(e) {
-    e.preventDefault()
-    // wire to geocode / map flyTo
-  }
-  function useMyLocation() {
-    // wire to navigator.geolocation & map flyTo
-  }
-
-  return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur nav">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4">
-        {/* brand */}
-        <div className="flex min-w-[140px] items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-full bg-primary">
-            <Droplets className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="brand hidden text-base font-semibold tracking-tight sm:inline">Waterbenders</span>
-        </div>
-
-        {/* location search */}
-        <form onSubmit={onSubmit} className="flex w-full max-w-2xl items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search a location, road, or planning area…"
-              className="pl-9"
-            />
-          </div>
-          <Button type="submit" variant="secondary" className="hidden sm:inline-flex">
-            Search
-          </Button>
-          <Button type="button" onClick={useMyLocation} variant="outline" className="gap-2">
-            <LocateFixed className="h-4 w-4" /> My Location
-          </Button>
-        </form>
-
-        {/* auth / cta */}
-        <div className="flex min-w-[140px] items-center justify-end gap-2">
-          <Button variant="ghost" className="hidden md:inline-flex">Sign In</Button>
-          <Button>
-            Launch App <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </header>
-  )
-}
-
-/* ---------------- hero ---------------- */
 function HeroSection() {
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id)
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
   return (
-    <section className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(100%_60%_at_50%_0%,var(--color-primary)/18_0%,transparent_60%)]" />
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 md:py-20">
-        <div className="flex flex-col justify-center">
-          <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="font-[montserrat] text-4xl font-extrabold leading-tight tracking-tight md:text-5xl"
+    <section className="flex flex-col items-center gap-8 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex max-w-3xl flex-col items-center gap-5"
+      >
+        <Badge className="border-primary/30 bg-primary/10 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+          BA - Waterbender · Singapore Flood Explorer
+        </Badge>
+
+        <h1 className="font-[montserrat] text-4xl font-extrabold leading-tight tracking-tight md:text-5xl">
+          Visualising flood events in Singapore with the roads and amenities that feel them.
+        </h1>
+
+        <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+          Waterbender brings historical floods, planning areas, roads, and amenities into one set of
+          dashboards. Move from a city-wide view to a single road segment or simulated flood, and see how
+          water reshapes everyday movement.
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-1 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <Droplets className="h-3.5 w-3.5" />
+            Over 10 years of flood data
+          </span>
+          <Separator orientation="vertical" className="h-4" />
+          <span className="inline-flex items-center gap-1.5">
+            <Route className="h-3.5 w-3.5" />
+            More than forty-five thousand road segments
+          </span>
+          <Separator orientation="vertical" className="h-4" />
+          <span className="inline-flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5" />
+            Tens of thousands of mapped amenities
+          </span>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.05 }}
+        className="flex w-full max-w-4xl flex-col gap-4"
+      >
+        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          What you can explore
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <HeroExploreCard
+            icon={Layers}
+            title="Planning areas"
+            description="Where floods cluster across Singapore’s planning areas."
+            onClick={() => scrollToSection("historical-section")}
+          />
+          <HeroExploreCard
+            icon={Droplets}
+            title="Flood events"
+            description="What sits around a single flood and how big its footprint is."
+            onClick={() => scrollToSection("events-section")}
+          />
+          <HeroExploreCard
+            icon={Route}
+            title="Road network"
+            description="Which roads matter most when floods and amenities overlap."
+            onClick={() => scrollToSection("centrality-section")}
+          />
+          <HeroExploreCard
+            icon={Timer}
+            title="Simulation"
+            description="How travel time changes when new floods are dropped on the map."
+            onClick={() => scrollToSection("simulation-section")}
+          />
+        </div>
+      </motion.div>
+    </section>
+  )
+}
+
+function HeroExploreCard({ icon: Icon, title, description, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-start gap-3 rounded-2xl border border-border bg-card/90 px-4 py-4 text-left text-sm shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/70 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em]">
+          {title}
+        </p>
+        <p className="text-[12px] text-muted-foreground">{description}</p>
+      </div>
+    </button>
+  )
+}
+
+/* ================= visuals ================= */
+
+function HistoricalVisual() {
+  return (
+    <Card className="border-border bg-card shadow-lg p-0">
+      {/* p-0 so no inherited py-6 */}
+      <CardContent className="h-64 p-0 md:h-72">
+        <div className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-card">
+          <HistoricalMapboxBackground className="h-full w-full" />
+
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/65 via-black/20 to-transparent" />
+
+          <div className="absolute left-4 top-4 rounded-full bg-slate-950/85 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-200">
+            Planning areas overview
+          </div>
+
+          {/* highlight bubble over Yishun-ish */}
+          <div className="pointer-events-none absolute left-[63%] top-[19%] flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-sky-400/70 bg-sky-400/10 shadow-[0_0_24px_rgba(56,189,248,0.25)]" />
+
+          {/* popup card */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="absolute left-4 bottom-4 w-72 rounded-2xl bg-slate-950/95 p-3 text-[10px] text-slate-50 shadow-xl"
           >
-            Visualising Flood Risk in Singapore
-          </motion.h1>
-          <p className="mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-            One dark map to explore historical flood events, risk hotspots, and nearby amenities. Search a place, fly the map, and share the view.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Button size="lg">Open the Risk Map</Button>
-            <Button size="lg" variant="outline">What’s in the Data</Button>
+            <p className="text-xs font-semibold">
+              Planning Area: <span className="font-bold">Yishun</span>
+            </p>
+
+            <div className="mt-2 space-y-0.5">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Planning area — numbers
+              </p>
+              <p>
+                Area: <span className="font-semibold">21.01 km²</span>
+              </p>
+              <p>
+                Population: <span className="font-semibold">228,210</span>
+              </p>
+              <p>
+                No. of floods: <span className="font-semibold">13</span> · Rank{" "}
+                <span className="font-semibold">#9</span> / 55
+              </p>
+              <p>
+                No. of amenities: <span className="font-semibold">911</span> · Rank{" "}
+                <span className="font-semibold">#21</span> / 55
+              </p>
+            </div>
+
+            <div className="mt-2 space-y-0.5">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Planning area — statistics
+              </p>
+              <p>
+                Flood density: <span className="font-semibold">0.62 / km²</span> · Rank{" "}
+                <span className="font-semibold">#22</span>
+              </p>
+              <p>
+                Amenities density: <span className="font-semibold">43.36 / km²</span> · Rank{" "}
+                <span className="font-semibold">#35</span>
+              </p>
+            </div>
+
+            <p className="mt-2 text-[9px] text-slate-300">
+              Over 10 years of flood records are mapped and ranked for every planning area.
+            </p>
+          </motion.div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function EventVisual() {
+  return (
+    <Card className="border-border bg-card shadow-lg p-0">
+      <CardContent className="h-64 p-0 md:h-72">
+        <div className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-card">
+          <EventMapboxBackground className="h-full w-full" />
+
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/70 via-black/30 to-transparent" />
+
+          {/* distance rings */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="h-40 w-40 rounded-full border-2 border-emerald-400/80 bg-emerald-400/10" />
+            <div className="absolute h-64 w-64 rounded-full border-2 border-sky-400/70 bg-sky-400/5" />
           </div>
-          <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground">
-            <ShieldCheck className="h-4 w-4" /> Role-Based Access
-            <Separator orientation="vertical" className="mx-1 h-4" />
-            <Share2 className="h-4 w-4" /> Shareable Views
-            <Separator orientation="vertical" className="mx-1 h-4" />
-            <LineChart className="h-4 w-4" /> YoY Trend Ranks
+
+          {/* origin + end */}
+          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-slate-950 bg-emerald-400 shadow-lg">
+              <Droplets className="h-3.5 w-3.5 text-slate-950" />
+            </div>
+          </div>
+          <div className="pointer-events-none absolute left-[58%] top-[46%]">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-slate-950 bg-rose-400 shadow">
+              <span className="text-[10px] font-semibold text-slate-950">End</span>
+            </div>
+          </div>
+
+          {/* pretend amenities */}
+          <div className="pointer-events-none absolute">
+            <span className="absolute left-[44%] top-[40%] h-2 w-2 rounded-full bg-amber-300 shadow" />
+            <span className="absolute left-[50%] top-[57%] h-2 w-2 rounded-full bg-amber-300 shadow" />
+            <span className="absolute left-[54%] top-[52%] h-2 w-2 rounded-full bg-amber-300 shadow" />
+            <span className="absolute left-[47%] top-[45%] h-2 w-2 rounded-full bg-amber-300 shadow" />
+          </div>
+
+          <div className="absolute left-4 top-4 rounded-full bg-slate-950/85 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-200">
+            Flood event footprint
+          </div>
+
+          <div className="absolute right-4 top-10 w-56 rounded-2xl bg-slate-950/95 p-3 text-[10px] text-slate-50 shadow-xl backdrop-blur-sm">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="uppercase tracking-[0.16em] text-slate-400">
+                Event summary
+              </span>
+              <Badge className="bg-slate-800 text-[9px]">Sample view</Badge>
+            </div>
+            <div className="space-y-1">
+              <p>Origin · Near residential and MRT access.</p>
+              <p>Inner ring · 0–250 m · denser amenities and local roads.</p>
+              <p>Outer ring · 250–500 m · more collector and arterial roads.</p>
+              <p>Over 10 years of flood records feed into how these rings are summarised.</p>
+            </div>
+          </div>
+
+          <div className="absolute bottom-4 left-4 rounded-xl bg-slate-950/90 px-3 py-2 text-[10px] text-slate-200 shadow">
+            <div className="mb-1 font-semibold">Legend</div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span>Origin marker and inner ring</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-rose-400" />
+                <span>End or predicted end</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-amber-300" />
+                <span>Amenities inside the bands</span>
+              </div>
+            </div>
           </div>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
 
-        {/* hero map */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="relative"
-        >
-          <Card className="border-border bg-card shadow-xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium text-foreground/80">Singapore Risk Map</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[var(--radius-xl)] border border-border">
-                <MapboxHeroMap className="h-full w-full" />
-                {/* legend chip */}
-                <div className="absolute right-3 top-3 rounded-[var(--radius-md)] border border-border bg-background/80 p-2 text-xs backdrop-blur">
-                  <div className="mb-1 font-medium">Flood Density</div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-foreground/60" /> Low
-                    <span className="h-2 w-2 rounded-full bg-primary/70" /> High
-                  </div>
+function RoadVisual() {
+  return (
+    <Card className="border-border bg-card shadow-lg p-0">
+      <CardContent className="h-64 p-0 md:h-72">
+        <div className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-card">
+          <RoadMapboxBackground className="h-full w-full" />
+
+          {/* dark + blue tint so lines pop */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/70 via-black/40 to-blue-900/40" />
+
+          {/* stylised road overlay */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <svg viewBox="0 0 400 220" className="h-[90%] w-[90%] opacity-90">
+              <defs>
+                <linearGradient id="roadImportance" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#4b5563" />
+                  <stop offset="40%" stopColor="#2563eb" />
+                  <stop offset="100%" stopColor="#38bdf8" />
+                </linearGradient>
+              </defs>
+
+              {/* base network */}
+              <g stroke="#374151" strokeWidth="1.2" strokeLinecap="round" strokeOpacity="0.8">
+                <path d="M40 150 L360 150" />
+                <path d="M60 180 L340 90" />
+                <path d="M80 90 L320 180" />
+                <path d="M140 60 L160 200" />
+                <path d="M220 60 L240 200" />
+              </g>
+
+              {/* highlighted important routes */}
+              <g stroke="url(#roadImportance)" strokeLinecap="round">
+                <path d="M70 150 L260 150" strokeWidth="4.5" />
+                <path d="M200 80 L230 190" strokeWidth="4" />
+                <path d="M120 160 L310 100" strokeWidth="3.5" />
+              </g>
+
+              {/* nodes */}
+              <g fill="#e5e7eb">
+                <circle cx="70" cy="150" r="2" />
+                <circle cx="260" cy="150" r="2" />
+                <circle cx="200" cy="80" r="2" />
+                <circle cx="230" cy="190" r="2" />
+                <circle cx="120" cy="160" r="2" />
+                <circle cx="310" cy="100" r="2" />
+              </g>
+            </svg>
+          </div>
+
+          <div className="absolute left-4 top-4 rounded-full bg-slate-950/85 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-200">
+            Road importance
+          </div>
+
+          <div className="absolute bottom-4 left-4 right-4 flex flex-col gap-2 text-[10px] text-slate-200 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                Importance scale
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="h-2 w-20 rounded-full bg-gradient-to-r from-slate-600 via-blue-600 to-sky-400" />
+                <span>Lower to higher</span>
+              </div>
+            </div>
+            <div className="space-y-0.5 text-slate-300">
+              <p>Segments scored by combined betweenness and closeness.</p>
+              <p>Amenity and flood counts layered for each road segment.</p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SimulationVisual() {
+  return (
+    <Card className="border-border bg-card shadow-lg p-0">
+      <CardContent className="h-64 p-0 md:h-72 ">
+        <div className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-card">
+          <SimulationMapboxBackground className="h-full w-full" />
+
+          {/* red/purple tint overlay */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/75 via-slate-900/40 to-rose-900/50" />
+
+          {/* simple A→B route overlay */}
+          <div className="pointer-events-none absolute inset-0">
+            <svg viewBox="0 0 400 220" className="h-full w-full opacity-85">
+              {/* dry route */}
+              <path
+                d="M80 170 C140 150, 220 140, 320 120"
+                stroke="#22c55e"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="4 3"
+                fill="none"
+              />
+              {/* flooded route (longer) */}
+              <path
+                d="M80 170 C120 120, 200 110, 280 130 C320 140, 340 150, 360 160"
+                stroke="#fb7185"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+
+            {/* origin / destination markers */}
+            <div className="absolute left-[18%] top-[72%] -translate-x-1/2 -translate-y-1/2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/80 text-xs font-semibold text-slate-950 shadow-lg">
+                A
+              </div>
+            </div>
+            <div className="absolute right-[6%] top-[52%] translate-x-1/2 -translate-y-1/2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/80 text-xs font-semibold text-slate-950 shadow-lg">
+                B
+              </div>
+            </div>
+          </div>
+
+          {/* header */}
+          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-slate-950/85 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-200">
+            <span>Travel time simulation</span>
+            <Timer className="h-3.5 w-3.5 text-rose-300" />
+          </div>
+
+          {/* summary card on right */}
+          <div className="absolute right-4 top-10 w-60 rounded-2xl bg-slate-950/95 p-3 text-[10px] text-slate-50 shadow-xl backdrop-blur-sm">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              A → B comparison
+            </p>
+
+            <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
+              <div className="rounded-lg bg-slate-900/80 p-2">
+                <p className="font-semibold text-slate-200">Dry conditions</p>
+                <p className="mt-1 text-sm font-semibold">18 mins</p>
+                <p className="text-slate-300">Usable roads · 32</p>
+              </div>
+              <div className="rounded-lg bg-rose-950/80 p-2">
+                <p className="font-semibold text-rose-200">With simulated flood</p>
+                <p className="mt-1 text-sm font-semibold">27 mins</p>
+                <p className="text-slate-200">Usable roads · 19 · some blocked</p>
+              </div>
+            </div>
+
+            {/* tiny bars */}
+            <div className="mt-3 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-16 text-slate-300">Dry</span>
+                <div className="h-2 flex-1 rounded-full bg-slate-800">
+                  <div className="h-2 w-2/3 rounded-full bg-emerald-400" />
                 </div>
-                {/* pin label (mock) */}
-                <div className="absolute left-1/3 top-1/2 -translate-y-1/2 rounded-[var(--radius-sm)] border border-border bg-background/90 px-2 py-1 text-[11px] shadow">Orchard Rd</div>
-                <MapPin className="absolute left-[31%] top-[54%] h-5 w-5 text-primary" />
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-/* ---------------- use cases ---------------- */
-function UseCases() {
-  const cases = [
-    { title: "Urban Planning", desc: "Compare planning areas and subzones over years to guide zoning and drainage upgrades." },
-    { title: "Emergency Response", desc: "Locate clinics, shelters, and access roads near hotspots for faster coordination." },
-    { title: "Infrastructure Maintenance", desc: "Prioritise assets by recurrence and proximity to critical amenities." },
-  ]
-
-  return (
-    <section className="mx-auto max-w-7xl px-4 py-12">
-      <div className="mb-8 text-center">
-        <h2 className="font-[montserrat] text-3xl font-bold tracking-tight">What Do You Need It For?</h2>
-        <p className="mt-2 text-muted-foreground">Pick a path — we’ll shape the map to your goal.</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cases.map((c) => (
-          <Card key={c.title} className="border-border bg-card shadow-sm transition hover:shadow-md">
-            <CardHeader>
-              <CardTitle className="capitalize">{c.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">{c.desc}</CardContent>
-          </Card>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-/* ---------------- features (updated) ---------------- */
-function FeaturesGrid() {
-  const features = [
-    { title: "Singapore-First Coverage", desc: "Planning areas, subzones, road segments, and amenity overlays — tuned for SG data." },
-    { title: "Historical Flood Layers", desc: "Stack years and filter by event type; spot clusters and recurring hotspots." },
-    { title: "Trend & Rank Views", desc: "Rank areas by cases or density across years with clean charts for slides." },
-    { title: "Amenity Proximity", desc: "See clinics, schools, and shelters near flooded roads for response planning." },
-    { title: "Commercial Insights", desc: "Overlay mall clusters and commercial POIs to assess impact on retail & footfall." },
-    { title: "Property Prices", desc: "Contextualise hotspots with nearby HDB/condo price bands to study exposure." },
-  ]
-
-  return (
-    <section id="features" className="mx-auto max-w-7xl px-4 py-12">
-      <div className="mb-8 text-center">
-        <h2 className="font-[montserrat] text-3xl font-bold tracking-tight">Why Teams Use Waterbenders</h2>
-        <p className="mt-2 text-muted-foreground">Built for planners, responders, and analysts who need clarity in minutes.</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map((f) => (
-          <Card key={f.title} className="border-border bg-card shadow-sm">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-[var(--radius-lg)] bg-muted">
-                <span className="text-xs text-foreground/70">★</span>
+              <div className="flex items-center gap-2">
+                <span className="w-16 text-slate-300">With flood</span>
+                <div className="h-2 flex-1 rounded-full bg-slate-800">
+                  <div className="h-2 w-[90%] rounded-full bg-rose-400" />
+                </div>
               </div>
-              <CardTitle className="text-base">{f.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0 text-sm text-muted-foreground">{f.desc}</CardContent>
-          </Card>
-        ))}
-      </div>
-    </section>
-  )
-}
+            </div>
 
-/* ---------------- how it works ---------------- */
-function HowItWorks() {
-  const steps = [
-    { step: 1, title: "Search & Locate", desc: "Type a place (e.g., “Tampines”), or use your location to fly the map." },
-    { step: 2, title: "Filter & Explore", desc: "Pick years, planning areas, and event types; hover for rich context." },
-    { step: 3, title: "Prioritise", desc: "Rank hotspots and surface amenities near high-risk roads." },
-    { step: 4, title: "Share", desc: "Export images or share a link — brief stakeholders in one click." },
-  ]
-
-  return (
-    <section id="how" className="bg-muted/30 py-12">
-      <div className="mx-auto max-w-7xl px-4">
-        <h3 className="text-center font-[montserrat] text-2xl font-bold">How It Works</h3>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {steps.map((s) => (
-            <Card key={s.step} className="border-border bg-card shadow-sm">
-              <CardHeader>
-                <Badge variant="secondary" className="w-fit">Step {s.step}</Badge>
-                <CardTitle className="mt-2 text-base">{s.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 text-sm text-muted-foreground">{s.desc}</CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/* ---------------- gallery (svg mocks) ---------------- */
-function MiniGallery() {
-  return (
-    <section id="gallery" className="mx-auto max-w-7xl px-4 py-12">
-      <h3 className="text-center font-[montserrat] text-2xl font-bold">Screens at a Glance</h3>
-      <p className="mt-2 text-center text-muted-foreground">Test.</p>
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <Card className="overflow-hidden border-border bg-card"><GalleryMapMock variant="layers" /></Card>
-        <Card className="overflow-hidden border-border bg-card"><GalleryMapMock /></Card>
-        <Card className="overflow-hidden border-border bg-card"><GalleryMapMock variant="compare" /></Card>
-      </div>
-    </section>
-  )
-}
-
-// lightweight inline “mapbox-like” svg for gallery tiles
-function GalleryMapMock({ variant = "default" }) {
-  return (
-    <svg viewBox="0 0 800 300" className="h-48 w-full" role="img" aria-label="map mock">
-      <rect width="800" height="300" fill="var(--card)" />
-      <g stroke="var(--foreground)" strokeOpacity="0.2">
-        <path d="M20,40 L780,260" />
-        <path d="M60,280 L420,40" />
-        <path d="M740,60 L120,260" />
-      </g>
-      <g>
-        <circle cx="520" cy="120" r="30" fill="var(--primary)" fillOpacity="0.12" />
-        <circle cx="280" cy="180" r="28" fill="var(--foreground)" fillOpacity="0.10" />
-        <circle cx="380" cy="140" r="22" fill="var(--primary)" fillOpacity="0.12" />
-      </g>
-      {variant === "layers" && (
-        <g>
-          <rect x="18" y="18" width="150" height="80" rx="8" fill="var(--background)" opacity="0.85" />
-          <text x="30" y="42" fontSize="12" fill="var(--foreground)" opacity="0.9">Layers</text>
-        </g>
-      )}
-      {variant === "compare" && <rect x="260" y="0" width="4" height="300" fill="var(--border)" />}
-    </svg>
-  )
-}
-
-/* ---------------- credibility ---------------- */
-function Credibility() {
-  return (
-    <section className="bg-muted/30 py-12">
-      <div className="mx-auto max-w-7xl px-4">
-        <div className="grid items-center gap-8 md:grid-cols-2">
-          <div>
-            <h3 className="font-[montserrat] text-2xl font-bold">What We’re Building</h3>
-            <p className="mt-2 text-muted-foreground">A simple, fast, SG-tuned web app to explore flood risk with nearby amenities. It’s opinionated about clarity, speed, and shareability.</p>
-            <ul className="mt-4 list-inside list-disc text-sm text-muted-foreground">
-              <li>Shadcn UI + theme tokens for consistent dark UI</li>
-              <li>Map overlays for floods, roads, and amenities</li>
-              <li>Ranked views for year-on-year trends</li>
-            </ul>
+            <p className="mt-2 text-[9px] text-slate-300">
+              Simulated floods close selected roads and recalculate travel times on the same network.
+            </p>
           </div>
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Who Benefits</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              <div className="space-y-2">
-                <p><strong className="text-foreground">Planners:</strong> Identify hotspots and infrastructure at risk.</p>
-                <p><strong className="text-foreground">Responders:</strong> Check nearby clinics/shelters and route context.</p>
-                <p><strong className="text-foreground">Analysts:</strong> Compare year-on-year trends with ranked views.</p>
+
+          {/* legend bottom-left */}
+          <div className="absolute bottom-4 left-4 rounded-xl bg-slate-950/90 px-3 py-2 text-[10px] text-slate-200 shadow">
+            <div className="mb-1 font-semibold">Legend</div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-4 rounded-full bg-emerald-400" />
+                <span>Dry route</span>
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-4 rounded-full bg-rose-400" />
+                <span>With simulated flood</span>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ================= sections ================= */
+
+function HistoricalSection() {
+  return (
+    <section id="historical-section" className="grid items-center gap-10 lg:grid-cols-2">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <HistoricalVisual />
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.05 }}
+        className="space-y-4"
+      >
+        <Badge variant="outline" className="text-[10px] uppercase tracking-[0.16em]">
+          Historical flood map
+        </Badge>
+        <h2 className="font-[montserrat] text-2xl font-bold leading-tight">
+          See how floods are distributed across Singapore’s planning areas.
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          This dashboard is the entry point into the dataset. It shows floods mapped onto Singapore’s planning
+          areas using a choropleth and count markers, so clusters stand out at a glance.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Clicking a planning area opens a popup that summarises size, population, flood count, amenity count
+          and density statistics. Each planning area behaves like a profile card that you can compare against
+          the rest of the island.
+        </p>
+        <Button asChild variant="link" size="sm" className="inline-flex gap-2 px-0 text-primary">
+          <Link to="/historicalFloodMap">
+            Open Historical Flood Map
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </motion.div>
     </section>
   )
 }
 
-/* ---------------- cta ---------------- */
-function CtaSection() {
+function EventsSection() {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-12">
-      <Card className="border-border bg-card">
-        <CardContent className="flex flex-col items-center gap-4 p-8 text-center md:flex-row md:justify-between md:text-left">
-          <div>
-            <h3 className="font-[montserrat] text-2xl font-bold">Get Started in Minutes</h3>
-            <p className="mt-1 max-w-2xl text-muted-foreground">Use sample data or bring your own CSVs. No setup drama — just insights.</p>
-          </div>
-          <div className="flex gap-3">
-            <Button>Launch App</Button>
-            <Button variant="outline">Book a Walkthrough</Button>
-          </div>
-        </CardContent>
-      </Card>
+    <section id="events-section" className="grid items-center gap-10 lg:grid-cols-2">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="order-2 space-y-4 lg:order-1"
+      >
+        <Badge variant="outline" className="text-[10px] uppercase tracking-[0.16em]">
+          Flood events analysis
+        </Badge>
+        <h2 className="font-[montserrat] text-2xl font-bold leading-tight">
+          Zoom into a single flood and see the amenities and roads around it.
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          From the planning area view, you can jump into any event to see its local footprint. Distance bands
+          highlight which roads and amenities sit close to the origin and which are further out.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          The side panel behaves like an impact card: AR impact band, amenity counts, road counts and full
+          event details such as date, location and main road.
+        </p>
+        <Button asChild variant="link" size="sm" className="inline-flex gap-2 px-0 text-primary">
+          <Link to="/floodEvents">
+            Open Flood Events Dashboard
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.05 }}
+        className="order-1 lg:order-2"
+      >
+        <EventVisual />
+      </motion.div>
     </section>
   )
 }
 
-/* ---------------- footer ---------------- */
-function SiteFooter() {
+function CentralitySection() {
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-10 md:grid-cols-2">
-        <div className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-primary">
-            <Droplets className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-sm font-semibold">Waterbenders</span>
+    <section id="centrality-section" className="grid items-center gap-10 lg:grid-cols-2">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <RoadVisual />
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.05 }}
+        className="space-y-4"
+      >
+        <Badge variant="outline" className="text-[10px] uppercase tracking-[0.16em]">
+          Road network centrality
+        </Badge>
+        <h2 className="font-[montserrat] text-2xl font-bold leading-tight">
+          Read the road network as a ranked list of segments, not just lines on a map.
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          This dashboard shifts the focus from areas and events to the roads that carry people through them.
+          Each line segment is coloured by a combined importance metric built from betweenness and closeness
+          centrality, with options to layer in flood and amenity information.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          The popup and table give a dossier for every road: planning area, importance score, maintenance
+          category, flood count and amenity count.
+        </p>
+        <Button asChild variant="link" size="sm" className="inline-flex gap-2 px-0 text-primary">
+          <Link to="/roadCentrality">
+            Open Road Centrality Dashboard
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </motion.div>
+    </section>
+  )
+}
+
+function SimulationSection() {
+  return (
+    <section id="simulation-section" className="grid items-center gap-10 lg:grid-cols-2">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="space-y-4"
+      >
+        <Badge variant="outline" className="text-[10px] uppercase tracking-[0.16em]">
+          Travel time simulation
+        </Badge>
+        <h2 className="font-[montserrat] text-2xl font-bold leading-tight">
+          Drop new floods onto the map and see how travel times shift.
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          The simulation dashboard lets you turn hypothetical floods into measurable changes in travel time.
+          You choose where a flood occurs and which planning areas and roads to analyse, and the results show
+          change bands from low to very high.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          A results table summarises planning areas and roads: average dry time versus flooded time, how many
+          roads remain usable, and where routes become blocked or unreachable.
+        </p>
+        <Button asChild variant="link" size="sm" className="inline-flex gap-2 px-0 text-primary">
+          <Link to="/simulation">
+            Open Simulation Dashboard
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.05 }}
+      >
+        <SimulationVisual />
+      </motion.div>
+    </section>
+  )
+}
+
+/* ================= closing ================= */
+
+function ClosingSection() {
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="rounded-2xl border border-border bg-gradient-to-br from-card/80 to-primary/5 p-6 shadow-lg transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 md:p-8"
+    >
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <h3 className="font-[montserrat] text-xl font-bold">
+            Built as a final-year project to make flood analysis more approachable.
+          </h3>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Waterbender was created by students from Singapore Management University as a way to connect
+            flood records with the roads and amenities people use every day.
+          </p>
         </div>
-        <div className="flex items-center justify-start gap-4 md:justify-end">
-          <a className="text-sm text-muted-foreground hover:text-foreground" href="#features">Features</a>
-          <a className="text-sm text-muted-foreground hover:text-foreground" href="#how">How It Works</a>
-          <a className="text-sm text-muted-foreground hover:text-foreground" href="#gallery">Screens</a>
+        <div className="flex flex-col items-start gap-2 md:items-end">
+          <Button
+            size="sm"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          >
+            Back to top
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Data and dashboards for learning, not official advisories.
+          </span>
         </div>
       </div>
-    </footer>
+    </motion.section>
   )
 }

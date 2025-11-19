@@ -68,22 +68,61 @@ const hasValidScores = (data, metric) => {
 };
 
 // Calculate color bucket thresholds using equal value ranges
-const calculateColorThresholds = (data, metric) => {
+const calculateColorThresholds = (data, metric, globalMaxValues = null) => {
   if (!data?.features?.length) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
 
-  // Get all values to find the maximum
-  const allValues = data.features
-    .map(f => f.properties?.[metric])
-    .filter(v => v !== null && v !== undefined && !isNaN(v));
+  let maxValue = 0;
 
-  if (allValues.length === 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+  // Use global max if provided (to handle filtered data correctly)
+  if (globalMaxValues) {
+    switch (metric) {
+      case "amenity_count_total":
+        maxValue = globalMaxValues.amenity || 0;
+        console.log(`[calculateColorThresholds] Using global amenity max: ${maxValue}`);
+        break;
+      case "flood_count_total":
+        maxValue = globalMaxValues.flood || 0;
+        console.log(`[calculateColorThresholds] Using global flood max: ${maxValue}`);
+        break;
+      case "betweenness_norm":
+        maxValue = globalMaxValues.betweenness || 0;
+        console.log(`[calculateColorThresholds] Using global betweenness max: ${maxValue}`);
+        break;
+      case "closeness_norm":
+        maxValue = globalMaxValues.closeness || 0;
+        console.log(`[calculateColorThresholds] Using global closeness max: ${maxValue}`);
+        break;
+      case "importance":
+        maxValue = globalMaxValues.importance || 0;
+        console.log(`[calculateColorThresholds] Using global importance max: ${maxValue}`);
+        break;
+      default:
+        // Fallback to calculating from current data
+        console.log(`[calculateColorThresholds] Metric ${metric} not in global maxValues, calculating from data`);
+        const allValues = data.features
+          .map(f => f.properties?.[metric])
+          .filter(v => v !== null && v !== undefined && !isNaN(v));
+        maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
+        console.log(`[calculateColorThresholds] Calculated max from data: ${maxValue}`);
+    }
+  } else {
+    // Get all values to find the maximum
+    console.log(`[calculateColorThresholds] No global maxValues provided, calculating from data`);
+    const allValues = data.features
+      .map(f => f.properties?.[metric])
+      .filter(v => v !== null && v !== undefined && !isNaN(v));
 
-  const maxValue = Math.max(...allValues);
+    if (allValues.length === 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+    maxValue = Math.max(...allValues);
+  }
 
-  if (maxValue <= 0) return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+  if (maxValue <= 0) {
+    console.log(`[calculateColorThresholds] maxValue is ${maxValue}, returning zero thresholds`);
+    return { b1: 0, b2: 0, b3: 0, b4: 0, max: 0 };
+  }
 
   // Divide max value into 5 equal buckets
-  // Example: max = 15 → bucketSize = 3 → buckets: 0-3, 3-6, 6-9, 9-12, 12-15
+  // Example: max = 100 → bucketSize = 20 → buckets: 0-20, 20-40, 40-60, 60-80, 80-100
   const bucketSize = maxValue / 5;
 
   const thresholds = {
@@ -94,7 +133,7 @@ const calculateColorThresholds = (data, metric) => {
     max: maxValue            // Bucket 5: 80% to 100% of max
   };
 
-  console.log(`Thresholds for ${metric} (max: ${maxValue}):`, thresholds);
+  console.log(`[calculateColorThresholds] Final thresholds for ${metric} (max: ${maxValue}):`, thresholds);
   return thresholds;
 };
 
@@ -116,24 +155,39 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
     return "#9ca3af"; // If max value is too small or zero, use neutral gray
   }
 
-  // Use discrete color buckets based on equal value ranges
-  // Example: max=15 → b1=3, b2=6, b3=9, b4=12, max=15
-  // Bucket 1: 0-3, Bucket 2: 3-6, Bucket 3: 6-9, Bucket 4: 9-12, Bucket 5: 12-15
+  // Use 5 discrete color buckets for positive values
+  // Roads with 0 or no data show in very pale blue
+  // Example: max=100 → b1=20, b2=40, b3=60, b4=80, max=100
+  // Bucket 0 (0 or no data): Very pale blue
+  // Bucket 1: 0 < value <= 20, Bucket 2: 20-40, Bucket 3: 40-60, Bucket 4: 60-80, Bucket 5: 80-100
   return [
     "case",
-    // First check: if value is null/undefined/missing
-    ["!", ["has", metric]], "#e5e7eb",
-    // Second check: if value is exactly 0 or negative
-    ["<=", ["get", metric], 0], "#e5e7eb",
-    // Bucket 1: > 0 and <= 20% of max
-    ["<=", ["get", metric], b1], "#bfdbfe",
-    // Bucket 2: > 20% and <= 40% of max
-    ["<=", ["get", metric], b2], "#93c5fd",
-    // Bucket 3: > 40% and <= 60% of max
-    ["<=", ["get", metric], b3], "#60a5fa",
-    // Bucket 4: > 60% and <= 80% of max
-    ["<=", ["get", metric], b4], "#3b82f6",
-    // Bucket 5: > 80% and <= 100% of max (highest values)
+    // Check: if value is null/undefined/missing or 0
+    ["any",
+      ["!", ["has", metric]],
+      ["<=", ["get", metric], 0]
+    ], "#eff6ff", // Very pale blue for 0 or no data
+    // Bucket 1: 0 < value <= b1 (0-20% of max)
+    ["all",
+      [">", ["get", metric], 0],
+      ["<=", ["get", metric], b1]
+    ], "#bfdbfe",
+    // Bucket 2: b1 < value <= b2 (20-40% of max)
+    ["all",
+      [">", ["get", metric], b1],
+      ["<=", ["get", metric], b2]
+    ], "#93c5fd",
+    // Bucket 3: b2 < value <= b3 (40-60% of max)
+    ["all",
+      [">", ["get", metric], b2],
+      ["<=", ["get", metric], b3]
+    ], "#60a5fa",
+    // Bucket 4: b3 < value <= b4 (60-80% of max)
+    ["all",
+      [">", ["get", metric], b3],
+      ["<=", ["get", metric], b4]
+    ], "#3b82f6",
+    // Bucket 5: b4 < value (80-100% of max - highest values)
     "#1d4ed8"
   ];
 };
@@ -164,28 +218,97 @@ const createWidthExpression = (metric, data) => {
     // Five thickness buckets increasing by 0.5px: 2, 2.5, 3, 3.5, 4
     return [
       "case",
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20], 2,     // Bucket 1: 0-20%
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40], 2.5,   // Bucket 2: 20-40%
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60], 3,     // Bucket 3: 40-60%
-      ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80], 3.5,   // Bucket 4: 60-80%
-      4  // Bucket 5: 80-100%
+      // Bucket 1: 0 < value <= t20 (0-20%)
+      ["all",
+        [">", ["coalesce", ["to-number", ["get", metric]], 0], 0],
+        ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t20]
+      ], 2,
+      // Bucket 2: t20 < value <= t40 (20-40%)
+      ["all",
+        [">", ["coalesce", ["to-number", ["get", metric]], 0], t20],
+        ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t40]
+      ], 2.5,
+      // Bucket 3: t40 < value <= t60 (40-60%)
+      ["all",
+        [">", ["coalesce", ["to-number", ["get", metric]], 0], t40],
+        ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t60]
+      ], 3,
+      // Bucket 4: t60 < value <= t80 (60-80%)
+      ["all",
+        [">", ["coalesce", ["to-number", ["get", metric]], 0], t60],
+        ["<=", ["coalesce", ["to-number", ["get", metric]], 0], t80]
+      ], 3.5,
+      // Bucket 5: t80 < value (80-100%)
+      4
     ];
   }
 
   return 3; // Default uniform width
 };
 
-export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, selectedMarker = null }) {
+export function CentralityMap({
+  data,
+  selectedRoadId,
+  onMapLoad,
+  onRoadClick,
+  selectedMarker = null,
+  maxValues = null,
+  colorMetric = "importance",
+  onColorMetricChange
+}) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
-  const [colorMetric, setColorMetric] = useState("importance");
   const [thicknessMetric, setThicknessMetric] = useState("none");
   const markerRef = useRef(null);
 
+  // Log when maxValues changes
+  useEffect(() => {
+    console.log(`[CentralityMap] maxValues updated:`, maxValues);
+  }, [maxValues]);
+
+  // Log when colorMetric changes
+  useEffect(() => {
+    console.log(`[CentralityMap] colorMetric changed to: ${colorMetric}`);
+  }, [colorMetric]);
+
   // Calculate color thresholds based on max value
   const colorThresholds = useMemo(() => {
-    return calculateColorThresholds(data, colorMetric);
-  }, [data, colorMetric]);
+    console.log(`[CentralityMap] Recalculating colorThresholds for metric: ${colorMetric}, maxValues:`, maxValues);
+    const thresholds = calculateColorThresholds(data, colorMetric, maxValues);
+
+    // Debug: Log thresholds and sample data
+    if (data?.features?.length) {
+      const sampleValues = data.features
+        .slice(0, 10)
+        .map(f => f.properties?.[colorMetric])
+        .filter(v => v != null);
+
+      console.log(`[CentralityMap] Thresholds for ${colorMetric}:`, {
+        b1: thresholds.b1,
+        b2: thresholds.b2,
+        b3: thresholds.b3,
+        b4: thresholds.b4,
+        max: thresholds.max,
+        sampleValues: sampleValues,
+        totalFeatures: data.features.length
+      });
+
+      // Show which bucket each sample falls into
+      sampleValues.forEach((val, idx) => {
+        let bucket = 0;
+        if (val <= 0) bucket = 0;
+        else if (val > 0 && val <= thresholds.b1) bucket = 1;
+        else if (val > thresholds.b1 && val <= thresholds.b2) bucket = 2;
+        else if (val > thresholds.b2 && val <= thresholds.b3) bucket = 3;
+        else if (val > thresholds.b3 && val <= thresholds.b4) bucket = 4;
+        else bucket = 5;
+
+        console.log(`[CentralityMap] Sample ${idx}: value=${val.toFixed(4)} → Bucket ${bucket}`);
+      });
+    }
+
+    return thresholds;
+  }, [data, colorMetric, maxValues]);
 
   // Check if data has valid scores
   const dataHasValidScores = useMemo(() => {
@@ -306,6 +429,14 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
         const p = f.properties || {};
         const name = p.name || p.ref || "Unnamed Road";
         const slaCategory = p.sla_priority || "—";
+
+        // Helper to style the metric based on whether it's the active color metric
+        const getMetricStyle = (metricKey) => {
+          return metricKey === colorMetric
+            ? 'color:#60a5fa; font-weight:700;'
+            : 'color:#f1f5f9;';
+        };
+
         const html = `
           <div style="font:12px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; background:#0f172a; color:#e2e8f0; padding:10px; border-radius:8px;">
             <div style="font-weight:600; margin-bottom:10px; color:#fff; font-size:14px; padding-bottom:8px; border-bottom:1px solid #1e293b;">${name}</div>
@@ -313,11 +444,11 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
               <div style="color:#94a3b8;">Road ID</div><div style="color:#f1f5f9;">${p.RN_ID ?? "—"}</div>
               <div style="color:#94a3b8;">Planning Area</div><div style="color:#f1f5f9;">${p.PLN_AREA_N ?? "—"}</div>
               <div style="color:#94a3b8;">Subzone</div><div style="color:#f1f5f9;">${p.SUBZONE_N ?? "—"}</div>
-              <div style="color:#94a3b8;">Importance</div><div style="color:#60a5fa; font-weight:700;">${format_number(p.importance, 2) ?? "—"}</div>
-              <div style="color:#94a3b8;">Betweenness</div><div style="color:#f1f5f9;">${format_number(p.betweenness_norm, 4) ?? "—"}</div>
-              <div style="color:#94a3b8;">Closeness</div><div style="color:#f1f5f9;">${format_number(p.closeness_norm, 4) ?? "—"}</div>
-              <div style="color:#94a3b8;">Amenity Count</div><div style="color:#f1f5f9;">${p.amenity_count_total ?? "0"}</div>
-              <div style="color:#94a3b8;">Flood Count</div><div style="color:#f1f5f9;">${p.flood_count_total ?? "0"}</div>
+              <div style="color:#94a3b8;">Importance</div><div style="${getMetricStyle('importance')}">${format_number(p.importance, 2) ?? "—"}</div>
+              <div style="color:#94a3b8;">Betweenness</div><div style="${getMetricStyle('betweenness_norm')}">${format_number(p.betweenness_norm, 4) ?? "—"}</div>
+              <div style="color:#94a3b8;">Closeness</div><div style="${getMetricStyle('closeness_norm')}">${format_number(p.closeness_norm, 4) ?? "—"}</div>
+              <div style="color:#94a3b8;">Amenity Count</div><div style="${getMetricStyle('amenity_count_total')}">${p.amenity_count_total ?? "0"}</div>
+              <div style="color:#94a3b8;">Flood Count</div><div style="${getMetricStyle('flood_count_total')}">${p.flood_count_total ?? "0"}</div>
               <div style="color:#94a3b8;">Maintenance Category</div><div style="color:#10b981; font-weight:600;">${slaCategory}</div>
             </div>
           </div>
@@ -384,7 +515,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
           // Update paint properties after data is set to ensure colors appear on initial load
           if (map.getLayer("roads")) {
             const validScores = hasValidScores(data, colorMetric);
-            const thresholds = calculateColorThresholds(data, colorMetric);
+            const thresholds = calculateColorThresholds(data, colorMetric, maxValues);
 
             try {
               map.setPaintProperty("roads", "line-color", createColorExpression(colorMetric, thresholds, validScores));
@@ -636,7 +767,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
   const thicknessLabel = THICKNESS_METRICS.find(m => m.value === thicknessMetric)?.label || "None (Uniform)";
 
   return (
-    <div className="relative w-full h-[600px] rounded-2xl overflow-hidden bg-slate-950">
+    <div className="relative w-full h-[36rem] rounded-2xl overflow-hidden bg-slate-950">
       <div ref={containerRef} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, width: '100%', height: '100%' }} />
 
       {/* Metric Controls - Top Right */}
@@ -644,7 +775,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
         <div className="rounded-xl bg-card/95 backdrop-blur-sm border p-3 shadow-lg space-y-2">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Color Metric</Label>
-            <Select value={colorMetric} onValueChange={setColorMetric}>
+            <Select value={colorMetric} onValueChange={onColorMetricChange}>
               <SelectTrigger className="w-[160px] h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -684,7 +815,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#1d4ed8" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  {format_number(colorThresholds.b4, 2)} - {format_number(colorThresholds.max, 2)}
+                  &gt; {format_number(colorThresholds.b4, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -708,7 +839,7 @@ export function CentralityMap({ data, selectedRoadId, onMapLoad, onRoadClick, se
               <div className="flex items-center gap-2">
                 <div className="w-6 h-3 rounded" style={{ backgroundColor: "#bfdbfe" }}></div>
                 <span className="text-[10px] text-muted-foreground">
-                  &gt; 0 - {format_number(colorThresholds.b1, 2)}
+                  0+  - {format_number(colorThresholds.b1, 2)}
                 </span>
               </div>
               <div className="flex items-center gap-2">

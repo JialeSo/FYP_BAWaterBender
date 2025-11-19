@@ -2,12 +2,11 @@
 import { Routes, Route, Navigate } from "react-router-dom"
 
 import Home from "./pages/home"
-import DashboardMap from "./pages/dashboard_map"
 import FloodEvents from "./pages/floodevents"
 import SingaporeHistoricalFloodMap from "./pages/historicalFloodMap"
 import RoadCentrality from "./pages/roadcentrality"
 import Simulation from "./pages/simulation"
-import UploadData from "./pages/uploadPage"
+import UploadData from "./pages/uploadpage"
 
 export default function AppRouter() {
   return (
@@ -17,11 +16,11 @@ export default function AppRouter() {
 
       {/* pages */}
       <Route path="/home" element={<Home />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/historical-flood-map" element={<SingaporeHistoricalFloodMap />} />
-      <Route path="/road-centrality" element={<RoadCentrality />} />
+      <Route path="/floodEvents" element={<FloodEvents />} />
+      <Route path="/historicalFloodMap" element={<SingaporeHistoricalFloodMap />} />
+      <Route path="/roadCentrality" element={<RoadCentrality />} />
       <Route path="/simulation" element={<Simulation />} />
-      <Route path="/uploaddata" element={<UploadData />} />
+      <Route path="/uploadData" element={<UploadData />} />
       {/* 404 fallback */}
       <Route path="*" element={<div className="p-6">404 not found</div>} />
     </Routes>

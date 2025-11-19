@@ -723,6 +723,7 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas(planningOptions), [planningOptions]);
   const handlePlanningAreaFromMap = useCallback((areaName) => {
     if (!areaName) {
+      // Reset to all planning areas (full array = "all")
       setSelectedPlanningAreas(planningOptions);
       return;
     }

@@ -68,6 +68,9 @@ export default function Centrality() {
 
   const [isCalculating, setIsCalculating] = useState(false);
 
+  // Track selected color metric for map
+  const [colorMetric, setColorMetric] = useState("importance");
+
   /* ===== counts ===== */
   const amenityCounts = useMemo(() => {
     const m = Object.create(null);
@@ -574,34 +577,44 @@ export default function Centrality() {
     });
   }, [floodTypeKeys]);
 
-  /* ===== amenity/flood components (by road) ===== */
-  const amenityCategoryCountByRoad = useMemo(() => {
-    const m = new Map();
-    const byId = categoryLookup?.by_id || {};
-    for (const a of amenityFC?.features || []) {
-      const rn = a?.properties?.rn_id;
-      if (rn == null) continue;
-      const id = get_amenity_category_id(a.properties);
-      const fromLookup = (id != null && byId[id]?.amenity_category) ? byId[id].amenity_category : null;
-      const cat = fromLookup || String(get_amenity_category(a.properties));
-      if (!m.has(rn)) m.set(rn, new Map());
-      const inner = m.get(rn);
-      inner.set(cat, (inner.get(cat) || 0) + 1);
-    }
-    return m;
+  /* ===== amenity/flood components (by road) - deferred to avoid blocking navigation ===== */
+  const [amenityCategoryCountByRoad, setAmenityCategoryCountByRoad] = useState(new Map());
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const m = new Map();
+      const byId = categoryLookup?.by_id || {};
+      for (const a of amenityFC?.features || []) {
+        const rn = a?.properties?.rn_id;
+        if (rn == null) continue;
+        const id = get_amenity_category_id(a.properties);
+        const fromLookup = (id != null && byId[id]?.amenity_category) ? byId[id].amenity_category : null;
+        const cat = fromLookup || String(get_amenity_category(a.properties));
+        if (!m.has(rn)) m.set(rn, new Map());
+        const inner = m.get(rn);
+        inner.set(cat, (inner.get(cat) || 0) + 1);
+      }
+      setAmenityCategoryCountByRoad(m);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [amenityFC, categoryLookup]);
 
-  const floodTypeCountByRoad = useMemo(() => {
-    const m = new Map();
-    for (const f of floodsFC?.features || []) {
-      const rn = f?.properties?.start_rn_id;
-      if (rn == null) continue;
-      const t = String(get_flood_type(f.properties));
-      if (!m.has(rn)) m.set(rn, new Map());
-      const inner = m.get(rn);
-      inner.set(t, (inner.get(t) || 0) + 1);
-    }
-    return m;
+  const [floodTypeCountByRoad, setFloodTypeCountByRoad] = useState(new Map());
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const m = new Map();
+      for (const f of floodsFC?.features || []) {
+        const rn = f?.properties?.start_rn_id;
+        if (rn == null) continue;
+        const t = String(get_flood_type(f.properties));
+        if (!m.has(rn)) m.set(rn, new Map());
+        const inner = m.get(rn);
+        inner.set(t, (inner.get(t) || 0) + 1);
+      }
+      setFloodTypeCountByRoad(m);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [floodsFC]);
 
   function computeAmenityScore(rn) {
@@ -822,9 +835,13 @@ export default function Centrality() {
   }, [scored]);
 
   const mapData = useMemo(() => {
+    // Don't filter out roads - show all roads, even those with 0 values
+    // Roads with 0 will be colored in pale blue by the map component
+    console.log(`[Centrality] mapData for metric ${colorMetric}: ${filteredSorted.length} roads`);
+
     // Always create a new object to ensure React detects changes
     return { type: "FeatureCollection", features: [...filteredSorted] };
-  }, [filteredSorted]);
+  }, [filteredSorted, colorMetric]);
 
    // Selected road state
   const [selectedRoadId, setSelectedRoadId] = useState(null);
@@ -848,7 +865,20 @@ export default function Centrality() {
     setSelectedMarker(marker);
   }, []);
 
-  
+  // Handle ESC key to deselect road
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape" && selectedRoadId) {
+        setSelectedRoadId(null);
+        setSelectedMarker(null);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [selectedRoadId]);
+
+
   // Calculate SLA tier for a road based on percentile
   const getSLATier = useCallback((importance) => {
     if (!useSLAMapping) return null;
@@ -1656,39 +1686,46 @@ export default function Centrality() {
         </Accordion>
       </header>
 
-      {/* Road Details Panel (always visible) */}
-      <div ref={detailsPanelRef}>
-        <RoadDetailsPanel
-          road={selectedRoad}
-          onClose={() => setSelectedRoadId(null)}
-          amenityCounts={selectedRoad ? amenityCategoryCountByRoad.get(selectedRoad.properties.RN_ID) : null}
-          floodCounts={selectedRoad ? floodTypeCountByRoad.get(selectedRoad.properties.RN_ID) : null}
-          totalRoads={sortedByImportance.length}
-          roadRank={selectedRoadRank}
-          getSLACategory={getSLACategory}
-          amenityEnabled={amenityEnabled}
-          floodEnabled={floodEnabled}
-          allRoads={sortedByImportance}
-          amenityItems={selectedAmenityItems}
-          floodItems={selectedFloodItems}
-          onMarkerClick={handleMarkerClick}
-        />
-      </div>
-        {/* Right: Map */}
-        <div ref={mapSectionRef}>
+      {/* Two-column layout: Map (left 2 cols) and Details Panel (right 1 col) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Left: Map */}
+        <div className="lg:col-span-2 h-[600px]" ref={mapSectionRef}>
           <CentralityMap
             data={mapData}
             selectedRoadId={selectedRoadId}
             onMapLoad={setMapInstance}
             onRoadClick={handleRoadSelect}
             selectedMarker={selectedMarker}
+            maxValues={maxValues}
+            colorMetric={colorMetric}
+            onColorMetricChange={setColorMetric}
           />
         </div>
+
+        {/* Right: Road Details Panel */}
+        <div className="lg:col-span-1 h-[36rem] rounded-3xl border border-border shadow-sm overflow-hidden" ref={detailsPanelRef}>
+          <RoadDetailsPanel
+            road={selectedRoad}
+            onClose={() => setSelectedRoadId(null)}
+            amenityCounts={selectedRoad ? amenityCategoryCountByRoad.get(selectedRoad.properties.RN_ID) : null}
+            floodCounts={selectedRoad ? floodTypeCountByRoad.get(selectedRoad.properties.RN_ID) : null}
+            totalRoads={sortedByImportance.length}
+            roadRank={selectedRoadRank}
+            getSLACategory={getSLACategory}
+            amenityEnabled={amenityEnabled}
+            floodEnabled={floodEnabled}
+            allRoads={sortedByImportance}
+            amenityItems={selectedAmenityItems}
+            floodItems={selectedFloodItems}
+            onMarkerClick={handleMarkerClick}
+          />
+        </div>
+      </div>
       <section className="rounded-3xl border bg-card shadow-sm p-6">
         <div className="mb-4">
           <h2 className="text-lg font-semibold">All Segments</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Complete list of road segments with sortable columns and export capability
+            Complete list of road segments In Singapore
           </p>
         </div>
 
