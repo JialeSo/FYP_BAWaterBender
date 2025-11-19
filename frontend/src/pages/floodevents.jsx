@@ -1906,37 +1906,74 @@ export default function floodevents() {
 
                   {/* Three Metric Cards - Compact with Rankings */}
                   {(() => {
-                    // Calculate rank based on AR Impact
-                    const rankIndex = sorted.findIndex(f => f.id === selected);
-                    const totalCount = sorted.length;
-                    const rankPercent = totalCount > 0 ? ((rankIndex + 1) / totalCount * 100).toFixed(1) : null;
+                    // Calculate percentile ranks for each metric
+                    const arImpactRank = sorted.findIndex(f => f.id === selected) + 1;
+                    const arImpactPercentile = sorted.length > 0 ? Math.round((arImpactRank / sorted.length) * 100) : null;
+
+                    // Sort by amenities and roads for their rankings
+                    const sortedByAmenities = [...sorted].sort((a, b) => (b.ring_total || 0) - (a.ring_total || 0));
+                    const amenitiesRank = sortedByAmenities.findIndex(f => f.id === selected) + 1;
+                    const amenitiesPercentile = sortedByAmenities.length > 0 ? Math.round((amenitiesRank / sortedByAmenities.length) * 100) : null;
+
+                    const sortedByRoads = [...sorted].sort((a, b) => (b.roads_total || 0) - (a.roads_total || 0));
+                    const roadsRank = sortedByRoads.findIndex(f => f.id === selected) + 1;
+                    const roadsPercentile = sortedByRoads.length > 0 ? Math.round((roadsRank / sortedByRoads.length) * 100) : null;
+
+                    const getPercentileLabel = (percentile) => {
+                      if (percentile <= 10) return "TOP 10%";
+                      if (percentile <= 25) return "TOP 25%";
+                      if (percentile <= 50) return "TOP 50%";
+                      return null;
+                    };
 
                     return (
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-3 gap-2">
                         {/* AR Impact Score */}
-                        <Card className="border border-primary/20 bg-primary/5">
-                          <CardHeader className="p-1.5">
-                            <CardDescription className="text-[10px] uppercase font-medium">AR Impact</CardDescription>
-                            <CardTitle className="text-base font-bold">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
-                            {rankPercent && <p className="text-[9px] text-muted-foreground mt-0.5">Top {rankPercent}%</p>}
+                        <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-background">
+                          <CardHeader className="px-2 pt-2 pb-1.5">
+                            <CardDescription className="text-[9px] uppercase font-medium text-muted-foreground">AR Impact</CardDescription>
+                            {getPercentileLabel(arImpactPercentile) && (
+                              <span className="inline-block px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[7px] font-bold mb-1">
+                                {getPercentileLabel(arImpactPercentile)}
+                              </span>
+                            )}
+                            <CardTitle className="text-2xl font-bold text-primary">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
                           </CardHeader>
                         </Card>
 
                         {/* Amenities Affected */}
                         <Card className="border">
-                          <CardHeader className="p-1.5">
-                            <CardDescription className="text-[10px] uppercase font-medium">Amenities</CardDescription>
-                            <CardTitle className="text-base font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
-                            <p className="text-[9px] text-muted-foreground mt-0.5">Affected</p>
+                          <CardHeader className="px-2 pt-2 pb-1.5">
+                            <CardDescription className="text-[9px] uppercase font-medium text-muted-foreground">Amenities</CardDescription>
+                            {getPercentileLabel(amenitiesPercentile) && (
+                              <span className="inline-block px-1.5 py-0.5 rounded-full bg-orange-600 text-white text-[7px] font-bold mb-1">
+                                {getPercentileLabel(amenitiesPercentile)}
+                              </span>
+                            )}
+                            <CardTitle className="text-2xl font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
+                            <div className="flex gap-2 text-[9px] text-muted-foreground mt-1">
+                              <span>Inner: <span className="font-semibold text-foreground">{selected_stats.counts?.inner ?? 0}</span></span>
+                              <span>•</span>
+                              <span>Outer: <span className="font-semibold text-foreground">{selected_stats.counts?.outer ?? 0}</span></span>
+                            </div>
                           </CardHeader>
                         </Card>
 
                         {/* Roads Affected */}
                         <Card className="border">
-                          <CardHeader className="p-1.5">
-                            <CardDescription className="text-[10px] uppercase font-medium">Roads</CardDescription>
-                            <CardTitle className="text-base font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
-                            <p className="text-[9px] text-muted-foreground mt-0.5">Affected</p>
+                          <CardHeader className="px-2 pt-2 pb-1.5">
+                            <CardDescription className="text-[9px] uppercase font-medium text-muted-foreground">Roads</CardDescription>
+                            {getPercentileLabel(roadsPercentile) && (
+                              <span className="inline-block px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[7px] font-bold mb-1">
+                                {getPercentileLabel(roadsPercentile)}
+                              </span>
+                            )}
+                            <CardTitle className="text-2xl font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
+                            <div className="flex gap-2 text-[9px] text-muted-foreground mt-1">
+                              <span>Inner: <span className="font-semibold text-foreground">{selected_stats.roads_counts?.inner ?? 0}</span></span>
+                              <span>•</span>
+                              <span>Outer: <span className="font-semibold text-foreground">{selected_stats.roads_counts?.outer ?? 0}</span></span>
+                            </div>
                           </CardHeader>
                         </Card>
                       </div>
@@ -1986,11 +2023,11 @@ export default function floodevents() {
 
                   {/* Affected Infrastructure Tabs */}
                   <Card className="border">
-                    <CardHeader className="pb-1 pt-2 px-2">
-                      <CardTitle className="font-semibold">Affected Infrastructure</CardTitle>
+                    <CardHeader className="pb-2 pt-2 px-2">
+                      <CardTitle className="text-sm font-semibold">Affected Infrastructure</CardTitle>
                     </CardHeader>
                     <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
-                      <div className="border-b px-2 pt-0">
+                      <div className="border-b px-2">
                         <TabsList className="w-full grid grid-cols-2 h-8">
                           <TabsTrigger value="amenities" className="text-[10px]">
                             Amenities ({selected_stats.counts?.total ?? 0})

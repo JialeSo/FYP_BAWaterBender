@@ -835,17 +835,12 @@ export default function Centrality() {
   }, [scored]);
 
   const mapData = useMemo(() => {
-    // Filter out roads with 0 or no data for the current color metric
-    const filteredFeatures = filteredSorted.filter(road => {
-      const value = road.properties?.[colorMetric];
-      // Keep roads that have a non-zero, non-null, non-undefined value for the current metric
-      return value !== null && value !== undefined && !isNaN(value) && value > 0;
-    });
-
-    console.log(`[Centrality] Filtered mapData for metric ${colorMetric}: ${filteredFeatures.length} roads (from ${filteredSorted.length} total)`);
+    // Don't filter out roads - show all roads, even those with 0 values
+    // Roads with 0 will be colored in pale blue by the map component
+    console.log(`[Centrality] mapData for metric ${colorMetric}: ${filteredSorted.length} roads`);
 
     // Always create a new object to ensure React detects changes
-    return { type: "FeatureCollection", features: [...filteredFeatures] };
+    return { type: "FeatureCollection", features: [...filteredSorted] };
   }, [filteredSorted, colorMetric]);
 
    // Selected road state

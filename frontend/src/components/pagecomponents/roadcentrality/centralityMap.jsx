@@ -155,15 +155,18 @@ const createColorExpression = (metric, thresholds, hasValidData) => {
     return "#9ca3af"; // If max value is too small or zero, use neutral gray
   }
 
-  // Use discrete color buckets based on equal value ranges
-  // Example: max=15 → b1=3, b2=6, b3=9, b4=12, max=15
-  // Bucket 1: 0-3, Bucket 2: 3-6, Bucket 3: 6-9, Bucket 4: 9-12, Bucket 5: 12-15
+  // Use 5 discrete color buckets for positive values
+  // Roads with 0 or no data show in very pale blue
+  // Example: max=100 → b1=20, b2=40, b3=60, b4=80, max=100
+  // Bucket 0 (0 or no data): Very pale blue
+  // Bucket 1: 0 < value <= 20, Bucket 2: 20-40, Bucket 3: 40-60, Bucket 4: 60-80, Bucket 5: 80-100
   return [
     "case",
-    // First check: if value is null/undefined/missing
-    ["!", ["has", metric]], "#e5e7eb",
-    // Second check: if value is exactly 0 or negative
-    ["<=", ["get", metric], 0], "#e5e7eb",
+    // Check: if value is null/undefined/missing or 0
+    ["any",
+      ["!", ["has", metric]],
+      ["<=", ["get", metric], 0]
+    ], "#eff6ff", // Very pale blue for 0 or no data
     // Bucket 1: 0 < value <= b1 (0-20% of max)
     ["all",
       [">", ["get", metric], 0],
