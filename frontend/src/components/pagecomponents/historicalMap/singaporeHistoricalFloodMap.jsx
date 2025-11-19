@@ -337,6 +337,16 @@ export default function singaporehistoricalfloodmap({
   const planningToggleRef = useRef(onPlanningAreaToggle);
   const subzoneSelectRef = useRef(onSubzoneSelect);
 
+  // keep latest callbacks from dashboardlayout
+  useEffect(() => {
+    planningToggleRef.current = onPlanningAreaToggle;
+  }, [onPlanningAreaToggle]);
+
+  useEffect(() => {
+    subzoneSelectRef.current = onSubzoneSelect;
+  }, [onSubzoneSelect]);
+
+
   const [metric, setMetric] = useState("flood_count");
   const [showChoropleth, setShowChoropleth] = useState(true);
   const [showFloodMarkers, setShowFloodMarkers] = useState(false);
@@ -972,6 +982,7 @@ const legendValueMap = useMemo(() => {
         try { paPopupRef.current?.remove(); } catch {}
         try { szPopupRef.current?.remove(); } catch {}
       };
+
 
 
       const FLOOD_POINT_HTML = (p) => {
