@@ -154,74 +154,85 @@ export default function Simulation() {
   const mapContainerRef = useRef(null);
 
   // Enrich paDeltas with road statistics
-  const enrichedPaDeltas = useMemo(() => {
+    const enrichedPaDeltas = useMemo(() => {
     if (!paDeltas.length || !graph?.edges || !graph?.nodes || !affectedRoads.length) return paDeltas;
 
     const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
     const paRoadStats = new Map();
 
-    // Calculate road stats for each PA
+    // calculate road stats for each PA
     for (const edge of graph.edges) {
       const nodeFrom = graph.nodes.get(edge.from);
       const nodeTo = graph.nodes.get(edge.to);
       const paId = nodeFrom?.paId || nodeTo?.paId;
 
-      if (paId != null && edge.rn_id != null) {
-        if (!paRoadStats.has(paId)) {
-          paRoadStats.set(paId, {
-            total_roads: new Set(),
-            unaffected_roads: new Set(),
-            affected_roads: new Set(),
-            blocked_roads: new Set(),
-            unreachable_roads: new Set(),
-            failed_target_roads: new Set(),
-          });
-        }
+      if (paId == null || edge.rn_id == null) continue;
 
-        const stats = paRoadStats.get(paId);
-        stats.total_roads.add(edge.rn_id);
+      if (!paRoadStats.has(paId)) {
+        paRoadStats.set(paId, {
+          total_roads: new Set(),
+          unaffected_roads: new Set(),
+          affected_roads: new Set(),
+          blocked_roads: new Set(),
+          unreachable_roads: new Set(),
+          failed_target_roads: new Set(),
+        });
+      }
 
-        const isBlocked = affectedRoadSet.has(edge.rn_id);
-        const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
-        const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
-        const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+      const stats = paRoadStats.get(paId);
+      stats.total_roads.add(edge.rn_id);
+
+      const isBlocked = affectedRoadSet.has(edge.rn_id);
+      const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
+      const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
+      const delta =
+        Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
           ? floodedDist - baselineDist
           : null;
 
-        // Check if road fails travel time target
-        if (Number.isFinite(floodedDist) && floodedDist > travelTime) {
-          stats.failed_target_roads.add(edge.rn_id);
-        }
+      // blocked = flooded road (do not treat as time-increase or failed target)
+      if (isBlocked) {
+        stats.blocked_roads.add(edge.rn_id);
+        continue;
+      }
 
-        if (isBlocked) {
-          stats.blocked_roads.add(edge.rn_id);
-        } else if (!Number.isFinite(floodedDist)) {
-          stats.unreachable_roads.add(edge.rn_id);
-        } else if (delta && delta > 0) {
-          stats.affected_roads.add(edge.rn_id);
-        } else {
-          stats.unaffected_roads.add(edge.rn_id);
-        }
+      // unreachable = no entry any more
+      if (!Number.isFinite(floodedDist)) {
+        stats.unreachable_roads.add(edge.rn_id);
+        continue;
+      }
+
+      // only non-blocked, reachable roads can “fail target”
+      if (floodedDist > travelTime) {
+        stats.failed_target_roads.add(edge.rn_id);
+      }
+
+      // affected / unaffected
+      if (delta && delta > 0) {
+        stats.affected_roads.add(edge.rn_id);
+      } else {
+        stats.unaffected_roads.add(edge.rn_id);
       }
     }
 
-    // Enrich paDeltas with road counts
-    return paDeltas.map(pa => {
+    // enrich paDeltas with road counts
+    return paDeltas.map((pa) => {
       const stats = paRoadStats.get(pa.pa_id);
-      if (stats) {
-        return {
-          ...pa,
-          total_roads: stats.total_roads.size,
-          unaffected_roads: stats.unaffected_roads.size,
-          affected_roads: stats.affected_roads.size,
-          blocked_roads: stats.blocked_roads.size,
-          unreachable_roads: stats.unreachable_roads.size,
-          failed_target_roads: stats.failed_target_roads.size,
-        };
-      }
-      return pa;
+      if (!stats) return pa;
+
+      return {
+        ...pa,
+        total_roads: stats.total_roads.size,
+        unaffected_roads: stats.unaffected_roads.size,
+        affected_roads: stats.affected_roads.size,
+        blocked_roads: stats.blocked_roads.size,
+        unreachable_roads: stats.unreachable_roads.size,
+        failed_target_roads: stats.failed_target_roads.size,
+      };
     });
   }, [paDeltas, graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist, travelTime]);
+
+
 
   // Handle PA table column sorting
   const handleSort = useCallback((column) => {
@@ -248,12 +259,12 @@ export default function Simulation() {
     if (!graph?.edges || !graph?.nodes || !affectedRoads.length || !amenity_fc_enriched) return [];
     if (!baselineNearestAmenity || !floodedNearestAmenity) return [];
 
-    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+    const affectedRoadSet = new Set(affectedRoads.map((r) => r.rn_id));
     const roadDataMap = new Map();
 
-    // Build amenity lookup
+    // amenity lookup
     const amenityById = new Map();
-    amenity_fc_enriched.features?.forEach(f => {
+    amenity_fc_enriched.features?.forEach((f) => {
       if (f.properties?.amenity_id) {
         amenityById.set(f.properties.amenity_id, f.properties);
       }
@@ -266,16 +277,13 @@ export default function Simulation() {
       const nodeTo = graph.nodes.get(edge.to);
 
       const paName = nodeFrom?.paName || nodeTo?.paName || "Unknown";
-      const paId   = nodeFrom?.paId ?? nodeTo?.paId ?? null;   // 👈 NEW
+      const paId = nodeFrom?.paId ?? nodeTo?.paId ?? null;
 
       const isBlocked = affectedRoadSet.has(edge.rn_id);
       const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
       const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
-      const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
-        ? floodedDist - baselineDist
-        : null;
 
-      // Get nearest amenities from baseline and flooded scenario
+      // nearest amenities
       let baselineAmenityName = "—";
       let floodedAmenityName = "—";
 
@@ -283,7 +291,8 @@ export default function Simulation() {
       if (baselineAmenityId) {
         const amenity = amenityById.get(baselineAmenityId);
         if (amenity) {
-          baselineAmenityName = amenity.amenity_name || amenity.name || amenity.amenity_type;
+          baselineAmenityName =
+            amenity.amenity_name || amenity.name || amenity.amenity_type;
         }
       }
 
@@ -291,34 +300,63 @@ export default function Simulation() {
       if (floodedAmenityId) {
         const amenity = amenityById.get(floodedAmenityId);
         if (amenity) {
-          floodedAmenityName = amenity.amenity_name || amenity.name || amenity.amenity_type;
+          floodedAmenityName =
+            amenity.amenity_name || amenity.name || amenity.amenity_type;
         }
       }
 
+      // core times with your semantics
+      let baselineTime = Number.isFinite(baselineDist) ? baselineDist : null;
+      let floodedTime = Number.isFinite(floodedDist) ? floodedDist : null;
+      let delta =
+        Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+          ? floodedDist - baselineDist
+          : null;
+
       let category = "Unaffected";
+
       if (isBlocked) {
+        // blocked = flooded road itself; do not show any time change
         category = "Blocked (Flooded)";
+        baselineTime = null;
+        floodedTime = null;
+        delta = null;
       } else if (!Number.isFinite(floodedDist)) {
+        // unreachable = no entry; also no time change
         category = "Unreachable";
+        floodedTime = null;
+        delta = null;
       } else if (delta && delta > 0) {
+        // only reachable, non-blocked roads with longer time are “affected”
         category = "Affected";
       }
+
+      const pctIncrease =
+        category === "Affected" &&
+        Number.isFinite(baselineTime) &&
+        baselineTime > 0 &&
+        Number.isFinite(delta)
+          ? (delta / baselineTime) * 100
+          : null;
+
+      const exceedsTarget =
+        (category === "Affected" || category === "Unaffected") &&
+        Number.isFinite(floodedTime) &&
+        floodedTime > travelTime;
 
       if (!roadDataMap.has(edge.rn_id)) {
         roadDataMap.set(edge.rn_id, {
           rn_id: edge.rn_id,
           name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
-          pa_id: paId,          // 👈 NEW
+          pa_id: paId,
           pa_name: paName,
-          baseline_time: baselineDist,
-          flooded_time: floodedDist,
+          baseline_time: baselineTime,
+          flooded_time: floodedTime,
           delta_time: delta,
-          pct_increase: Number.isFinite(baselineDist) && baselineDist > 0 && Number.isFinite(delta)
-            ? (delta / baselineDist) * 100
-            : null,
+          pct_increase: pctIncrease,
           category,
           is_blocked: isBlocked,
-          exceeds_target: Number.isFinite(floodedDist) && floodedDist > travelTime,
+          exceeds_target: exceedsTarget,
           baseline_amenity: baselineAmenityName,
           flooded_amenity: floodedAmenityName,
         });
@@ -337,6 +375,8 @@ export default function Simulation() {
     floodedNearestAmenity,
     travelTime,
   ]);
+
+
 
   // Sort enrichedPaDeltas based on current sort state
   const sortedPaDeltas = useMemo(() => {
@@ -899,9 +939,9 @@ export default function Simulation() {
   if (error) return <div className="p-4 text-red-500">{String(error)}</div>;
 
   return (
-    <div className="flex flex-col h-[91vh] bg-background">
+    <div className="flex flex-col h-[92vh] bg-background">
       {/* Header with stepper */}
-      <div className="border-b shadow-sm flex-shrink-0">
+      <div className="border-b shadow-sm">
         <div className="px-6 py-2">
           <h1 className="text-2xl font-bold mb-2 text-center">Flood Impact Simulation</h1>
           <div className="flex items-center justify-center gap-1.5">
@@ -1916,7 +1956,7 @@ export default function Simulation() {
       </div>
 
       {/* Sticky Footer with Navigation */}
-      <div className="border-t shadow-lg">
+      <div className="border-t shadow-lg sticky bottom-0 bg-background z-30">
         <div className="px-6 py-3 flex items-center justify-between">
           {step > 1 && (
             <Button variant="outline" onClick={() => setStep(step - 1)} disabled={busy}>

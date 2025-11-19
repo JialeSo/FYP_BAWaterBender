@@ -334,6 +334,9 @@ export default function singaporehistoricalfloodmap({
   const szPopupRef = useRef(null);
   const markerPopupRef = useRef(null);
 
+  const planningToggleRef = useRef(onPlanningAreaToggle);
+  const subzoneSelectRef = useRef(onSubzoneSelect);
+
   const [metric, setMetric] = useState("flood_count");
   const [showChoropleth, setShowChoropleth] = useState(true);
   const [showFloodMarkers, setShowFloodMarkers] = useState(false);
@@ -953,7 +956,8 @@ const legendValueMap = useMemo(() => {
         const f = e.features?.[0];
         const paName = toS(getProp(f?.properties, PA_NAME_KEYS));
         if (!paName) return;
-        onPlanningAreaToggle?.(paName);
+        // 🔹 use latest dashboard callback
+        planningToggleRef.current?.(paName);
         const b = computeBounds(f.geometry);
         if (b) map.fitBounds(b, { padding: 48, duration: 700, maxZoom: 13 });
       });
@@ -961,13 +965,14 @@ const legendValueMap = useMemo(() => {
       const handleBackgroundClick = (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: [PA_FILL, SZ_FILL] });
         if (features && features.length) return;
-        // Reset to all planning areas and clear subzone selection
-        onPlanningAreaToggle?.(null);
-        onSubzoneSelect?.(null);
+        // 🔹 tell dashboard: "select all planning areas" & clear subzone
+        planningToggleRef.current?.(null);
+        subzoneSelectRef.current?.(null);
         map.easeTo({ center: default_center, zoom: default_zoom, duration: 600 });
         try { paPopupRef.current?.remove(); } catch {}
         try { szPopupRef.current?.remove(); } catch {}
       };
+
 
       const FLOOD_POINT_HTML = (p) => {
         const title = toTitle(p.event || p.flood_type || "Flood Event");

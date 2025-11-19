@@ -895,104 +895,141 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
   }, [mapReady, selectedPA]);
 
   // Expose methods via ref
-  useImperativeHandle(ref, () => ({
-    zoomToPlanningArea: (paId) => {
-      const map = mapRef.current;
-      if (!map || !map.isStyleLoaded() || !planning_fc_raw?.features) return;
+    // Expose methods via ref
+  useImperativeHandle(
+    ref,
+    () => ({
+      zoomToPlanningArea: (paId) => {
+        const map = mapRef.current;
+        if (!map || !map.isStyleLoaded() || !planning_fc_raw?.features) return;
 
-      // Find the planning area feature
-      const feature = planning_fc_raw.features.find(f => {
-        const featurePaId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
-        return featurePaId === paId;
-      });
+        // Find the planning area feature
+        const feature = planning_fc_raw.features.find((f) => {
+          const featurePaId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
+          return featurePaId === paId;
+        });
 
-      if (feature) {
-        // Show roads for this PA
-        showPlanningAreaRoads(paId, feature);
+        if (feature) {
+          // Show roads for this PA
+          showPlanningAreaRoads(paId, feature);
 
-        // Zoom to planning area bounds
-        if (feature.geometry) {
-          const bounds = new mapboxgl.LngLatBounds();
-          if (feature.geometry.type === "Polygon") {
-            feature.geometry.coordinates[0].forEach(coord => bounds.extend(coord));
-          } else if (feature.geometry.type === "MultiPolygon") {
-            feature.geometry.coordinates.forEach(poly => {
-              poly[0].forEach(coord => bounds.extend(coord));
-            });
+          // Zoom to planning area bounds
+          if (feature.geometry) {
+            const bounds = new mapboxgl.LngLatBounds();
+            if (feature.geometry.type === "Polygon") {
+              feature.geometry.coordinates[0].forEach((coord) => bounds.extend(coord));
+            } else if (feature.geometry.type === "MultiPolygon") {
+              feature.geometry.coordinates.forEach((poly) => {
+                poly[0].forEach((coord) => bounds.extend(coord));
+              });
+            }
+            map.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 1000 });
           }
-          map.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 1000 });
         }
-      }
-    },
+      },
 
-    showRoadPopup: (rnId) => {
-      const map = mapRef.current;
-      if (!map || !map.isStyleLoaded() || !graph?.edges) return;
+      showRoadPopup: (rnId) => {
+        const map = mapRef.current;
+        if (!map || !map.isStyleLoaded() || !graph?.edges?.length) return;
 
-      // Find the road edge
-      const edge = graph.edges.find(e => e.rn_id === rnId);
-      if (!edge || !edge.feature) return;
+        // 1) Find the road edge
+        const edge = graph.edges.find((e) => e.rn_id === rnId);
+        if (!edge) return;
 
-      // Get road center coordinate
-      const coords = edge.feature.geometry?.coordinates;
-      if (!coords || !coords.length) return;
+        // 2) Get coordinates from edge.coords first, fallback to feature.geom
+        const lineCoords =
+          (edge.coords && edge.coords.length && edge.coords) ||
+          edge.feature?.geometry?.coordinates;
 
-      const centerIdx = Math.floor(coords.length / 2);
-      const centerCoord = coords[centerIdx];
+        if (!lineCoords || !lineCoords.length) return;
 
-      // Create popup HTML
-      const affectedRoadSet = new Set(affectedRoads?.map(r => r.rn_id) || []);
-      const isBlocked = affectedRoadSet.has(rnId);
-      const nodeFrom = graph.nodes.get(edge.from);
-      const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
-      const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
-      const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
-        ? floodedDist - baselineDist
-        : null;
+        const centerIdx = Math.floor(lineCoords.length / 2);
+        const centerCoord = lineCoords[centerIdx]; // [lng, lat]
 
-      // Get nearest amenities
-      const baselineAmenityId = nearestAmenities?.baselineAmenities?.get(edge.from);
-      const floodedAmenityId = nearestAmenities?.floodedAmenities?.get(edge.from);
+        // 3) Compute times + status
+        const nodeFrom = graph.nodes.get(edge.from);
+        const baselineTime = baselineNodeDist?.get(edge.from) ?? Infinity;
+        const floodedTime = floodedNodeDist?.get(edge.from) ?? Infinity;
+        const deltaTime =
+          Number.isFinite(baselineTime) && Number.isFinite(floodedTime)
+            ? floodedTime - baselineTime
+            : null;
 
-      const amenityChange = getNearestAmenityChange(
-        baselineAmenityId,
-        floodedAmenityId,
-        amenity_fc_enriched
-      );
+        const affectedRoadSet = new Set((affectedRoads || []).map((r) => r.rn_id));
+        const isBlocked = affectedRoadSet.has(rnId);
 
-      const roadData = {
-        rn_id: rnId,
-        name: edge.feature.properties?.name || `Road ${rnId}`,
-        pa_name: nodeFrom?.paName || "Unknown",
-        baseline_time: baselineDist,
-        flooded_time: floodedDist,
-        delta_time: delta,
-        is_blocked: isBlocked,
-        ...amenityChange,
-      };
+        let status = "unaffected";
+        if (isBlocked) status = "blocked";
+        else if (!Number.isFinite(floodedTime)) status = "unreachable";
+        else if (deltaTime && deltaTime > 0) status = "affected";
 
-      const popupHTML = generateRoadTooltipHTML(roadData);
+        // 4) Nearest amenity change (same pattern as showPlanningAreaRoads)
+        const amenityChange = getNearestAmenityChange(
+          edge.from,
+          nearestAmenities.baselineAmenities,
+          nearestAmenities.floodedAmenities
+        );
 
-      // Remove existing popup
-      if (roadPopupRef.current) {
-        roadPopupRef.current.remove();
-        roadPopupRef.current = null;
-      }
+        const nearestAmenityData = amenityChange
+          ? {
+              before: amenityChange.before,
+              after: amenityChange.after,
+              changed: amenityChange.changed,
+            }
+          : null;
 
-      // Create and show new popup
-      roadPopupRef.current = new mapboxgl.Popup({
-        closeButton: true,
-        closeOnClick: false,
-        maxWidth: "400px",
-      })
-        .setLngLat(centerCoord)
-        .setHTML(popupHTML)
-        .addTo(map);
+        // 5) Props object, same shape as road hover
+        const roadProps = {
+          rn_id: rnId,
+          name: edge.feature?.properties?.name || `Road ${rnId}`,
+          pa_name: nodeFrom?.paName || "Unknown",
+          baseline_time: baselineTime,
+          flooded_time: floodedTime,
+          delta_time: deltaTime,
+          blocked: isBlocked,
+          status,
+          nearest_amenity_before: amenityChange?.before || null,
+          nearest_amenity_after: amenityChange?.after || null,
+          nearest_amenity_changed: amenityChange?.changed || false,
+        };
 
-      // Fly to road
-      map.flyTo({ center: centerCoord, zoom: 15, duration: 1000 });
-    }
-  }), [planning_fc_raw, graph, affectedRoads, baselineNodeDist, floodedNodeDist, nearestAmenities, amenity_fc_enriched, showPlanningAreaRoads]);
+        const popupHTML = generateRoadTooltipHTML(roadProps, nearestAmenityData);
+
+        // 6) Clear existing popup
+        if (roadPopupRef.current) {
+          roadPopupRef.current.remove();
+          roadPopupRef.current = null;
+        }
+
+        // 7) Show new popup
+        roadPopupRef.current = new mapboxgl.Popup({
+          closeButton: true,
+          closeOnClick: false,
+          maxWidth: "400px",
+        })
+          .setLngLat(centerCoord)
+          .setHTML(popupHTML)
+          .addTo(map);
+
+        // 8) Fly to road center
+        map.flyTo({
+          center: centerCoord,
+          zoom: 15,
+          duration: 1000,
+        });
+      },
+    }),
+    [
+      planning_fc_raw,
+      graph,
+      affectedRoads,
+      baselineNodeDist,
+      floodedNodeDist,
+      nearestAmenities,
+      showPlanningAreaRoads,
+    ]
+  );
+
 
   return (
     <>
