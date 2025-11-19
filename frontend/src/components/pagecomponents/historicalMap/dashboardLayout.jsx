@@ -723,14 +723,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas(planningOptions), [planningOptions]);
   const handlePlanningAreaFromMap = useCallback((areaName) => {
     if (!areaName) {
-      // Reset to all planning areas and clear all filters
+      // Reset to all planning areas
       setSelectedPlanningAreas(planningOptions);
-      setSelectedSubzones([]);
-      setSelectedAmenityCategories([]);
-      setSelectedAmenityTypes([]);
-      setSelectedFloodTypes([]);
-      setFloodDateFrom("");
-      setFloodDateTo("");
       return;
     }
     setSelectedPlanningAreas([areaName]);
