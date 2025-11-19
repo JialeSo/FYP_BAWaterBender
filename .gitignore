@@ -1,0 +1,17 @@
+.env
+.venv
+/outputs 
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Test/typing caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# MacOS noise
+.DS_Store

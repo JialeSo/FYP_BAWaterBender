@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Query
 from common.db import db
 from typing import Any, Dict, List
 import json
@@ -69,11 +69,18 @@ def to_geojson(rows: List[Dict]) -> Dict[str, Any]:
         "count": len(features)
     }
 
-# get all road network data
+# get all road network data (paginated to avoid Supabase timeouts)
 @router.get("/")
-async def get_all_road_network_data():
+async def get_all_road_network_data(
+    # limit: int = Query(5000, ge=1, le=50000),
+    # offset: int = Query(0, ge=0),
+):
     try:
-        result = db.table("road_network").select("*").execute()
+        end = offset + limit - 1
+        logger.info(f"Fetching road_network rows range {offset}-{end}")
+
+        query = db.table("road_network").select("*").range(offset, end)
+        result = query.execute()
 
         if result.data:
             return {"data": result.data, "count": len(result.data)}

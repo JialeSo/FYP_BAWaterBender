@@ -1,5 +1,7 @@
 import logging
-from fastapi import APIRouter, Request, HTTPException
+from typing import Optional, Dict, Any
+from fastapi import APIRouter, HTTPException, Header, Body
+from pydantic import BaseModel
 from app.controllers.weather_alerts_controller import weather_alerts_controller
 
 # Configure logging
@@ -9,22 +11,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/weather-alerts", tags=["weather-alerts"])
 
 
+class WeatherAlertProcessResponse(BaseModel):
+    """Response model for cron job endpoints"""
+
+    success: bool
+    message: str
+    messages_processed: int
+
+
 @router.post("/webhook")
-async def weather_alerts_webhook(request: Request):
+async def weather_alerts_webhook(payload: Dict[str, Any] = Body(...)):
     """Webhook endpoint for receiving weather alert messages.
 
     Processes messages through the WeatherAlertsPipeline and saves to database.
     Throws an error if pipeline processing fails.
     """
     try:
-        data = await request.json()
-        msg_id = data.get("id", "unknown")
+        if not isinstance(payload, dict) or not payload:
+            raise HTTPException(
+                status_code=400, detail="Request body must be a non-empty JSON object"
+            )
+
+        msg_id = payload.get("id", "unknown")
         logger.info(f"Received weather alert webhook: {msg_id}")
 
         # Process through the pipeline
-        result = await weather_alerts_controller.process_weather_alert(data)
+        result = await weather_alerts_controller.process_weather_alert(payload)
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing weather alert: {e}")
         raise HTTPException(
@@ -32,59 +48,131 @@ async def weather_alerts_webhook(request: Request):
         )
 
 
-@router.post("/process")
-async def process_weather_alerts(request: Request):
-    """Endpoint for processing weather alerts through the pipeline.
-
-    Accepts single message or array of messages.
+@router.get("/cron/recent-messages", response_model=WeatherAlertProcessResponse)
+async def fetch_weather_alerts_cron(
+    hours: int = 24,
+):
     """
+    Cron job endpoint to fetch and process weather alerts.
+
+    Designed for Vercel Cron Jobs. Fetches messages from Telegram
+    from the last N hours and processes them through the pipeline.
+
+    Parameters:
+    - hours: Number of hours to look back (default: 24)
+    - authorization: Optional authorization header for security
+
+    Returns:
+    - JSON object with success status and message count
+
+    Usage in vercel.json:
+    ```json
+    {
+      "crons": [{
+        "path": "/api/weather-alerts/cron",
+        "schedule": "0 0 * * *"
+      }]
+    }
+    ```
+    """
+
     try:
-        data = await request.json()
+        # Fetch and process through controller
+        result = await weather_alerts_controller.fetch_and_process_recent_alerts(
+            hours=hours
+        )
 
-        if isinstance(data, list):
-            # Process multiple alerts
-            result = await weather_alerts_controller.process_multiple_alerts(data)
-        else:
-            # Process single alert
-            result = await weather_alerts_controller.process_weather_alert(data)
-
-        return result
+        return WeatherAlertProcessResponse(
+            success=result["status"] == "success",
+            message=result["message"],
+            messages_processed=result["messages_processed"],
+        )
 
     except Exception as e:
-        logger.error(f"Error processing weather alerts: {e}")
+        logger.error(f"❌ Cron job failed: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Error processing weather alerts: {str(e)}"
+            status_code=500, detail=f"Failed to fetch weather alerts: {str(e)}"
         )
 
 
-@router.get("/pipeline/status")
-async def get_pipeline_status():
-    """Get the current status of the weather alerts pipeline."""
+@router.post("/backfill-messages", response_model=WeatherAlertProcessResponse)
+async def backfill_weather_alerts(
+    limit: int = 100,
+):
+    """
+    Endpoint to extract and load historical messages from Telegram to Supabase.
+
+    Fetches the last N messages from the channel and processes them through
+    the pipeline to save to the database. Useful for initial setup or backfilling data.
+
+    Parameters:
+    - limit: Number of messages to fetch (default: 100)
+
+    Returns:
+    - JSON object with success status and message count
+    """
+
     try:
-        status = weather_alerts_controller.get_pipeline_status()
-        return status
+        # Fetch and process through controller
+        result = await weather_alerts_controller.backfill_historical_alerts(limit=limit)
+
+        return WeatherAlertProcessResponse(
+            success=result["status"] == "success",
+            message=result["message"],
+            messages_processed=result["messages_processed"],
+        )
 
     except Exception as e:
-        logger.error(f"Error getting pipeline status: {e}")
+        logger.error(f"❌ Backfill failed: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Error getting pipeline status: {str(e)}"
+            status_code=500, detail=f"Failed to backfill weather alerts: {str(e)}"
         )
 
 
-@router.post("/pipeline/config")
-async def set_pipeline_config(request: Request):
-    """Set configuration for the weather alerts pipeline."""
+@router.get("/extract-messages")
+async def extract_existing_messages(
+    batch_size: int = 1000,
+):
+    """
+    GET endpoint to extract ALL existing messages from Telegram channel.
+
+    This endpoint queries the total message count first, then extracts ALL
+    messages from the Telegram channel in batches and saves them to JSON files.
+    Messages are extracted without processing them through the pipeline.
+
+    The extraction happens in batches to avoid memory issues and API rate limits.
+    Progress is logged every `batch_size` messages.
+
+    Parameters:
+    - batch_size: Number of messages per batch for progress logging (default: 1000)
+
+    Returns:
+    - JSON object with:
+        - success: boolean indicating success/failure
+        - message: description of the result
+        - total_messages: approximate total count (based on last message ID)
+        - extracted_messages: actual number of messages extracted
+        - batches_processed: number of batches processed
+        - batch_size: batch size used
+    """
+
     try:
-        config = await request.json()
-        weather_alerts_controller.set_pipeline_config(config)
+        # Extract ALL messages through controller
+        result = await weather_alerts_controller.extract_existing_messages(
+            batch_size=batch_size
+        )
 
         return {
-            "status": "success",
-            "message": "Pipeline configuration updated successfully",
+            "success": result["status"] == "success",
+            "message": result["message"],
+            "total_messages": result.get("total_messages", 0),
+            "extracted_messages": result.get("extracted_messages", 0),
+            "batches_processed": result.get("batches_processed", 0),
+            "batch_size": result.get("batch_size", batch_size),
         }
 
     except Exception as e:
-        logger.error(f"Error setting pipeline config: {e}")
+        logger.error(f"❌ Message extraction failed: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Error setting pipeline config: {str(e)}"
+            status_code=500, detail=f"Failed to extract messages: {str(e)}"
         )

@@ -1,4 +1,5 @@
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -7,7 +8,18 @@ load_dotenv()
 # Environment Configuration
 # ==========================================
 APP_ENV = os.getenv("APP_ENV", "development")
-PORT = int(os.getenv("PORT", 8000))
+
+def _get_int_env(name: str, default: int) -> int:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except Exception:
+        logging.warning(f"Invalid integer for {name}='{val}', falling back to {default}")
+        return default
+
+PORT = _get_int_env("PORT", 8000)
 
 is_production = APP_ENV.lower() in ["production", "prod"]
 is_development = APP_ENV.lower() in ["development", "dev", "local"]

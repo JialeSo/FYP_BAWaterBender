@@ -8,9 +8,7 @@ import { MapDataProvider } from "./context/mapDataContext.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
     <BrowserRouter>
-        <MapDataProvider>
-            <App />
-            <Toaster position="top-center"/>
-        </MapDataProvider>
+        <App />
+        <Toaster position="top-center"/>
     </BrowserRouter>
 );

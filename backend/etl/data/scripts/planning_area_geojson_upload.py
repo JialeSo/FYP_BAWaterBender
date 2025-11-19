@@ -7,12 +7,13 @@ This assumes the planning_area table already exists with proper schema.
 import sys
 import os
 import json
+import time
 from typing import Dict, List, Any, Optional
 
-# Add the backend directory to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 
-from common.db import db
+from backend.common.db import db
 
 
 def convert_geojson_to_wkt(geometry: Dict[str, Any]) -> str:
@@ -109,33 +110,36 @@ def process_geojson_feature(feature: Dict[str, Any]) -> Optional[Dict[str, Any]]
         geom_type = geometry.get("type")
 
         if geom_type not in ["Polygon", "MultiPolygon"]:
-            print(f"⚠️ Skipping non-Polygon/MultiPolygon: {geom_type}")
+            print(f"Skipping non-Polygon/MultiPolygon: {geom_type}")
             return None
 
         coordinates = geometry.get("coordinates", [])
         if not coordinates:
-            print("⚠️ Skipping feature with empty coordinates")
+            print("Skipping feature with empty coordinates")
             return None
 
         # Convert geometry to WKT format for PostGIS
         try:
             wkt_geometry = convert_geojson_to_wkt(geometry)
         except ValueError as e:
-            print(f"⚠️ Invalid coordinates: {e}")
+            print(f"Invalid coordinates: {e}")
             return None
 
         # Prepare data for database insertion
         # Extract planning area properties from the GeoJSON
         planning_area_data = {
             "pln_area_n": properties.get("PLN_AREA_N", ""),
-            "area_id": properties.get("id", ""),
+            "pa_id": properties.get("PA_ID", ""),
+            "area": properties.get("area"),
+            "population": properties.get("population"),
+            "population_density": properties.get("population_density"),
             "geom": wkt_geometry,
         }
 
         return planning_area_data
 
     except Exception as e:
-        print(f"❌ Error processing feature: {e}")
+        print(f"Error processing feature: {e}")
         return None
 
 
@@ -158,18 +162,18 @@ def load_geojson_data(file_path: str) -> Optional[Dict[str, Any]]:
             raise ValueError(f"Expected FeatureCollection, got {data_type}")
 
         features = data.get("features", [])
-        print(f"📊 Loaded {len(features)} features from GeoJSON file")
+        print(f"Loaded {len(features)} features from GeoJSON file")
 
         return data
 
     except FileNotFoundError:
-        print(f"❌ File not found: {file_path}")
+        print(f"File not found: {file_path}")
         return None
     except json.JSONDecodeError as e:
-        print(f"❌ Invalid JSON file: {e}")
+        print(f"Invalid JSON file: {e}")
         return None
     except Exception as e:
-        print(f"❌ Error loading file: {e}")
+        print(f"Error loading file: {e}")
         return None
 
 
@@ -188,42 +192,56 @@ def insert_planning_area_data_batch(planning_data_list: List[Dict[str, Any]]) ->
 
     try:
         success_count = 0
+        max_retries = 3
 
         for planning_data in planning_data_list:
-            try:
-                # Create record with WKT string for geometry
-                record = {
-                    "pln_area_n": planning_data["pln_area_n"],
-                    "area_id": planning_data["area_id"],
-                    "geom": f"SRID=4326;{planning_data['geom']}",
-                }
+            pa_id = planning_data.get("pa_id", "unknown")
 
-                # Insert single record
-                response = db.insert("planning_area", [record])
-                if isinstance(response, Exception):
-                    error_msg = str(response)
-                    area_id = planning_data["area_id"]
-                    print(f"⚠️ Failed to insert record {area_id}: {error_msg}")
-                    if "parse error" in error_msg.lower():
-                        wkt_preview = record["geom"][:200]
-                        print(f"   WKT: {wkt_preview}...")
-                else:
-                    success_count += 1
-                    area_name = planning_data["pln_area_n"]
-                    area_id = planning_data["area_id"]
-                    print(f"✅ Inserted: {area_name} ({area_id})")
+            # Retry logic for network errors
+            for attempt in range(max_retries):
+                try:
+                    # Create record with WKT string for geometry
+                    record = {
+                        "pln_area_n": planning_data["pln_area_n"],
+                        "pa_id": planning_data["pa_id"],
+                        "area": planning_data["area"],
+                        "population": planning_data["population"],
+                        "population_density": planning_data["population_density"],
+                        "geom": f"SRID=4326;{planning_data['geom']}",
+                    }
 
-            except Exception as e:
-                area_id = planning_data.get("area_id", "unknown")
-                print(f"⚠️ Error processing record {area_id}: {e}")
-                continue
+                    # Insert single record
+                    response = db.insert("planning_area", [record])
+                    if isinstance(response, Exception):
+                        error_msg = str(response)
+                        print(f"Failed to insert record {pa_id}: {error_msg}")
+                        if "parse error" in error_msg.lower():
+                            wkt_preview = record["geom"][:200]
+                            print(f"   WKT: {wkt_preview}...")
+                        break  # Don't retry on data errors
+                    else:
+                        success_count += 1
+                        area_name = planning_data["pln_area_n"]
+                        print(f"Inserted: {area_name} ({pa_id})")
+                        break  # Success, exit retry loop
+
+                except Exception as e:
+                    error_str = str(e)
+                    if attempt < max_retries - 1 and ("stream" in error_str.lower() or "reset" in error_str.lower() or "connection" in error_str.lower()):
+                        wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                        print(f"Network error for {pa_id} (attempt {attempt + 1}/{max_retries}): {e}")
+                        print(f"   Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        print(f"Error processing record {pa_id}: {e}")
+                        break  # Max retries reached or non-network error
 
         total_records = len(planning_data_list)
-        print(f"✅ Inserted {success_count}/{total_records} records")
+        print(f"Inserted {success_count}/{total_records} records")
         return success_count > 0
 
     except Exception as e:
-        print(f"❌ Error in batch insertion: {e}")
+        print(f"Error in batch insertion: {e}")
         return False
 
 
@@ -236,11 +254,11 @@ def clear_existing_data() -> bool:
     """
     try:
         client = db._get_connection()
-        client.table("planning_area").delete().neq("id", 0).execute()
-        print("🧹 Cleared existing planning area data")
+        client.table("planning_area").delete().neq("pa_id", 0).execute()
+        print("Cleared existing planning area data")
         return True
     except Exception as e:
-        print(f"❌ Error clearing existing data: {e}")
+        print(f"Error clearing existing data: {e}")
         return False
 
 
@@ -258,7 +276,7 @@ def upload_planning_area_data(
     Returns:
         True if successful, False otherwise
     """
-    print("🚀 Starting planning area data upload...")
+    print("Starting planning area data upload...")
 
     # Load GeoJSON data
     geojson_data = load_geojson_data(geojson_file_path)
@@ -275,7 +293,7 @@ def upload_planning_area_data(
     successful_count = 0
     batch_data = []
 
-    print(f"📊 Processing {total_features} features in batches...")
+    print(f"Processing {total_features} features in batches...")
 
     for i, feature in enumerate(features):
         # Process individual feature
@@ -290,19 +308,19 @@ def upload_planning_area_data(
         if len(batch_data) >= batch_size or i == total_features - 1:
             if batch_data:
                 if not insert_planning_area_data_batch(batch_data):
-                    print("❌ Failed to insert batch, stopping...")
+                    print("Failed to insert batch, stopping...")
                     return False
                 batch_data = []
 
         # Progress indicator
         if processed_count % batch_size == 0:
             progress = f"{processed_count}/{total_features}"
-            print(f"📈 Progress: {progress} processed")
+            print(f"Progress: {progress} processed")
 
-    print("🎉 Upload completed!")
-    print(f"📊 Total features processed: {processed_count}")
-    print(f"✅ Successfully uploaded: {successful_count}")
-    print(f"⚠️ Skipped: {processed_count - successful_count}")
+    print("Upload completed!")
+    print(f"Total features processed: {processed_count}")
+    print(f"Successfully uploaded: {successful_count}")
+    print(f"Skipped: {processed_count - successful_count}")
 
     return True
 
@@ -311,14 +329,14 @@ def main():
     """Main entry point of the script."""
     # Path to the GeoJSON file
     script_dir = os.path.dirname(__file__)
-    geojson_file = os.path.join(script_dir, "../planning_area.geojson")
+    geojson_file = os.path.join(script_dir, "../roadnetwork/planning_area.geojson")
 
     # Check if file exists
     if not os.path.exists(geojson_file):
-        print(f"❌ GeoJSON file not found: {geojson_file}")
+        print(f"GeoJSON file not found: {geojson_file}")
         return False
 
-    print(f"📁 Using GeoJSON file: {geojson_file}")
+    print(f"Using GeoJSON file: {geojson_file}")
 
     # Upload the data
     success = upload_planning_area_data(
@@ -328,10 +346,10 @@ def main():
     )
 
     if success:
-        print("✅ Planning area data upload completed successfully!")
+        print("Planning area data upload completed successfully!")
         return True
     else:
-        print("❌ Planning area data upload failed!")
+        print("Planning area data upload failed!")
         return False
 
 
