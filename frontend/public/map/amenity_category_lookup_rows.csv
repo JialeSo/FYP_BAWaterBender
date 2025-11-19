@@ -1,0 +1,12 @@
+amenity_category_id,amenity_category,amenity_priority,amenity_weight,importance_score,created_at
+1,Community_spaces,5,1,0.2,2025-10-25 18:34:24.388382
+2,Education_institutions,1,3.464,12,2025-10-25 18:34:24.388382
+3,Emergency_services,1,5,25,2025-10-25 18:34:24.388382
+4,Essential_services,2,2,2,2025-10-25 18:34:24.388382
+5,Government_services,1,3.162,10,2025-10-25 18:34:24.388382
+6,Healthcare_facilities,1,4,16,2025-10-25 18:34:24.388382
+7,Others,5,1,0.2,2025-10-25 18:34:24.388382
+8,Residential,1,3.162,10,2025-10-25 18:34:24.388382
+9,Retail_services,5,1,0.2,2025-10-25 18:34:24.388382
+10,Tourism,5,1,0.2,2025-10-25 18:34:24.388382
+11,Transport_services,1,3.742,14,2025-10-25 18:34:24.388382
