@@ -377,7 +377,7 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   useEffect(() => {
     if (planningSelectionInitialized) return;
     if (!planningOptions.length) return;
-    setSelectedPlanningAreas(planningOptions);
+    setSelectedPlanningAreas([]);
     setPlanningSelectionInitialized(true);
   }, [planningOptions, planningSelectionInitialized]);
 
@@ -394,9 +394,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
 
   const filteredFloodEvents = useMemo(() => {
     if (!planningSelectionInitialized) return floodEvents;
-    if (!selectedPlanningAreas.length) return [];
 
-    const allSelected = planningOptions.length && selectedPlanningAreas.length === planningOptions.length;
+    const allSelected = selectedPlanningAreas.length === 0 || (planningOptions.length && selectedPlanningAreas.length === planningOptions.length);
     const paAllowed = new Set(selectedPlanningAreas.map((pa) => String(pa || "").trim()).filter(Boolean));
     const base = (!allSelected && paAllowed.size)
       ? floodEvents.filter((e) => e.planningArea && paAllowed.has(e.planningArea))
@@ -573,9 +572,8 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
     const feats = amenityData?.features || [];
     if (!feats.length) return [];
     if (!planningSelectionInitialized) return feats;
-    if (!selectedPlanningAreas.length) return [];
 
-    const allSelected = planningOptions.length && selectedPlanningAreas.length === planningOptions.length;
+    const allSelected = selectedPlanningAreas.length === 0 || (planningOptions.length && selectedPlanningAreas.length === planningOptions.length);
     const paAllowed = new Set(selectedPlanningAreas.map((pa) => String(pa || "").trim()).filter(Boolean));
     const cats = new Set(selectedAmenityCategories.map(String));
     const types = new Set(selectedAmenityTypes.map(String));
@@ -720,15 +718,15 @@ export default function dashboardlayout({ mapcomponent: MapComponent }) {
   const triggerResize = useCallback(() => setResizeSignal((v) => v + 1), []);
 
   const handlePlanningAreaSelection = useCallback((areas) => setSelectedPlanningAreas(areas), []);
-  const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas(planningOptions), [planningOptions]);
+  const handleResetPlanningAreas = useCallback(() => setSelectedPlanningAreas([]), []);
   const handlePlanningAreaFromMap = useCallback((areaName) => {
     if (!areaName) {
-      // Reset to all planning areas
-      setSelectedPlanningAreas(planningOptions);
+      // Reset to all planning areas (empty array = "all")
+      setSelectedPlanningAreas([]);
       return;
     }
     setSelectedPlanningAreas([areaName]);
-  }, [planningOptions]);
+  }, []);
 
   const handleSubzoneSelect = useCallback(
     (feature) => {
