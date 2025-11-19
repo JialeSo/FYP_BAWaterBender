@@ -167,6 +167,10 @@ class MergeFloodsDataStage(PipelineStage):
                 if "start_loc" in pub_df.columns:
                     pub_df["location"] = pub_df["start_loc"]
 
+                # Tag PUB alerts with a source label and preserve their original ID
+                pub_df["source"] = "pub_alerts"
+                pub_df["source_id"] = pub_df["id"]
+
         except Exception as e:
             logger.error(f"Failed to fetch PUB data from Supabase: {e}")
             raise
@@ -210,7 +214,9 @@ class MergeFloodsDataStage(PipelineStage):
         else:
             sg_to_pub = pd.DataFrame(
                 {
-                    "id": sg_df["id"],
+                    # Preserve original SG ID separately; `id` will be reassigned
+                    "source": "sg_historical",
+                    "source_id": sg_df["id"],
                     "created_at": None,
                     "text": None,
                     "event_date": sg_df["event_date"],
@@ -241,6 +247,13 @@ class MergeFloodsDataStage(PipelineStage):
             merged = pub_df
         else:
             merged = pd.concat([sg_to_pub, pub_df], ignore_index=True)
+
+        # Assign a new, globally unique ID for the merged dataset
+        # to avoid collisions between SG and PUB ID systems.
+        # Per-source IDs are preserved in source/source_id.
+        if not merged.empty:
+            merged = merged.reset_index(drop=True)
+            merged["id"] = merged.index + 1
 
         # Sort by event_date (earliest first)
         if not merged.empty:
@@ -549,7 +562,6 @@ class SanitizeFloodsForDBStage(PipelineStage):
             if "event_date" in r and r["event_date"] not in (None, ""):
                 try:
                     import pandas as _pd
-
                     # Try parsing with dayfirst to handle formats like 20/3/2014
                     dt = _pd.to_datetime(
                         str(r["event_date"]).strip(), dayfirst=True, errors="coerce"
@@ -568,6 +580,33 @@ class SanitizeFloodsForDBStage(PipelineStage):
                         )
                 except Exception:
                     r["event_date"] = None
+
+            # Normalize postal codes to 6-digit strings (preserve leading zeros)
+            for pcol in ("start_postal_code", "end_postal_code"):
+                if pcol in r:
+                    val = r[pcol]
+                    if val in (None, ""):
+                        r[pcol] = None
+                    else:
+                        try:
+                            s = str(val).strip()
+                            if not s:
+                                r[pcol] = None
+                                continue
+                            # Strip decimal artifacts like '769093.0'
+                            if "." in s:
+                                s = s.split(".", 1)[0]
+                            # Keep only digits
+                            s = "".join(ch for ch in s if ch.isdigit())
+                            if not s:
+                                r[pcol] = None
+                                continue
+                            # Postal codes are 6 digits – clamp and pad
+                            if len(s) > 6:
+                                s = s[-6:]
+                            r[pcol] = s.zfill(6)
+                        except Exception:
+                            r[pcol] = None
 
             # Build geom if missing
             if r.get("geom") in (None, "", {}):

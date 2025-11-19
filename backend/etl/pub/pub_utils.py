@@ -58,6 +58,32 @@ def _parse_location_direction(location_str: str) -> Dict[str, Optional[str]]:
     # Clean the location string first
     location_str = location_str.strip()
 
+    # Special-case multi-line / multi-part locations with cul-de-sacs, e.g.:
+    # "Lor H Telok Kurau (cul-de-sac);\nJoo Chiat Ave(cul-de-sac)"
+    # Treat these as two road locations, not "cul-de-sac" endpoints.
+    low_full = location_str.lower()
+    if "cul-de-sac" in low_full and (";" in location_str or "\n" in location_str):
+        parts = [p.strip() for p in re.split(r"[;\n]+", location_str) if p.strip()]
+        if len(parts) >= 2:
+            def _strip_generic_paren(s: str) -> str:
+                return re.sub(r"\(cul-de-sac\)", "", s, flags=re.IGNORECASE).strip(" ,;")
+
+            start_raw = _strip_generic_paren(parts[0])
+            end_raw = _strip_generic_paren(parts[1])
+            return {
+                "start_loc": _normalize_location_or_none(start_raw),
+                "end_loc": _normalize_location_or_none(end_raw),
+            }
+
+    # Special-case slip roads: treat the whole string as a single start location.
+    # E.g. "KJE Slip Rd (KJE to Woodlands Rd, towards Senja Way)" describes
+    # direction along the slip road, not a second endpoint we should geocode.
+    if "slip rd" in low_full or "slip road" in low_full:
+        return {
+            "start_loc": _normalize_location_or_none(location_str),
+            "end_loc": None,
+        }
+
     # Pattern 0: "Junction of X and Y" - extract both roads at intersection
     junction_match = re.search(
         r"^junction\s+of\s+(.+?)\s+and\s+(.+?)$", location_str, re.IGNORECASE

@@ -56,6 +56,33 @@ def process_floods_data(
     # Load floods data
     print(f"Loading floods data from {floods_csv.name}...")
     floods_df = pd.read_csv(floods_csv)
+
+    # Normalize postal codes early to avoid float artifacts and preserve leading zeros
+    def _normalize_postal_series(series: pd.Series) -> pd.Series:
+        def _norm(val):
+            if pd.isna(val):
+                return None
+            s = str(val).strip()
+            if not s:
+                return None
+            # Strip any decimal component like '769093.0'
+            if "." in s:
+                s = s.split(".", 1)[0]
+            # Keep only digits
+            s = "".join(ch for ch in s if ch.isdigit())
+            if not s:
+                return None
+            # Postal codes are 6 digits in SG – clamp and pad
+            if len(s) > 6:
+                s = s[-6:]
+            return s.zfill(6)
+
+        return series.apply(_norm)
+
+    for _pc_col in ["start_postal_code", "end_postal_code"]:
+        if _pc_col in floods_df.columns:
+            floods_df[_pc_col] = _normalize_postal_series(floods_df[_pc_col])
+
     print(f"  Loaded {len(floods_df):,} flood events")
 
     # Check for required columns
