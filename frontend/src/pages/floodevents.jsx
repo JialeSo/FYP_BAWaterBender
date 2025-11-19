@@ -53,7 +53,7 @@ import {
   clamp,
   fmt,
 } from "@/components/pagecomponents/floodevents/utils";
-
+import FloodEventDetails from "@/components/pagecomponents/floodevents/FloodEventDetails";
 import FloodConfigurationPanel from "@/components/pagecomponents/floodevents/FloodConfigurationPanel";
 import FloodTable from "@/components/pagecomponents/floodevents/FloodTable";
 import FloodMap from "@/components/pagecomponents/floodevents/FloodMap";
@@ -64,6 +64,16 @@ const page_size = 20;
 
 /* ===== utils ===== */
 // Utilities now imported from @/components/pagecomponents/floodevents/utils
+function normalizeCat(name) {
+  return String(name)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_"); 
+}
+
+const norm = (s) =>
+  String(s).trim().toLowerCase().replace(/\s+/g, "_");
+
 
 function MultiSelectFilter({ id, label, options = [], values = [], onChange, placeholder = "All" }) {
   const [open, setOpen] = useState(false);
@@ -281,10 +291,15 @@ export default function floodevents() {
     start_postal_code: false, start_lat: false, start_lng: false,
   });
 
+
+
   const [cat_weights, setCatWeights] = useState(() => {
-    // Start with default preset instead of default_weight_by_category
     const defaultPreset = AMENITY_WEIGHT_PRESETS.default;
-    return { ...defaultPreset.weights };
+    const out = {};
+    Object.entries(defaultPreset.weights).forEach(([key, val]) => {
+      out[normalizeCat(key)] = val;
+    });
+    return out;
   });
 
    /* amenities flat list - deferred to avoid blocking navigation */
@@ -322,16 +337,13 @@ export default function floodevents() {
 
   const [cat_enabled, setCatEnabled] = useState(() => {
     const out = {};
-    for (const c of Object.values(category_lookup?.by_id || {})) {
-      const name = String(c.amenity_category || "").trim();
-      out[name] = true;
-    }
-    // Also enable default categories
+    // start purely from default_weight_by_category
     Object.keys(default_weight_by_category).forEach((name) => {
-      if (!(name in out)) out[name] = true;
+      out[name] = true;
     });
     return out;
   });
+
 
   const [inner_mult, set_inner_mult] = useState(2);
   const [outer_mult, set_outer_mult] = useState(1);
@@ -349,18 +361,63 @@ export default function floodevents() {
   // Initialize with the same presets
   const defaultPresetWeights = AMENITY_WEIGHT_PRESETS.default.weights;
   const [pendingCatWeights, setPendingCatWeights] = useState(() => ({ ...defaultPresetWeights }));
+
   const [pendingCatEnabled, setPendingCatEnabled] = useState(() => {
     const out = {};
-    for (const c of Object.values(category_lookup?.by_id || {})) {
-      const name = String(c.amenity_category || "").trim();
-      out[name] = true;
-    }
-    // Also enable default categories
     Object.keys(default_weight_by_category).forEach((name) => {
-      if (!(name in out)) out[name] = true;
+      out[name] = true;
     });
     return out;
   });
+
+
+  // helper: normalized + raw lookup for amenity categories
+  const getAmenityKey = (category) => {
+    const raw = String(category ?? "").trim();
+    const normKey = normalizeCat(raw);
+    return { raw, normKey };
+  };
+
+  const isAmenityCategoryEnabled = (category) => {
+    const { raw, normKey } = getAmenityKey(category);
+    if (typeof cat_enabled[normKey] === "boolean") return cat_enabled[normKey];
+    if (typeof cat_enabled[raw] === "boolean") return cat_enabled[raw];
+    return true; // default on
+  };
+
+  const getAmenityWeight = (category) => {
+    const { raw, normKey } = getAmenityKey(category);
+    if (typeof cat_weights[normKey] === "number") return cat_weights[normKey];
+    if (typeof cat_weights[raw] === "number") return cat_weights[raw];
+    return 0;
+  };
+
+  useEffect(() => {
+  if (!category_lookup?.by_id) return;
+
+  // merge new categories into active state (keep user toggles)
+  setCatEnabled((prev) => {
+    const next = { ...prev };
+    for (const c of Object.values(category_lookup.by_id)) {
+      const key = normalizeCat(c.amenity_category);
+      if (!(key in next)) next[key] = true;
+    }
+    return next;
+  });
+
+  // same for pending state
+  setPendingCatEnabled(prev => {
+    const next = { ...prev };
+    for (const c of Object.values(category_lookup.by_id)) {
+      const norm = normalizeCat(c.amenity_category);
+      if (!(norm in next)) next[norm] = true;
+    }
+    return next;
+  });
+  }, [category_lookup]);
+  
+
+  
 
   // Pending state for ring radii
   const [pendingRInner, setPendingRInner] = useState(200);
@@ -470,26 +527,23 @@ export default function floodevents() {
 
   const applyAmenityPreset = useCallback((presetKey) => {
     const preset = AMENITY_WEIGHT_PRESETS[presetKey];
-    if (!preset || !preset.weights) return;
+    if (!preset) return;
 
-    // Apply weights using forEach to trigger re-renders properly
-    setPendingCatWeights((prev) => {
-      const updated = { ...prev };
-      Object.keys(preset.weights).forEach(key => {
-        updated[key] = preset.weights[key];
-      });
-      return updated;
+    const normalized = {};
+    Object.entries(preset.weights).forEach(([key, val]) => {
+      normalized[norm(key)] = val;
     });
 
-    // Enable all categories
-    setPendingCatEnabled((prev) => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach(key => {
-        updated[key] = true;
-      });
-      return updated;
-    });
+    setPendingCatWeights(normalized);
+
+    const enabled = {};
+    Object.keys(normalized).forEach(k => enabled[k] = true);
+    setPendingCatEnabled(enabled);
+
   }, []);
+
+
+
 
   const applyARImpactPreset = useCallback((presetKey) => {
     const preset = AR_IMPACT_PRESETS[presetKey];
@@ -593,18 +647,18 @@ export default function floodevents() {
         for (const a of near) {
           const d = a._distm;
           const band = d <= r_in ? "inner" : "outer";
-          const enabled = cat_enabled[a.category] ?? true;
 
-          // Only count and add impact if category is enabled
-          if (enabled) {
-            const w = +cat_weights[a.category] || 0.0;
-            if (band === "inner") {
-              inner++;
-              impact_inner += w * inner_mult;
-            } else {
-              outer++;
-              impact_outer += w * outer_mult;
-            }
+          const enabled = isAmenityCategoryEnabled(a.category);
+          const w = getAmenityWeight(a.category);
+
+          if (!enabled) continue;
+
+          if (band === "inner") {
+            inner++;
+            impact_inner += w * inner_mult;
+          } else {
+            outer++;
+            impact_outer += w * outer_mult;
           }
         }
 
@@ -755,6 +809,50 @@ export default function floodevents() {
 
     return arr;
   }, [floods_fc, stats_by_flood_distance, lookups]);
+
+  // Percentiles per event for AR impact, amenities and roads
+  const percentiles_by_id = useMemo(() => {
+    const map = new Map();
+    if (!rows.length) return map;
+
+    const arValues = rows
+      .map((r) => r.ar_impact)
+      .filter((v) => Number.isFinite(v));
+    const amenityValues = rows
+      .map((r) => r.ring_total)
+      .filter((v) => Number.isFinite(v));
+    const roadValues = rows
+      .map((r) => r.roads_total)
+      .filter((v) => Number.isFinite(v));
+
+    const sortAsc = (arr) => [...arr].sort((a, b) => a - b);
+
+    const sortedAr = sortAsc(arValues);
+    const sortedAmenity = sortAsc(amenityValues);
+    const sortedRoads = sortAsc(roadValues);
+
+    const getPercentile = (value, sorted) => {
+      if (!sorted.length || !Number.isFinite(value)) return null;
+
+      // position of this value among all values (inclusive)
+      let idx = 0;
+      while (idx < sorted.length && sorted[idx] <= value) idx += 1;
+
+      const denom = Math.max(sorted.length - 1, 1);
+      const pct = (idx - 1) / denom; // 0–1
+      return Math.max(0, Math.min(1, pct));
+    };
+
+    rows.forEach((r) => {
+      map.set(String(r.id), {
+        ar_impact: getPercentile(r.ar_impact, sortedAr),
+        amenities: getPercentile(r.ring_total, sortedAmenity),
+        roads: getPercentile(r.roads_total, sortedRoads),
+      });
+    });
+
+    return map;
+  }, [rows]);
 
   // Calculate bounds for metric sliders
   const metric_bounds = useMemo(() => {
@@ -1273,6 +1371,104 @@ export default function floodevents() {
   }, [floods_fc, bounds]);
 
   useEffect(() => {
+    const map = map_ref.current;
+    if (!map) return;
+
+    const src = map.getSource("focused-amenity");
+    if (!src) return;
+
+    if (!focused_amenity) {
+      // clear + hide layer
+      try {
+        src.setData({
+          type: "FeatureCollection",
+          features: [],
+        });
+        if (map.getLayer("focused-amenity")) {
+          map.setLayoutProperty("focused-amenity", "visibility", "none");
+        }
+      } catch (e) {
+        console.warn("error clearing focused amenity:", e);
+      }
+      return;
+    }
+
+    // build a point feature
+    const { lng, lat, ...props } = focused_amenity;
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+
+    const feature = {
+      type: "Feature",
+      properties: { ...props },
+      geometry: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
+    };
+
+    try {
+      src.setData({
+        type: "FeatureCollection",
+        features: [feature],
+      });
+      if (map.getLayer("focused-amenity")) {
+        map.setLayoutProperty("focused-amenity", "visibility", "visible");
+        // keep marker on top
+        map.moveLayer("focused-amenity");
+      }
+    } catch (e) {
+      console.warn("error setting focused amenity:", e);
+    }
+    }, [focused_amenity]);
+
+    useEffect(() => {
+    const map = map_ref.current;
+    if (!map) return;
+
+    const src = map.getSource("focused-road");
+    if (!src) return;
+
+    if (!focused_road || !focused_road.geometry) {
+      // clear + hide layer
+      try {
+        src.setData({
+          type: "FeatureCollection",
+          features: [],
+        });
+        if (map.getLayer("focused-road")) {
+          map.setLayoutProperty("focused-road", "visibility", "none");
+        }
+      } catch (e) {
+        console.warn("error clearing focused road:", e);
+      }
+      return;
+    }
+
+    const feature = {
+      type: "Feature",
+      properties: {
+        rn_id: focused_road.rn_id ?? focused_road.RN_ID ?? null,
+        name: focused_road.name || "",
+      },
+      geometry: focused_road.geometry,
+    };
+
+    try {
+      src.setData({
+        type: "FeatureCollection",
+        features: [feature],
+      });
+      if (map.getLayer("focused-road")) {
+        map.setLayoutProperty("focused-road", "visibility", "visible");
+        map.moveLayer("focused-road");
+      }
+    } catch (e) {
+      console.warn("error setting focused road:", e);
+    }
+  }, [focused_road]);
+
+
+  useEffect(() => {
     const on_key = (e) => { if (e.key === "Escape") clear_selection(); };
     window.addEventListener("keydown", on_key);
     return () => window.removeEventListener("keydown", on_key);
@@ -1379,6 +1575,133 @@ export default function floodevents() {
       .addTo(map_ref.current);
   }
   function hide_popup() { try { popup_ref.current?.remove(); } catch {} popup_ref.current = null; }
+
+  // sync focused amenity to map source + popup
+useEffect(() => {
+  const map = map_ref.current;
+  if (!map) return;
+
+  const empty = {
+    type: "FeatureCollection",
+    features: [],
+  };
+
+  if (!focused_amenity) {
+    try {
+      map.getSource("focused-amenity")?.setData(empty);
+      map.setLayoutProperty("focused-amenity", "visibility", "none");
+    } catch {}
+    return;
+  }
+
+  const { lng, lat } = focused_amenity;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+
+  const feat = {
+    type: "Feature",
+    properties: {
+      name: focused_amenity.name || "Amenity",
+      category: focused_amenity.category || "Unknown",
+      distm: focused_amenity._distm ?? null,
+    },
+    geometry: {
+      type: "Point",
+      coordinates: [lng, lat],
+    },
+  };
+
+  try {
+    map.getSource("focused-amenity")?.setData({
+      type: "FeatureCollection",
+      features: [feat],
+    });
+    map.setLayoutProperty("focused-amenity", "visibility", "visible");
+  } catch {}
+
+  // optional: show popup immediately on focus
+  const html = `
+    <div class="flood-popup">
+      <div class="flood-popup-title">
+        ${feat.properties.name || "Amenity"}
+      </div>
+      <div class="flood-popup-sub">
+        ${to_title_case(feat.properties.category || "Unknown")}
+      </div>
+      ${
+        feat.properties.distm != null
+          ? `<div class="flood-popup-pill">
+               ${feat.properties.distm.toFixed(0)} m from flood
+             </div>`
+          : ""
+      }
+    </div>
+  `;
+  show_popup([lng, lat], html);
+}, [focused_amenity]);
+
+// sync focused road to map source + popup
+useEffect(() => {
+  const map = map_ref.current;
+  if (!map) return;
+
+  const empty = {
+    type: "FeatureCollection",
+    features: [],
+  };
+
+  if (!focused_road || !focused_road.geometry) {
+    try {
+      map.getSource("focused-road")?.setData(empty);
+      map.setLayoutProperty("focused-road", "visibility", "none");
+    } catch {}
+    return;
+  }
+
+  const feat = {
+    type: "Feature",
+    properties: {
+      name: focused_road.name || "Road",
+      rn_id: focused_road.rn_id || focused_road.RN_ID || "",
+      distm: focused_road.d ?? focused_road._distm ?? null,
+    },
+    geometry: focused_road.geometry,
+  };
+
+  try {
+    map.getSource("focused-road")?.setData({
+      type: "FeatureCollection",
+      features: [feat],
+    });
+    map.setLayoutProperty("focused-road", "visibility", "visible");
+  } catch {}
+
+  // approximate a centre for the popup
+  try {
+    const center = turf.centerOfMass(feat);
+    const [lng, lat] = center.geometry.coordinates;
+
+    const html = `
+      <div class="flood-popup">
+        <div class="flood-popup-title">
+          ${feat.properties.name || "Road"}
+        </div>
+        <div class="flood-popup-sub">
+          Road ID: ${feat.properties.rn_id || "–"}
+        </div>
+        ${
+          feat.properties.distm != null
+            ? `<div class="flood-popup-pill">
+                 ${feat.properties.distm.toFixed(0)} m from flood
+               </div>`
+            : ""
+        }
+      </div>
+    `;
+    show_popup([lng, lat], html);
+  } catch {}
+}, [focused_road]);
+
+
 
   /* ===== selection ===== */
   function focus_select(id_str) {
@@ -1597,18 +1920,18 @@ export default function floodevents() {
     // Count amenities by band - only include enabled categories
     for (const a of near) {
       const band = a._distm <= r_in ? "inner" : "outer";
-      const enabled = cat_enabled[a.category] ?? true;
 
-      // Only count and add impact if category is enabled
-      if (enabled) {
-        const w = +cat_weights[a.category] || 0;
-        if (band === "inner") {
-          inner_count++;
-          impact_inner += w * inner_mult;
-        } else {
-          outer_count++;
-          impact_outer += w * outer_mult;
-        }
+      const enabled = isAmenityCategoryEnabled(a.category);
+      const w = getAmenityWeight(a.category);
+
+      if (!enabled) continue;
+
+      if (band === "inner") {
+        inner_count++;
+        impact_inner += w * inner_mult;
+      } else {
+        outer_count++;
+        impact_outer += w * outer_mult;
       }
     }
 
@@ -1683,12 +2006,32 @@ export default function floodevents() {
 
     const stats = {
       center,
-      counts: { inner: activeInnerAmenities, outer: activeOuterAmenities, total: activeInnerAmenities + activeOuterAmenities },
-      roads_counts: { inner: activeInnerRoads, outer: activeOuterRoads, total: activeInnerRoads + activeOuterRoads },
-      impact: { inner: +impact_inner.toFixed(2), outer: +impact_outer.toFixed(2), total: +impact_total.toFixed(2) },
+      counts: {
+        inner: activeInnerAmenities,
+        outer: activeOuterAmenities,
+        total: activeInnerAmenities + activeOuterAmenities,
+      },
+      roads_counts: {
+        inner: activeInnerRoads,
+        outer: activeOuterRoads,
+        total: activeInnerRoads + activeOuterRoads,
+      },
+      impact: {
+        inner: +impact_inner.toFixed(2),
+        outer: +impact_outer.toFixed(2),
+        total: +impact_total.toFixed(2),
+      },
       centrality: { bnorm, cnorm },
-      scores: { amenity_score: +amenity_score.toFixed(3), roads_score: +roads_score.toFixed(3), roads_impact: +roads_impact.toFixed(2), ar_impact: +ar_impact.toFixed(3) },
+      scores: {
+        amenity_score: +amenity_score.toFixed(3),
+        roads_score: +roads_score.toFixed(3),
+        roads_impact: +roads_impact.toFixed(2),
+        ar_impact: +ar_impact.toFixed(3),
+      },
+      // ✅ this is what FloodEventDetails reads for rank:
+      percentiles: percentiles_by_id.get(String(id_str)) || null,
     };
+
     set_selected_stats(stats);
 
     if (mapReady) {
@@ -1701,6 +2044,10 @@ export default function floodevents() {
       }
     }
   }
+
+  useEffect(() => {
+    applyAmenityPreset("default");
+  }, []);
 
   function clear_selection() {
     set_selected(null);
@@ -1889,459 +2236,33 @@ export default function floodevents() {
         />
 
         {/* Details Panel */}
-        <div className="lg:col-span-1 rounded-3xl border border-border bg-card shadow-sm h-[36rem] overflow-hidden flex flex-col">
-          {selected && selected_stats ? (
-            <div className="flex flex-col h-full overflow-hidden">
-              <ScrollArea className="flex-1" style={{ height: 'calc(36rem - 0px)' }}>
-                <div className="p-3 space-y-1.5">
-                  {/* Header with Close Button */}
-                  <div className="flex items-center justify-between pb-2 border-b">
-                    <div>
-                      <h3 className="font-semibold">Flood Event Details</h3>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={clear_selection} className="h-8 w-8 p-0">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
+        <div className="lg:col-span-1 h-[36rem] rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
+          <FloodEventDetails
+            selected={selected}
+            selected_props={selected_props}
+            selected_stats={selected_stats}
+            panel_tab={panel_tab}
+            set_panel_tab={set_panel_tab}
+            amenity_search_term={amenity_search_term}
+            set_amenity_search_term={set_amenity_search_term}
+            road_search_term={road_search_term}
+            set_road_search_term={set_road_search_term}
+            inner_enabled={inner_enabled}
+            outer_enabled={outer_enabled}
+            r_inner={r_inner}
+            r_outer={r_outer}
+            query_amenities={query_amenities}
+            roads_nearby_state={roads_nearby_state}
+            map_ref={map_ref}
+            onClose={clear_selection}
+            focused_amenity={focused_amenity}
+            set_focused_amenity={set_focused_amenity}
+            focused_road={focused_road}
+            set_focused_road={set_focused_road}
+          />
+      </div>
 
-                  {/* Three Metric Cards - Compact with Rankings */}
-                  {(() => {
-                    // Calculate percentile ranks for each metric
-                    const arImpactRank = sorted.findIndex(f => f.id === selected) + 1;
-                    const arImpactPercentile = sorted.length > 0 ? Math.round((arImpactRank / sorted.length) * 100) : null;
 
-                    // Sort by amenities and roads for their rankings
-                    const sortedByAmenities = [...sorted].sort((a, b) => (b.ring_total || 0) - (a.ring_total || 0));
-                    const amenitiesRank = sortedByAmenities.findIndex(f => f.id === selected) + 1;
-                    const amenitiesPercentile = sortedByAmenities.length > 0 ? Math.round((amenitiesRank / sortedByAmenities.length) * 100) : null;
-
-                    const sortedByRoads = [...sorted].sort((a, b) => (b.roads_total || 0) - (a.roads_total || 0));
-                    const roadsRank = sortedByRoads.findIndex(f => f.id === selected) + 1;
-                    const roadsPercentile = sortedByRoads.length > 0 ? Math.round((roadsRank / sortedByRoads.length) * 100) : null;
-
-                    const getPercentileLabel = (percentile) => {
-                      if (percentile <= 10) return "TOP 10%";
-                      if (percentile <= 25) return "TOP 25%";
-                      if (percentile <= 50) return "TOP 50%";
-                      return null;
-                    };
-
-                    return (
-                      <div className="grid grid-cols-3 gap-2">
-                        {/* AR Impact Score */}
-                        <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-background">
-                          <CardHeader className="px-2 pt-2 pb-1.5">
-                            <CardDescription className="text-[9px] uppercase font-medium text-muted-foreground">AR Impact</CardDescription>
-                            {getPercentileLabel(arImpactPercentile) && (
-                              <span className="inline-block px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[7px] font-bold mb-1">
-                                {getPercentileLabel(arImpactPercentile)}
-                              </span>
-                            )}
-                            <CardTitle className="text-2xl font-bold text-primary">{selected_stats.scores?.ar_impact?.toFixed(3) ?? 'N/A'}</CardTitle>
-                          </CardHeader>
-                        </Card>
-
-                        {/* Amenities Affected */}
-                        <Card className="border">
-                          <CardHeader className="px-2 pt-2 pb-1.5">
-                            <CardDescription className="text-[9px] uppercase font-medium text-muted-foreground">Amenities</CardDescription>
-                            {getPercentileLabel(amenitiesPercentile) && (
-                              <span className="inline-block px-1.5 py-0.5 rounded-full bg-orange-600 text-white text-[7px] font-bold mb-1">
-                                {getPercentileLabel(amenitiesPercentile)}
-                              </span>
-                            )}
-                            <CardTitle className="text-2xl font-bold text-orange-600">{selected_stats.counts?.total ?? 0}</CardTitle>
-                            <div className="flex gap-2 text-[9px] text-muted-foreground mt-1">
-                              <span>Inner: <span className="font-semibold text-foreground">{selected_stats.counts?.inner ?? 0}</span></span>
-                              <span>•</span>
-                              <span>Outer: <span className="font-semibold text-foreground">{selected_stats.counts?.outer ?? 0}</span></span>
-                            </div>
-                          </CardHeader>
-                        </Card>
-
-                        {/* Roads Affected */}
-                        <Card className="border">
-                          <CardHeader className="px-2 pt-2 pb-1.5">
-                            <CardDescription className="text-[9px] uppercase font-medium text-muted-foreground">Roads</CardDescription>
-                            {getPercentileLabel(roadsPercentile) && (
-                              <span className="inline-block px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[7px] font-bold mb-1">
-                                {getPercentileLabel(roadsPercentile)}
-                              </span>
-                            )}
-                            <CardTitle className="text-2xl font-bold text-blue-600">{selected_stats.roads_counts?.total ?? 0}</CardTitle>
-                            <div className="flex gap-2 text-[9px] text-muted-foreground mt-1">
-                              <span>Inner: <span className="font-semibold text-foreground">{selected_stats.roads_counts?.inner ?? 0}</span></span>
-                              <span>•</span>
-                              <span>Outer: <span className="font-semibold text-foreground">{selected_stats.roads_counts?.outer ?? 0}</span></span>
-                            </div>
-                          </CardHeader>
-                        </Card>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Event Information Grid */}
-                  <Card className="border">
-                    <CardHeader className="pb-1 pt-2 px-2">
-                      <CardTitle className="text-xs font-semibold">Event Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-2 pb-2 pt-1">
-                      <div className="grid grid-cols-2 gap-1 text-xs">
-                        <div>
-                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">ID</div>
-                          <div className="font-mono text-xs">{selected_props?.id ?? 'N/A'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Type</div>
-                          <div className="text-xs">{to_title_case(selected_props?.event ?? 'Unknown')}</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Date</div>
-                          <div className="text-xs">{selected_props?.event_date ?? 'N/A'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Area</div>
-                          <div className="text-xs truncate">{selected_props?.start_planning_area ?? 'N/A'}</div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Location</div>
-                          <div className="text-xs truncate" title={selected_props?.location}>{selected_props?.location ?? 'N/A'}</div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Main Road</div>
-                          <div className="text-xs truncate" title={selected_props?.parent_road}>{selected_props?.parent_road ?? 'N/A'}</div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="text-[10px] text-muted-foreground mb-0.5 uppercase">Coordinates</div>
-                          <div className="font-mono text-[10px]">
-                            {Number.isFinite(Number(selected_props?.start_lat)) ? Number(selected_props.start_lat).toFixed(5) : 'N/A'}, {Number.isFinite(Number(selected_props?.start_lng)) ? Number(selected_props.start_lng).toFixed(5) : 'N/A'}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Affected Infrastructure Tabs */}
-                  <Card className="border">
-                    <CardHeader className="pb-2 pt-2 px-2">
-                      <CardTitle className="text-sm font-semibold">Affected Infrastructure</CardTitle>
-                    </CardHeader>
-                    <Tabs defaultValue="amenities" onValueChange={(val) => set_panel_tab(val)} className="w-full">
-                      <div className="border-b px-2">
-                        <TabsList className="w-full grid grid-cols-2 h-8">
-                          <TabsTrigger value="amenities" className="text-[10px]">
-                            Amenities ({selected_stats.counts?.total ?? 0})
-                          </TabsTrigger>
-                          <TabsTrigger value="roads" className="text-[10px]">
-                            Roads ({selected_stats.roads_counts?.total ?? 0})
-                          </TabsTrigger>
-                        </TabsList>
-                      </div>
-
-                      <TabsContent value="amenities" className="px-2 py-2 space-y-1 mt-2">
-                        {(() => {
-                          // Get amenities from selected_stats
-                          const center = selected_stats.center;
-                          if (!center) return <p className="text-xs text-muted-foreground py-6 text-center">No location data</p>;
-
-                          // Query amenities in both rings, only if bands are enabled
-                          // Filter by enabled categories
-                          const innerAmenities = inner_enabled
-                            ? query_amenities(center[0], center[1], r_inner)
-                                .filter(a => cat_enabled[a.category] ?? true)
-                                .map(a => ({ ...a, band: 'inner' }))
-                            : [];
-                          const outerAmenities = outer_enabled
-                            ? query_amenities(center[0], center[1], r_outer)
-                                .filter(a => a._distm > r_inner && (cat_enabled[a.category] ?? true))
-                                .map(a => ({ ...a, band: 'outer' }))
-                            : [];
-                          const allAmenities = [...innerAmenities, ...outerAmenities];
-
-                          // Filter by search
-                          let filteredAmenities = amenity_search_term.trim()
-                            ? allAmenities.filter(a =>
-                                (a.name || "").toLowerCase().includes(amenity_search_term.toLowerCase()) ||
-                                (a.category || "").toLowerCase().includes(amenity_search_term.toLowerCase())
-                              )
-                            : allAmenities;
-
-                          // Filter by band
-                          if (amenity_sort !== "all") {
-                            filteredAmenities = filteredAmenities.filter(a => a.band === amenity_sort);
-                          }
-
-                          return (
-                            <>
-                              {/* Search and Sort Controls */}
-                              <div className="flex items-center gap-2">
-                                <div className="relative flex-1">
-                                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                  <Input
-                                    placeholder="Search amenities..."
-                                    value={amenity_search_term}
-                                    onChange={(e) => set_amenity_search_term(e.target.value)}
-                                    className="pl-7 h-8 text-xs"
-                                  />
-                                </div>
-                                <Select value={amenity_sort} onValueChange={set_amenity_sort}>
-                                  <SelectTrigger className="w-24 h-8 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="all" className="text-xs">All</SelectItem>
-                                    <SelectItem value="inner" className="text-xs">Inner</SelectItem>
-                                    <SelectItem value="outer" className="text-xs">Outer</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              {filteredAmenities.length > 0 ? (
-                            <ScrollArea className="h-[200px]">
-                              <div className="space-y-1 pr-2">
-                                {filteredAmenities.map((amenity, idx) => {
-                                  const amenityName = amenity.name || "Unnamed Amenity";
-                                  const category = amenity.category || "Unknown";
-                                  const distance = amenity._distm;
-                                  const band = amenity.band || "unknown";
-
-                                  return (
-                                    <div
-                                      key={`${amenity.id}-${idx}`}
-                                      className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
-                                    >
-                                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                        <span className="font-medium text-foreground truncate text-[10px]">{amenityName}</span>
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[9px] text-muted-foreground">{to_title_case(category)}</span>
-                                          {distance && (
-                                            <span className="text-[9px] text-muted-foreground font-medium">{distance.toFixed(0)}m</span>
-                                          )}
-                                          <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
-                                            band === 'inner'
-                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                                          }`}>
-                                            {band}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <Button
-                                        size="sm"
-                                        variant={focused_amenity?.id === amenity.id ? "default" : "ghost"}
-                                        onClick={() => {
-                                          const map = map_ref.current;
-                                          if (!map) return;
-
-                                          // Toggle focus
-                                          if (focused_amenity?.id === amenity.id) {
-                                            // Unfocus
-                                            set_focused_amenity(null);
-                                            map.getSource("focused-amenity")?.setData({ type: "FeatureCollection", features: [] });
-                                            map.setLayoutProperty("focused-amenity", "visibility", "none");
-                                            hide_popup();
-                                          } else {
-                                            // Focus on this amenity
-                                            set_focused_amenity(amenity);
-                                            const feature = {
-                                              type: "Feature",
-                                              geometry: { type: "Point", coordinates: [amenity.lng, amenity.lat] },
-                                              properties: { name: amenityName }
-                                            };
-                                            map.getSource("focused-amenity")?.setData({ type: "FeatureCollection", features: [feature] });
-                                            map.setLayoutProperty("focused-amenity", "visibility", "visible");
-
-                                            // Show popup with amenity details
-                                            const popupContent = `
-                                              <div class="text-xs">
-                                                <div class="font-semibold mb-1">${amenityName}</div>
-                                                <div class="text-muted-foreground">
-                                                  <div>Category: ${to_title_case(category)}</div>
-                                                  <div>Distance: ${distance ? distance.toFixed(0) + 'm' : 'N/A'}</div>
-                                                  <div>Band: ${band}</div>
-                                                </div>
-                                              </div>
-                                            `;
-                                            show_popup({ lng: amenity.lng, lat: amenity.lat }, popupContent);
-
-                                            map.flyTo({ center: [amenity.lng, amenity.lat], zoom: 17, essential: true });
-                                          }
-                                        }}
-                                        className="h-6 px-1.5 text-[9px] hover:bg-primary/10 ml-1 shrink-0"
-                                      >
-                                        {focused_amenity?.id === amenity.id ? "Unfocus" : "Focus"}
-                                      </Button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </ScrollArea>
-                          ) : (
-                            <p className="text-xs text-muted-foreground py-6 text-center">
-                              {amenity_search_term.trim() ? "No amenities match your search" : "No affected amenities"}
-                            </p>
-                          )}
-                          </>
-                          );
-                        })()}
-                      </TabsContent>
-
-                      <TabsContent value="roads" className="px-2 py-2 space-y-1 mt-2">
-                        {(() => {
-                          // Flatten roads from both bands, only if bands are enabled
-                          const allRoads = [];
-                          if (inner_enabled) {
-                            (roads_nearby_state.inner || []).forEach(r => allRoads.push({ ...r, band: 'inner' }));
-                          }
-                          if (outer_enabled) {
-                            (roads_nearby_state.outer || []).forEach(r => allRoads.push({ ...r, band: 'outer' }));
-                          }
-
-                          // Filter by search
-                          let filteredRoads = road_search_term.trim()
-                            ? allRoads.filter(r =>
-                                (r.name || "").toLowerCase().includes(road_search_term.toLowerCase()) ||
-                                String(r.rn_id || r.RN_ID || "").includes(road_search_term)
-                              )
-                            : allRoads;
-
-                          // Filter by band
-                          if (road_sort !== "all") {
-                            filteredRoads = filteredRoads.filter(r => r.band === road_sort);
-                          }
-
-                          return (
-                            <>
-                              {/* Search and Sort Controls */}
-                              <div className="flex items-center gap-2">
-                                <div className="relative flex-1">
-                                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                  <Input
-                                    placeholder="Search roads..."
-                                    value={road_search_term}
-                                    onChange={(e) => set_road_search_term(e.target.value)}
-                                    className="pl-7 h-8 text-xs"
-                                  />
-                                </div>
-                                <Select value={road_sort} onValueChange={set_road_sort}>
-                                  <SelectTrigger className="w-24 h-8 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="all" className="text-xs">All</SelectItem>
-                                    <SelectItem value="inner" className="text-xs">Inner</SelectItem>
-                                    <SelectItem value="outer" className="text-xs">Outer</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              {filteredRoads.length > 0 ? (
-                            <ScrollArea className="h-[200px]">
-                              <div className="space-y-1 pr-2">
-                                {filteredRoads.map((road, idx) => {
-                                  const roadName = road.name || "Unnamed Road";
-                                  const roadId = road.rn_id || road.RN_ID || "";
-                                  const distance = road.d || road._distm;
-                                  const band = road.band || "unknown";
-
-                                  return (
-                                    <div
-                                      key={`${roadId}-${idx}`}
-                                      className="flex items-center justify-between text-xs rounded px-2 py-1.5 bg-muted/30 hover:bg-muted transition-colors"
-                                    >
-                                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                        <span className="font-medium text-foreground truncate text-[10px]">{roadName}</span>
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[9px] text-muted-foreground font-mono">ID: {roadId}</span>
-                                          {distance && (
-                                            <span className="text-[9px] text-muted-foreground font-medium">{distance}m</span>
-                                          )}
-                                          <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
-                                            band === 'inner'
-                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                                          }`}>
-                                            {band}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <Button
-                                        size="sm"
-                                        variant={focused_road?.rn_id === roadId ? "default" : "ghost"}
-                                        onClick={() => {
-                                          const map = map_ref.current;
-                                          if (!map || !road.geometry) return;
-                                          try {
-                                            // Toggle focus
-                                            if (focused_road?.rn_id === roadId) {
-                                              // Unfocus
-                                              set_focused_road(null);
-                                              map.getSource("focused-road")?.setData({ type: "FeatureCollection", features: [] });
-                                              map.setLayoutProperty("focused-road", "visibility", "none");
-                                              hide_popup();
-                                            } else {
-                                              // Focus on this road
-                                              set_focused_road({ ...road, rn_id: roadId });
-                                              const feature = {
-                                                type: "Feature",
-                                                geometry: road.geometry,
-                                                properties: { name: roadName }
-                                              };
-                                              map.getSource("focused-road")?.setData({ type: "FeatureCollection", features: [feature] });
-                                              map.setLayoutProperty("focused-road", "visibility", "visible");
-
-                                              // Show popup with road details
-                                              const bb = turf.bbox({ type: "Feature", geometry: road.geometry, properties: {} });
-                                              const centerLng = (bb[0] + bb[2]) / 2;
-                                              const centerLat = (bb[1] + bb[3]) / 2;
-                                              const popupContent = `
-                                                <div class="text-xs">
-                                                  <div class="font-semibold mb-1">${roadName}</div>
-                                                  <div class="text-muted-foreground">
-                                                    <div>ID: ${roadId}</div>
-                                                    <div>Distance: ${distance ? distance + 'm' : 'N/A'}</div>
-                                                    <div>Band: ${band}</div>
-                                                  </div>
-                                                </div>
-                                              `;
-                                              show_popup({ lng: centerLng, lat: centerLat }, popupContent);
-
-                                              map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: 60, duration: 500 });
-                                            }
-                                          } catch {}
-                                        }}
-                                        className="h-6 px-1.5 text-[9px] hover:bg-primary/10 ml-1 shrink-0"
-                                      >
-                                        {focused_road?.rn_id === roadId ? "Unfocus" : "Focus"}
-                                      </Button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </ScrollArea>
-                          ) : (
-                            <p className="text-xs text-muted-foreground py-6 text-center">
-                              {road_search_term.trim() ? "No roads match your search" : "No affected roads"}
-                            </p>
-                          )}
-                          </>
-                          );
-                        })()}
-                      </TabsContent>
-                    </Tabs>
-                  </Card>
-                </div>
-              </ScrollArea>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full p-6">
-              <div className="text-center text-muted-foreground">
-                <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Select a flood event to view details</p>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       <FloodTable
@@ -2423,6 +2344,31 @@ export default function floodevents() {
         .flood-legend .legend-swatch {
           display: inline-block; width: 12px; height: 12px; border-radius: 9999px;
           border: 1px solid rgba(0,0,0,.4);
+        }
+
+        .flood-popup {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .flood-popup-title {
+          font-size: 0.9rem;
+          font-weight: 600;
+          text-transform: capitalize;
+        }
+        .flood-popup-sub {
+          font-size: 0.75rem;
+          opacity: 0.8;
+        }
+        .flood-popup-pill {
+          margin-top: 4px;
+          align-self: flex-start;
+          padding: 2px 8px;
+          border-radius: 9999px;
+          font-size: 0.7rem;
+          font-weight: 500;
+          background: rgba(59, 130, 246, 0.18);
+          border: 1px solid rgba(59, 130, 246, 0.5);
         }
       `}</style>
     </div>

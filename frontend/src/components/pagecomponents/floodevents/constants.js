@@ -1,54 +1,52 @@
 // Amenity weight presets for category-based impact calculation
+const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, "_");
 export const AMENITY_WEIGHT_PRESETS = {
   default: {
     name: "Default",
     description: "Custom weighted priorities",
     weights: {
-      community_spaces: 1,
-      education_institutions: 3.464,
-      emergency_services: 5,
-      essential_services: 2,
-      government_services: 3.162,
-      healthcare_facilities: 4,
-      others: 1,
-      residential: 3.162,
-      retail_services: 1,
-      tourism: 1,
-      transport_services: 3.742,
+      [norm("Community spaces")]: 2.0,
+      [norm("Education institutions")]: 2.5,
+      [norm("Emergency services")]: 3.5,
+      [norm("Essential services")]: 3.0,
+      [norm("Government services")]: 2.5,
+      [norm("Healthcare facilities")]: 4.0,
+      [norm("Residential")]: 1.5,
+      [norm("Retail services")]: 1.5,
+      [norm("Tourism")]: 1.0,
+      [norm("Transport services")]: 2.5,
     },
   },
   balanced: {
     name: "Balanced",
     description: "All categories weighted equally",
     weights: {
-      community_spaces: 1,
-      education_institutions: 1,
-      emergency_services: 1,
-      essential_services: 1,
-      government_services: 1,
-      healthcare_facilities: 1,
-      others: 1,
-      residential: 1,
-      retail_services: 1,
-      tourism: 1,
-      transport_services: 1,
+      [norm("Community spaces")]: 1.0,
+      [norm("Education institutions")]: 1.0,
+      [norm("Emergency services")]: 1.0,
+      [norm("Essential services")]: 1.0,
+      [norm("Government services")]: 1.0,
+      [norm("Healthcare facilities")]: 1.0,
+      [norm("Residential")]: 1.0,
+      [norm("Retail services")]: 1.0,
+      [norm("Tourism")]: 1.0,
+      [norm("Transport services")]: 1.0,
     },
   },
   emergency: {
     name: "Emergency Focused",
     description: "Prioritize emergency and healthcare services",
     weights: {
-      community_spaces: 1,
-      education_institutions: 2,
-      emergency_services: 10,
-      essential_services: 4,
-      government_services: 2,
-      healthcare_facilities: 8,
-      others: 1,
-      residential: 1,
-      retail_services: 1,
-      tourism: 1,
-      transport_services: 4,
+      [norm("Community spaces")]: 1.0,
+      [norm("Education institutions")]: 1.5,
+      [norm("Emergency services")]: 5.0,
+      [norm("Essential services")]: 3.5,
+      [norm("Government services")]: 2.0,
+      [norm("Healthcare facilities")]: 5.0,
+      [norm("Residential")]: 1.0,
+      [norm("Retail services")]: 1.0,
+      [norm("Tourism")]: 0.5,
+      [norm("Transport services")]: 3.0,
     },
   },
 };
@@ -80,16 +78,16 @@ export const AR_IMPACT_PRESETS = {
 // Default weight by category (for fallback)
 export const default_weight_by_category = {
   community_spaces: 1,
-  education_institutions: 3.464,
+  education_institutions: 3,
   emergency_services: 5,
   essential_services: 2,
-  government_services: 3.162,
+  government_services: 3,
   healthcare_facilities: 4,
   others: 1,
-  residential: 3.162,
+  residential: 3,
   retail_services: 1,
   tourism: 1,
-  transport_services: 3.742,
+  transport_services: 3,
 };
 
 // Metric filter configuration for filtering flood events
@@ -132,34 +130,6 @@ export const METRIC_FILTER_CONFIG = [
   },
 ];
 
-// Metric summary rows for Learn dialog
-export const METRIC_SUMMARY_ROWS = [
-  {
-    metric: "Roads Affected",
-    meaning: "Total number of roads within the inner and outer distance rings from each flood location.",
-    insight: "Higher values indicate more road infrastructure at risk. Roads in inner ring are weighted more heavily. Contributes to AR Impact via roads score.",
-  },
-  {
-    metric: "Amenities Affected",
-    meaning: "Total number of amenities (hospitals, schools, etc.) within the inner and outer distance rings from each flood location.",
-    insight: "Higher values indicate more critical facilities at risk. Each amenity category has a different weight (e.g., emergency services weighted highest).",
-  },
-  {
-    metric: "Betweenness Norm",
-    meaning: "Normalized betweenness centrality of the affected road (0-1 scale). Measures how often the road lies on shortest paths between other roads.",
-    insight: "Higher values indicate roads critical for network connectivity. Roads with high betweenness are key transit routes whose flooding disrupts many journeys.",
-  },
-  {
-    metric: "Closeness Norm",
-    meaning: "Normalized closeness centrality of the affected road (0-1 scale). Measures how central the road is to the entire network.",
-    insight: "Higher values indicate roads with good access to all other roads. Flooding these roads affects reachability across the entire network.",
-  },
-  {
-    metric: "AR Impact",
-    meaning: "Amenity-Road Impact score combining 4 weighted components: betweenness, closeness, amenity exposure, and roads affected.",
-    insight: "Final risk score (formula: AR = w_b × betweenness + w_c × closeness + w_a × amenity_score + w_r × roads_score). Use presets or adjust weights to prioritize different factors.",
-  },
-];
 
 // Ranking metrics for event ranking display
 export const RANKING_METRICS = [

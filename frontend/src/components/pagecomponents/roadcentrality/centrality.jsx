@@ -1703,7 +1703,7 @@ export default function Centrality() {
         </div>
 
         {/* Right: Road Details Panel */}
-        <div className="lg:col-span-1 h-[600px]" ref={detailsPanelRef}>
+        <div className="lg:col-span-1 h-[36rem] rounded-3xl border border-border shadow-sm overflow-hidden" ref={detailsPanelRef}>
           <RoadDetailsPanel
             road={selectedRoad}
             onClose={() => setSelectedRoadId(null)}

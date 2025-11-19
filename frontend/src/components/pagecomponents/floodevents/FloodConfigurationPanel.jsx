@@ -8,6 +8,9 @@ import { NumberInput } from "@/components/numberInput";
 import { AMENITY_WEIGHT_PRESETS, AR_IMPACT_PRESETS, default_weight_by_category } from "./constants";
 import { to_title_case, clamp } from "./utils";
 
+const norm = (s) =>
+  String(s).trim().toLowerCase().replace(/\s+/g, "_");
+
 export default function FloodConfigurationPanel({
   // Category weights (pending and applied)
   pendingCatWeights,
@@ -123,40 +126,44 @@ export default function FloodConfigurationPanel({
 
                     {/* Category grid */}
                     <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                      {(categories.length ? categories.map((c) => c.amenity_category) : Object.keys(default_weight_by_category)).map((name) => {
+                      {(categories.length ? categories.map(c => c.amenity_category) : Object.keys(default_weight_by_category)).map((rawName) => {
+                        
+                        const name = norm(rawName); // ⭐ normalize
+
                         const enabled = pendingCatEnabled[name] ?? true;
                         const weight = pendingCatWeights[name] ?? 1;
+
                         return (
                           <div key={name} className="space-y-2 rounded-lg border bg-muted/30 p-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{to_title_case(name)}</span>
+                              <span className="text-sm font-medium">{to_title_case(rawName)}</span>
                             </div>
+
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Switch
                                   id={`amenity-${name}`}
                                   checked={enabled}
                                   onCheckedChange={(checked) =>
-                                    setPendingCatEnabled((prev) => ({ ...prev, [name]: !!checked }))
+                                    setPendingCatEnabled(prev => ({ ...prev, [name]: !!checked }))
                                   }
                                 />
                                 <Label htmlFor={`amenity-${name}`} className="text-xs cursor-pointer">
                                   enable
                                 </Label>
                               </div>
+
                               <NumberInput
-                                key={`${name}-${weight}`}
                                 value={weight}
                                 onValueChange={(numVal) => {
                                   if (numVal !== undefined) {
-                                    setPendingCatWeights((prev) => ({ ...prev, [name]: numVal }));
+                                    setPendingCatWeights(prev => ({ ...prev, [name]: numVal }));
                                   }
                                 }}
                                 min={1}
                                 max={10}
                                 stepper={1}
                                 decimalScale={3}
-                                fixedDecimalScale={false}
                                 disabled={!enabled}
                                 hideSteppers={true}
                               />
