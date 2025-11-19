@@ -2,7 +2,6 @@
 import { Routes, Route, Navigate } from "react-router-dom"
 
 import Home from "./pages/home"
-import DashboardMap from "./pages/dashboard_map"
 import FloodEvents from "./pages/floodevents"
 import SingaporeHistoricalFloodMap from "./pages/historicalFloodMap"
 import RoadCentrality from "./pages/roadcentrality"
@@ -17,7 +16,6 @@ export default function AppRouter() {
 
       {/* pages */}
       <Route path="/home" element={<Home />} />
-      <Route path="/dashboardMap" element={<DashboardMap />} />
       <Route path="/floodEvents" element={<FloodEvents />} />
       <Route path="/historicalFloodMap" element={<SingaporeHistoricalFloodMap />} />
       <Route path="/roadCentrality" element={<RoadCentrality />} />
