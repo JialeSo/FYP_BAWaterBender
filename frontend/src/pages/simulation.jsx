@@ -1624,6 +1624,8 @@ export default function Simulation() {
                   onPlanningAreaSelect={setSelectedPA}
                   selectedPA={selectedPA}
                   showAmenities={showAmenities}
+                  baselineNearestAmenity={baselineNearestAmenity}
+                  floodedNearestAmenity={floodedNearestAmenity}
                 />
 
                 <MetricSelector

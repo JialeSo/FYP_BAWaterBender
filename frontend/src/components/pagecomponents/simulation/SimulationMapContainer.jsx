@@ -4,16 +4,24 @@
  * Handles choropleth visualization, road networks, amenity markers, and all interactions
  */
 
-import { useRef, useEffect, useCallback, useState, useMemo, useImperativeHandle, forwardRef } from "react";
+import {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  useMemo,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
   getColorForValue,
   getColorForTravelTime,
   getColorForUnreachable,
-  fmtTime
+  fmtTime,
 } from "@/lib/simulation/metrics";
-import { calculateNearestAmenitiesForNodes, getNearestAmenityChange } from "@/lib/simulation/amenityUtils";
+// NOTE: removed calculateNearestAmenitiesForNodes + getNearestAmenityChange
 import { generateRoadTooltipHTML } from "./RoadTooltip";
 import { generatePlanningAreaTooltipHTML } from "./PlanningAreaTooltip";
 import { generateAmenityTooltipHTML } from "./AmenityTooltip";
@@ -25,22 +33,28 @@ const DEFAULT_ZOOM = 11;
 /**
  * Main Map Container Component
  */
-export const SimulationMapContainer = forwardRef(function SimulationMapContainer({
-  planning_fc_raw,
-  amenity_fc_enriched,
-  graph,
-  paDeltas,
-  baselineNodeDist,
-  floodedNodeDist,
-  affectedRoads,
-  selectedMetric = "delta_time",
-  travelTime = 480,
-  selectedAmenityType = "moh_hospitals",
-  excludedAmenities = new Set(),
-  onPlanningAreaSelect,
-  selectedPA,
-  showAmenities = true,
-}, ref) {
+export const SimulationMapContainer = forwardRef(function SimulationMapContainer(
+  {
+    planning_fc_raw,
+    amenity_fc_enriched,
+    graph,
+    paDeltas,
+    baselineNodeDist,
+    floodedNodeDist,
+    affectedRoads,
+    selectedMetric = "delta_time",
+    travelTime = 480,
+    selectedAmenityType = "moh_hospitals",
+    excludedAmenities = new Set(),
+    onPlanningAreaSelect,
+    selectedPA,
+    showAmenities = true,
+    // NEW: use precomputed nearest amenity maps from simulation
+    baselineNearestAmenity,
+    floodedNearestAmenity,
+  },
+  ref
+) {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const paPopupRef = useRef(null);
@@ -50,13 +64,84 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
   const [mapReady, setMapReady] = useState(false);
 
   /**
+   * Build amenity lookup (id -> properties) once
+   */
+  const amenityById = useMemo(() => {
+    const m = new Map();
+    if (!amenity_fc_enriched?.features?.length) return m;
+
+    for (const f of amenity_fc_enriched.features) {
+      const props = f.properties || {};
+      const id = props.amenity_id ?? props.id;
+      if (!id) continue;
+      m.set(id, props);
+    }
+    return m;
+  }, [amenity_fc_enriched]);
+
+  /**
+   * Given a node id, compute nearest amenity before/after + travel time
+   * using precomputed maps from simulation:
+   *  - baselineNearestAmenity: Map(nodeId -> amenity_id)
+   *  - floodedNearestAmenity: Map(nodeId -> amenity_id)
+   *  - baselineNodeDist / floodedNodeDist: Map(nodeId -> time_s)
+   */
+  const getAmenityChangeForNode = useCallback(
+    (nodeId) => {
+      if (!nodeId || !baselineNearestAmenity || !floodedNearestAmenity) return null;
+
+      const baseId = baselineNearestAmenity.get(nodeId);
+      const floodId = floodedNearestAmenity.get(nodeId);
+
+      if (!baseId && !floodId) return null;
+
+      const baseProps = baseId ? amenityById.get(baseId) : null;
+      const floodProps = floodId ? amenityById.get(floodId) : null;
+
+      const baseTime = baselineNodeDist?.get(nodeId);
+      const floodTime = floodedNodeDist?.get(nodeId);
+
+      const makeAmenityObj = (id, props, time) => {
+        if (!id || !props) return null;
+        return {
+          id,
+          name:
+            props.amenity_name ||
+            props.name ||
+            props.amenity_type ||
+            "Unknown amenity",
+          type: props.amenity_type,
+          travel_time_s: Number.isFinite(time) ? time : null,
+        };
+      };
+
+      const before = makeAmenityObj(baseId, baseProps, baseTime);
+      const after = makeAmenityObj(floodId, floodProps, floodTime);
+
+      const changed =
+        (before?.id || null) !== (after?.id || null) ||
+        (!!before && !after) ||
+        (!before && !!after);
+
+      return { before, after, changed };
+    },
+    [
+      baselineNearestAmenity,
+      floodedNearestAmenity,
+      amenityById,
+      baselineNodeDist,
+      floodedNodeDist,
+    ]
+  );
+
+  /**
    * Calculate road statistics per planning area
    */
   const paRoadStats = useMemo(() => {
     if (!graph?.edges || !graph?.nodes || !affectedRoads) return new Map();
 
     const statsMap = new Map();
-    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+    const affectedRoadSet = new Set(affectedRoads.map((r) => r.rn_id));
 
     // Count unique roads per PA
     for (const edge of graph.edges) {
@@ -82,9 +167,10 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
         const isBlocked = affectedRoadSet.has(edge.rn_id);
         const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
         const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
-        const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
-          ? floodedDist - baselineDist
-          : null;
+        const delta =
+          Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+            ? floodedDist - baselineDist
+            : null;
 
         if (isBlocked) {
           stats.blocked_roads.add(edge.rn_id);
@@ -116,24 +202,6 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
   }, [graph?.edges, graph?.nodes, affectedRoads, baselineNodeDist, floodedNodeDist]);
 
   /**
-   * Calculate nearest amenities for all nodes (baseline and flooded scenarios)
-   */
-  const nearestAmenities = useMemo(() => {
-    if (!graph?.nodes || !baselineNodeDist || !floodedNodeDist || !amenity_fc_enriched) {
-      return { baselineAmenities: new Map(), floodedAmenities: new Map() };
-    }
-
-    return calculateNearestAmenitiesForNodes(
-      graph.nodes,
-      baselineNodeDist,
-      floodedNodeDist,
-      amenity_fc_enriched,
-      selectedAmenityType,
-      excludedAmenities
-    );
-  }, [graph?.nodes, baselineNodeDist, floodedNodeDist, amenity_fc_enriched, selectedAmenityType, excludedAmenities]);
-
-  /**
    * Calculate line width based on travel time delta severity
    */
   const calculateLineWidth = useCallback((delta, status) => {
@@ -155,88 +223,104 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
   /**
    * Update choropleth data based on selected metric
    */
-  const updateChoroplethData = useCallback((metric, filterPAId = null) => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded() || !planning_fc_raw?.features?.length) return;
+  const updateChoroplethData = useCallback(
+    (metric, filterPAId = null) => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded() || !planning_fc_raw?.features?.length)
+        return;
 
-    const features = planning_fc_raw.features
-      .filter(f => {
-        // If filterPAId is provided, only show that PA
-        if (filterPAId !== null) {
-          const paId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
-          return paId === filterPAId;
-        }
-        return true;
-      })
-      .map(f => {
-        const paId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
-        const delta = paDeltas.find(d => d.pa_id === paId);
+      const features = planning_fc_raw.features
+        .filter((f) => {
+          // If filterPAId is provided, only show that PA
+          if (filterPAId !== null) {
+            const paId = parseInt(
+              f.properties?.PA_ID ?? f.properties?.pa_id,
+              10
+            );
+            return paId === filterPAId;
+          }
+          return true;
+        })
+        .map((f) => {
+          const paId = parseInt(
+            f.properties?.PA_ID ?? f.properties?.pa_id,
+            10
+          );
+          const delta = paDeltas.find((d) => d.pa_id === paId);
 
-        let fillColor = "#d1d5db"; // Default gray
-        let value = null;
+          let fillColor = "#d1d5db"; // Default gray
+          let value = null;
 
-        if (delta) {
-        switch (metric) {
-          case "delta_time": {
-            value = delta.delta_avg_s;
-            const maxDelta = Math.max(...paDeltas.map(d => d.delta_avg_s || 0));
-            if (Number.isFinite(value) && value > 0) {
-              fillColor = getColorForValue(value, maxDelta, false);
+          if (delta) {
+            switch (metric) {
+              case "delta_time": {
+                value = delta.delta_avg_s;
+                const maxDelta = Math.max(
+                  ...paDeltas.map((d) => d.delta_avg_s || 0)
+                );
+                if (Number.isFinite(value) && value > 0) {
+                  fillColor = getColorForValue(value, maxDelta, false);
+                }
+                break;
+              }
+              case "unreachable": {
+                value = delta.unreachable_nodes || 0;
+                fillColor = getColorForUnreachable(value);
+                break;
+              }
+              case "baseline_time": {
+                value = delta.base_avg_s;
+                const maxTime = Math.max(
+                  ...paDeltas.map((d) => d.base_avg_s || 0)
+                );
+                if (Number.isFinite(value)) {
+                  fillColor = getColorForValue(value, maxTime, true);
+                }
+                break;
+              }
+              case "flooded_time": {
+                value = delta.flood_avg_s;
+                const maxTime = Math.max(
+                  ...paDeltas.map((d) => d.flood_avg_s || 0)
+                );
+                if (Number.isFinite(value)) {
+                  fillColor = getColorForValue(value, maxTime, true);
+                }
+                break;
+              }
+              case "travel_time": {
+                value = delta.base_avg_s;
+                if (Number.isFinite(value)) {
+                  fillColor = getColorForTravelTime(value, travelTime);
+                }
+                break;
+              }
             }
-            break;
           }
-          case "unreachable": {
-            value = delta.unreachable_nodes || 0;
-            fillColor = getColorForUnreachable(value);
-            break;
-          }
-          case "baseline_time": {
-            value = delta.base_avg_s;
-            const maxTime = Math.max(...paDeltas.map(d => d.base_avg_s || 0));
-            if (Number.isFinite(value)) {
-              fillColor = getColorForValue(value, maxTime, true);
-            }
-            break;
-          }
-          case "flooded_time": {
-            value = delta.flood_avg_s;
-            const maxTime = Math.max(...paDeltas.map(d => d.flood_avg_s || 0));
-            if (Number.isFinite(value)) {
-              fillColor = getColorForValue(value, maxTime, true);
-            }
-            break;
-          }
-          case "travel_time": {
-            value = delta.base_avg_s;
-            if (Number.isFinite(value)) {
-              fillColor = getColorForTravelTime(value, travelTime);
-            }
-            break;
-          }
-        }
+
+          return {
+            ...f,
+            id: paId,
+            properties: {
+              ...f.properties,
+              pa_id: paId,
+              fillColor,
+              metricValue: value,
+              ...delta,
+            },
+          };
+        });
+
+      const source = map.getSource("choropleth");
+      if (source) {
+        source.setData({
+          type: "FeatureCollection",
+          features,
+        });
       }
-
-      return {
-        ...f,
-        id: paId,
-        properties: {
-          ...f.properties,
-          pa_id: paId,
-          fillColor,
-          metricValue: value,
-          ...delta,
-        },
-      };
-    });
-
-    const source = map.getSource("choropleth");
-    if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features,
-      });
-    }
-  }, [planning_fc_raw, paDeltas, travelTime]);
+    },
+    [planning_fc_raw, paDeltas, travelTime]
+  );
 
   /**
    * Update blocked roads layer
@@ -246,7 +330,7 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
     if (!map || !map.isStyleLoaded()) return;
 
     const blockedRoadsFeatures = [];
-    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+    const affectedRoadSet = new Set(affectedRoads.map((r) => r.rn_id));
 
     for (const edge of graph.edges) {
       if (affectedRoadSet.has(edge.rn_id)) {
@@ -281,7 +365,7 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
     if (!map || !map.isStyleLoaded()) return;
 
     const allRoadsFeatures = [];
-    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+    const affectedRoadSet = new Set(affectedRoads.map((r) => r.rn_id));
 
     // Create a map to track unique roads (by rn_id)
     const roadMap = new Map();
@@ -321,98 +405,105 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
   /**
    * Show detailed roads for selected planning area
    */
-  const showPlanningAreaRoads = useCallback((paId, feature) => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+  const showPlanningAreaRoads = useCallback(
+    (paId, feature) => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded()) return;
 
-    const roadsInPA = [];
-    const affectedRoadSet = new Set(affectedRoads.map(r => r.rn_id));
+      const roadsInPA = [];
+      const affectedRoadSet = new Set(affectedRoads.map((r) => r.rn_id));
 
-    for (const edge of graph.edges) {
-      const nodeFrom = graph.nodes.get(edge.from);
-      const nodeTo = graph.nodes.get(edge.to);
+      for (const edge of graph.edges) {
+        const nodeFrom = graph.nodes.get(edge.from);
+        const nodeTo = graph.nodes.get(edge.to);
 
-      if (nodeFrom?.paId === paId || nodeTo?.paId === paId) {
-        const isBlocked = affectedRoadSet.has(edge.rn_id);
-        const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
-        const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
+        if (nodeFrom?.paId === paId || nodeTo?.paId === paId) {
+          const isBlocked = affectedRoadSet.has(edge.rn_id);
+          const baselineDist = baselineNodeDist?.get(edge.from) ?? Infinity;
+          const floodedDist = floodedNodeDist?.get(edge.from) ?? Infinity;
 
-        const delta = Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
-          ? floodedDist - baselineDist
-          : null;
+          const delta =
+            Number.isFinite(baselineDist) && Number.isFinite(floodedDist)
+              ? floodedDist - baselineDist
+              : null;
 
-        let color = "#22c55e"; // Green - unaffected
-        let status = "unaffected";
+          let color = "#22c55e"; // Green - unaffected
+          let status = "unaffected";
 
-        if (isBlocked) {
-          color = "#ff6b00"; // Orange - blocked road directly flooded
-          status = "blocked";
-        } else if (!Number.isFinite(floodedDist)) {
-          color = "#ef4444"; // Red - unreachable (cut off by blocked roads)
-          status = "unreachable";
-        } else if (delta && delta > 0) {
-          color = "#fbbf24"; // Yellow - affected (increased travel time)
-          status = "affected";
+          if (isBlocked) {
+            color = "#ff6b00"; // Orange - blocked road directly flooded
+            status = "blocked";
+          } else if (!Number.isFinite(floodedDist)) {
+            color = "#ef4444"; // Red - unreachable (cut off by blocked roads)
+            status = "unreachable";
+          } else if (delta && delta > 0) {
+            color = "#fbbf24"; // Yellow - affected (increased travel time)
+            status = "affected";
+          }
+
+          const width = calculateLineWidth(delta, status);
+
+          // Get nearest amenity data for this road using precomputed maps
+          const amenityChange = getAmenityChangeForNode(edge.from);
+
+          roadsInPA.push({
+            type: "Feature",
+            properties: {
+              rn_id: edge.rn_id,
+              name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
+              pa_name: nodeFrom?.paName || nodeTo?.paName || null,
+              travel_time: edge.w,
+              blocked: isBlocked,
+              status,
+              color,
+              width,
+              baseline_time: baselineDist,
+              flooded_time: floodedDist,
+              delta_time: delta,
+              // Nearest amenity data
+              nearest_amenity_before: amenityChange?.before || null,
+              nearest_amenity_after: amenityChange?.after || null,
+              nearest_amenity_changed: amenityChange?.changed || false,
+            },
+            geometry: {
+              type: "LineString",
+              coordinates: edge.coords,
+            },
+          });
         }
+      }
 
-        const width = calculateLineWidth(delta, status);
-
-        // Get nearest amenity data for this road
-        const amenityChange = getNearestAmenityChange(
-          edge.from,
-          nearestAmenities.baselineAmenities,
-          nearestAmenities.floodedAmenities
-        );
-
-        roadsInPA.push({
-          type: "Feature",
-          properties: {
-            rn_id: edge.rn_id,
-            name: edge.feature?.properties?.name || `Road ${edge.rn_id}`,
-            pa_name: nodeFrom?.paName || nodeTo?.paName || null,
-            travel_time: edge.w,
-            blocked: isBlocked,
-            status,
-            color,
-            width,
-            baseline_time: baselineDist,
-            flooded_time: floodedDist,
-            delta_time: delta,
-            // Nearest amenity data
-            nearest_amenity_before: amenityChange?.before || null,
-            nearest_amenity_after: amenityChange?.after || null,
-            nearest_amenity_changed: amenityChange?.changed || false,
-          },
-          geometry: {
-            type: "LineString",
-            coordinates: edge.coords,
-          },
+      // Update roads layer
+      const source = map.getSource("roads");
+      if (source) {
+        source.setData({
+          type: "FeatureCollection",
+          features: roadsInPA,
         });
       }
-    }
 
-    // Update roads layer
-    const source = map.getSource("roads");
-    if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features: roadsInPA,
-      });
-    }
-
-    // Zoom to planning area
-    if (feature.geometry) {
-      const bounds = new mapboxgl.LngLatBounds();
-      if (feature.geometry.type === "Polygon") {
-        feature.geometry.coordinates[0].forEach(coord => bounds.extend(coord));
-      } else if (feature.geometry.type === "MultiPolygon") {
-        feature.geometry.coordinates.forEach(poly => {
-          poly[0].forEach(coord => bounds.extend(coord));
-        });
+      // Zoom to planning area
+      if (feature.geometry) {
+        const bounds = new mapboxgl.LngLatBounds();
+        if (feature.geometry.type === "Polygon") {
+          feature.geometry.coordinates[0].forEach((coord) => bounds.extend(coord));
+        } else if (feature.geometry.type === "MultiPolygon") {
+          feature.geometry.coordinates.forEach((poly) => {
+            poly[0].forEach((coord) => bounds.extend(coord));
+          });
+        }
+        map.fitBounds(bounds, { padding: 50, maxZoom: 13 });
       }
-      map.fitBounds(bounds, { padding: 50, maxZoom: 13 });
-    }
-  }, [graph, affectedRoads, baselineNodeDist, floodedNodeDist, calculateLineWidth, nearestAmenities]);
+    },
+    [
+      graph,
+      affectedRoads,
+      baselineNodeDist,
+      floodedNodeDist,
+      calculateLineWidth,
+      getAmenityChangeForNode,
+    ]
+  );
 
   /**
    * Initialize map
@@ -430,8 +521,14 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
 
     mapRef.current = map;
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "bottom-right");
-    map.addControl(new mapboxgl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-right");
+    map.addControl(
+      new mapboxgl.NavigationControl({ showCompass: true }),
+      "bottom-right"
+    );
+    map.addControl(
+      new mapboxgl.ScaleControl({ maxWidth: 120, unit: "metric" }),
+      "bottom-right"
+    );
 
     map.on("load", () => {
       // Add sources
@@ -471,7 +568,7 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
             "case",
             ["boolean", ["feature-state", "hover"], false],
             0.75,
-            0.5
+            0.5,
           ],
         },
       });
@@ -486,7 +583,7 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
             "case",
             ["boolean", ["feature-state", "hover"], false],
             3,
-            1.5
+            1.5,
           ],
           "line-opacity": 0.9,
         },
@@ -512,7 +609,7 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
         paint: {
           "line-color": "#ef4444",
           "line-width": 3,
-          "line-opacity": 0,  // Hidden, using all-roads instead
+          "line-opacity": 0, // Hidden, using all-roads instead
         },
       });
 
@@ -542,7 +639,7 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
             "case",
             ["boolean", ["get", "dimmed"], false],
             0.5,
-            0.95
+            0.95,
           ],
         },
       });
@@ -566,9 +663,9 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
 
     const map = mapRef.current;
     const amenityFeatures = amenity_fc_enriched.features
-      .filter(f => f.properties?.amenity_type === selectedAmenityType)
-      .filter(f => !excludedAmenities.has(f.properties?.amenity_id))
-      .map(f => ({
+      .filter((f) => f.properties?.amenity_type === selectedAmenityType)
+      .filter((f) => !excludedAmenities.has(f.properties?.amenity_id))
+      .map((f) => ({
         type: "Feature",
         properties: {
           ...f.properties,
@@ -584,7 +681,13 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
         features: amenityFeatures,
       });
     }
-  }, [mapReady, amenity_fc_enriched, selectedAmenityType, excludedAmenities, selectedPA]);
+  }, [
+    mapReady,
+    amenity_fc_enriched,
+    selectedAmenityType,
+    excludedAmenities,
+    selectedPA,
+  ]);
 
   /**
    * Update all roads layer in global view
@@ -599,7 +702,12 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
    * Update blocked roads layer when affected roads or graph changes (DEPRECATED - using all-roads instead)
    */
   useEffect(() => {
-    if (mapReady && affectedRoads.length > 0 && graph.edges.length > 0 && !selectedPA) {
+    if (
+      mapReady &&
+      affectedRoads.length > 0 &&
+      graph.edges.length > 0 &&
+      !selectedPA
+    ) {
       updateBlockedRoadsLayer();
     }
   }, [mapReady, affectedRoads, graph.edges, selectedPA, updateBlockedRoadsLayer]);
@@ -618,7 +726,14 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [mapReady, selectedMetric, paDeltas, updateChoroplethData, updateBlockedRoadsLayer, selectedPA]);
+  }, [
+    mapReady,
+    selectedMetric,
+    paDeltas,
+    updateChoroplethData,
+    updateBlockedRoadsLayer,
+    selectedPA,
+  ]);
 
   /**
    * Setup map interaction handlers
@@ -636,16 +751,22 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
         const paId = feature.properties.pa_id;
 
         if (hoveredPAId !== null && hoveredPAId !== paId) {
-          map.setFeatureState({ source: "choropleth", id: hoveredPAId }, { hover: false });
+          map.setFeatureState(
+            { source: "choropleth", id: hoveredPAId },
+            { hover: false }
+          );
         }
 
         hoveredPAId = paId;
-        map.setFeatureState({ source: "choropleth", id: paId }, { hover: true });
+        map.setFeatureState(
+          { source: "choropleth", id: paId },
+          { hover: true }
+        );
         map.getCanvas().style.cursor = "pointer";
 
         // Check if mouse is over a road - if so, don't show PA tooltip
         const roadFeatures = map.queryRenderedFeatures(e.point, {
-          layers: ["roads-line", "blocked-roads-line", "all-roads-line"]
+          layers: ["roads-line", "blocked-roads-line", "all-roads-line"],
         });
 
         // Show tooltip only if NOT hovering over a road
@@ -654,7 +775,7 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
         }
 
         if (roadFeatures.length === 0) {
-          const delta = paDeltas.find(d => d.pa_id === paId);
+          const delta = paDeltas.find((d) => d.pa_id === paId);
           if (delta) {
             // Enrich delta with road statistics
             const roadStats = paRoadStats.get(paId) || {};
@@ -678,7 +799,10 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
 
     const onPAMouseLeave = () => {
       if (hoveredPAId !== null) {
-        map.setFeatureState({ source: "choropleth", id: hoveredPAId }, { hover: false });
+        map.setFeatureState(
+          { source: "choropleth", id: hoveredPAId },
+          { hover: false }
+        );
       }
       hoveredPAId = null;
       map.getCanvas().style.cursor = "";
@@ -703,7 +827,10 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
 
         // Clear hover state
         if (hoveredPAId !== null) {
-          map.setFeatureState({ source: "choropleth", id: hoveredPAId }, { hover: false });
+          map.setFeatureState(
+            { source: "choropleth", id: hoveredPAId },
+            { hover: false }
+          );
           hoveredPAId = null;
         }
 
@@ -729,7 +856,9 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
           nearestAmenityData = {
             before: props.nearest_amenity_before,
             after: props.nearest_amenity_after,
-            changed: props.nearest_amenity_changed === true || props.nearest_amenity_changed === 'true',
+            changed:
+              props.nearest_amenity_changed === true ||
+              props.nearest_amenity_changed === "true",
           };
         }
 
@@ -787,7 +916,9 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
 
     // Click outside to reset
     const onMapClick = (e) => {
-      const features = map.queryRenderedFeatures(e.point, { layers: ["choropleth-fill"] });
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: ["choropleth-fill"],
+      });
 
       if (features.length === 0 && selectedPA) {
         // Clear selection
@@ -796,7 +927,10 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
         // Clear roads
         const roadsSource = map.getSource("roads");
         if (roadsSource) {
-          roadsSource.setData({ type: "FeatureCollection", features: [] });
+          roadsSource.setData({
+            type: "FeatureCollection",
+            features: [],
+          });
         }
 
         // Restore choropleth and blocked roads
@@ -804,10 +938,13 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
         updateBlockedRoadsLayer();
 
         // Reset zoom
-        map.fitBounds([
-          [103.6, 1.15],
-          [104.1, 1.47]
-        ], { padding: 20 });
+        map.fitBounds(
+          [
+            [103.6, 1.15],
+            [104.1, 1.47],
+          ],
+          { padding: 20 }
+        );
       }
     };
 
@@ -895,7 +1032,6 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
   }, [mapReady, selectedPA]);
 
   // Expose methods via ref
-    // Expose methods via ref
   useImperativeHandle(
     ref,
     () => ({
@@ -905,7 +1041,10 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
 
         // Find the planning area feature
         const feature = planning_fc_raw.features.find((f) => {
-          const featurePaId = parseInt(f.properties?.PA_ID ?? f.properties?.pa_id, 10);
+          const featurePaId = parseInt(
+            f.properties?.PA_ID ?? f.properties?.pa_id,
+            10
+          );
           return featurePaId === paId;
         });
 
@@ -917,7 +1056,9 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
           if (feature.geometry) {
             const bounds = new mapboxgl.LngLatBounds();
             if (feature.geometry.type === "Polygon") {
-              feature.geometry.coordinates[0].forEach((coord) => bounds.extend(coord));
+              feature.geometry.coordinates[0].forEach((coord) =>
+                bounds.extend(coord)
+              );
             } else if (feature.geometry.type === "MultiPolygon") {
               feature.geometry.coordinates.forEach((poly) => {
                 poly[0].forEach((coord) => bounds.extend(coord));
@@ -955,7 +1096,9 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
             ? floodedTime - baselineTime
             : null;
 
-        const affectedRoadSet = new Set((affectedRoads || []).map((r) => r.rn_id));
+        const affectedRoadSet = new Set(
+          (affectedRoads || []).map((r) => r.rn_id)
+        );
         const isBlocked = affectedRoadSet.has(rnId);
 
         let status = "unaffected";
@@ -963,12 +1106,8 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
         else if (!Number.isFinite(floodedTime)) status = "unreachable";
         else if (deltaTime && deltaTime > 0) status = "affected";
 
-        // 4) Nearest amenity change (same pattern as showPlanningAreaRoads)
-        const amenityChange = getNearestAmenityChange(
-          edge.from,
-          nearestAmenities.baselineAmenities,
-          nearestAmenities.floodedAmenities
-        );
+        // 4) Nearest amenity change using precomputed maps
+        const amenityChange = getAmenityChangeForNode(edge.from);
 
         const nearestAmenityData = amenityChange
           ? {
@@ -1025,15 +1164,18 @@ export const SimulationMapContainer = forwardRef(function SimulationMapContainer
       affectedRoads,
       baselineNodeDist,
       floodedNodeDist,
-      nearestAmenities,
       showPlanningAreaRoads,
+      getAmenityChangeForNode,
     ]
   );
 
-
   return (
     <>
-      <div ref={containerRef} className="absolute inset-0" style={{ height: "800px", minHeight: "800px", maxHeight: "800px" }} />
+      <div
+        ref={containerRef}
+        className="absolute inset-0"
+        style={{ height: "800px", minHeight: "800px", maxHeight: "800px" }}
+      />
 
       {/* Custom popup styles - dark mode, no borders */}
       <style>{`
