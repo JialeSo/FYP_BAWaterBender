@@ -13,7 +13,7 @@ import sys
 load_dotenv()
 
 # path to new flood csv
-CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_data" / "updated_amenities_data.csv"
+CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_data" / "hdx_amenities_rows.csv"
 
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -317,30 +317,30 @@ if __name__ == "__main__":
         print(f"✅ {len(valid_rows)} rows uploaded successfully")
         print(f"✅ Backup available at: {BACKUP_TABLE_NAME}")
         
-        # Step 7: Trigger amenities ETL pipeline
-        print("\n" + "="*60)
-        print("STEP 5: Triggering Amenities ETL Pipeline")
-        print("="*60)
-        try:
-            print("ℹ️ Running amenities pipeline...")
-            script = Path(__file__).resolve().parents[3] / "etl" / "amenities" / "run_amenities_pipeline.py"
+        # # Step 7: Trigger amenities ETL pipeline
+        # print("\n" + "="*60)
+        # print("STEP 5: Triggering Amenities ETL Pipeline")
+        # print("="*60)
+        # try:
+        #     print("ℹ️ Running amenities pipeline...")
+        #     script = Path(__file__).resolve().parents[3] / "etl" / "amenities" / "run_amenities_pipeline.py"
             
-            # Ensure the backend dir is on PYTHONPATH so imports work
-            env = os.environ.copy()
-            backend_dir = str(Path(__file__).resolve().parents[3])  # .../backend
-            existing = env.get("PYTHONPATH")
-            env["PYTHONPATH"] = backend_dir + (os.pathsep + existing if existing else "")
+        #     # Ensure the backend dir is on PYTHONPATH so imports work
+        #     env = os.environ.copy()
+        #     backend_dir = str(Path(__file__).resolve().parents[3])  # .../backend
+        #     existing = env.get("PYTHONPATH")
+        #     env["PYTHONPATH"] = backend_dir + (os.pathsep + existing if existing else "")
             
-            subprocess.run([sys.executable, str(script)], check=True, env=env)
-            print("\n✅ Amenities ETL pipeline finished successfully")
+        #     subprocess.run([sys.executable, str(script)], check=True, env=env)
+        #     print("\n✅ Amenities ETL pipeline finished successfully")
             
-        except subprocess.CalledProcessError as e:
-            logging.exception("Amenities ETL pipeline subprocess failed")
-            print(f"\n✖ Amenities ETL pipeline failed: {e}")
-            print("⚠️ Data was uploaded but pipeline processing failed.")
-            print("   You may need to run the pipeline manually:")
-            print(f"   python {script}")
-            exit(1)
+        # except subprocess.CalledProcessError as e:
+        #     logging.exception("Amenities ETL pipeline subprocess failed")
+        #     print(f"\n✖ Amenities ETL pipeline failed: {e}")
+        #     print("⚠️ Data was uploaded but pipeline processing failed.")
+        #     print("   You may need to run the pipeline manually:")
+        #     print(f"   python {script}")
+        #     exit(1)
             
     else:
         print("\n" + "="*60)
