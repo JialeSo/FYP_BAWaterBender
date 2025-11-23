@@ -28,7 +28,7 @@ class MergeFloodsDataStage(PipelineStage):
     2. SG historical flood data (fetched from Supabase)
 
     Input: None (loads from Supabase)
-    Output: Merged DataFrame ready for further processing
+    Output: Merged DataFrame ready for further procesing
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
