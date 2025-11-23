@@ -13,7 +13,7 @@ import sys
 load_dotenv()
 
 # path to new flood csv
-CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_data" / "hdx_amenities_rows.csv"
+CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_data" / "updated_amenities_data.csv"
 
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
