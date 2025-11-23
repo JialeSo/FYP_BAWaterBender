@@ -12,7 +12,7 @@ import sys
 
 
 # path to new flood csv
-CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_data" / "test_flood.csv"
+CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_data" / "updated_flood_data.csv"
 
 # Supabase configuration
 TABLE_NAME = "flood_historical_sg"
