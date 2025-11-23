@@ -6,12 +6,14 @@ from dotenv import load_dotenv
 import os
 from supabase import create_client, Client
 from tqdm import tqdm
+import subprocess
+import sys
 
 # Load environment variables
 load_dotenv()
 
 # path to new flood csv
-CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_data" / "updated_amenities_data.csv"
+CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_data" / "hdx_amenities_rows.csv"
 
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -212,10 +214,10 @@ def upload_to_supabase(supabase: Client, data: List[Dict[str, Any]]) -> bool:
     Returns True if successful, False otherwise
     """
     try:
-        
+        print(f"📤 Uploading {len(data)} rows to {TABLE_NAME}...")
         
         # Count existing rows first
-        print(f"🗑️  Clearing existing data from table: {TABLE_NAME}...")
+        print(f"🗑️  Clearing existing data...")
         try:
             # Get total count
             count_result = supabase.table(TABLE_NAME).select("id", count="exact").execute()
@@ -242,7 +244,7 @@ def upload_to_supabase(supabase: Client, data: List[Dict[str, Any]]) -> bool:
         batch_size = 1000
         total_batches = (len(data) + batch_size - 1) // batch_size
         
-        print(f"📥 Inserting {len(data)} new rows to {TABLE_NAME}...")
+        print(f"📥 Inserting {len(data)} new rows...")
         with tqdm(total=len(data), desc="   Uploading", unit="rows") as pbar:
             for i in range(0, len(data), batch_size):
                 batch = data[i:i + batch_size]
@@ -314,6 +316,32 @@ if __name__ == "__main__":
         print("="*60)
         print(f"✅ {len(valid_rows)} rows uploaded successfully")
         print(f"✅ Backup available at: {BACKUP_TABLE_NAME}")
+        
+        # Step 7: Trigger amenities ETL pipeline
+        print("\n" + "="*60)
+        print("STEP 5: Triggering Amenities ETL Pipeline")
+        print("="*60)
+        try:
+            print("ℹ️ Running amenities pipeline...")
+            script = Path(__file__).resolve().parents[3] / "etl" / "amenities" / "run_amenities_pipeline.py"
+            
+            # Ensure the backend dir is on PYTHONPATH so imports work
+            env = os.environ.copy()
+            backend_dir = str(Path(__file__).resolve().parents[3])  # .../backend
+            existing = env.get("PYTHONPATH")
+            env["PYTHONPATH"] = backend_dir + (os.pathsep + existing if existing else "")
+            
+            subprocess.run([sys.executable, str(script)], check=True, env=env)
+            print("\n✅ Amenities ETL pipeline finished successfully")
+            
+        except subprocess.CalledProcessError as e:
+            logging.exception("Amenities ETL pipeline subprocess failed")
+            print(f"\n✖ Amenities ETL pipeline failed: {e}")
+            print("⚠️ Data was uploaded but pipeline processing failed.")
+            print("   You may need to run the pipeline manually:")
+            print(f"   python {script}")
+            exit(1)
+            
     else:
         print("\n" + "="*60)
         print("⚠️  UPLOAD FAILED - RESTORING BACKUP")
