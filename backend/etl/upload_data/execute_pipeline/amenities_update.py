@@ -16,7 +16,7 @@ CSV_PATH = Path(__file__).resolve().parents[3] / "etl" / "upload_data" / "raw_da
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-TABLE_NAME = "hdx_amenities_copy"
+TABLE_NAME = "hdx_amenities"
 BACKUP_TABLE_NAME = "hdx_amenities_backup"
 REQUIRED_COLUMNS = [
     "name",
@@ -212,10 +212,10 @@ def upload_to_supabase(supabase: Client, data: List[Dict[str, Any]]) -> bool:
     Returns True if successful, False otherwise
     """
     try:
-        print(f"📤 Uploading {len(data)} rows to {TABLE_NAME}...")
+        
         
         # Count existing rows first
-        print(f"🗑️  Clearing existing data...")
+        print(f"🗑️  Clearing existing data from table: {TABLE_NAME}...")
         try:
             # Get total count
             count_result = supabase.table(TABLE_NAME).select("id", count="exact").execute()
@@ -242,7 +242,7 @@ def upload_to_supabase(supabase: Client, data: List[Dict[str, Any]]) -> bool:
         batch_size = 1000
         total_batches = (len(data) + batch_size - 1) // batch_size
         
-        print(f"📥 Inserting {len(data)} new rows...")
+        print(f"📥 Inserting {len(data)} new rows to {TABLE_NAME}...")
         with tqdm(total=len(data), desc="   Uploading", unit="rows") as pbar:
             for i in range(0, len(data), batch_size):
                 batch = data[i:i + batch_size]
