@@ -7,6 +7,7 @@ import { useLocation } from "react-router-dom";
 /* ========= backend config ========= */
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || "https://fyp-ba-water-bender-six.vercel.app").trim();
 const BACKEND_TOKEN = (import.meta.env.VITE_BACKEND_TOKEN || "").trim();
+const BACKEND_TIMEOUT_MS = Number(import.meta.env.VITE_BACKEND_TIMEOUT_MS || 30000); // 8s default
 
 /* ========= tiny csv parser ========= */
 function parse_csv(text = "") {
@@ -522,150 +523,171 @@ function MapDataProvider({ children }) {
   const [loading, set_loading] = useState(true);
   const [error, set_error] = useState("");
 
-  async function auth_fetch_json(path) {
+  async function auth_fetch_json(path, timeout_ms = BACKEND_TIMEOUT_MS) {
+    const controller = new AbortController();
     const headers = { accept: "application/json" };
     if (BACKEND_TOKEN) headers["authorization"] = `Bearer ${BACKEND_TOKEN}`;
-    const res = await fetch(`${BACKEND_URL}${path}`, { headers });
-    return res;
+
+    const timeout_id = setTimeout(() => {
+      controller.abort();
+    }, timeout_ms);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}${path}`, {
+        headers,
+        signal: controller.signal,
+      });
+      return res;
+    } catch (e) {
+      if (e.name === "AbortError") {
+        console.warn(`⏱️ request to ${path} timed out after ${timeout_ms}ms`);
+      } else {
+        console.warn(`❌ request to ${path} failed`, e);
+      }
+      throw e; // let the caller fall back to local
+    } finally {
+      clearTimeout(timeout_id);
+    }
   }
+
 
   /* ========= helper: load planning area ========= */
   async function load_planning_area() {
-    // try {
-    //   const res = await auth_fetch_json("/api/planning-area/");
-    //   if (res.ok) {
-    //     const json = await res.json();
-    //     console.log("✅ planning-area from api");
-    //     return planning_api_to_fc(json);
-    //   } else {
-    //     console.warn("planning-area api failed with status", res.status);
-    //   }
-    // } catch (e) {
-    //   console.warn("planning-area api error", e);
-    // }
+    try {
+      const res = await auth_fetch_json("/api/planning-area/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ planning-area from api");
+        return planning_api_to_fc(json);
+      } else {
+        console.warn("planning-area api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("planning-area api error", e);
+    }
 
-    // console.log("ℹ️ falling back to local planning_area.geojson");
+    console.log("ℹ️ falling back to local planning_area.geojson");
     const local = await fetch("/map/planning_area.geojson").then(r => r.json());
     return as_feature_collection(local);
   }
 
   /* ========= helper: load subzone ========= */
   async function load_subzone() {
-    // try {
-    //   const res = await auth_fetch_json("/api/subzone/");
-    //   if (res.ok) {
-    //     const json = await res.json();
-    //     console.log("✅ subzone from api");
-    //     return subzone_api_to_fc(json);
-    //   } else {
-    //     console.warn("subzone api failed with status", res.status);
-    //   }
-    // } catch (e) {
-    //   console.warn("subzone api error", e);
-    // }
+    try {
+      const res = await auth_fetch_json("/api/subzone/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ subzone from api");
+        return subzone_api_to_fc(json);
+      } else {
+        console.warn("subzone api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("subzone api error", e);
+    }
 
-    // console.log("ℹ️ falling back to local subzone_area.geojson");
+    console.log("ℹ️ falling back to local subzone_area.geojson");
     const local = await fetch("/map/subzone_area.geojson").then(r => r.json());
     return as_feature_collection(local);
   }
 
   /* ========= helper: load road network ========= */
   async function load_road() {
-    // try {
-    //   const res = await auth_fetch_json("/api/road-network/");
-    //   if (res.ok) {
-    //     const json = await res.json();
-    //     console.log("✅ road-network from api");
-    //     return road_api_to_fc(json);
-    //   } else {
-    //     console.warn("road-network api failed with status", res.status);
-    //   }
-    // } catch (e) {
-    //   console.warn("road-network api error", e);
-    // }
+    try {
+      const res = await auth_fetch_json("/api/road-network/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ road-network from api");
+        return road_api_to_fc(json);
+      } else {
+        console.warn("road-network api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("road-network api error", e);
+    }
 
-    // console.log("ℹ️ falling back to local road_network.geojson");
+    console.log("ℹ️ falling back to local road_network.geojson");
     const local = await fetch("/map/road_network.geojson").then(r => r.json());
     return as_feature_collection(local);
   }
 
   /* ========= helper: load floods ========= */
   async function load_floods() {
-    // try {
-    //   const res = await auth_fetch_json("/api/flood-3layers/");
-    //   if (res.ok) {
-    //     const json = await res.json();
-    //     console.log("✅ floods from api");
-    //     return floods_api_to_fc(json);
-    //   } else {
-    //     console.warn("flood-3layers api failed with status", res.status);
-    //   }
-    // } catch (e) {
-    //   console.warn("flood-3layers api error", e);
-    // }
+    try {
+      const res = await auth_fetch_json("/api/flood-3layers/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ floods from api");
+        return floods_api_to_fc(json);
+      } else {
+        console.warn("flood-3layers api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("flood-3layers api error", e);
+    }
 
-    // console.log("ℹ️ falling back to local floods_3layers_new.csv");
+    console.log("ℹ️ falling back to local floods_3layers_new.csv");
     const csv = await fetch("/map/floods_3layers_new.csv").then(r => r.text());
     return floods_csv_to_fc(csv);
   }
 
   /* ========= helper: load amenities ========= */
   async function load_amenities() {
-    // try {
-    //   const res = await auth_fetch_json("/api/amenity-3layers/");
-    //   if (res.ok) {
-    //     const json = await res.json();
-    //     console.log("✅ amenities from api");
-    //     return amenities_api_to_fc(json);
-    //   } else {
-    //     console.warn("amenity-3layers api failed with status", res.status);
-    //   }
-    // } catch (e) {
-    //   console.warn("amenity-3layers api error", e);
-    // }
+    try {
+      const res = await auth_fetch_json("/api/amenity-3layers/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ amenities from api");
+        return amenities_api_to_fc(json);
+      } else {
+        console.warn("amenity-3layers api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("amenity-3layers api error", e);
+    }
 
-    // console.log("ℹ️ falling back to local amenity_3layers.csv");
+    console.log("ℹ️ falling back to local amenity_3layers.csv");
     const csv = await fetch("/map/amenity_3layers.csv").then(r => r.text());
     return amenities_csv_to_fc(csv);
   }
 
   /* ========= helper: load amenity categories ========= */
   async function load_amenity_categories() {
-    // try {
-    //   const res = await auth_fetch_json("/api/amenity-cat-lookup/");
-    //   if (res.ok) {
-    //     const json = await res.json();
-    //     console.log("✅ amenity categories from api");
-    //     return build_category_lookup_from_api(json);
-    //   } else {
-    //     console.warn("amenity-cat-lookup api failed with status", res.status);
-    //   }
-    // } catch (e) {
-    //   console.warn("amenity-cat-lookup api error", e);
-    // }
+    try {
+      const res = await auth_fetch_json("/api/amenity-cat-lookup/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ amenity categories from api");
+        return build_category_lookup_from_api(json);
+      } else {
+        console.warn("amenity-cat-lookup api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("amenity-cat-lookup api error", e);
+    }
 
-    // console.log("ℹ️ falling back to local amenity_category_lookup_rows.csv");
+    console.log("ℹ️ falling back to local amenity_category_lookup_rows.csv");
     const csvText = await fetch("/map/amenity_category_lookup_rows.csv").then(r => r.text());
     return build_category_lookup(csvText);
   }
 
   /* ========= helper: load flood scenarios ========= */
   async function load_scenarios() {
-    // try {
-    //   const res = await auth_fetch_json("/api/road-network-flood-scenarios/");
-    //   if (res.ok) {
-    //     const json = await res.json();
-    //     console.log("✅ flood scenarios from api");
-    //     const rows = json?.data ?? json ?? [];
-    //     return build_scenarios_from_records(rows);
-    //   } else {
-    //     console.warn("road-network-flood-scenarios api failed with status", res.status);
-    //   }
-    // } catch (e) {
-    //   console.warn("road-network-flood-scenarios api error", e);
-    // }
+    try {
+      const res = await auth_fetch_json("/api/road-network-flood-scenarios/");
+      if (res.ok) {
+        const json = await res.json();
+        console.log("✅ flood scenarios from api");
+        const rows = json?.data ?? json ?? [];
+        return build_scenarios_from_records(rows);
+      } else {
+        console.warn("road-network-flood-scenarios api failed with status", res.status);
+      }
+    } catch (e) {
+      console.warn("road-network-flood-scenarios api error", e);
+    }
 
-    // console.log("ℹ️ falling back to local road_network_flood_scenarios.csv");
+    console.log("ℹ️ falling back to local road_network_flood_scenarios.csv");
     const csvText = await fetch("/map/road_network_flood_scenarios.csv").then(r => r.text());
     const { records } = parse_csv(csvText);
     return build_scenarios_from_records(records);
